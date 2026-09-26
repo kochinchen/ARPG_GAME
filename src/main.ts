@@ -20,6 +20,7 @@ import { InputManager } from './input/InputManager';
 import { debugView } from './ui/bridge/DebugView';
 import { gameBridge } from './ui/bridge/GameBridge';
 import { buildInventoryView } from './ui/bridge/InventoryView';
+import { buildSkillTreeView, skillTreeSignature } from './ui/bridge/SkillTreeView';
 import App from './ui/App.vue';
 
 const START_MAP = 'map.test_1';
@@ -63,6 +64,21 @@ async function bootstrap(): Promise<void> {
     debugView.inventory = buildInventoryView(world, data);
   };
   refreshInventory();
+  let skillTreeSig = '';
+  const refreshSkillTree = () => {
+    const sig = skillTreeSignature(world);
+    if (sig === skillTreeSig) return;
+    skillTreeSig = sig;
+    debugView.skillTree = buildSkillTreeView(world, data);
+  };
+  refreshSkillTree();
+  debugView.devKeys = import.meta.env.DEV;
+  let discoveryTimer = 0;
+  events.on('ComboDiscovered', (e) => {
+    debugView.discovery = { name: e.name, description: e.description };
+    window.clearTimeout(discoveryTimer);
+    discoveryTimer = window.setTimeout(() => (debugView.discovery = null), 4500);
+  });
   createApp(App).mount('#ui');
 
   // 8. Input（最後才開始接受輸入）
@@ -70,6 +86,12 @@ async function bootstrap(): Promise<void> {
     screenToWorld: (screen) => camera.screenToWorld(screen),
     pickActor: (screen) => renderer.pickActorAt(screen),
     pickInteractable: (screen) => renderer.pickInteractableAt(screen),
+    // 開發用快捷鍵（B 重置、N 升一級、M 生成寶箱）：只在開發模式啟用
+    debugKeys: import.meta.env.DEV,
+    // 目前沒有存檔，重新載入即為全新角色；M9 加入存檔後需一併清除存檔
+    onDebugReset: () => {
+      if (window.confirm('重置遊戲？目前的角色進度會全部消失。')) window.location.reload();
+    },
   });
 
   // 9. Loop
@@ -96,22 +118,27 @@ async function bootstrap(): Promise<void> {
       debugView.mp.max = player.maxMana;
       debugView.potions = `${world.potions.count}`;
       refreshInventory();
+      refreshSkillTree();
+      debugView.xp.level = world.progress.level;
+      debugView.xp.value = world.progress.xp;
+      debugView.xp.next = world.experience.xpForNextLevel;
+      debugView.skillPoints = world.progress.skillPoints;
       debugView.gold = world.wallet.gold;
       debugView.leftSkill = data.skills.get(world.loadout.left).name;
-      debugView.rightSlots = world.loadout.right.map((id, i) => {
-        const skill = id === null ? null : data.skills.get(id);
-        return {
-          key: 'QWE'[i]!,
-          name: skill?.name ?? '—',
-          active: world.loadout.activeRight === i,
-          cooldown: id === null ? 0 : (player.cooldowns.get(id) ?? 0),
-          manaCost: skill ? world.skills.manaCost(skill, player.skillRanks.get(skill.id) ?? 1) : 0,
-        };
-      });
+      const running = world.combos.currentStep(player);
+      debugView.combos = world.loadout.combos.map((steps, i) => ({
+        key: 'QWE'[i]!,
+        steps: steps.map((id, step) =>
+          step >= world.comboSlotsUnlocked ? '🔒' : id === null ? '' : data.skills.get(id).name,
+        ),
+        active: world.loadout.activeCombo === i,
+        running: world.loadout.activeCombo === i ? running : 0,
+      }));
+      debugView.supports = world.loadout.supports.flatMap((id) => (id === null ? [] : [data.skills.get(id).name]));
       debugView.enemies = world.actors.filter((a) => a.faction === 'enemy' && a.ai !== null).length;
       debugView.respawnIn = world.deathHandler.secondsUntilRespawn;
       const hovered = renderer.hovered === null ? undefined : world.targeting.getActor(renderer.hovered);
-      debugView.target = hovered ? `${hovered.name} ${Math.ceil(hovered.hp)} / ${Math.ceil(hovered.maxHp)}` : '—';
+      debugView.target = hovered ? `${hovered.name} ${Math.ceil(hovered.hp - 1e-6)} / ${Math.round(hovered.maxHp)}` : '—';
     },
   });
   loop.start({ now }, (cb) => requestAnimationFrame(cb));

@@ -17,11 +17,14 @@ const props = defineProps<{
 const ratio = computed(() => (props.max > 0 ? Math.min(1, Math.max(0, props.value / props.max)) : 0));
 const R = 46;
 const liquidTop = computed(() => 50 + R - 2 * R * ratio.value);
+/** 浮點誤差（例如 100 × 1.1 = 110.00000000000001）不應讓數字多 1：上限四捨五入，目前值無條件進位但扣掉誤差 */
+const shownMax = computed(() => Math.round(props.max));
+const shownValue = computed(() => Math.min(shownMax.value, Math.ceil(props.value - 1e-6)));
 </script>
 
 <template>
   <div class="orb">
-    <svg viewBox="0 0 100 100" role="img" :aria-label="`${label} ${Math.ceil(value)} / ${Math.ceil(max)}`">
+    <svg viewBox="0 0 100 100" role="img" :aria-label="`${label} ${shownValue} / ${shownMax}`">
       <defs>
         <clipPath :id="`${id}-clip`">
           <circle cx="50" cy="50" :r="R" />
@@ -39,7 +42,7 @@ const liquidTop = computed(() => 50 + R - 2 * R * ratio.value);
       </g>
       <circle cx="50" cy="50" :r="R" fill="none" :stroke="rim" stroke-width="3" />
     </svg>
-    <div class="text">{{ label }} {{ Math.ceil(value) }} / {{ Math.ceil(max) }}</div>
+    <div class="text">{{ label }} {{ shownValue }} / {{ shownMax }}</div>
   </div>
 </template>
 

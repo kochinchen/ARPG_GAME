@@ -6,6 +6,10 @@ import type { Pathfinder } from '../movement/Pathfinder';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { InteractionSystem } from './InteractionSystem';
 import type { ItemActions } from './ItemActions';
+import type { SkillTree } from '../skills/SkillTree';
+import type { ComboSystem } from '../combo/ComboSystem';
+import type { DataTable } from '../../data/DataRegistry';
+import type { SkillDef } from '../../data/schema/skill';
 import type { PlayerLoadout } from './PlayerLoadout';
 import type { PotionBelt } from './PotionBelt';
 
@@ -17,7 +21,7 @@ import type { PotionBelt } from './PotionBelt';
  * - 點敵人：走過去用左鍵技能打一下；按住：持續攻擊同一目標，直到放開或目標死亡
  * - 點地上物品 / 寶箱：走過去撿起 / 開啟
  * - 手上拿著物品時點地面：丟在腳下
- * 右鍵：施放目前 Q / W / E 選中的技能；按住可連續施放
+ * 右鍵：依序施放目前 Q / W / E 選中的連段；按住則連段結束後再施放一次
  */
 export class PlayerController {
   /** 這次左鍵按下時決定的模式，按住期間維持不變 */
@@ -33,6 +37,11 @@ export class PlayerController {
     private readonly potions: PotionBelt,
     private readonly interaction: InteractionSystem,
     private readonly items: ItemActions,
+    private readonly skillTree: SkillTree,
+    private readonly combos: ComboSystem,
+    private readonly skills: DataTable<SkillDef>,
+    /** 目前解鎖的連段格數 */
+    private readonly unlockedSlots: () => number,
   ) {}
 
   handle(command: GameCommand): void {
@@ -60,6 +69,25 @@ export class PlayerController {
         break;
       case 'EquipmentClick':
         this.items.clickEquipment(command.slot);
+        break;
+      case 'LearnSkill':
+        this.learn(command.skillId);
+        break;
+      case 'UnlockT4':
+        this.skillTree.unlockT4(command.category);
+        break;
+      case 'AssignLeft':
+        if (this.isLearned(command.skillId, 'active')) this.loadout.left = command.skillId;
+        break;
+      case 'SetComboSlot':
+        this.setComboSlot(command.combo, command.step, command.skillId);
+        break;
+      case 'SetSupportSlot':
+        this.setSupportSlot(command.slot, command.skillId);
+        break;
+      case 'DebugLevelUp':
+      case 'DebugSpawnChests':
+        // 開發用指令由 GameWorld 處理
         break;
     }
   }
@@ -114,14 +142,19 @@ export class PlayerController {
   }
 
   private castRight(worldPos: Vec2, targetId: number | null): void {
-    const skillId = this.loadout.activeRightSkill;
-    if (!skillId) return;
+    // 連段施放中：忽略（按住右鍵時，等這一組結束後的下一次指令再開始）
+    if (this.combos.isRunning(this.player)) return;
+    // 只施放已解鎖的格子；空格跳過
+    const steps = this.loadout.combos[this.loadout.activeCombo]
+      .slice(0, this.unlockedSlots())
+      .filter((id): id is string => id !== null && this.isLearned(id, 'active'));
+    if (steps.length === 0) return;
     const target = this.resolveTarget(worldPos, targetId);
     // 游標在敵人身上時瞄準敵人腳下：角色有高度，游標下的地面點其實在敵人後方
     const point = target?.position ?? worldPos;
     this.interaction.clear();
-    this.player.intent = { skillId, targetId: target?.id ?? null, point, hold: false };
-    this.player.repathCooldown = 0;
+    this.player.intent = null;
+    this.combos.start(this.player, steps, target?.id ?? null, point);
   }
 
   private resolveTarget(worldPos: Vec2, targetId: number | null): Actor | null {
@@ -134,13 +167,43 @@ export class PlayerController {
 
   private attack(target: Actor, hold: boolean): void {
     this.interaction.clear();
+    this.combos.cancel(this.player);
     this.player.intent = { skillId: this.loadout.left, targetId: target.id, point: target.position, hold };
     this.player.repathCooldown = 0;
   }
 
   private moveTo(target: Vec2): void {
     this.interaction.clear();
+    this.combos.cancel(this.player);
     this.player.intent = null;
     this.player.path = this.pathfinder.findPath(this.player.position, target, this.player.radius);
+  }
+
+  private learn(skillId: string): void {
+    this.skillTree.learn(skillId);
+  }
+
+  private isLearned(skillId: string, kind: 'active' | 'passive'): boolean {
+    return (
+      (this.player.skillRanks.get(skillId) ?? 0) > 0 && this.skills.has(skillId) && this.skills.get(skillId).kind === kind
+    );
+  }
+
+  /** 連段只能放技能樹中的主動技能（普通攻擊不行），且格子要已解鎖 */
+  private setComboSlot(combo: 0 | 1 | 2, step: 0 | 1 | 2, skillId: string | null): void {
+    if (step >= this.unlockedSlots()) return;
+    if (skillId !== null && (!this.isLearned(skillId, 'active') || !this.skills.get(skillId).tree)) return;
+    this.loadout.combos[combo][step] = skillId;
+  }
+
+  /** 同一個 Support 只能裝一次：放到新欄位時從舊欄位移除 */
+  private setSupportSlot(slot: 0 | 1 | 2, skillId: string | null): void {
+    if (skillId !== null && !this.isLearned(skillId, 'passive')) return;
+    const supports = this.loadout.supports;
+    if (skillId !== null) {
+      const existing = supports.indexOf(skillId);
+      if (existing >= 0) supports[existing] = null;
+    }
+    supports[slot] = skillId;
   }
 }

@@ -1,6 +1,7 @@
 import type { Vec2 } from '../../core/math/Vec2';
 import type { EffectDef } from '../../data/schema/effects';
 import type { SkillDef } from '../../data/schema/skill';
+import type { StepMods } from '../combo/StepMods';
 import type { Actor } from './Actor';
 
 /** 飛行中的投射物。擊中敵人或牆壁時執行 onHit。 */
@@ -23,4 +24,6 @@ export interface Projectile {
   hitIds: Set<number>;
   onHit: EffectDef[];
   alive: boolean;
+  /** 發射時的 Combo 加成，擊中時傳給 onHit */
+  mods: Readonly<StepMods>;
 }

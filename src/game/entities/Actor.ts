@@ -1,6 +1,8 @@
 import { vec2, type Vec2 } from '../../core/math/Vec2';
+import type { StatusKind } from '../../data/schema/effects';
 import type { SkillDef } from '../../data/schema/skill';
 import type { AiBrain } from '../ai/AiBrain';
+import type { StepMods } from '../combo/StepMods';
 import type { StatBlock } from '../stats/StatBlock';
 import type { ActorId, Faction } from './ActorTypes';
 
@@ -18,6 +20,18 @@ export interface ActorInit {
   ai?: AiBrain | null;
   /** 會的技能與等級 */
   skillRanks?: ReadonlyMap<string, number>;
+  isBoss?: boolean;
+}
+
+/** 身上的狀態（由 StatusEffectSystem 管理） */
+export interface StatusInstance {
+  kind: StatusKind;
+  remaining: number;
+  magnitude: number;
+  source: Actor | null;
+  /** 燃燒：每秒傷害（施加時依施放者 Spell Power 計算） */
+  dps: number;
+  tickTimer: number;
 }
 
 /** 想要施放的技能（由 PlayerController / AI 設定，SkillSystem 執行） */
@@ -29,6 +43,10 @@ export interface SkillIntent {
   point: Vec2;
   /** true：施放後保留意圖，持續施放（按住左鍵、怪物追擊）；false：施放一次 */
   hold: boolean;
+  /** 指定施放等級；省略 = 角色的技能等級 */
+  rank?: number;
+  /** Combo 加成（連段中的這一步） */
+  mods?: Readonly<StepMods>;
 }
 
 /** 施放中的技能：施放時間結束前不能移動或施放其他技能 */
@@ -41,6 +59,7 @@ export interface CastState {
   elapsed: number;
   duration: number;
   fired: boolean;
+  mods: Readonly<StepMods>;
 }
 
 /**
@@ -54,6 +73,7 @@ export class Actor {
   readonly stats: StatBlock;
   /** 有 AI 的角色（怪物、召喚物）；玩家與訓練木樁為 null */
   readonly ai: AiBrain | null;
+  readonly isBoss: boolean;
   radius: number;
 
   position: Vec2;
@@ -82,6 +102,9 @@ export class Actor {
   /** 追擊目標時重新尋路的冷卻 */
   repathCooldown = 0;
 
+  // ---- 狀態（由 StatusEffectSystem 使用） ----
+  statuses: StatusInstance[] = [];
+
   constructor(init: ActorInit) {
     this.id = init.id;
     this.faction = init.faction;
@@ -92,6 +115,7 @@ export class Actor {
     this.radius = init.radius;
     this.stats = init.stats;
     this.ai = init.ai ?? null;
+    this.isBoss = init.isBoss ?? false;
     this.skillRanks = new Map(init.skillRanks ?? []);
     this.hp = init.stats.get('maxHp');
     this.mana = init.stats.get('maxMana');
@@ -116,6 +140,15 @@ export class Actor {
 
   get isCasting(): boolean {
     return this.cast !== null;
+  }
+
+  hasStatus(kind: StatusKind): boolean {
+    return this.statuses.some((s) => s.kind === kind);
+  }
+
+  /** 冰凍或暈眩：不能移動、施放、思考 */
+  get isDisabled(): boolean {
+    return this.hasStatus('freeze') || this.hasStatus('stun');
   }
 
   /** 目前意圖的目標（沒有則 null） */

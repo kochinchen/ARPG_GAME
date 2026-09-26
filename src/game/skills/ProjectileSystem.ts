@@ -56,7 +56,7 @@ export class ProjectileSystem {
   }
 
   private hit(p: Projectile, target: Actor | null): void {
-    const ctx = this.executor.createContext(p.caster, p.skill, p.rank, target, p.position, p.direction);
+    const ctx = this.executor.createContext(p.caster, p.skill, p.rank, target, p.position, p.direction, p.mods);
     this.executor.run(p.onHit, ctx);
   }
 }

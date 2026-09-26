@@ -2,6 +2,8 @@ import type { EventBus } from '../core/EventBus';
 import type { Vec2 } from '../core/math/Vec2';
 import type { Element } from '../data/schema/common';
 import type { ActorId, Faction } from './entities/Actor';
+import type { SkillCategory } from '../data/schema/skill';
+import type { StatusKind } from '../data/schema/effects';
 import type { EquipmentSlot } from './items/ItemInstance';
 
 /**
@@ -13,7 +15,25 @@ export interface GameEvents {
   /** 技能無法施放 */
   SkillFailed: { actorId: ActorId; skillId: string; reason: 'mana' };
   /** 範圍效果觸發（Render 播放擴散圈） */
-  AreaTriggered: { skillId: string; position: Vec2; radius: number; element: Element | null };
+  AreaTriggered: {
+    skillId: string;
+    position: Vec2;
+    radius: number;
+    element: Element | null;
+    direction: Vec2;
+    angleDeg: number;
+  };
+  /** 連鎖效果依序經過的位置（Render 畫閃電） */
+  ChainTriggered: { points: Vec2[]; element: Element };
+  StatusApplied: { actorId: ActorId; kind: StatusKind };
+  /** 防禦姿態 / 反擊觸發 */
+  StatusTriggered: { actorId: ActorId; kind: StatusKind };
+  /** 有 Combo 的連段第三招實際施放（Codex 記錄一次使用） */
+  ComboCompleted: { comboId: string; ruleId: string; name: string; skills: [string, string, string]; description: string[] };
+  /** 第一次發現某個 Combo */
+  ComboDiscovered: { comboId: string; name: string; description: string[] };
+  /** 連段中斷（沒有目標、魔力不足…） */
+  ComboInterrupted: { step: number };
   ActorDamaged: {
     targetId: ActorId;
     sourceId: ActorId | null;
@@ -40,8 +60,14 @@ export interface GameEvents {
   PickupFailed: { reason: 'inventoryFull' };
   ItemEquipped: { uid: string; slot: EquipmentSlot };
   ItemUnequipped: { uid: string; slot: EquipmentSlot };
-  /** 手上的物品不能穿在這個欄位 */
-  EquipFailed: { slot: EquipmentSlot };
+  /** 手上的物品不能穿在這個欄位，或等級不足 */
+  EquipFailed: { slot: EquipmentSlot; reason: 'wrongSlot' | 'level' };
+  XpGained: { amount: number };
+  PlayerLeveledUp: { level: number };
+  SkillLearned: { skillId: string; rank: number };
+  /** 第一次學會 T4：其他類別的 T1～T3 開放 */
+  MasteryAchieved: { category: SkillCategory };
+  T4CategoryUnlocked: { category: SkillCategory };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }

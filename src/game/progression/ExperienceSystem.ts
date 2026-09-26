@@ -1,0 +1,72 @@
+import type { DataRegistry } from '../../data/DataRegistry';
+import type { Balance } from '../../data/schema/balance';
+import type { StatId } from '../../data/schema/common';
+import type { Actor } from '../entities/Actor';
+import type { GameEventBus } from '../GameEvents';
+import type { SkillTree } from '../skills/SkillTree';
+import type { TargetingService } from '../targeting/TargetingService';
+import type { PlayerProgress } from './PlayerProgress';
+
+/** 從 level 升到 level + 1 所需經驗 */
+export function xpToNext(level: number, balance: Pick<Balance, 'xpCurve'>): number {
+  return Math.round(balance.xpCurve.base * level ** balance.xpCurve.exponent);
+}
+
+/**
+ * 監聽敵人死亡給經驗；升級時給技能點、Mastery 後再給 T4 開通次數，並成長基礎屬性。
+ */
+export class ExperienceSystem {
+  constructor(
+    private readonly player: Actor,
+    private readonly progress: PlayerProgress,
+    private readonly skillTree: SkillTree,
+    private readonly data: Pick<DataRegistry, 'enemies' | 'balance'>,
+    private readonly events: GameEventBus,
+    targeting: TargetingService,
+  ) {
+    events.on('ActorDied', (e) => {
+      if (e.faction !== 'enemy' || e.defId === null || e.killerId === null) return;
+      // 玩家或召喚物擊殺才有經驗
+      const killer = targeting.getActor(e.killerId);
+      if (!killer || killer.faction === 'enemy') return;
+      this.addXp(this.data.enemies.get(e.defId).xp);
+    });
+  }
+
+  get xpForNextLevel(): number {
+    return xpToNext(this.progress.level, this.data.balance);
+  }
+
+  addXp(amount: number): void {
+    if (amount <= 0) return;
+    const p = this.progress;
+    const maxLevel = this.data.balance.maxLevel;
+    if (p.level >= maxLevel) return;
+    p.xp += amount;
+    this.events.emit('XpGained', { amount });
+    while (p.level < maxLevel && p.xp >= this.xpForNextLevel) {
+      p.xp -= this.xpForNextLevel;
+      this.levelUp();
+    }
+    if (p.level >= maxLevel) p.xp = 0;
+    p.changed();
+  }
+
+  /** 直接升一級（開發測試用） */
+  grantLevel(): void {
+    this.addXp(this.xpForNextLevel - this.progress.xp);
+  }
+
+  private levelUp(): void {
+    const { balance } = this.data;
+    const p = this.progress;
+    p.level++;
+    p.skillPoints += balance.skillPointsPerLevel;
+    // Mastery 後，每升一級得到 T4 開通次數
+    if (this.skillTree.mastery) p.t4Charges += balance.t4UnlockChargesPerLevel;
+    for (const [stat, value] of Object.entries(balance.statsPerLevel) as [StatId, number][]) {
+      this.player.stats.setBase(stat, this.player.stats.getBase(stat) + value);
+    }
+    this.events.emit('PlayerLeveledUp', { level: p.level });
+  }
+}

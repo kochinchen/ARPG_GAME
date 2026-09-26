@@ -14,6 +14,10 @@ export interface InputAdapters {
   pickActor: (screen: Vec2) => number | null;
   /** 游標下的地上物品 / 寶箱 ID，沒有則 null */
   pickInteractable: (screen: Vec2) => number | null;
+  /** 開發用快捷鍵：B 重置、N 升一級、M 生成寶箱 */
+  debugKeys?: boolean;
+  /** B：重置遊戲（由 main.ts 決定如何重置） */
+  onDebugReset?: () => void;
 }
 
 /**
@@ -96,6 +100,22 @@ export class InputManager {
     } else if (e.code === 'Space') {
       e.preventDefault();
       this.commands.push({ type: 'UsePotion' });
+    } else if (this.adapters.debugKeys) {
+      this.onDebugKey(e.code);
+    }
+  }
+
+  private onDebugKey(code: string): void {
+    switch (code) {
+      case 'KeyB':
+        this.adapters.onDebugReset?.();
+        break;
+      case 'KeyN':
+        this.commands.push({ type: 'DebugLevelUp' });
+        break;
+      case 'KeyM':
+        this.commands.push({ type: 'DebugSpawnChests', count: 3 });
+        break;
     }
   }
 

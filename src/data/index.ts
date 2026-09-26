@@ -4,6 +4,7 @@ import { items, potions } from './items';
 import { maps } from './maps';
 import { enemies } from './enemies';
 import { skills } from './skills';
+import { comboRules } from './comboRules';
 import { affixes } from './affixes';
 import { lootTables } from './lootTables';
 
@@ -21,4 +22,5 @@ export const gameData: RawGameData = {
   lootTables,
   floors: [],
   maps,
+  comboRules,
 };

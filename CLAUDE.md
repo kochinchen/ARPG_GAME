@@ -26,6 +26,12 @@
 - `npm run lint`：型別檢查（含無 DOM 的 `tsconfig.logic.json`）+ 依賴方向檢查
 - `npm run build`：正式版建置
 
+## 開發用快捷鍵（只在 `npm run dev` 有效）
+
+- B：重置遊戲（有確認框；M9 加入存檔後需一併清除存檔）
+- N：升一級
+- M：在玩家周圍生成 3 個寶箱
+
 ## 流程
 
 - 依 Milestone 順序開發（M0 → M9），每個 Milestone 完成 Acceptance 與 Test 才進下一個。

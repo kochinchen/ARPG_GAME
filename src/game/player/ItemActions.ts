@@ -18,6 +18,8 @@ export class ItemActions {
     private readonly cursor: ItemCursor,
     private readonly events: GameEventBus,
     private readonly dropToGround: (content: GroundContent) => void,
+    /** 物品的等級需求 → 是否符合 */
+    private readonly meetsLevel: (baseId: string) => boolean,
   ) {}
 
   get holding(): boolean {
@@ -42,7 +44,11 @@ export class ItemActions {
       return;
     }
     if (held.kind !== 'item' || !this.equipment.canEquip(held.item, slot)) {
-      this.events.emit('EquipFailed', { slot });
+      this.events.emit('EquipFailed', { slot, reason: 'wrongSlot' });
+      return;
+    }
+    if (!this.meetsLevel(held.item.baseId)) {
+      this.events.emit('EquipFailed', { slot, reason: 'level' });
       return;
     }
     this.cursor.take();

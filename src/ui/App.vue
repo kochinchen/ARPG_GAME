@@ -6,9 +6,11 @@ import InventoryPanel from './components/InventoryPanel.vue';
 import ItemCell from './components/ItemCell.vue';
 import ItemTooltip from './components/ItemTooltip.vue';
 import ResourceOrb from './components/ResourceOrb.vue';
+import SkillTreePanel from './components/SkillTreePanel.vue';
 
 // 以下都是 UI 自己的狀態（面板開關、游標位置、hover），不經過遊戲
 const inventoryOpen = ref(false);
+const skillTreeOpen = ref(false);
 const pointer = ref({ x: 0, y: 0 });
 const hoverTarget = ref<HoverTarget | null>(null);
 /** 依最新快照計算，穿脫或交換後 Tooltip 立即更新 */
@@ -16,7 +18,11 @@ const hovered = computed(() => resolveHover(debugView.inventory, hoverTarget.val
 
 function onKeyDown(e: KeyboardEvent) {
   if (e.code === 'KeyI') inventoryOpen.value = !inventoryOpen.value;
-  else if (e.code === 'Escape') inventoryOpen.value = false;
+  else if (e.code === 'KeyT') skillTreeOpen.value = !skillTreeOpen.value;
+  else if (e.code === 'Escape') {
+    inventoryOpen.value = false;
+    skillTreeOpen.value = false;
+  }
   if (!inventoryOpen.value) hoverTarget.value = null;
 }
 function onPointerMove(e: PointerEvent) {
@@ -50,7 +56,18 @@ onBeforeUnmount(() => {
     <div>Player ({{ debugView.player.x.toFixed(2) }}, {{ debugView.player.y.toFixed(2) }})</div>
     <div>藥水 {{ debugView.potions }} · 金幣 {{ debugView.gold }} · 敵人 {{ debugView.enemies }}</div>
     <div>Target {{ debugView.target }}</div>
-    <div class="hint">左鍵：移動 / 攻擊 / 撿取 · 右鍵：技能 · QWE：切換 · Space：藥水 · I：背包</div>
+    <div class="hint">左鍵：移動 / 攻擊 / 撿取 · 右鍵：施放連段 · QWE：切換連段 · Space：藥水 · I：背包 · T：技能</div>
+    <div v-if="debugView.devKeys" class="dev-hint">測試：B 重置 · N 升一級 · M 生成寶箱</div>
+  </div>
+
+  <SkillTreePanel v-if="skillTreeOpen" :view="debugView.skillTree" @close="skillTreeOpen = false" />
+
+  <div class="xp-bar" :title="`經驗 ${debugView.xp.value} / ${debugView.xp.next}`">
+    <div class="xp-fill" :style="{ width: `${Math.min(100, (debugView.xp.value / debugView.xp.next) * 100)}%` }" />
+    <span class="xp-text">
+      Lv {{ debugView.xp.level }} · {{ debugView.xp.value }} / {{ debugView.xp.next }}
+      <template v-if="debugView.skillPoints > 0"> · 技能點 {{ debugView.skillPoints }}（T）</template>
+    </span>
   </div>
 
   <div class="orb-left">
@@ -88,12 +105,23 @@ onBeforeUnmount(() => {
       <span class="key">左</span>
       <span class="name">{{ debugView.leftSkill }}</span>
     </div>
-    <div v-for="slot in debugView.rightSlots" :key="slot.key" class="slot" :class="{ active: slot.active }">
-      <span class="key">{{ slot.key }}</span>
-      <span class="name">{{ slot.name }}</span>
-      <span class="cost">{{ slot.manaCost }} MP</span>
-      <span v-if="slot.cooldown > 0" class="cooldown">{{ slot.cooldown.toFixed(1) }}</span>
+    <div v-for="combo in debugView.combos" :key="combo.key" class="slot combo" :class="{ active: combo.active }">
+      <span class="key">{{ combo.key }}</span>
+      <span class="steps">
+        <span v-for="(step, i) in combo.steps" :key="i" :class="{ running: combo.running === i + 1, empty: !step }">
+          {{ step || '—' }}
+        </span>
+      </span>
     </div>
+    <div v-if="debugView.supports.length" class="supports-bar">
+      <span v-for="s in debugView.supports" :key="s">{{ s }}</span>
+    </div>
+  </div>
+
+  <div v-if="debugView.discovery" class="discovery" role="status">
+    <div class="discovery-title">COMBO DISCOVERED</div>
+    <div class="discovery-name">{{ debugView.discovery.name }}</div>
+    <div v-for="line in debugView.discovery.description" :key="line" class="discovery-line">{{ line }}</div>
   </div>
 
   <div v-if="debugView.respawnIn !== null" class="death">
@@ -119,6 +147,9 @@ onBeforeUnmount(() => {
 .hint {
   margin-top: 4px;
   color: #8a7c68;
+}
+.dev-hint {
+  color: #6fa8ff;
 }
 .tooltips {
   position: absolute;
@@ -157,6 +188,31 @@ onBeforeUnmount(() => {
 .orb-right {
   right: 16px;
 }
+.xp-bar {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  width: min(360px, calc(100vw - 300px));
+  height: 12px;
+  transform: translateX(-50%);
+  background: rgb(0 0 0 / 70%);
+  border: 1px solid #3d342c;
+}
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(#d9b45f, #8a6d38);
+  transition: width 0.25s ease-out;
+}
+.xp-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 10px/1 ui-monospace, Menlo, monospace;
+  color: #f0e2c0;
+  text-shadow: 0 1px 2px #000;
+}
 .skill-bar {
   position: absolute;
   bottom: 16px;
@@ -180,6 +236,31 @@ onBeforeUnmount(() => {
 }
 .slot.left {
   margin-right: 10px;
+}
+.slot.combo {
+  width: 108px;
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 10px;
+  line-height: 1.25;
+}
+.steps .empty {
+  color: #4a4034;
+}
+.steps .running {
+  color: #ffb347;
+}
+.supports-bar {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  margin-left: 10px;
+  font-size: 10px;
+  color: #8aa2ff;
 }
 .slot.active {
   color: #f0e2c0;
@@ -206,6 +287,37 @@ onBeforeUnmount(() => {
   font-size: 18px;
   color: #fff;
   background: rgb(0 0 0 / 60%);
+}
+.discovery {
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 28px;
+  text-align: center;
+  color: #f0e2c0;
+  background: linear-gradient(90deg, transparent, rgb(12 10 9 / 90%) 15%, rgb(12 10 9 / 90%) 85%, transparent);
+  text-shadow: 0 2px 6px #000;
+  animation: discovery-in 0.35s ease-out;
+}
+.discovery-title {
+  font: 11px/1.4 ui-monospace, Menlo, monospace;
+  letter-spacing: 0.35em;
+  color: #ffb347;
+}
+.discovery-name {
+  font: 24px/1.4 serif;
+  color: #ffd27a;
+}
+.discovery-line {
+  font-size: 12px;
+  color: #b8ab94;
+}
+@keyframes discovery-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
 }
 .death {
   position: absolute;

@@ -53,7 +53,19 @@ export const ELEMENT_COLORS: Record<string, number> = {
 /** 投射物的暫用顏色（依技能） */
 export const PROJECTILE_COLORS: Record<string, number> = {
   'magic.fireball': 0xff7a2a,
+  'magic.ice_orb': 0x7fd4ff,
+  'magic.ice_lance': 0xb8ecff,
+  'magic.spark': 0xf5e663,
 };
+
+/** 身上狀態的顏色（依優先順序取第一個） */
+export const STATUS_TINTS: [string, number][] = [
+  ['freeze', 0x7fd4ff],
+  ['stun', 0xf5e663],
+  ['burn', 0xff9a5a],
+  ['slow', 0xa8c8ff],
+  ['ironWill', 0xc8c8c8],
+];
 
 /** 各怪物的暫用顏色 [主色, 外框]；未列出的用 PALETTE.enemy */
 export const ENEMY_COLORS: Record<string, readonly [number, number]> = {

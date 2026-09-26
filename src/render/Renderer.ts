@@ -65,8 +65,9 @@ export class Renderer {
       this.actorViews.get(e.actorId)?.lunge(dir);
     });
     world.events.on('AreaTriggered', (e) => {
-      this.effects.spawnRing(e.position, e.radius, ELEMENT_COLORS[e.element ?? 'physical'] ?? 0xffffff);
+      this.effects.spawnRing(e.position, e.radius, ELEMENT_COLORS[e.element ?? 'physical'] ?? 0xffffff, e.direction, e.angleDeg);
     });
+    world.events.on('ChainTriggered', (e) => this.effects.spawnChain(e.points, ELEMENT_COLORS[e.element] ?? 0xffffff));
     world.events.on('SkillFailed', (e) => {
       const actor = world.targeting.getActor(e.actorId);
       if (actor === world.player) this.floatingText.spawnText(projection.toScreen(actor.position), '魔力不足', PALETTE.manaText);
@@ -76,7 +77,23 @@ export class Renderer {
     world.events.on('GoldPickedUp', (e) => say(e.position, `+${e.amount} 金幣`, PALETTE.marker));
     world.events.on('PotionPickedUp', (e) => say(e.position, `+${e.count} 藥水`, PALETTE.healText));
     world.events.on('PickupFailed', () => say(world.player.position, '背包已滿', PALETTE.manaText));
-    world.events.on('EquipFailed', () => say(world.player.position, '無法裝備在這裡', PALETTE.manaText));
+    world.events.on('EquipFailed', (e) =>
+      say(world.player.position, e.reason === 'level' ? '等級不足' : '無法裝備在這裡', PALETTE.manaText),
+    );
+    world.events.on('PlayerLeveledUp', (e) => {
+      this.floatingText.spawnText(projection.toScreen(world.player.position), `升級！Lv ${e.level}`, PALETTE.marker, 20);
+    });
+    world.events.on('MasteryAchieved', () => say(world.player.position, '精通！其他類別開放', PALETTE.manaText));
+    world.events.on('ComboCompleted', (e) => {
+      this.floatingText.spawnText(projection.toScreen(world.player.position), e.name, PALETTE.critText, 18);
+    });
+    world.events.on('ComboInterrupted', () => say(world.player.position, '連段中斷', PALETTE.manaText));
+    world.events.on('StatusTriggered', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (!actor) return;
+      if (e.kind === 'guard') say(actor.position, '格擋', PALETTE.hoverName);
+      if (e.kind === 'counter') say(actor.position, '反擊！', PALETTE.critText);
+    });
     world.events.on('PotionUsed', (e) => {
       const at = projection.toScreen(world.player.position);
       this.floatingText.spawnText(at, `+${Math.round(e.hpRestored)} HP  +${Math.round(e.mpRestored)} MP`, PALETTE.healText);
@@ -133,7 +150,7 @@ export class Renderer {
     this.tileMap.update(playerPos);
     this.interactables.setHovered(this.hoveredInteractable);
     this.interactables.update(this.world.groundItems, this.world.chests);
-    this.effects.update(dt, this.world.projectiles, alpha);
+    this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
     this.floatingText.update(dt);
     this.updateMarker(player.intent === null ? player.path[player.path.length - 1] : undefined);
   }

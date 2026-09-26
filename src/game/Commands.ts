@@ -1,5 +1,6 @@
 import type { Vec2 } from '../core/math/Vec2';
 import type { ActorId } from './entities/Actor';
+import type { SkillCategory } from '../data/schema/skill';
 import type { EquipmentSlot } from './items/ItemInstance';
 
 /**
@@ -15,15 +16,29 @@ export type GameCommand =
   | { type: 'PrimaryAction'; worldPos: Vec2; targetId: ActorId | null; interactId?: number | null; held: boolean }
   /** 左鍵放開 */
   | { type: 'PrimaryRelease' }
-  /** 右鍵：施放目前啟用的右鍵技能 */
+  /** 右鍵：依序施放目前選中的 Q / W / E 連段 */
   | { type: 'CastRight'; worldPos: Vec2; targetId: ActorId | null }
-  /** Q / W / E */
+  /** Q / W / E：選擇右鍵要施放的連段 */
   | { type: 'SelectRightSlot'; slot: 0 | 1 | 2 }
   /** Space：同時回復 HP 與 MP */
   | { type: 'UsePotion' }
   /** 背包格：手上沒東西 → 拿起；有東西 → 放下（互換 / 合併） */
   | { type: 'InventoryClick'; cell: number }
   /** 裝備欄：手上沒東西 → 拿起；有東西 → 穿上（互換） */
-  | { type: 'EquipmentClick'; slot: EquipmentSlot };
+  | { type: 'EquipmentClick'; slot: EquipmentSlot }
+  /** 技能樹：學習或升級一級 */
+  | { type: 'LearnSkill'; skillId: string }
+  /** 技能樹：花一次開通次數打開某類別的 T4 */
+  | { type: 'UnlockT4'; category: SkillCategory }
+  /** 把已學會的主動技能指定到左鍵 */
+  | { type: 'AssignLeft'; skillId: string }
+  /** 設定 Q / W / E 連段的某一步（null = 清空） */
+  | { type: 'SetComboSlot'; combo: 0 | 1 | 2; step: 0 | 1 | 2; skillId: string | null }
+  /** 設定 Support 欄位（null = 卸下） */
+  | { type: 'SetSupportSlot'; slot: 0 | 1 | 2; skillId: string | null }
+  /** 開發用：直接升一級（只有 dev 版的 Input 會送出） */
+  | { type: 'DebugLevelUp' }
+  /** 開發用：在玩家周圍生成寶箱 */
+  | { type: 'DebugSpawnChests'; count: number };
 
 export type GameCommandType = GameCommand['type'];

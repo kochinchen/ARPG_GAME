@@ -109,7 +109,18 @@ describe('背包 / 裝備操作（M5，Diablo 式拿起與放下）', () => {
     send({ type: 'InventoryClick', cell }, { type: 'EquipmentClick', slot: 'weapon' });
     expect(world.equipment.get('weapon')).toBeUndefined();
     expect(heldUid(world.cursor.entry)).toBe('helm');
-    expect(onFailed).toHaveBeenCalledWith({ slot: 'weapon' });
+    expect(onFailed).toHaveBeenCalledWith({ slot: 'weapon', reason: 'wrongSlot' });
+  });
+
+  it('等級不足時無法穿上', () => {
+    const { world, send, give, events } = setup();
+    const onFailed = vi.fn();
+    events.on('EquipFailed', onFailed);
+    world.progress.level = 0;
+    const cell = give(item('helm', 'helmet.cap'));
+    send({ type: 'InventoryClick', cell }, { type: 'EquipmentClick', slot: 'helmet' });
+    expect(world.equipment.get('helmet')).toBeUndefined();
+    expect(onFailed).toHaveBeenCalledWith({ slot: 'helmet', reason: 'level' });
   });
 
   it('戒指可以放在戒指 1 或戒指 2', () => {

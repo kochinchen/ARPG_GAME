@@ -2,7 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { Actor } from '../../game/entities/Actor';
-import { ENEMY_COLORS, PALETTE } from '../palette';
+import { ENEMY_COLORS, PALETTE, STATUS_TINTS } from '../palette';
 
 const BODY_HEIGHT = 40;
 const HEAD_Y = -50;
@@ -81,6 +81,8 @@ export class ActorView {
     const k = Math.sin((this.lungeTime / LUNGE_DURATION) * Math.PI) * LUNGE_DISTANCE;
     this.body.position.set(this.lungeDir.x * k, this.lungeDir.y * k);
     this.body.alpha = this.hovered ? 0.85 : 1;
+    // 冰凍、暈眩、燃燒、緩速等狀態以顏色表示
+    this.body.tint = STATUS_TINTS.find(([kind]) => actor.statuses.some((s) => s.kind === kind))?.[1] ?? 0xffffff;
     // 倒地：身體側躺、變淡
     this.body.rotation = actor.alive ? 0 : -Math.PI / 2.4;
     this.container.alpha = actor.alive ? 1 : 0.55;

@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0～M5 完成（另提前完成 HP / MP 球）；下一步 M6 Progression。
+> 狀態：M0～M6 完成，並完成技能系統大改（4 大類、Q/W/E 三段 Combo、Support 常駐被動）；下一步 M7 Floor。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -172,7 +172,9 @@ arpg/
 │  │
 │  ├─ data/                       # 純資料 + Schema，不含邏輯
 │  │  ├─ schema/                  # Zod Schema（載入時驗證）
-│  │  ├─ skills/                  # melee.ts / ranged.ts / magic.ts / support.ts / summon.ts
+│  │  ├─ skills.ts                # 全部技能資料（近戰 / 遠程 / 魔法 / 輔助）
+│  │  ├─ skillComboTags.ts        # 36 個主動技能的 Combo 標籤
+│  │  ├─ comboRules.ts            # Combo Rule 資料庫
 │  │  ├─ enemies.ts
 │  │  ├─ items.ts
 │  │  ├─ affixes.ts
@@ -200,7 +202,6 @@ arpg/
 │  │  │  └─ MasteryRule.ts
 │  │  ├─ ai/                      # AiSystem / states/
 │  │  ├─ enemies/                 # EnemyFactory / AffixApplier
-│  │  ├─ summons/                 # SummonSystem
 │  │  ├─ world/                   # FloorManager / DifficultyScaler / SpawnSystem
 │  │  ├─ items/                   # ItemGenerator / LootSystem / Inventory / Equipment
 │  │  └─ progression/             # ExperienceSystem
@@ -276,7 +277,6 @@ arpg/
 | ai | `AiSystem` | 對每個有 `AiBrain` 的 Actor 執行狀態機（Idle → Chase → Return）。狀態只做決策，追擊與出手交給 SkillSystem |
 | enemies | `EnemyFactory` | 由 EnemyDef + Floor 難度 + Affix 組出一隻怪 |
 | enemies | `AffixApplier` | 把 Elite Affix 轉成 StatModifier 與行為掛勾 |
-| summons | `SummonSystem` | 召喚上限、存活時間；AI 重用 `AiSystem`，只是目標陣營相反 |
 | world | `FloorManager` | 目前樓層、進入 / 離開樓層流程 |
 | world | `CheckpointSystem` | 每層兩個存檔點（樓梯口 / 中途）的啟動與重生位置 |
 | items | `ChestSystem` | 寶箱只能開一次，開啟時發出 `ChestOpened` |
@@ -290,7 +290,8 @@ arpg/
 | items | `Inventory` | 10 × 8 格背包，每格一件物品或一疊藥水（20 瓶一疊，可多疊）；變動時增加 version |
 | items | `ItemCursor` | 滑鼠上拿著的物品；屬於遊戲狀態，存檔時不會遺失 |
 | items | `Equipment` | 裝備欄位（戒指兩格）；檢查欄位是否相符；穿脫時把基底屬性與詞綴轉成 StatModifier |
-| progression | `ExperienceSystem` | 監聽 `ActorDied` 加經驗、判斷升級、給技能點 |
+| progression | `ExperienceSystem` | 監聽 `ActorDied`（玩家或召喚物擊殺）加經驗；升級給技能點、Mastery 後給 T4 開通次數、成長基礎屬性 |
+| progression | `PlayerProgress` | 等級、經驗、技能點、T4 開通次數、已開通類別（存檔內容） |
 
 ### input / render / ui / save
 
@@ -349,10 +350,10 @@ Event 用於「一件事發生後，多個互不相關的系統都要反應」�
 | Event | 發出者 | 訂閱者 |
 |---|---|---|
 | `ActorDamaged` | DamagePipeline | Render（跳字）、Audio、StatusEffect（OnHit） |
-| `ActorDied` | DeathSystem | LootSystem、ExperienceSystem、SummonSystem、Audio |
+| `ActorDied` | DeathSystem | LootSystem、ExperienceSystem、Audio |
 | `ActorDied`（faction = player） | DeathSystem | DeathHandler（倒地後送回存檔點）、UI、Audio |
 | `PlayerRespawned` | DeathHandler | UI、Audio |
-| `PlayerLeveledUp` | ExperienceSystem | SkillTree（加技能點；Mastery 後加 T4 開通次數）、UI、Audio |
+| `XpGained` / `PlayerLeveledUp` | ExperienceSystem | Render（升級提示）、UI、Audio |
 | `SkillCast` | SkillSystem | Render（動畫 / VFX）、Audio |
 | `SkillFailed` | SkillSystem | Render（「魔力不足」）、Audio |
 | `AreaTriggered` | AreaEffect | Render（範圍擴散圈） |
@@ -550,16 +551,76 @@ M0 會加入 `dependency-cruiser`，把上表寫成規則，違反時 `npm run l
 
 ---
 
-## 技能樹規則（草案）
+## 技能系統（M6 大改後）
 
 ### 結構
 
 ```
-5 類別（Melee / Ranged / Magic / Support / Summon）
-× 4 Tier
-× 3 Branch（A / B / C，代表三條 Build 路線）
-= 60 個節點
+主動技能 36 個：Melee 近戰 / Ranged 遠程 / Magic 魔法（各 4 Tier × 3 路線）
+常駐被動 12 個：Support 輔助（4 Tier × 3 路線）
+Summon 召喚系已移除
 ```
+
+| 類別 | 路線 A | 路線 B | 路線 C |
+|---|---|---|---|
+| 近戰 | 重擊（高傷、破甲、擊退） | 連擊（快速、多段） | 防禦（防守、反擊、控制） |
+| 遠程 | 精準（單體、處決） | 彈幕（多箭、穿透） | 機動（射擊結合位移） |
+| 魔法 | 火焰（爆發、燃燒） | 冰霜（緩速、冰凍） | 雷電（連鎖、爆發） |
+| 輔助 | 生存 | 資源 | 戰鬥強化 |
+
+全部 48 個技能的數值寫在 `data/skills.ts`（每級倍率與魔力以 Lv1～Lv5 陣列指定）。
+
+### 按鍵配置（`PlayerLoadout`）
+
+- **左鍵**：單一主動技能（技能頁每個已學主動技能旁的「左」按鈕）
+- **Q / W / E**：各一組 3 步連段。Q/W/E 選擇連段，右鍵依序施放整組（`ComboSystem`）
+  - 每一步交給 SkillSystem；上一步施放結束才送出下一步
+  - 某一步無法施放（沒有目標、魔力不足）時整組中斷（`ComboInterrupted`）
+  - 施放中再按右鍵忽略；點地面移動或攻擊會取消
+- **Support**：最多 3 個常駐被動，只有裝備中的會生效（`SupportSystem`）；不耗魔力、沒有持續時間
+
+### 三段技能 Combo（詳細規格：[COMBO_SYSTEM.md](COMBO_SYSTEM.md)）
+
+- 36 個主動技能各有 Range（Near / Mid / Far，不顯示給玩家）與標籤（`data/skillComboTags.ts`）；標籤與效果不一致時啟動報錯
+- 16 條 Tag Rule + 2 個 Exact Secret Combo（`data/comboRules.ts`），依 Tier → Specificity → order 決定，一次只啟動一條
+- 三連同招、Near→Far→Near、Far→Near→Far 照常施放，但沒有加成
+- 加成以 Modifier 疊加在指定步驟（預設第三招），不修改技能資料；數值 × 目標技能的 LevelFactor（Lv1～5：1.0～1.4）
+- 第三招實際施放時發出 `ComboCompleted`；第一次發出 `ComboDiscovered`，寫入 `ComboCodex`（技能頁「組合表」）
+- 連段第 1 / 2 / 3 格於 Lv 1 / 3 / 6 解鎖（`balance.player.comboSlotLevels`）
+- 模組：`game/combo/`（ComboSkillIndex、ComboResolver、ComboModifierFactory、ComboSystem、ComboCodex、ComboDiscoverySystem）
+
+### 技能效果（Effect）
+
+`damage`（武器 / 法術強度 / 固定值，多段、條件加成）、`status`、`knockback`、`dash`、`projectile`（穿透、散射、環狀、自動瞄準）、`area`（圓形 / 扇形、以目標為中心）、`chain`、`zone`（地面持續）、`delayed`（延遲、重複、散布）。
+
+### 狀態（`StatusEffectSystem`）
+
+緩速、冰凍、暈眩（不能移動 / 施放、打斷施放）、燃燒、破甲、弱點、防禦姿態（下一次受傷降低）、反擊（下一次被近戰攻擊時反擊）、鋼鐵意志（減傷、免疫擊退）。Boss 被冰凍時改為強力緩速。
+
+### 新增屬性
+
+`spellPower`、`castSpeed`、`damageBonus`、`damageReduction`、`critDamageTaken`、`manaCostReduction`、`lifeSteal`、`manaSteal`、`manaOnHit`、`hpRegenPct`。
+
+### 規格未指定、先採用的數值（可在 `data/skills.ts` 調整）
+
+| 技能 | 採用值 |
+|---|---|
+| 毀滅重擊 | 對破甲目標 +30% |
+| 狙殺 | HP < 30% 的目標 +30% |
+| 弱點射擊 | 受到暴擊傷害 +50%，6 秒 |
+| 冰霜新星 | 冰凍 1.5 秒，機率 20 / 25 / 30 / 35 / 40% |
+| 絕對零度 | 冰凍 2 秒；Boss 改為 60% 緩速 |
+| 冰球 | 緩速 30%，2 秒 |
+| 冰槍 | 對緩速目標暴擊率 +25% |
+| 火焰爆破 | 對燃燒目標 +30% |
+| 隕星 | 延遲 1 秒；火焰區 3 秒、每秒 30% |
+| 鋼鐵意志 | 持續 6 秒（規格為「下一個 Combo 期間」） |
+| 防禦姿態 / 反擊 | 效果保留 10 / 8 秒，觸發後消失 |
+| 火牆 | 以半徑 1.5 的圓形區域近似「牆」 |
+| 巨型火球 | 火球的 160% 傷害、爆炸半徑 1.8、魔力同火球 |
+| 冷卻時間 | 規格未列，全部為 0（以魔力限制） |
+
+### 解鎖規則（`MasteryRule`，純函式，4 類共用，含 Support）
 
 ### 技能等級
 
@@ -567,8 +628,6 @@ M0 會加入 `dependency-cruiser`，把上表寫成規則，違反時 `npm run l
 - 學新技能與升級都花 1 技能點。
 - 前置條件只看「前一層同 Branch 的技能是否已學（≥ Lv1）」，不要求滿級。
 - 所有技能都消耗**魔力（Mana）**。
-
-### 解鎖規則（`MasteryRule`，純函式）
 
 **階段一：Mastery 前**
 
@@ -605,7 +664,6 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 |---|---|
 | Magic A（火） | 火系投射物擊中後分裂 3 發 |
 | Ranged B（穿透） | 箭矢穿透，且每穿透一次傷害 +15% |
-| Summon C（亡靈） | 召喚物死亡時爆炸 |
 | Melee A（旋風） | 每 4 次命中產生衝擊波 |
 
 這套機制與 Legendary 相同，所以做完 T4 等於順便做完 Legendary 的底層。
@@ -755,6 +813,15 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
   - Mastery 後：其他類 T3 不需前置即可學；其他類 T4 未開通時不可學
   - 開通次數：0 次時無法開通；開通後次數減 1；同一類不能重複開通
   - 開通後：該類 T4 仍需同 Branch 的 T3
+- **狀態**：✅ 完成（179 個測試通過）。實作細節：
+  - `MasteryRule` 為純函式（`checkLearn` / `checkUnlockT4` / `isT4Open`），`SkillTree` 負責扣點與發事件
+  - 技能樹 60 個位置：尚未設計的以佔位技能補上（`data/skillTree.ts`，UI 以灰字標示）；同一位置重複時啟動報錯
+  - 起始技能與起始技能點寫在 `balance.player.startingSkills` / `startingSkillPoints`（目前：重擊、火球、冰霜新星 Lv1 + 2 點）
+  - 學會新技能自動放進第一個空的右鍵欄位；技能樹面板可指定到左鍵 / Q / W / E
+  - 經驗曲線 `50 × level^1.5`；升級時 HP +5、MP +2（`balance.statsPerLevel`）；升級不回血
+  - 裝備檢查等級需求；技能樹面板（T）、經驗條、升級提示
+  - 開發用快捷鍵（只在 `npm run dev` 啟用）：B 重置、N 升一級、M 生成寶箱
+  - 解讀：Mastery 後「其他類別」的 T1～T3 不需前置；觸發 Mastery 的類別其他路線仍依正常前置
 
 ### M7 Floor
 

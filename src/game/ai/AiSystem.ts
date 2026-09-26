@@ -35,7 +35,7 @@ export class AiSystem {
   update(actors: readonly Actor[]): void {
     for (const self of actors) {
       const brain = self.ai;
-      if (!brain || !self.alive) continue;
+      if (!brain || !self.alive || self.isDisabled) continue;
       const ctx: AiContext = { self, brain, actors, targeting: this.targeting, nav: this.nav, pathfinder: this.pathfinder };
       const next = this.states[brain.state].update(ctx);
       if (next !== null && next !== brain.state) {

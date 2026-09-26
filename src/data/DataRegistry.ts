@@ -13,6 +13,9 @@ import {
 import { LootTableDefSchema, type LootTableDef } from './schema/loot';
 import { FloorDefSchema, type FloorDef } from './schema/floor';
 import { MapDefSchema, type MapDef } from './schema/map';
+import { ComboRuleSchema, isRangeSequenceValid, type ComboRuleDef } from './schema/combo';
+import { checkComboTags } from './skillAnalysis';
+import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS } from './schema/skill';
 
 /** 尚未驗證的原始資料（來自 data/*.ts） */
 export interface RawGameData {
@@ -25,6 +28,7 @@ export interface RawGameData {
   lootTables: readonly unknown[];
   floors: readonly unknown[];
   maps: readonly unknown[];
+  comboRules: readonly unknown[];
 }
 
 export class DataValidationError extends Error {
@@ -71,6 +75,7 @@ export class DataRegistry {
     readonly lootTables: DataTable<LootTableDef>,
     readonly floors: DataTable<FloorDef>,
     readonly maps: DataTable<MapDef>,
+    readonly comboRules: DataTable<ComboRuleDef>,
   ) {}
 
   static load(raw: RawGameData): DataRegistry {
@@ -85,6 +90,7 @@ export class DataRegistry {
     const lootTables = parseTable('lootTable', LootTableDefSchema, raw.lootTables, problems);
     const floors = parseTable('floor', FloorDefSchema, raw.floors, problems);
     const maps = parseTable('map', MapDefSchema, raw.maps, problems);
+    const comboRules = parseTable('comboRule', ComboRuleSchema, raw.comboRules, problems);
 
     // 交叉引用檢查
     for (const enemy of enemies.all) {
@@ -104,11 +110,60 @@ export class DataRegistry {
 
     if (balance) {
       if (!potions.has(balance.player.potionId)) problems.push(`balance.player.potionId 引用不存在的 potion '${balance.player.potionId}'`);
-      const { left, right } = balance.player.startingLoadout;
-      for (const skillId of [left, ...right]) {
-        if (skillId !== null && !skills.has(skillId)) problems.push(`balance.player.startingLoadout 引用不存在的 skill '${skillId}'`);
+      const { left, combos: startCombos, supports } = balance.player.startingLoadout;
+      const starting = new Set(balance.player.startingSkills);
+      for (const skillId of balance.player.startingSkills) {
+        if (!skills.has(skillId)) problems.push(`balance.player.startingSkills 引用不存在的 skill '${skillId}'`);
+      }
+      const checkLoadout = (skillId: string | null, kind: 'active' | 'passive') => {
+        if (skillId === null) return;
+        if (!skills.has(skillId)) problems.push(`balance.player.startingLoadout 引用不存在的 skill '${skillId}'`);
+        else if (!starting.has(skillId)) problems.push(`balance.player.startingLoadout 的 '${skillId}' 不在 startingSkills 內`);
+        else if (skills.get(skillId).kind !== kind) problems.push(`balance.player.startingLoadout 的 '${skillId}' 必須是 ${kind} 技能`);
+      };
+      checkLoadout(left, 'active');
+      startCombos.flat().forEach((id) => checkLoadout(id, 'active'));
+      supports.forEach((id) => checkLoadout(id, 'passive'));
+    }
+    // 技能樹：每個位置剛好一個技能
+    const treeSlots = new Map<string, string>();
+    for (const skill of skills.all) {
+      if (!skill.tree) continue;
+      const key = `${skill.tree.category} T${skill.tree.tier}-${skill.tree.branch}`;
+      const existing = treeSlots.get(key);
+      if (existing) problems.push(`技能樹位置 ${key} 重複：'${existing}' 與 '${skill.id}'`);
+      else treeSlots.set(key, skill.id);
+    }
+    if (skills.all.length > 0) {
+      for (const category of SKILL_CATEGORIES) {
+        for (const tier of SKILL_TIERS) {
+          for (const branch of SKILL_BRANCHES) {
+            const key = `${category} T${tier}-${branch}`;
+            if (!treeSlots.has(key)) problems.push(`技能樹位置 ${key} 沒有技能`);
+          }
+        }
       }
     }
+
+    // Combo 標籤必須與技能效果一致
+    for (const skill of skills.all) {
+      for (const problem of checkComboTags(skill)) problems.push(`skill '${skill.id}' 的 combo ${problem}`);
+    }
+
+    // Combo Rule：Exact Combo 的技能必須是帶 combo 標籤的主動技能，且排列合理
+    for (const rule of comboRules.all) {
+      const ids = [...(rule.match.kind === 'exact' ? rule.match.skills : []), ...rule.displayNames.map((d) => d.finalSkill)];
+      for (const id of ids) {
+        if (!skills.has(id)) problems.push(`comboRule '${rule.id}' 引用不存在的 skill '${id}'`);
+        else if (!skills.get(id).combo) problems.push(`comboRule '${rule.id}' 的 '${id}' 必須是可放入連段的主動技能`);
+      }
+      if (rule.match.kind === 'exact' && rule.match.skills.every((id) => skills.has(id) && skills.get(id).combo)) {
+        const [a, b, c] = rule.match.skills.map((id) => skills.get(id).combo!.range);
+        if (!isRangeSequenceValid(a!, b!, c!)) problems.push(`comboRule '${rule.id}' 的排列 ${a}→${b}→${c} 不合理，永遠不會觸發`);
+        if (new Set(rule.match.skills).size === 1) problems.push(`comboRule '${rule.id}' 是三個相同技能，永遠不會觸發`);
+      }
+    }
+
     for (const map of maps.all) {
       for (const { enemyId } of map.spawns) {
         if (!enemies.has(enemyId)) problems.push(`map '${map.id}' 引用不存在的 enemy '${enemyId}'`);
@@ -119,7 +174,7 @@ export class DataRegistry {
     }
 
     if (problems.length > 0 || !balance) throw new DataValidationError(problems);
-    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps);
+    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules);
   }
 }
 

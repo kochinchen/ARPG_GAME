@@ -1,11 +1,13 @@
 import { add, distance, normalize, scale, sub, type Vec2 } from '../../core/math/Vec2';
 import type { DataTable } from '../../data/DataRegistry';
+import { rankValue } from '../../data/schema/common';
 import type { SkillDef } from '../../data/schema/skill';
 import type { Actor, SkillIntent } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
 import type { Pathfinder } from '../movement/Pathfinder';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { SkillExecutor } from './SkillExecutor';
+import { NO_MODS, type StepMods } from '../combo/StepMods';
 
 /** 追擊時重新尋路的間隔（秒） */
 const REPATH_INTERVAL = 0.25;
@@ -30,6 +32,8 @@ export class SkillSystem {
     for (const actor of actors) {
       if (!actor.alive) continue;
       tickCooldowns(actor, dt);
+      // 冰凍 / 暈眩：不能施放（施放中的技能已被打斷）
+      if (actor.isDisabled) continue;
       actor.repathCooldown = Math.max(0, actor.repathCooldown - dt);
       if (actor.cast) {
         this.advanceCast(actor, dt);
@@ -39,14 +43,22 @@ export class SkillSystem {
     }
   }
 
-  /** 此等級的魔力消耗 */
-  manaCost(skill: SkillDef, rank: number): number {
-    return skill.cost.mana + skill.cost.perRank * Math.max(0, rank - 1);
+  /** 此等級的魔力消耗（套用施放者的魔力消耗降低與 Combo 的 MP 加成） */
+  manaCost(skill: SkillDef, rank: number, caster?: Actor, mods: Readonly<StepMods> = NO_MODS): number {
+    const reduction = Math.min(0.9, Math.max(0, caster?.stats.get('manaCostReduction') ?? 0));
+    return Math.max(0, rankValue(skill.cost.mana, rank) * (1 - reduction) * (1 + mods.mp));
+  }
+
+  /** 施放時間：近戰 / 弓箭依攻速，法術依施法速度；Combo 的動作速度加成對兩者都有效 */
+  castDuration(skill: SkillDef, caster: Actor, mods: Readonly<StepMods> = NO_MODS): number {
+    const speedup = 1 + Math.max(0, mods.animationSpeed);
+    if (skill.useAttackSpeed) return 1 / (caster.stats.get('attackSpeed') * (1 + mods.attackSpeed) * speedup);
+    return skill.castTime / ((1 + Math.max(0, caster.stats.get('castSpeed') + mods.castSpeed)) * speedup);
   }
 
   private tryStart(actor: Actor, intent: SkillIntent): void {
-    const rank = actor.skillRanks.get(intent.skillId) ?? 0;
-    if (rank <= 0 || !this.skills.has(intent.skillId)) {
+    const rank = intent.rank ?? actor.skillRanks.get(intent.skillId) ?? 0;
+    if (rank <= 0 || !this.skills.has(intent.skillId) || this.skills.get(intent.skillId).kind !== 'active') {
       actor.intent = null;
       return;
     }
@@ -87,7 +99,8 @@ export class SkillSystem {
 
     if ((actor.cooldowns.get(skill.id) ?? 0) > 0) return; // 保留意圖，冷卻結束後施放
 
-    const cost = this.manaCost(skill, rank);
+    const mods = intent.mods ?? NO_MODS;
+    const cost = this.manaCost(skill, rank, actor, mods);
     if (actor.mana < cost) {
       this.events.emit('SkillFailed', { actorId: actor.id, skillId: skill.id, reason: 'mana' });
       actor.intent = null;
@@ -108,8 +121,9 @@ export class SkillSystem {
       point,
       direction,
       elapsed: 0,
-      duration: skill.useAttackSpeed ? 1 / actor.stats.get('attackSpeed') : skill.castTime,
+      duration: this.castDuration(skill, actor, mods),
       fired: false,
+      mods,
     };
     if (!intent.hold) actor.intent = null;
     this.events.emit('SkillCast', { actorId: actor.id, skillId: skill.id, targetId, point });
@@ -136,7 +150,7 @@ export class SkillSystem {
       if (!target) return;
     }
     const origin = cast.skill.targeting === 'ground' ? cast.point : actor.position;
-    this.executor.execute(actor, cast.skill, cast.rank, target, origin, cast.direction);
+    this.executor.execute(actor, cast.skill, cast.rank, target, origin, cast.direction, cast.mods);
   }
 
   private approach(actor: Actor, destination: Vec2): void {

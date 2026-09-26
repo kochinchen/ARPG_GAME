@@ -23,14 +23,34 @@ export const STAT_LABELS: Record<StatId, string> = {
   moveSpeed: '移動速度',
   damageMin: '最小傷害',
   damageMax: '最大傷害',
+  spellPower: '法術強度',
   attackSpeed: '攻擊速度',
+  castSpeed: '施法速度',
   attackRange: '攻擊距離',
   critChance: '暴擊率',
   defense: '防禦',
+  damageBonus: '傷害',
+  damageReduction: '減傷',
+  critDamageTaken: '受到暴擊傷害',
+  manaCostReduction: '魔力消耗降低',
+  lifeSteal: '生命吸取',
+  manaSteal: '魔力吸取',
+  manaOnHit: '命中回復魔力',
+  hpRegenPct: '每秒回復生命',
 };
 
 /** 以百分比顯示的屬性 */
-const PERCENT_STATS: ReadonlySet<StatId> = new Set(['critChance']);
+const PERCENT_STATS: ReadonlySet<StatId> = new Set([
+  'critChance',
+  'castSpeed',
+  'damageBonus',
+  'damageReduction',
+  'critDamageTaken',
+  'manaCostReduction',
+  'lifeSteal',
+  'manaSteal',
+  'hpRegenPct',
+]);
 
 export const SLOT_LABELS: Record<EquipSlot, string> = {
   weapon: '武器',
@@ -64,6 +84,6 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
 
 export function formatValue(stat: StatId, kind: ModifierKind, value: number, signed: boolean): string {
   const sign = signed && value >= 0 ? '+' : '';
-  if (kind !== 'flat' || PERCENT_STATS.has(stat)) return `${sign}${Math.round(value * 100)}%`;
+  if (kind !== 'flat' || PERCENT_STATS.has(stat)) return `${sign}${Math.round(value * 1000) / 10}%`;
   return `${sign}${Number.isInteger(value) ? value : value.toFixed(1)}`;
 }

@@ -25,6 +25,8 @@ export const EnemyDefSchema = z
   skills: z.array(IdSchema).default([]),
   lootTable: IdSchema.optional(),
   xp: z.number().nonnegative(),
+  /** Boss：冰凍改為強力緩速 */
+  boss: z.boolean().default(false),
   })
   .refine((e) => e.ai === 'none' || e.skills.length > 0, { message: '有 AI 的怪物至少需要一個技能' });
 
