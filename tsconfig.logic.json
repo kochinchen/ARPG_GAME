@@ -1,0 +1,9 @@
+{
+  "//": "純邏輯層：刻意不含 DOM lib。src/core、src/data、src/game 若使用 window / document / requestAnimationFrame 會在這裡編譯失敗。",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": ["src/core/**/*.ts", "src/data/**/*.ts", "src/game/**/*.ts"]
+}
