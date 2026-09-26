@@ -83,6 +83,26 @@ export const balance: z.input<typeof BalanceSchema> = {
     radiusMultiplier: 1.2,
     lootTable: 'loot.elite',
   },
+  boss: {
+    // HP 一半以下狂暴：攻速、移速、傷害提高
+    enrageThreshold: 0.5,
+    enrage: [
+      { stat: 'attackSpeed', kind: 'increased', value: 0.3 },
+      { stat: 'moveSpeed', kind: 'increased', value: 0.2 },
+      { stat: 'damageBonus', value: 0.2 },
+    ],
+  },
+  shop: {
+    value: { base: 4, perItemLevel: 2, rarity: { normal: 1, magic: 2.5, rare: 6, legendary: 15 } },
+    buyMultiplier: 4,
+    stockSize: 6,
+    stockRarityWeights: { normal: 30, magic: 60, rare: 10, legendary: 0 },
+    potionBuyPrice: 12,
+    potionSellPrice: 3,
+    // 賭博：比直接買一件魔法物品便宜一點，但可能拿到普通或稀有
+    gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 60, rare: 25, legendary: 0 } },
+    range: 3,
+  },
   skillCategories: {
     melee: { manaCost: 0.85, lifeSteal: 1.3 },
     ranged: { manaCost: 1, lifeSteal: 1 },

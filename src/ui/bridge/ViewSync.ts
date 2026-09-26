@@ -5,6 +5,7 @@ import { buildCharacterView, characterSignature } from './CharacterView';
 import { gameView, type ComboBarView, type SkillSlotView } from './GameViewStore';
 import { buildInventoryView } from './InventoryView';
 import { buildSkillTreeView, skillTreeSignature } from './SkillTreeView';
+import { buildShopView, shopSignature } from './ShopView';
 
 const BANNER_SECONDS = 2.5;
 const DISCOVERY_SECONDS = 4.5;
@@ -17,6 +18,7 @@ export class ViewSync {
   private inventoryVersion = -1;
   private skillTreeSig = '';
   private characterSig = '';
+  private shopSig = '';
   private bannerTimer = 0;
   private discoveryTimer = 0;
 
@@ -34,6 +36,7 @@ export class ViewSync {
       window.clearTimeout(this.discoveryTimer);
       this.discoveryTimer = window.setTimeout(() => (gameView.discovery = null), DISCOVERY_SECONDS * 1000);
     });
+    events.on('ShopOpened', () => gameView.shopRequest++);
     events.on('LeaveFloorConfirm', (e) => {
       gameView.leavePrompt = { direction: e.direction, toFloor: e.toFloor, valuableItems: e.valuableItems };
     });
@@ -66,6 +69,8 @@ export class ViewSync {
     gameView.floor.total = floors.total;
     gameView.floor.remaining = floors.remainingToOpen;
     gameView.floor.exitOpen = floors.exitOpen;
+    gameView.floor.bossFloor = floors.bossFloor;
+    this.updateBoss();
     gameView.respawnIn = world.deathHandler.secondsUntilRespawn;
     gameView.respawnAt = world.checkpoints.respawn.kind === 'midway' ? '中途存檔點' : '樓梯口';
 
@@ -77,6 +82,11 @@ export class ViewSync {
     if (treeSig !== this.skillTreeSig) {
       this.skillTreeSig = treeSig;
       gameView.skillTree = buildSkillTreeView(world, this.data);
+    }
+    const shopSig = shopSignature(world);
+    if (shopSig !== this.shopSig) {
+      this.shopSig = shopSig;
+      gameView.shop = buildShopView(world, this.data);
     }
     const charSig = characterSignature(world);
     if (charSig !== this.characterSig) {
@@ -127,6 +137,23 @@ export class ViewSync {
       };
     });
     bar.supports = loadout.supports.flatMap((id) => (id === null || !this.data.skills.has(id) ? [] : [this.data.skills.get(id).name]));
+  }
+
+  /** Boss 發現玩家或玩家靠近時顯示上方大血條 */
+  private updateBoss(): void {
+    const world = this.world;
+    const boss = world.actors.find(
+      (a) => a.isBoss && a.alive && (a.ai?.state === 'chase' || Math.hypot(a.position.x - world.player.position.x, a.position.y - world.player.position.y) < 10),
+    );
+    if (!boss) {
+      gameView.boss = null;
+      return;
+    }
+    const view = gameView.boss ?? (gameView.boss = { name: '', hp: 0, max: 1, enraged: false });
+    view.name = boss.name;
+    view.hp = boss.hp;
+    view.max = boss.maxHp;
+    view.enraged = world.bosses.isEnraged(boss);
   }
 
   private showBanner(floor: number): void {

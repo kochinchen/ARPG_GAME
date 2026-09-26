@@ -23,6 +23,8 @@ export class DeathSystem {
         position: actor.position,
         xp: actor.xpReward,
         elite: actor.elite,
+        summoned: actor.summonedBy !== null,
+        boss: actor.isBoss,
       });
     }
   }

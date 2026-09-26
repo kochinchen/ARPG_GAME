@@ -5,6 +5,8 @@ defineProps<{
   entry: EntryView;
   /** 顯示在標題上方的小標，例如「目前裝備」 */
   caption?: string;
+  /** 商人貨架：購買價格 */
+  price?: number;
 }>();
 </script>
 
@@ -12,11 +14,12 @@ defineProps<{
   <div class="tooltip" :class="{ equipped: caption }">
     <div v-if="caption" class="caption">{{ caption }}</div>
     <div class="name" :class="`r-${entry.rarity}`">{{ entry.name }}</div>
-    <div class="slot">{{ entry.slotLabel }}</div>
+    <div class="slot">{{ entry.slotLabel }}<template v-if="entry.itemLevel > 0"> · 物品等級 {{ entry.itemLevel }}</template></div>
     <ul>
       <li v-for="line in entry.baseLines" :key="`b-${line}`" class="base">{{ line }}</li>
       <li v-for="line in entry.affixLines" :key="`a-${line}`" class="affix">{{ line }}</li>
     </ul>
+    <div class="price">賣出 {{ entry.sellPrice }} 金幣<template v-if="price !== undefined"> · 購買 {{ price }} 金幣</template></div>
   </div>
 </template>
 
@@ -31,6 +34,11 @@ defineProps<{
   background: rgb(8 7 6 / 95%);
   border: 1px solid #5c5045;
   box-shadow: 0 4px 16px rgb(0 0 0 / 70%);
+}
+.price {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #c8a25a;
 }
 .tooltip.equipped {
   border-color: #3d342c;

@@ -1,6 +1,6 @@
 import type { Rng } from '../../core/Rng';
 import type { DataRegistry } from '../../data/DataRegistry';
-import { AFFIX_COUNT, type AffixDef, type ItemBaseDef, type Rarity } from '../../data/schema/item';
+import { AFFIX_COUNT, type AffixDef, type EquipSlot, type ItemBaseDef, type Rarity } from '../../data/schema/item';
 import type { LootTableDef } from '../../data/schema/loot';
 import type { ItemInstance } from './ItemInstance';
 
@@ -31,6 +31,18 @@ export class ItemGenerator {
     const bases = this.data.items.all.filter((b) => b.levelReq <= itemLevel);
     if (bases.length === 0) throw new Error(`no item base for itemLevel ${itemLevel}`);
     return this.create(this.rng.pick(bases), rarity, itemLevel);
+  }
+
+  /** 指定裝備類別（賭博）：從該類別中等級需求符合的基底抽一件 */
+  generateForSlot(slot: EquipSlot, itemLevel: number, rarityWeights: LootTableDef['rarityWeights']): ItemInstance | null {
+    const bases = this.data.items.all.filter((b) => b.slot === slot && b.levelReq <= itemLevel);
+    if (bases.length === 0) return null;
+    return this.create(this.rng.pick(bases), this.rollRarity(rarityWeights), itemLevel);
+  }
+
+  /** 取一個新的 uid（商人販賣的物品在購買時換成主產生器的 uid，避免重複） */
+  newUid(): string {
+    return this.nextUid();
   }
 
   rollRarity(weights: LootTableDef['rarityWeights']): Rarity {

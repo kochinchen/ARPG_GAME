@@ -30,7 +30,7 @@ function sample(gold: number): SaveData {
     inventory: { cells, cursor: null },
     equipment: {},
     codex: [],
-    floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, exitOpen: false, killed: [], openedChests: {}, groundItems: [] },
+    floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, exitOpen: false, killed: [], openedChests: {}, groundItems: [], shopBought: [] },
     counters: { itemUidCounter: 0 },
   };
 }

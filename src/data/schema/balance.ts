@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { IdSchema, RangeSchema, StatIdSchema } from './common';
-import { EliteConfigSchema } from './elite';
+import { BossConfigSchema, EliteConfigSchema } from './elite';
 
 /** 屬性的一項效果：每點給 stat 一個 flat 加成 */
 export const AttributeEffectSchema = z.strictObject({
@@ -108,6 +108,30 @@ export const BalanceSchema = z.strictObject({
   }),
   /** 精英怪（每群隊長）的共通強化 */
   elite: EliteConfigSchema,
+  boss: BossConfigSchema,
+  /** 出口旁的商人：買、賣、賭博 */
+  shop: z.strictObject({
+    /** 物品價值 = (base + perItemLevel × 物品等級) × 稀有度倍率；賣出拿到價值，購買付 buyMultiplier 倍 */
+    value: z.strictObject({
+      base: z.number().nonnegative(),
+      perItemLevel: z.number().nonnegative(),
+      rarity: z.strictObject({ normal: z.number(), magic: z.number(), rare: z.number(), legendary: z.number() }),
+    }),
+    buyMultiplier: z.number().min(1),
+    /** 每層商人販賣的物品數量與稀有度（物品等級 = 樓層） */
+    stockSize: z.int().nonnegative(),
+    stockRarityWeights: z.strictObject({ normal: z.number(), magic: z.number(), rare: z.number(), legendary: z.number() }),
+    potionBuyPrice: z.int().positive(),
+    potionSellPrice: z.int().nonnegative(),
+    /** 賭博：價格 = base + perFloor × 樓層；結果的稀有度權重 */
+    gamble: z.strictObject({
+      base: z.int().positive(),
+      perFloor: z.int().nonnegative(),
+      rarityWeights: z.strictObject({ normal: z.number(), magic: z.number(), rare: z.number(), legendary: z.number() }),
+    }),
+    /** 離商人多遠內可以交易（Tile） */
+    range: z.number().positive(),
+  }),
   /** 近戰 / 遠程 / 魔法技能的共通倍率 */
   skillCategories: z.strictObject({ melee: CategoryTraitsSchema, ranged: CategoryTraitsSchema, magic: CategoryTraitsSchema }),
   combo: z.strictObject({

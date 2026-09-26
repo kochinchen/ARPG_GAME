@@ -2,6 +2,7 @@ import { reactive } from 'vue';
 import { emptyCharacterView } from './CharacterView';
 import { emptyInventoryView } from './InventoryView';
 import { emptySkillTreeView } from './SkillTreeView';
+import { emptyShopView } from './ShopView';
 
 export interface SkillSlotView {
   id: string;
@@ -48,7 +49,9 @@ export const gameView = reactive({
     supports: [] as string[],
   },
   /** 樓層進度（固定地圖模式 floor = 0） */
-  floor: { floor: 0, killed: 0, total: 0, remaining: 0, exitOpen: false },
+  floor: { floor: 0, killed: 0, total: 0, remaining: 0, exitOpen: false, bossFloor: false },
+  /** 交戰中的 Boss（畫面上方的大血條）；沒有時為 null */
+  boss: null as { name: string; hp: number; max: number; enraged: boolean } | null,
   /** 進入新樓層時顯示幾秒的橫幅 */
   floorBanner: null as number | null,
   /** 倒地中顯示的倒數秒數；存活為 null */
@@ -62,6 +65,9 @@ export const gameView = reactive({
   inventory: emptyInventoryView(),
   skillTree: emptySkillTreeView(),
   character: emptyCharacterView(),
+  shop: emptyShopView(),
+  /** 點了商人：每次 +1，UI 看到變化就開啟商店 */
+  shopRequest: 0,
   /** 存檔狀態：最後一次成功存檔的時間、錯誤訊息 */
   save: { lastSavedAt: '', error: null as string | null },
   /** 讀檔時的提示（從備份還原、資料修復），顯示幾秒 */

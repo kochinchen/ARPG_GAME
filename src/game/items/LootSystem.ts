@@ -24,7 +24,7 @@ export class LootSystem {
     events: GameEventBus,
   ) {
     events.on('ActorDied', (e) => {
-      if (e.faction !== 'enemy' || e.defId === null) return;
+      if (e.faction !== 'enemy' || e.defId === null || e.summoned) return;
       const table = this.data.enemies.get(e.defId).lootTable;
       if (table) this.drop(table, e.position);
       if (e.elite) this.drop(this.data.balance.elite.lootTable, e.position);

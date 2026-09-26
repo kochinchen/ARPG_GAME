@@ -150,6 +150,15 @@ export const DelayedEffectSchema = z.strictObject({
   },
 });
 
+/** 在施放者周圍召喚怪物（Boss 用）。召喚物不給經驗、不掉寶，也不計入樓層擊殺數 */
+export const SummonEffectSchema = z.strictObject({
+  type: z.literal('summon'),
+  enemyId: z.string(),
+  count: z.int().positive(),
+  /** 同一個施放者的召喚物同時存在的上限 */
+  maxAlive: z.int().positive(),
+});
+
 export const EffectDefSchema = z.discriminatedUnion('type', [
   DamageEffectSchema,
   StatusEffectSchema,
@@ -160,6 +169,7 @@ export const EffectDefSchema = z.discriminatedUnion('type', [
   ChainEffectSchema,
   ZoneEffectSchema,
   DelayedEffectSchema,
+  SummonEffectSchema,
 ]);
 
 export type DamageEffectDef = z.infer<typeof DamageEffectSchema>;
@@ -168,6 +178,7 @@ export type KnockbackEffectDef = z.infer<typeof KnockbackEffectSchema>;
 export type DashEffectDef = z.infer<typeof DashEffectSchema>;
 export type ProjectileEffectDef = z.infer<typeof ProjectileEffectSchema>;
 export type AreaEffectDef = z.infer<typeof AreaEffectSchema>;
+export type SummonEffectDef = z.infer<typeof SummonEffectSchema>;
 export type ChainEffectDef = z.infer<typeof ChainEffectSchema>;
 export type ZoneEffectDef = z.infer<typeof ZoneEffectSchema>;
 export type DelayedEffectDef = z.infer<typeof DelayedEffectSchema>;

@@ -2,6 +2,7 @@ import type { Vec2 } from '../core/math/Vec2';
 import type { ActorId } from './entities/Actor';
 import type { SkillCategory } from '../data/schema/skill';
 import type { EquipmentSlot } from './items/ItemInstance';
+import type { EquipSlot } from '../data/schema/item';
 
 /**
  * Input / UI 能對遊戲送出的所有指令。
@@ -13,11 +14,19 @@ import type { EquipmentSlot } from './items/ItemInstance';
  */
 export type GameCommand =
   /** 左鍵按下（held=false）或按住期間的重複送出（held=true） */
-  | { type: 'PrimaryAction'; worldPos: Vec2; targetId: ActorId | null; interactId?: number | null; held: boolean }
+  | {
+      type: 'PrimaryAction';
+      worldPos: Vec2;
+      targetId: ActorId | null;
+      interactId?: number | null;
+      held: boolean;
+      /** 按住 Shift：原地朝游標施放左鍵技能，不移動 */
+      standStill?: boolean;
+    }
   /** 左鍵放開 */
   | { type: 'PrimaryRelease' }
   /** 右鍵：依序施放目前選中的 Q / W / E 連段 */
-  | { type: 'CastRight'; worldPos: Vec2; targetId: ActorId | null }
+  | { type: 'CastRight'; worldPos: Vec2; targetId: ActorId | null; standStill?: boolean }
   /** Q / W / E：選擇右鍵要施放的連段 */
   | { type: 'SelectRightSlot'; slot: 0 | 1 | 2 }
   /** Space：同時回復 HP 與 MP */
@@ -38,6 +47,20 @@ export type GameCommand =
   | { type: 'SetSupportSlot'; slot: 0 | 1 | 2; skillId: string | null }
   /** 角色面板：把屬性點加到某個屬性（count 點，不足時加到用完為止） */
   | { type: 'AllocateAttribute'; attribute: string; count: number }
+  /** 背包「整理」：依裝備類別、物品等級（高到低）排列，藥水合併放最後 */
+  | { type: 'SortInventory' }
+  /** 商人：購買第 index 件販賣物品 */
+  | { type: 'ShopBuy'; index: number }
+  /** 商人：購買藥水 */
+  | { type: 'ShopBuyPotion'; count: number }
+  /** 商人：賣出背包某一格 */
+  | { type: 'ShopSell'; cell: number }
+  /** 商人：賣出手上拿著的物品 */
+  | { type: 'ShopSellHeld' }
+  /** 商人：賣出背包裡所有普通（白色）物品 */
+  | { type: 'ShopSellNormals' }
+  /** 商人：賭博，指定裝備類別 */
+  | { type: 'ShopGamble'; slot: EquipSlot }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 開發用：直接升一級（只有 dev 版的 Input 會送出） */

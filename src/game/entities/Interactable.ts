@@ -41,5 +41,12 @@ export interface StairsUp {
   position: Vec2;
 }
 
+/** 出口旁的商人：點擊開啟商店 */
+export interface Merchant {
+  kind: 'merchant';
+  id: number;
+  position: Vec2;
+}
+
 /** 玩家可以點擊互動的物件 */
-export type Interactable = GroundItem | Chest | ExitPortal | StairsUp;
+export type Interactable = GroundItem | Chest | ExitPortal | StairsUp | Merchant;

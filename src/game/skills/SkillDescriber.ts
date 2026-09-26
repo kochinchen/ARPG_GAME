@@ -93,6 +93,9 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
       case 'delayed':
         lines.push(e.repeat > 1 ? `共 ${e.repeat} 次：` : e.delay > 0 ? `${e.delay} 秒後：` : '', ...effectLines(e.effects, rank));
         break;
+      case 'summon':
+        lines.push(`召喚 ${e.count} 隻（最多同時 ${e.maxAlive} 隻）`);
+        break;
     }
   }
   return lines.filter((l) => l !== '');

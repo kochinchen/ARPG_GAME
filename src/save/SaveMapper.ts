@@ -74,6 +74,7 @@ export const SaveMapper = {
         killed: [...world.floors.killedSpawns],
         openedChests: Object.fromEntries([...world.floors.openedChests].map(([floor, set]) => [String(floor), [...set].sort((a, b) => a - b)])),
         groundItems: captureGround(world),
+        shopBought: world.shop.boughtIndices,
       },
       counters: { itemUidCounter: world.itemGenerator.uidCounter },
     };
@@ -151,6 +152,7 @@ export const SaveMapper = {
       killed: save.floor.killed,
       midwayActive: save.floor.midwayActive,
       exitOpen: save.floor.exitOpen,
+      shopBought: save.floor.shopBought,
     });
     for (const g of save.floor.groundItems) {
       const item = world.spawnGroundItem(vec2(g.x, g.y), toGroundContent(g.entry));
@@ -190,6 +192,7 @@ export function saveSignature(world: GameWorld): { immediate: string; normal: st
       l.supports.join(','),
       l.activeCombo,
       f.killed,
+      world.shop.version,
       world.chests.filter((c) => c.opened).length,
       ground.length,
       ground[ground.length - 1]?.id ?? 0,

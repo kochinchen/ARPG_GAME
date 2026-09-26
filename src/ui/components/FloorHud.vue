@@ -9,6 +9,7 @@ defineProps<{ floor: GameView['floor'] }>();
     <b>第 {{ floor.floor }} 層</b>
     · 擊敗 {{ floor.killed }} / {{ floor.total }} ·
     <span v-if="floor.exitOpen" class="exit-open">出口已開啟</span>
+    <span v-else-if="floor.bossFloor" class="boss">出口：擊敗 Boss 後開啟</span>
     <span v-else>出口：還需 {{ floor.remaining }} 隻</span>
   </div>
 </template>
@@ -31,5 +32,8 @@ b {
 }
 .exit-open {
   color: #c8a8ff;
+}
+.boss {
+  color: #ff7b6b;
 }
 </style>

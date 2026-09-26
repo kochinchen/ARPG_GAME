@@ -19,6 +19,7 @@ export const floors: z.input<typeof FloorDefSchema>[] = [
     // 精英怪第 3 層起出現（balance.elite.minFloor）
     eliteChance: 0.2,
     affixCount: [1, 1],
+    boss: { enemyId: 'enemy.skeleton_king', every: 5 },
     lootTier: 1,
     chests: [1, 2],
     chestLootTable: 'loot.chest',
@@ -40,6 +41,7 @@ export const floors: z.input<typeof FloorDefSchema>[] = [
     packSize: [3, 5],
     eliteChance: 0.3,
     affixCount: [1, 2],
+    boss: { enemyId: 'enemy.skeleton_king', every: 5 },
     lootTier: 2,
     chests: [1, 3],
     chestLootTable: 'loot.chest',

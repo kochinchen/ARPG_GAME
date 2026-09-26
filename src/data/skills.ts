@@ -719,4 +719,57 @@ const enemySkills: SkillInput[] = [
   },
 ];
 
-export const skills: SkillInput[] = [...special, ...withComboTags([...melee, ...ranged, ...magic]), ...support, ...enemySkills];
+// Boss 技能：特殊技能依序為優先順序（召喚 → 旋風 → 橫掃），冷卻好且在範圍內時使用
+const bossSkills: SkillInput[] = [
+  {
+    id: 'enemy.king_summon',
+    name: '亡者召喚',
+    description: '召喚 3 隻骷髏戰士（最多同時 6 隻）。',
+    targeting: 'self',
+    // 目標在 9 格內時使用
+    range: 9,
+    castTime: 1,
+    cooldown: 14,
+    tags: ['spell', 'summon'],
+    effects: [{ type: 'summon', enemyId: 'enemy.skeleton', count: 3, maxAlive: 6 }],
+  },
+  {
+    id: 'enemy.king_whirlwind',
+    name: '旋風斬',
+    description: '蓄力後旋轉，攻擊周圍所有敵人兩次。',
+    targeting: 'self',
+    // 目標在 2.2 格內時使用
+    range: 2.2,
+    castTime: 1.6,
+    impactAt: 0.75,
+    telegraph: true,
+    cooldown: 9,
+    tags: ['attack', 'melee', 'area'],
+    effects: [{ type: 'area', radius: 2.8, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 2, multiplier: 1.2 }] }],
+  },
+  {
+    id: 'enemy.king_cleave',
+    name: '王者橫掃',
+    description: '向前方 150° 重擊並擊退。',
+    targeting: 'enemy',
+    range: 1.6,
+    castTime: 1.4,
+    impactAt: 0.7,
+    telegraph: true,
+    cooldown: 5,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [
+      {
+        type: 'area',
+        radius: 2.6,
+        angleDeg: 150,
+        effects: [
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 2 },
+          { type: 'knockback', distance: 1.5 },
+        ],
+      },
+    ],
+  },
+];
+
+export const skills: SkillInput[] = [...special, ...withComboTags([...melee, ...ranged, ...magic]), ...support, ...enemySkills, ...bossSkills];

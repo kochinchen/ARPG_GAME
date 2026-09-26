@@ -27,6 +27,18 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     rarityWeights: { normal: 25, magic: 50, rare: 25, legendary: 0 },
   },
   {
+    // Boss：大量掉落、稀有機率高
+    id: 'loot.boss',
+    rolls: 6,
+    entries: [
+      { kind: 'item', weight: 70 },
+      { kind: 'potion', weight: 15 },
+      { kind: 'gold', weight: 15 },
+    ],
+    gold: [40, 90],
+    rarityWeights: { normal: 10, magic: 50, rare: 40, legendary: 0 },
+  },
+  {
     id: 'loot.chest',
     rolls: 3,
     entries: [

@@ -17,6 +17,12 @@ export const EliteAffixDefSchema = z.strictObject({
 
 export type EliteAffixDef = z.infer<typeof EliteAffixDefSchema>;
 
+/** Boss 狂暴：HP 降到 threshold 以下時一次性套用 modifiers */
+export const BossConfigSchema = z.strictObject({
+  enrageThreshold: z.number().gt(0).lt(1),
+  enrage: z.array(z.strictObject({ stat: StatIdSchema, kind: ModifierKindSchema.default('flat'), value: z.number() })).min(1),
+});
+
 /** 精英怪的共通強化 */
 export const EliteConfigSchema = z.strictObject({
   /** 第幾層開始出現精英怪 */

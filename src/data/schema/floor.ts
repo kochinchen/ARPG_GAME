@@ -21,6 +21,8 @@ export const FloorDefSchema = z.strictObject({
   packSize: RangeSchema.default([2, 4]),
   /** 每一群的隊長成為精英怪的機率（balance.elite.minFloor 之前不會出現） */
   eliteChance: z.number().min(0).max(1).default(0),
+  /** Boss 層：樓層號是 every 的倍數時，在出口前生成 Boss；擊敗 Boss 後出口才開啟 */
+  boss: z.strictObject({ enemyId: IdSchema, every: z.int().positive() }).optional(),
   /** 精英怪的詞綴數量範圍 */
   affixCount: RangeSchema.default([1, 1]),
   lootTier: z.int().positive(),

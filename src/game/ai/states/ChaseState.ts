@@ -52,7 +52,13 @@ export class ChaseState implements IAiState {
     for (const id of brain.specialSkills) {
       if ((self.cooldowns.get(id) ?? 0) > 0 || !skills.has(id)) continue;
       const skill = skills.get(id);
-      const reach = skill.targeting === 'ground' ? (skill.range ?? 0) : skillReach(self, skill) + target.radius;
+      // 地面技能：施放距離；對自己施放（旋風、召喚）：range 是「目標在多近時使用」
+      const reach =
+        skill.targeting === 'ground'
+          ? (skill.range ?? 0)
+          : skill.targeting === 'self'
+            ? (skill.range ?? 0) + self.radius + target.radius
+            : skillReach(self, skill) + target.radius;
       if (distance(self.position, target.position) <= reach) return id;
     }
     return null;

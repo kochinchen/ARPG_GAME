@@ -5,6 +5,7 @@ import { slotsForBase } from '../../game/items/Equipment';
 import type { InventoryEntry } from '../../game/items/Inventory';
 import { describeItem, formatValue, SLOT_LABELS, STAT_LABELS } from '../../game/items/ItemDescriber';
 import { EQUIPMENT_SLOTS, type EquipmentSlot, type ItemInstance } from '../../game/items/ItemInstance';
+import { itemValue, sellPrice } from '../../game/items/Pricing';
 
 export type { EquipmentSlot };
 
@@ -20,6 +21,10 @@ export interface EntryView {
   /** 物品可以穿在哪些裝備欄（比較用） */
   equipSlots: EquipmentSlot[];
   count: number;
+  /** 物品等級（藥水為 0） */
+  itemLevel: number;
+  /** 賣給商人的價格 */
+  sellPrice: number;
 }
 
 export interface InventoryView {
@@ -79,9 +84,8 @@ export function emptyInventoryView(): InventoryView {
   return { cols: 0, rows: 0, cells: [], equipment: [], held: null, stats: [] };
 }
 
-/** 由 GameWorld 產生背包面板的唯讀快照（world.itemsVersion 變動時才重建） */
-export function buildInventoryView(world: GameWorld, data: DataRegistry): InventoryView {
-  const itemView = (item: ItemInstance): EntryView => {
+/** 單一物品的顯示資料（背包、商人貨架共用） */
+export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView {
     const d = describeItem(item, data);
     return {
       kind: 'item',
@@ -93,8 +97,14 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
       affixLines: d.affixLines,
       equipSlots: slotsForBase(d.slot),
       count: 1,
+      itemLevel: item.itemLevel,
+      sellPrice: itemValue(item, data),
     };
-  };
+}
+
+/** 由 GameWorld 產生背包面板的唯讀快照（world.itemsVersion 變動時才重建） */
+export function buildInventoryView(world: GameWorld, data: DataRegistry): InventoryView {
+  const itemView = (item: ItemInstance): EntryView => itemEntryView(item, data);
   const entryView = (entry: InventoryEntry | null): EntryView | null => {
     if (!entry) return null;
     if (entry.kind === 'item') return itemView(entry.item);
@@ -113,6 +123,8 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
       affixLines: [],
       equipSlots: [],
       count: entry.count,
+      itemLevel: 0,
+      sellPrice: sellPrice(entry, data),
     };
   };
   const stats = world.player.stats;

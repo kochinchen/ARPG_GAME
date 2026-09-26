@@ -73,12 +73,19 @@ export class SkillSystem {
     switch (skill.targeting) {
       case 'enemy': {
         const target = intent.targetId === null ? null : this.targeting.getValidTarget(actor, intent.targetId);
+        const inReach = target !== null && distance(actor.position, target.position) <= skillReach(actor, skill) + target.radius;
+        // 原地施放：不追目標；目標不在範圍內就朝游標方向出手（投射物照樣飛出、揮砍打到前方的敵人）
+        if (intent.stationary && !inReach) {
+          actor.path = [];
+          point = intent.point;
+          break;
+        }
         if (!target) {
           actor.intent = null;
           actor.path = [];
           return;
         }
-        if (distance(actor.position, target.position) > skillReach(actor, skill) + target.radius) {
+        if (!inReach) {
           this.approach(actor, target.position);
           return;
         }
@@ -156,9 +163,9 @@ export class SkillSystem {
   private fire(actor: Actor): void {
     const cast = actor.cast!;
     let target: Actor | null = null;
-    if (cast.skill.targeting === 'enemy') {
+    if (cast.skill.targeting === 'enemy' && cast.targetId !== null) {
       // 出手瞬間目標已死亡就揮空
-      target = cast.targetId === null ? null : this.targeting.getValidTarget(actor, cast.targetId);
+      target = this.targeting.getValidTarget(actor, cast.targetId);
       if (!target) return;
     }
     const origin = cast.skill.targeting === 'ground' ? cast.point : actor.position;

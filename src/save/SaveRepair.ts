@@ -185,6 +185,7 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
       midwayActive: false,
       exitOpen: save.floor.current < save.floor.highest,
       killed: [],
+      shopBought: [],
       openedChests: Object.fromEntries(Object.entries(save.floor.openedChests).filter(([f]) => Number(f) !== save.floor.current)),
       groundItems: [],
     };

@@ -51,14 +51,15 @@ export class PlayerController {
     if (!this.player.alive) return;
     switch (command.type) {
       case 'PrimaryAction':
-        if (command.held) this.onPrimaryHeld(command.worldPos, command.targetId);
+        if (command.standStill && !this.items.holding) this.castInPlace(command.worldPos, command.targetId, command.held);
+        else if (command.held) this.onPrimaryHeld(command.worldPos, command.targetId);
         else this.onPrimaryPressed(command.worldPos, command.targetId, command.interactId ?? null);
         break;
       case 'PrimaryRelease':
         this.onPrimaryReleased();
         break;
       case 'CastRight':
-        this.castRight(command.worldPos, command.targetId);
+        this.castRight(command.worldPos, command.targetId, command.standStill ?? false);
         break;
       case 'SelectRightSlot':
         this.loadout.select(command.slot);
@@ -93,9 +94,36 @@ export class PlayerController {
       case 'DebugLevelUp':
       case 'DebugSpawnChests':
       case 'ConfirmLeaveFloor':
+      case 'SortInventory':
+      case 'ShopBuy':
+      case 'ShopBuyPotion':
+      case 'ShopSell':
+      case 'ShopSellHeld':
+      case 'ShopSellNormals':
+      case 'ShopGamble':
         // 由 GameWorld 處理
         break;
     }
+  }
+
+  /**
+   * Shift + 左鍵：站在原地朝游標施放左鍵技能（遠程、魔法好操作）。
+   * 游標下有敵人且在範圍內時打那個敵人；否則朝游標方向出手。按住則持續施放、方向跟著游標。
+   */
+  private castInPlace(worldPos: Vec2, targetId: number | null, held: boolean): void {
+    if (!held) this.castCountAtPress = this.player.castCount;
+    this.holdMode = 'attack';
+    this.interaction.clear();
+    this.combos.cancel(this.player);
+    const target = this.resolveTarget(worldPos, targetId);
+    this.player.path = [];
+    this.player.intent = {
+      skillId: this.loadout.left,
+      targetId: target?.id ?? null,
+      point: target?.position ?? worldPos,
+      hold: true,
+      stationary: true,
+    };
   }
 
   private onPrimaryPressed(worldPos: Vec2, targetId: number | null, interactId: number | null): void {
@@ -147,7 +175,7 @@ export class PlayerController {
     else intent.hold = false;
   }
 
-  private castRight(worldPos: Vec2, targetId: number | null): void {
+  private castRight(worldPos: Vec2, targetId: number | null, stationary: boolean): void {
     // 連段施放中：忽略（按住右鍵時，等這一組結束後的下一次指令再開始）
     if (this.combos.isRunning(this.player)) return;
     // 只施放已解鎖的格子；空格跳過
@@ -160,7 +188,9 @@ export class PlayerController {
     const point = target?.position ?? worldPos;
     this.interaction.clear();
     this.player.intent = null;
-    this.combos.start(this.player, steps, target?.id ?? null, point);
+    // Shift：原地施放整組連段（目標不在範圍內時朝游標方向出手）
+    if (stationary) this.player.path = [];
+    this.combos.start(this.player, steps, target?.id ?? null, point, stationary);
   }
 
   private resolveTarget(worldPos: Vec2, targetId: number | null): Actor | null {

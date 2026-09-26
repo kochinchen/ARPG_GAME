@@ -9,9 +9,12 @@ import { AiSystem } from './ai/AiSystem';
 import { DamagePipeline } from './combat/DamagePipeline';
 import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
+import { BossSystem } from './enemies/BossSystem';
 import { EnemyFactory } from './enemies/EnemyFactory';
 import { Actor } from './entities/Actor';
-import type { Chest, ExitPortal, GroundContent, GroundItem, StairsUp } from './entities/Interactable';
+import type { Chest, ExitPortal, GroundContent, GroundItem, Merchant, StairsUp } from './entities/Interactable';
+import { ShopSystem } from './items/ShopSystem';
+import { sortInventory } from './items/InventorySort';
 import type { Projectile } from './entities/Projectile';
 import { ChestSystem } from './items/ChestSystem';
 import { Equipment } from './items/Equipment';
@@ -51,7 +54,7 @@ import { CheckpointSystem } from './world/CheckpointSystem';
 import { scaleForFloor } from './world/DifficultyScaler';
 import { FloorManager } from './world/FloorManager';
 import { SpawnSystem } from './world/SpawnSystem';
-import { findMarker } from '../data/mapAnalysis';
+import { findMarker, reachableTiles } from '../data/mapAnalysis';
 import { TargetingService } from './targeting/TargetingService';
 
 /** 讀檔時還原本層狀態（一般換層不需要） */
@@ -60,6 +63,8 @@ export interface FloorRestore {
   killed: readonly number[];
   midwayActive: boolean;
   exitOpen: boolean;
+  /** 商人貨架已買走的位置 */
+  shopBought?: readonly number[];
 }
 
 export interface GameWorldOptions {
@@ -83,6 +88,8 @@ export class GameWorld {
   exit: ExitPortal | null = null;
   /** 往上的樓梯（第 2 層以上） */
   stairsUp: StairsUp | null = null;
+  /** 出口旁的商人（固定地圖模式沒有） */
+  merchant: Merchant | null = null;
   readonly checkpoints: CheckpointSystem;
   readonly floors: FloorManager;
   readonly actors: Actor[] = [];
@@ -116,6 +123,8 @@ export class GameWorld {
   private readonly comboSlotLevels: readonly number[];
   readonly deathHandler: DeathHandler;
   readonly itemGenerator: ItemGenerator;
+  readonly bosses: BossSystem;
+  readonly shop: ShopSystem;
   /** 累計遊戲時間（秒，只算有執行的 Tick） */
   playTime = 0;
 
@@ -162,6 +171,7 @@ export class GameWorld {
       rng: rng.fork('effects'),
       scheduler: this.scheduler,
       categoryTraits: data.balance.skillCategories,
+      summon: (caster, enemyId, count, maxAlive) => this.summon(caster, enemyId, count, maxAlive),
       spawnProjectile: (p) => {
         this.projectiles.push({ ...p, id: this.nextProjectileId++ });
       },
@@ -175,6 +185,7 @@ export class GameWorld {
     this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events, data.skills);
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
+    this.bosses = new BossSystem(data.balance.boss, this.events);
 
     const p = data.balance.player;
     const start = markerPoint(this.map, MAP_TILES.spawn)!;
@@ -254,6 +265,18 @@ export class GameWorld {
       () => this.itemLevel,
       this.events,
     );
+    this.shop = new ShopSystem(
+      {
+        player: this.player,
+        inventory: this.inventory,
+        cursor: this.cursor,
+        wallet: this.wallet,
+        generator: this.itemGenerator,
+        potionId: p.potionId,
+      },
+      data,
+      this.events,
+    );
     this.deathHandler = new DeathHandler(this.player, this.events, () => this.checkpoints.respawn.position, p.respawnDelay);
     // 寶箱只能開一次：記錄每層已開啟的寶箱（開發用生成的寶箱沒有索引，不記錄）
     this.events.on('ChestOpened', (e) => {
@@ -317,22 +340,79 @@ export class GameWorld {
       const actor = this.addActor(this.enemyFactory.create(enemyDef, this.nextActorId++, request.position, scaling, eliteSpec));
       spawnedIds.push([actor.id, index]);
     });
+    // Boss 層：Boss 放在出口前方，生成索引接在一般怪物之後（存檔的擊殺紀錄一併適用）
+    const bossIndex = def.boss && floor % def.boss.every === 0 ? plan.length : undefined;
+    if (bossIndex !== undefined && !killed.has(bossIndex)) {
+      const bossDef = this.data.enemies.get(def.boss!.enemyId);
+      const boss = this.addActor(this.enemyFactory.create(bossDef, this.nextActorId++, this.bossSpot(bossDef.radius), scaling));
+      spawnedIds.push([boss.id, bossIndex]);
+    }
+    const monsterCount = plan.length + (bossIndex === undefined ? 0 : 1);
     spawner.planChests(rng.int(def.chests[0], def.chests[1]), safe).forEach((position, index) => {
       const opened = this.floors.isChestOpened(floor, index);
       this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position, lootTable: def.chestLootTable, opened, spawnIndex: index });
     });
-    this.floors.begin(floor, plan.length, {
-      killed: plan.flatMap((_, i) => (killed.has(i) ? [i] : [])),
+    this.floors.begin(floor, monsterCount, {
+      killed: [...killed].filter((i) => i < monsterCount),
       exitOpen: (restore?.exitOpen ?? false) || floor < this.progress.highestFloor,
+      ...(bossIndex === undefined ? {} : { bossIndex }),
     });
     for (const [actorId, index] of spawnedIds) this.floors.trackSpawn(actorId, index);
     if (this.exit) this.exit.open = this.floors.exitOpen;
     this.stairsUp = floor >= 2 ? { kind: 'stairsUp', id: this.nextInteractableId++, position: this.spawnPoint } : null;
+    // 商人擺在出口旁；貨架由世界種子 + 樓層決定
+    const merchantAt = this.exit ? this.spotNear(this.exit.position, 2, 0.4) : null;
+    this.merchant = merchantAt ? { kind: 'merchant', id: this.nextInteractableId++, position: merchantAt } : null;
+    this.shop.open(floor, merchantAt, new Rng(this.seed).fork(`shop-${floor}`), restore?.shopBought);
     if (restore?.midwayActive) {
       this.checkpoints.restoreMidway();
       this.placePlayer(this.checkpoints.respawn.position);
     }
     this.events.emit('FloorEntered', { floor, mapId: this.map.id });
+  }
+
+  /** Boss 的位置：出口前方約 4.5 格 */
+  private bossSpot(radius: number): Vec2 {
+    return this.spotNear(this.exit?.position ?? this.spawnPoint, 4.5, radius);
+  }
+
+  /** 離 target 約 distance 格、從樓梯口走得到的空地（同一張地圖一定是同一個位置） */
+  private spotNear(target: Vec2, distance: number, radius: number): Vec2 {
+    const exit = target;
+    const stairs = findMarker(this.map, MAP_TILES.spawn)!;
+    let best: Vec2 = exit;
+    let bestScore = Infinity;
+    for (const key of reachableTiles(this.map, stairs)) {
+      const [x, y] = key.split(',').map(Number) as [number, number];
+      const p = tileCenter(vec2(x, y));
+      if (!this.nav.isClearAt(p, radius)) continue;
+      const score = Math.abs(Math.hypot(p.x - exit.x, p.y - exit.y) - distance);
+      if (score < bestScore) {
+        best = p;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  /** 召喚怪物（Boss 技能）：在施放者周圍的空地生成，立刻追擊施放者的目標 */
+  private summon(caster: Actor, enemyId: string, count: number, maxAlive: number): void {
+    const alive = this.actors.filter((a) => a.alive && a.summonedBy === caster.id).length;
+    const def = this.data.enemies.get(enemyId);
+    const scaling = scaleForFloor(Math.max(1, this.floors.floor), this.data.balance.difficulty);
+    let spawned = 0;
+    for (let i = 0; i < 12 && spawned < Math.min(count, maxAlive - alive); i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const p = vec2(caster.position.x + Math.cos(angle) * 1.4, caster.position.y + Math.sin(angle) * 1.4);
+      if (!this.nav.isClearAt(p, def.radius)) continue;
+      const minion = this.enemyFactory.create(def, this.nextActorId++, p, { ...scaling, xp: 0 }, undefined, caster.id);
+      if (minion.ai && caster.ai?.targetId != null) {
+        minion.ai.targetId = caster.ai.targetId;
+        minion.ai.state = 'chase';
+      }
+      this.addActor(minion);
+      spawned++;
+    }
   }
 
   /** 固定地圖模式：地圖內擺放的怪物與寶箱 */
@@ -357,7 +437,9 @@ export class GameWorld {
     this.groundItems.length = 0;
     this.chests.length = 0;
     this.stairsUp = null;
+    this.merchant = null;
     this.scheduler.clear();
+    this.bosses.clear();
     this.combos.cancel(this.player);
     this.interaction.clear();
     this.statuses.clear(this.player);
@@ -382,11 +464,16 @@ export class GameWorld {
   /** 玩家點了出口。地上還有稀有以上物品時先詢問（換層後地上物品會消失） */
   useExit(): void {
     if (!this.floors.exitOpen) {
-      this.events.emit('ExitLocked', { remaining: this.floors.remainingToOpen });
+      this.events.emit('ExitLocked', { remaining: this.floors.remainingToOpen, boss: this.floors.bossFloor });
       return;
     }
     if (this.askBeforeLeaving('down')) return;
     this.floors.requestDescend();
+  }
+
+  /** 玩家點了商人（UI 開啟商店） */
+  openShop(): void {
+    if (this.shop.isNear()) this.events.emit('ShopOpened', {});
   }
 
   /** 玩家點了往上的樓梯 */
@@ -435,6 +522,27 @@ export class GameWorld {
         return true;
       case 'DebugSpawnChests':
         this.spawnChestsNear(this.player.position, command.count);
+        return true;
+      case 'SortInventory':
+        sortInventory(this.inventory, this.data);
+        return true;
+      case 'ShopBuy':
+        this.shop.buy(command.index);
+        return true;
+      case 'ShopBuyPotion':
+        this.shop.buyPotions(command.count);
+        return true;
+      case 'ShopSell':
+        this.shop.sellCell(command.cell);
+        return true;
+      case 'ShopSellHeld':
+        this.shop.sellHeld();
+        return true;
+      case 'ShopSellNormals':
+        this.shop.sellNormals();
+        return true;
+      case 'ShopGamble':
+        this.shop.gamble(command.slot);
         return true;
       case 'ConfirmLeaveFloor':
         if (this.player.alive) this.confirmLeave(command.direction);
@@ -486,6 +594,7 @@ export class GameWorld {
     this.potions.update(dt);
     this.regen.update(this.actors, dt);
     this.statuses.update(this.actors, dt, this.pipeline);
+    this.bosses.update(this.actors);
     this.ai.update(this.actors);
     this.combos.update(this.actors);
     this.skills.update(this.actors, dt);

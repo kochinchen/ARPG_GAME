@@ -8,6 +8,7 @@ import type { EffectContext, IEffect } from './effects/IEffect';
 import { KnockbackEffect } from './effects/KnockbackEffect';
 import { ProjectileEffect } from './effects/ProjectileEffect';
 import { StatusEffect } from './effects/StatusEffect';
+import { SummonEffect } from './effects/SummonEffect';
 import { ZoneEffect } from './effects/ZoneEffect';
 
 /**
@@ -27,6 +28,7 @@ export class EffectRegistry {
     chain: new ChainEffect(),
     zone: new ZoneEffect(),
     delayed: new DelayedEffect(),
+    summon: new SummonEffect(),
   };
 
   apply(def: EffectDef, ctx: EffectContext): void {

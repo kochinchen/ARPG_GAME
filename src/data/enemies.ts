@@ -101,4 +101,24 @@ export const enemies: z.input<typeof EnemyDefSchema>[] = [
     lootTable: 'loot.skeleton',
     xp: 22,
   },
+  {
+    // Boss（每 5 層）：召喚骷髏、旋風斬、橫掃重擊（都有前搖提示）；HP 一半以下狂暴
+    id: 'enemy.skeleton_king',
+    name: '骷髏王',
+    hp: 500,
+    damage: [6, 11],
+    defense: 25,
+    moveSpeed: 2.4,
+    radius: 0.5,
+    attackRange: 0.6,
+    attackSpeed: 0.9,
+    detectRange: 9,
+    // 不會因為被拉遠而放棄（Boss 戰不應該靠脫戰重置）
+    leashRange: 60,
+    ai: 'melee',
+    skills: ['basic.attack', 'enemy.king_summon', 'enemy.king_whirlwind', 'enemy.king_cleave'],
+    lootTable: 'loot.boss',
+    xp: 400,
+    boss: true,
+  },
 ];

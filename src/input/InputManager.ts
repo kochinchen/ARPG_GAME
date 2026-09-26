@@ -29,6 +29,8 @@ export interface InputAdapters {
 export class InputManager {
   private leftHeld = false;
   private rightHeld = false;
+  /** 按住 Shift：原地施放 */
+  private shiftHeld = false;
   private pointer: Vec2 = vec2(0, 0);
   private lastRepeat = 0;
   private lastRightRepeat = 0;
@@ -46,10 +48,17 @@ export class InputManager {
       if (e.button === 2) this.rightHeld = false;
     });
     this.listen(window, 'blur', () => {
+      this.shiftHeld = false;
       this.releaseLeft();
       this.rightHeld = false;
     });
-    this.listen(window, 'keydown', (e) => this.onKeyDown(e));
+    this.listen(window, 'keydown', (e) => {
+      if (e.key === 'Shift') this.shiftHeld = true;
+      this.onKeyDown(e);
+    });
+    this.listen(window, 'keyup', (e) => {
+      if (e.key === 'Shift') this.shiftHeld = false;
+    });
     this.listen(target, 'contextmenu', (e) => e.preventDefault());
   }
 
@@ -63,11 +72,11 @@ export class InputManager {
     if (this.paused) return;
     if (this.leftHeld && now - this.lastRepeat >= HOLD_REPEAT_INTERVAL) {
       this.lastRepeat = now;
-      this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: true });
+      this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: true, standStill: this.shiftHeld });
     }
     if (this.rightHeld && now - this.lastRightRepeat >= HOLD_REPEAT_INTERVAL) {
       this.lastRightRepeat = now;
-      this.commands.push({ type: 'CastRight', ...this.pointerTarget() });
+      this.commands.push({ type: 'CastRight', ...this.pointerTarget(), standStill: this.shiftHeld });
     }
   }
 
@@ -82,15 +91,16 @@ export class InputManager {
 
   private onPointerDown(e: PointerEvent): void {
     this.updatePointer(e);
+    this.shiftHeld = e.shiftKey;
     if (this.paused) return;
     if (e.button === 0) {
       this.leftHeld = true;
       this.lastRepeat = e.timeStamp / 1000;
-      this.commands.push({ type: 'PrimaryAction', ...this.primaryTarget(), held: false });
+      this.commands.push({ type: 'PrimaryAction', ...this.primaryTarget(), held: false, standStill: this.shiftHeld });
     } else if (e.button === 2) {
       this.rightHeld = true;
       this.lastRightRepeat = e.timeStamp / 1000;
-      this.commands.push({ type: 'CastRight', ...this.pointerTarget() });
+      this.commands.push({ type: 'CastRight', ...this.pointerTarget(), standStill: this.shiftHeld });
     }
   }
 

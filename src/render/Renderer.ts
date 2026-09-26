@@ -107,6 +107,18 @@ export class Renderer {
     world.events.on('PlayerLeveledUp', (e) => {
       this.floatingText.spawnText(projection.toScreen(world.player.position), `升級！Lv ${e.level}`, PALETTE.marker, 20);
     });
+    world.events.on('ShopTransaction', (e) => {
+      const text = e.kind === 'sell' ? `+${e.gold} 金幣` : `${e.gold} 金幣`;
+      say(world.player.position, text, PALETTE.marker);
+    });
+    world.events.on('ShopFailed', (e) => {
+      const text = { gold: '金幣不足', inventoryFull: '背包已滿', far: '離商人太遠' }[e.reason];
+      say(world.player.position, text, PALETTE.manaText);
+    });
+    world.events.on('BossEnraged', (e) => {
+      const boss = world.targeting.getActor(e.actorId);
+      if (boss) this.floatingText.spawnText(projection.toScreen(boss.position), `${e.name} 狂暴了！`, PALETTE.critText, 20);
+    });
     world.events.on('MasteryAchieved', () => say(world.player.position, '精通！其他類別開放', PALETTE.manaText));
     world.events.on('ComboCompleted', (e) => {
       this.floatingText.spawnText(projection.toScreen(world.player.position), e.name, PALETTE.critText, 18);
@@ -114,7 +126,9 @@ export class Renderer {
     world.events.on('ComboInterrupted', () => say(world.player.position, '連段中斷', PALETTE.manaText));
     world.events.on('CheckpointActivated', (e) => say(e.position, '存檔點已啟動', PALETTE.manaText));
     world.events.on('ExitOpened', () => say(world.player.position, '出口已開啟', 0xe0c8ff));
-    world.events.on('ExitLocked', (e) => say(world.player.position, `還需擊敗 ${e.remaining} 隻`, PALETTE.manaText));
+    world.events.on('ExitLocked', (e) =>
+      say(world.player.position, e.boss ? '擊敗 Boss 後出口才會開啟' : `還需擊敗 ${e.remaining} 隻`, PALETTE.manaText),
+    );
     world.events.on('StatusTriggered', (e) => {
       const actor = world.targeting.getActor(e.actorId);
       if (!actor) return;
@@ -132,7 +146,8 @@ export class Renderer {
     const local = sub(screen, this.camera.offset);
     const exit = this.world.exit ? [this.world.exit] : [];
     const stairs = this.world.stairsUp ? [this.world.stairsUp] : [];
-    return this.interactables.pickAt(local, [...stairs, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
+    const merchant = this.world.merchant ? [this.world.merchant] : [];
+    return this.interactables.pickAt(local, [...stairs, ...merchant, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
   }
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
@@ -178,7 +193,7 @@ export class Renderer {
     this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos);
     this.interactables.setHovered(this.hoveredInteractable);
-    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp);
+    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchant);
     this.markers.update(this.app.ticker.lastTime);
     this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
     this.floatingText.update(dt);

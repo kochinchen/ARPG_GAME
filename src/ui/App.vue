@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { gameView } from './bridge/GameViewStore';
 import { resolveHover, type HoverTarget } from './bridge/InventoryView';
 import { systemBridge } from './bridge/SystemBridge';
+import BossBar from './components/BossBar.vue';
 import CharacterPanel from './components/CharacterPanel.vue';
 import DevOverlay from './components/DevOverlay.vue';
 import FloorHud from './components/FloorHud.vue';
@@ -15,6 +16,7 @@ import MenuBar, { type PanelName } from './components/MenuBar.vue';
 import Notices from './components/Notices.vue';
 import PauseMenu from './components/PauseMenu.vue';
 import SkillTreePanel from './components/SkillTreePanel.vue';
+import ShopPanel from './components/ShopPanel.vue';
 
 const props = defineProps<{ devAvailable: boolean }>();
 
@@ -22,6 +24,22 @@ const props = defineProps<{ devAvailable: boolean }>();
 const open = reactive<Record<PanelName, boolean>>({ character: false, skills: false, inventory: false, menu: false });
 const pointer = ref({ x: 0, y: 0 });
 const hoverTarget = ref<HoverTarget | null>(null);
+/** 商店：點商人時開啟（同時打開背包），離開商人附近自動關閉 */
+const shopOpen = ref(false);
+watch(
+  () => gameView.shopRequest,
+  () => {
+    shopOpen.value = true;
+    open.inventory = true;
+    open.character = open.skills = false;
+  },
+);
+watch(
+  () => gameView.shop.near,
+  (near) => {
+    if (!near) shopOpen.value = false;
+  },
+);
 /** 依最新快照計算，穿脫或交換後 Tooltip 立即更新 */
 const hovered = computed(() => resolveHover(gameView.inventory, hoverTarget.value));
 
@@ -50,6 +68,8 @@ function toggle(panel: PanelName, value = !open[panel]) {
   open[panel] = value;
   if (value && panel === 'character') open.skills = false;
   if (value && panel === 'skills') open.character = false;
+  // 商店也在左側
+  if (value && (panel === 'character' || panel === 'skills')) shopOpen.value = false;
   if (!open.inventory) hoverTarget.value = null;
 }
 watch(
@@ -59,6 +79,7 @@ watch(
 
 function closeAll() {
   open.character = open.skills = open.inventory = false;
+  shopOpen.value = false;
   hoverTarget.value = null;
 }
 
@@ -82,7 +103,7 @@ function onKeyDown(e: KeyboardEvent) {
       // 依序：確認對話框 → 選單 → 面板 → 開啟選單
       if (gameView.leavePrompt) gameView.leavePrompt = null;
       else if (open.menu) open.menu = false;
-      else if (open.character || open.skills || open.inventory) closeAll();
+      else if (open.character || open.skills || open.inventory || shopOpen.value) closeAll();
       else open.menu = true;
       break;
   }
@@ -113,6 +134,7 @@ onBeforeUnmount(() => {
 
 <template>
   <FloorHud :floor="gameView.floor" />
+  <BossBar v-if="gameView.boss" :boss="gameView.boss" />
   <DevOverlay v-if="gameView.dev.enabled" :dev="gameView.dev" />
   <Notices :view="gameView" />
 
@@ -126,10 +148,12 @@ onBeforeUnmount(() => {
 
   <SkillTreePanel v-if="open.skills" :view="gameView.skillTree" @close="open.skills = false" />
   <CharacterPanel v-if="open.character" :view="gameView.character" @close="open.character = false" />
+  <ShopPanel v-if="shopOpen" :view="gameView.shop" @close="shopOpen = false" />
   <InventoryPanel
     v-if="open.inventory"
     :view="gameView.inventory"
     :gold="gameView.hud.gold"
+    :shop-open="shopOpen"
     @close="toggle('inventory', false)"
     @hover="onHover"
   />

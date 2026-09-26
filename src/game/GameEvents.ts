@@ -5,6 +5,7 @@ import type { ActorId, Faction } from './entities/Actor';
 import type { SkillCategory } from '../data/schema/skill';
 import type { StatusKind } from '../data/schema/effects';
 import type { EquipmentSlot } from './items/ItemInstance';
+import type { Rarity } from '../data/schema/item';
 
 /**
  * 遊戲事件清單。一件事發生、多個系統要反應時使用（見 ARCHITECTURE.md 第 G 節）。
@@ -60,13 +61,18 @@ export interface GameEvents {
     xp: number;
     /** 精英怪：另外掉落精英掉落表 */
     elite: boolean;
+    /** 召喚物：不掉寶、不計入樓層擊殺 */
+    summoned: boolean;
+    boss: boolean;
   };
+  /** Boss HP 降到一半以下，進入狂暴 */
+  BossEnraged: { actorId: ActorId; name: string };
   /** 進入某一層（含第一次進入遊戲） */
   FloorEntered: { floor: number; mapId: string };
   CheckpointActivated: { kind: 'stairs' | 'midway'; position: Vec2 };
   ExitOpened: { floor: number };
-  /** 點了尚未開啟的出口 */
-  ExitLocked: { remaining: number };
+  /** 點了尚未開啟的出口；boss = Boss 層（擊敗 Boss 才開） */
+  ExitLocked: { remaining: number; boss: boolean };
   /** 要離開樓層，但地上還有稀有以上的物品：等待玩家確認（ConfirmLeaveFloor） */
   LeaveFloorConfirm: { direction: 'down' | 'up'; toFloor: number; valuableItems: number };
   /** 玩家倒地後回到存檔點（玩家死亡本身為 ActorDied，faction = 'player'） */
@@ -90,6 +96,11 @@ export interface GameEvents {
   T4CategoryUnlocked: { category: SkillCategory };
   /** 分配屬性點；points 為分配後該屬性的總點數 */
   AttributeAllocated: { attribute: string; points: number };
+  /** 點了商人（UI 開啟商店） */
+  ShopOpened: Record<string, never>;
+  /** 商店交易：gold 為金幣變化（買 / 賭博為負） */
+  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble'; gold: number; rarity?: Rarity };
+  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'far' };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }

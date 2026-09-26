@@ -97,7 +97,7 @@ describe('樓層模式（M7）', () => {
     const needed = Math.ceil(world.floors.total * world.floors.defFor(1).clearRatio);
 
     useExit(world, commands);
-    expect(onLocked).toHaveBeenCalledWith({ remaining: needed });
+    expect(onLocked).toHaveBeenCalledWith({ remaining: needed, boss: false });
     expect(world.floors.floor).toBe(1);
 
     kill(world, needed - 1);

@@ -4,7 +4,19 @@ import { gameBridge } from '../bridge/GameBridge';
 import type { EquipmentSlot, HoverTarget, InventoryView } from '../bridge/InventoryView';
 import ItemCell from './ItemCell.vue';
 
-const props = defineProps<{ view: InventoryView; gold: number }>();
+const props = defineProps<{ view: InventoryView; gold: number; shopOpen?: boolean }>();
+
+/** 商店開啟時 Ctrl + 點擊 = 賣出；否則拿起 / 放下 */
+function clickCell(e: MouseEvent, cell: number) {
+  (e.currentTarget as HTMLElement).blur();
+  if (props.shopOpen && (e.ctrlKey || e.metaKey) && props.view.cells[cell]) gameBridge.send({ type: 'ShopSell', cell });
+  else gameBridge.send({ type: 'InventoryClick', cell });
+}
+
+function sort(e: MouseEvent) {
+  (e.currentTarget as HTMLElement).blur();
+  gameBridge.send({ type: 'SortInventory' });
+}
 const emit = defineEmits<{
   close: [];
   /** 滑鼠所在的背包格 / 裝備欄（null = 離開） */
@@ -30,6 +42,7 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
   <aside class="panel" @pointerdown.stop @contextmenu.prevent @pointerleave="emit('hover', null)">
     <header>
       <span>角色 · 背包</span>
+      <button type="button" class="sort" title="依裝備類別、物品等級（高到低）排列，藥水合併放最後" @click="sort">整理</button>
       <button type="button" class="close" aria-label="關閉" @click="emit('close')">×</button>
     </header>
 
@@ -68,19 +81,35 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
           :key="cell"
           type="button"
           class="cell"
-          @click="gameBridge.send({ type: 'InventoryClick', cell })"
+          @click="clickCell($event, cell)"
           @pointerenter="emit('hover', { kind: 'cell', cell })"
           @pointerleave="emit('hover', null)"
         >
           <ItemCell :entry="entry" />
         </button>
       </div>
-      <p class="hint">點擊拿起 · 再點背包格或裝備欄放下 · 拿著物品點地面可丟棄</p>
+      <p v-if="shopOpen" class="hint shop">Ctrl（Mac：⌘）+ 點擊：賣給商人 · 或拿起物品放到商人的「賣出」區</p>
+      <p v-else class="hint">點擊拿起 · 再點背包格或裝備欄放下 · 拿著物品點地面可丟棄</p>
     </section>
   </aside>
 </template>
 
 <style scoped>
+.sort {
+  margin-left: auto;
+  padding: 1px 10px;
+  font: 12px/1.6 sans-serif;
+  color: #d8cbb4;
+  cursor: pointer;
+  background: #2a231d;
+  border: 1px solid #5a4c3e;
+}
+.sort:hover {
+  border-color: #e8c47a;
+}
+.hint.shop {
+  color: #c8a25a;
+}
 .panel {
   position: absolute;
   top: 12px;
@@ -105,6 +134,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   color: #e8c47a;
   background: #1a1612;

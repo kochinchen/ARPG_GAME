@@ -23,6 +23,8 @@ export interface ActorInit {
   isBoss?: boolean;
   /** 精英怪（每群的隊長）：名稱加上詞綴、較大、較強、掉落較好 */
   elite?: boolean;
+  /** 召喚者（Boss 召喚的骷髏）：不給經驗、不掉寶、不計入樓層擊殺 */
+  summonedBy?: ActorId | null;
   /** 被擊殺時給予的經驗 */
   xpReward?: number;
 }
@@ -51,6 +53,8 @@ export interface SkillIntent {
   rank?: number;
   /** Combo 加成（連段中的這一步） */
   mods?: Readonly<StepMods>;
+  /** 原地施放（按住 Shift）：不走向目標；目標不在範圍內時朝 point 施放 */
+  stationary?: boolean;
 }
 
 /** 施放中的技能：施放時間結束前不能移動或施放其他技能 */
@@ -79,6 +83,7 @@ export class Actor {
   readonly ai: AiBrain | null;
   readonly isBoss: boolean;
   readonly elite: boolean;
+  readonly summonedBy: ActorId | null;
   readonly xpReward: number;
   radius: number;
 
@@ -123,6 +128,7 @@ export class Actor {
     this.ai = init.ai ?? null;
     this.isBoss = init.isBoss ?? false;
     this.elite = init.elite ?? false;
+    this.summonedBy = init.summonedBy ?? null;
     this.xpReward = init.xpReward ?? 0;
     this.skillRanks = new Map(init.skillRanks ?? []);
     this.hp = init.stats.get('maxHp');

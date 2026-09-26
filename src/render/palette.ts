@@ -18,6 +18,8 @@ export const PALETTE = {
   hoverName: 0xf0e2c0,
   /** 精英怪名稱、光圈、血條外框 */
   eliteName: 0xe8c47a,
+  /** Boss 名稱與光圈 */
+  bossName: 0xff7b5a,
   damageText: 0xf4efe4,
   critText: 0xffb347,
   healText: 0x6fd46f,
@@ -85,13 +87,15 @@ export const ENEMY_COLORS: Record<string, readonly [number, number]> = {
   'enemy.skeleton_archer': [0xcfc4a4, 0x6d5a3a],
   'enemy.armored_skeleton': [0x7a808a, 0x3a3f48],
   'enemy.skeleton_mage': [0xb8a8d8, 0x5a4a82],
+  'enemy.skeleton_king': [0xe8dcc0, 0x6a1a12],
 };
 
 /** 怪物的辨識配件：弓、法師帽、頭盔、駝背（暫用外觀） */
-export type EnemyAccent = 'bow' | 'hat' | 'helmet' | 'hunch';
+export type EnemyAccent = 'bow' | 'hat' | 'helmet' | 'hunch' | 'crown';
 export const ENEMY_ACCENTS: Record<string, EnemyAccent> = {
   'enemy.ghoul': 'hunch',
   'enemy.skeleton_archer': 'bow',
   'enemy.armored_skeleton': 'helmet',
   'enemy.skeleton_mage': 'hat',
+  'enemy.skeleton_king': 'crown',
 };

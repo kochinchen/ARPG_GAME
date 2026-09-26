@@ -15,6 +15,8 @@ interface ComboRun {
   next: number;
   targetId: ActorId | null;
   point: Vec2;
+  /** 原地施放（按住 Shift） */
+  stationary: boolean;
   /** 已送出意圖、等待施放開始時記錄的施放次數；null = 可以送出下一步 */
   awaiting: number | null;
 }
@@ -44,10 +46,16 @@ export class ComboSystem {
     return run ? Math.max(1, run.next) : 0;
   }
 
-  start(actor: Actor, sequence: readonly string[], targetId: ActorId | null, point: Vec2): ComboResolution | null {
+  start(
+    actor: Actor,
+    sequence: readonly string[],
+    targetId: ActorId | null,
+    point: Vec2,
+    stationary = false,
+  ): ComboResolution | null {
     if (sequence.length === 0 || this.runs.has(actor.id)) return null;
     const resolution = this.resolver.resolve(sequence, (id) => actor.skillRanks.get(id) ?? 1);
-    this.runs.set(actor.id, { resolution, next: 0, targetId, point, awaiting: null });
+    this.runs.set(actor.id, { resolution, next: 0, targetId, point, stationary, awaiting: null });
     if (resolution.status === 'combo' && resolution.modifiers.knockbackResist) {
       this.statuses.apply(actor, 'unstoppable', UNSTOPPABLE_MAX, 0, actor);
     }
@@ -101,6 +109,7 @@ export class ComboSystem {
         point: run.point,
         hold: false,
         mods: run.resolution.status === 'combo' ? run.resolution.modifiers.steps[run.next]! : NO_MODS,
+        stationary: run.stationary,
       };
       actor.repathCooldown = 0;
       run.awaiting = actor.castCount;

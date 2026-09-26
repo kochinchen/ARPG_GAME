@@ -22,6 +22,22 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
   font: 14px/1 serif;
   background: rgb(255 255 255 / 4%);
 }
+/* 稀有度邊框：普通灰、魔法藍、稀有黃、傳奇橘 */
+.glyph.r-normal {
+  box-shadow: inset 0 0 0 1px #6a6258;
+}
+.glyph.r-magic {
+  box-shadow: inset 0 0 0 2px #5a7cff;
+}
+.glyph.r-rare {
+  box-shadow: inset 0 0 0 2px #e8c23a;
+}
+.glyph.r-legendary {
+  box-shadow: inset 0 0 0 2px #e0823a;
+}
+.glyph.potion {
+  box-shadow: inset 0 0 0 1px #8a3a30;
+}
 .glyph.slot {
   font-size: 18px;
 }

@@ -27,6 +27,8 @@ export interface EffectServices {
   rng: Rng;
   scheduler: EffectSchedulerPort;
   spawnProjectile: (projectile: Omit<Projectile, 'id'>) => void;
+  /** 在施放者周圍召喚怪物（由 GameWorld 建立實體） */
+  summon: (caster: Actor, enemyId: string, count: number, maxAlive: number) => void;
   /** 近戰 / 遠程 / 魔法的共通倍率（吸血） */
   categoryTraits: Balance['skillCategories'];
 }

@@ -9,6 +9,8 @@ export interface FloorBeginOptions {
   killed?: readonly number[];
   /** 出口一開始就開啟（已通過的樓層、或讀檔時已開啟） */
   exitOpen?: boolean;
+  /** Boss 層：Boss 的生成索引。出口只在 Boss 被擊敗後開啟（不看清怪比例） */
+  bossIndex?: number;
 }
 
 type FloorData = Pick<DataRegistry, 'floors' | 'maps'>;
@@ -30,6 +32,8 @@ export class FloorManager {
   /** 樓層 → 已開啟寶箱的生成索引（跨層永久保留：寶箱只能開一次） */
   readonly openedChests = new Map<number, Set<number>>();
   private readonly spawnIndexOf = new Map<ActorId, number>();
+  /** Boss 層的 Boss 生成索引；一般樓層為 null */
+  private bossIndex: number | null = null;
   private pendingFloor: number | null = null;
 
   constructor(
@@ -37,7 +41,8 @@ export class FloorManager {
     private readonly events: GameEventBus,
   ) {
     events.on('ActorDied', (e) => {
-      if (e.faction !== 'enemy' || this.def === null) return;
+      // 召喚物不計入擊殺數
+      if (e.faction !== 'enemy' || this.def === null || e.summoned) return;
       const index = this.spawnIndexOf.get(e.actorId);
       if (index !== undefined) this.killedSpawns.push(index);
       this.killed++;
@@ -53,10 +58,20 @@ export class FloorManager {
     return this.data.maps.get(mapIdForFloor(this.data, floor));
   }
 
-  /** 還需要擊敗幾隻出口才會開 */
+  /** 還需要擊敗幾隻出口才會開（Boss 層：Boss 還活著時為 1） */
   get remainingToOpen(): number {
     if (!this.def || this.exitOpen) return 0;
+    if (this.bossIndex !== null) return this.bossDefeated ? 0 : 1;
     return Math.max(0, Math.ceil(this.total * this.def.clearRatio) - this.killed);
+  }
+
+  /** 目前是 Boss 層 */
+  get bossFloor(): boolean {
+    return this.bossIndex !== null;
+  }
+
+  get bossDefeated(): boolean {
+    return this.bossIndex !== null && this.killedSpawns.includes(this.bossIndex);
   }
 
   begin(floor: number, monsterCount: number, options: FloorBeginOptions = {}): void {
@@ -67,6 +82,7 @@ export class FloorManager {
     this.killedSpawns.push(...(options.killed ?? []));
     this.killed = this.killedSpawns.length;
     this.spawnIndexOf.clear();
+    this.bossIndex = options.bossIndex ?? null;
     // 預先開啟時不發事件（不是這次擊殺造成的）
     this.exitOpen = options.exitOpen ?? false;
     this.checkExit();

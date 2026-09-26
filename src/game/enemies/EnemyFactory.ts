@@ -19,7 +19,15 @@ export interface EliteSpec {
  * 由 EnemyDef 組出一隻怪物，並套用樓層倍率；精英怪再套用共通強化與詞綴（Modifier 來源 'elite'）。
  */
 export class EnemyFactory {
-  create(def: EnemyDef, id: ActorId, position: Vec2, scaling: FloorScaling = NO_SCALING, elite?: EliteSpec): Actor {
+  create(
+    def: EnemyDef,
+    id: ActorId,
+    position: Vec2,
+    scaling: FloorScaling = NO_SCALING,
+    elite?: EliteSpec,
+    /** 召喚者（Boss 召喚物）：不給經驗、不掉寶 */
+    summonedBy: ActorId | null = null,
+  ): Actor {
     const e = elite?.config;
     const stats = new StatBlock({
       maxHp: def.hp * scaling.hp * (e?.hpMultiplier ?? 1),
@@ -42,6 +50,7 @@ export class EnemyFactory {
       radius: Math.min(0.5, def.radius * (e?.radiusMultiplier ?? 1)),
       stats,
       elite: elite !== undefined,
+      summonedBy,
       ai:
         def.ai === 'none'
           ? null

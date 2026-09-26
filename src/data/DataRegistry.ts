@@ -15,7 +15,7 @@ import { FloorDefSchema, type FloorDef } from './schema/floor';
 import { MapDefSchema, type MapDef } from './schema/map';
 import { ComboRuleSchema, isRangeSequenceValid, type ComboRuleDef } from './schema/combo';
 import { EliteAffixDefSchema, type EliteAffixDef } from './schema/elite';
-import { checkComboTags } from './skillAnalysis';
+import { checkComboTags, flattenEffects } from './skillAnalysis';
 import { findMarker, reachableTiles } from './mapAnalysis';
 import { MAP_TILES } from './schema/map';
 import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS } from './schema/skill';
@@ -102,6 +102,13 @@ export class DataRegistry {
     }
 
     // 交叉引用檢查
+    for (const skill of skills.all) {
+      for (const effect of flattenEffects(skill.effects)) {
+        if (effect.type === 'summon' && !enemies.has(effect.enemyId)) {
+          problems.push(`skill '${skill.id}' 召喚不存在的 enemy '${effect.enemyId}'`);
+        }
+      }
+    }
     for (const enemy of enemies.all) {
       for (const skillId of enemy.skills) {
         if (!skills.has(skillId)) problems.push(`enemy '${enemy.id}' 引用不存在的 skill '${skillId}'`);
@@ -111,6 +118,11 @@ export class DataRegistry {
       }
     }
     for (const floor of floors.all) {
+      if (floor.boss) {
+        const boss = enemies.has(floor.boss.enemyId) ? enemies.get(floor.boss.enemyId) : null;
+        if (!boss) problems.push(`floor '${floor.id}' 的 Boss 引用不存在的 enemy '${floor.boss.enemyId}'`);
+        else if (!boss.boss) problems.push(`floor '${floor.id}' 的 Boss '${boss.id}' 沒有設定 boss: true`);
+      }
       if (!floor.monsterPool.some((m) => m.minFloor <= floor.floors[0])) {
         problems.push(`floor '${floor.id}' 在第 ${floor.floors[0]} 層沒有任何可生成的怪物（檢查 minFloor）`);
       }
