@@ -113,6 +113,9 @@ export class DataRegistry {
       for (const { enemyId } of map.spawns) {
         if (!enemies.has(enemyId)) problems.push(`map '${map.id}' 引用不存在的 enemy '${enemyId}'`);
       }
+      for (const { lootTable } of map.chests) {
+        if (!lootTables.has(lootTable)) problems.push(`map '${map.id}' 的寶箱引用不存在的 lootTable '${lootTable}'`);
+      }
     }
 
     if (problems.length > 0 || !balance) throw new DataValidationError(problems);

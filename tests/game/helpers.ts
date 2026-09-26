@@ -12,7 +12,7 @@ import { StatBlock, type StatId } from '../../src/game/stats/StatBlock';
 
 export const DT = 1 / 60;
 
-export const navFrom = (...rows: string[]) => NavGrid.fromMap({ id: 'map.test', rows, spawns: [] });
+export const navFrom = (...rows: string[]) => NavGrid.fromMap({ id: 'map.test', rows, spawns: [], chests: [] });
 
 let nextId = 1000;
 export function makeActor(
@@ -38,16 +38,25 @@ export function createWorld(seed = 1) {
 }
 
 /** 用自訂地圖建立 GameWorld（地圖會加入資料一起驗證） */
+export interface CustomWorldOptions {
+  seed?: number;
+  chests?: { at: [number, number]; lootTable: string }[];
+  /** 附加到遊戲資料的測試用資料（只加資料、不改程式） */
+  extra?: { skills?: unknown[]; enemies?: unknown[]; lootTables?: unknown[] };
+}
+
 export function createWorldWithMap(
   rows: string[],
   spawns: { enemyId: string; at: [number, number] }[] = [],
-  seed = 1,
-  extraSkills: unknown[] = [],
+  options: CustomWorldOptions = {},
 ) {
+  const { seed = 1, chests = [], extra = {} } = options;
   const data = DataRegistry.load({
     ...gameData,
-    skills: [...gameData.skills, ...extraSkills],
-    maps: [...gameData.maps, { id: 'map.custom', rows, spawns }],
+    skills: [...gameData.skills, ...(extra.skills ?? [])],
+    enemies: [...gameData.enemies, ...(extra.enemies ?? [])],
+    lootTables: [...gameData.lootTables, ...(extra.lootTables ?? [])],
+    maps: [...gameData.maps, { id: 'map.custom', rows, spawns, chests }],
   });
   const commands = new CommandQueue<GameCommand>();
   const events = new EventBus<GameEvents>();

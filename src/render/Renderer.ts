@@ -1,6 +1,7 @@
 import { Container, Graphics, type Application } from 'pixi.js';
 import type { IsoProjection } from '../core/math/IsoProjection';
 import { lerp, sub, type Vec2 } from '../core/math/Vec2';
+import type { DataRegistry } from '../data/DataRegistry';
 import type { ActorId } from '../game/entities/Actor';
 import type { GameWorld } from '../game/GameWorld';
 import type { Camera } from './Camera';
@@ -8,6 +9,7 @@ import { ELEMENT_COLORS, PALETTE } from './palette';
 import { ActorView, HIT_BOX } from './views/ActorView';
 import { EffectLayer } from './views/EffectLayer';
 import { FloatingTextLayer } from './views/FloatingTextLayer';
+import { InteractableLayer } from './views/InteractableLayer';
 import { TileMapView } from './views/TileMapView';
 
 /**
@@ -20,24 +22,30 @@ export class Renderer {
   private readonly floatingText = new FloatingTextLayer();
   private readonly tileMap: TileMapView;
   private readonly effects: EffectLayer;
+  private readonly interactables: InteractableLayer;
   private readonly actorViews = new Map<ActorId, ActorView>();
   private hoveredId: ActorId | null = null;
+  private hoveredInteractable: number | null = null;
 
   constructor(
     private readonly app: Application,
     private readonly projection: IsoProjection,
     private readonly world: GameWorld,
     private readonly camera: Camera,
+    data: Pick<DataRegistry, 'items' | 'affixes' | 'potions'>,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer);
     this.effects = new EffectLayer(projection, this.objectLayer);
+    this.interactables = new InteractableLayer(projection, this.objectLayer, data);
     this.marker.poly([0, -6, 12, 0, 0, 6, -12, 0]).stroke({ color: PALETTE.marker, width: 2 });
 
     this.worldLayer.addChild(
       this.tileMap.floor,
       this.effects.ground,
+      this.interactables.ground,
       this.marker,
       this.objectLayer,
+      this.interactables.labels,
       this.floatingText.container,
     );
     app.stage.addChild(this.worldLayer);
@@ -63,10 +71,22 @@ export class Renderer {
       const actor = world.targeting.getActor(e.actorId);
       if (actor === world.player) this.floatingText.spawnText(projection.toScreen(actor.position), '魔力不足', PALETTE.manaText);
     });
+    const say = (position: Vec2, text: string, color: number) =>
+      this.floatingText.spawnText(projection.toScreen(position), text, color);
+    world.events.on('GoldPickedUp', (e) => say(e.position, `+${e.amount} 金幣`, PALETTE.marker));
+    world.events.on('PotionPickedUp', (e) => say(e.position, `+${e.count} 藥水`, PALETTE.healText));
+    world.events.on('PickupFailed', () => say(world.player.position, '背包已滿', PALETTE.manaText));
+    world.events.on('EquipFailed', () => say(world.player.position, '無法裝備在這裡', PALETTE.manaText));
     world.events.on('PotionUsed', (e) => {
       const at = projection.toScreen(world.player.position);
       this.floatingText.spawnText(at, `+${Math.round(e.hpRestored)} HP  +${Math.round(e.mpRestored)} MP`, PALETTE.healText);
     });
+  }
+
+  /** 游標下的地上物品或寶箱（名稱標籤也算） */
+  pickInteractableAt(screen: Vec2): number | null {
+    const local = sub(screen, this.camera.offset);
+    return this.interactables.pickAt(local, [...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
   }
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
@@ -91,8 +111,9 @@ export class Renderer {
     return best;
   }
 
-  setHovered(id: ActorId | null): void {
-    this.hoveredId = id;
+  setHovered(actorId: ActorId | null, interactableId: number | null = null): void {
+    this.hoveredId = actorId;
+    this.hoveredInteractable = interactableId;
   }
 
   get hovered(): ActorId | null {
@@ -110,6 +131,8 @@ export class Renderer {
 
     this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos);
+    this.interactables.setHovered(this.hoveredInteractable);
+    this.interactables.update(this.world.groundItems, this.world.chests);
     this.effects.update(dt, this.world.projectiles, alpha);
     this.floatingText.update(dt);
     this.updateMarker(player.intent === null ? player.path[player.path.length - 1] : undefined);

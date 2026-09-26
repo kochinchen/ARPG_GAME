@@ -10,15 +10,25 @@ import { DamagePipeline } from './combat/DamagePipeline';
 import { DeathSystem } from './combat/DeathSystem';
 import { EnemyFactory } from './enemies/EnemyFactory';
 import { Actor } from './entities/Actor';
+import type { Chest, GroundContent, GroundItem } from './entities/Interactable';
 import type { Projectile } from './entities/Projectile';
+import { ChestSystem } from './items/ChestSystem';
+import { Equipment } from './items/Equipment';
+import { Inventory } from './items/Inventory';
+import { ItemCursor } from './items/ItemCursor';
+import { ItemGenerator } from './items/ItemGenerator';
+import { LootSystem } from './items/LootSystem';
 import { MovementSystem } from './movement/MovementSystem';
 import { NavGrid, tileCenter } from './movement/NavGrid';
 import { Pathfinder } from './movement/Pathfinder';
 import { SeparationSystem } from './movement/SeparationSystem';
 import { DeathHandler } from './player/DeathHandler';
+import { InteractionSystem } from './player/InteractionSystem';
+import { ItemActions } from './player/ItemActions';
 import { PlayerController } from './player/PlayerController';
 import { PlayerLoadout } from './player/PlayerLoadout';
 import { PotionBelt } from './player/PotionBelt';
+import { Wallet } from './player/Wallet';
 import { EffectRegistry } from './skills/EffectRegistry';
 import { ProjectileSystem } from './skills/ProjectileSystem';
 import { SkillExecutor } from './skills/SkillExecutor';
@@ -43,9 +53,19 @@ export class GameWorld {
   readonly nav: NavGrid;
   readonly actors: Actor[] = [];
   readonly projectiles: Projectile[] = [];
+  readonly groundItems: GroundItem[] = [];
+  readonly chests: Chest[] = [];
   readonly player: Actor;
   readonly loadout: PlayerLoadout;
   readonly potions: PotionBelt;
+  readonly inventory: Inventory;
+  readonly equipment: Equipment;
+  /** 滑鼠上拿著的物品 */
+  readonly cursor = new ItemCursor();
+  readonly wallet = new Wallet();
+  readonly interaction: InteractionSystem;
+  /** 掉落物品等級；M7 起依樓層決定 */
+  itemLevel = 1;
   readonly events: GameEventBus;
   /** 唯讀查詢服務；Render 也可用來查詢 */
   readonly targeting: TargetingService;
@@ -56,6 +76,7 @@ export class GameWorld {
 
   private nextActorId = 1;
   private nextProjectileId = 1;
+  private nextInteractableId = 1;
   private readonly commands: CommandQueue<GameCommand>;
   private readonly ai: AiSystem;
   private readonly regen = new RegenSystem();
@@ -116,8 +137,40 @@ export class GameWorld {
         skillRanks: new Map([left, ...right].filter((id): id is string => id !== null).map((id) => [id, 1])),
       }),
     );
-    this.potions = new PotionBelt(this.player, data.potions.get(p.potionId), this.events, p.startingPotions);
-    this.playerController = new PlayerController(this.player, pathfinder, this.targeting, this.loadout, this.potions);
+    this.inventory = new Inventory(p.inventoryCols, p.inventoryRows, (id) => data.potions.get(id).maxStack);
+    this.inventory.addPotions(p.potionId, p.startingPotions);
+    this.potions = new PotionBelt(this.player, data.potions.get(p.potionId), this.inventory, this.events);
+    this.equipment = new Equipment(this.player, data, this.events);
+    this.interaction = new InteractionSystem(
+      this.player,
+      this,
+      this.inventory,
+      this.wallet,
+      new ChestSystem(this.events),
+      pathfinder,
+      this.events,
+    );
+    this.playerController = new PlayerController(
+      this.player,
+      pathfinder,
+      this.targeting,
+      this.loadout,
+      this.potions,
+      this.interaction,
+      new ItemActions(this.inventory, this.equipment, this.cursor, this.events, (content) => {
+        this.spawnGroundItem(this.player.position, content).droppedByPlayer = true;
+        this.events.emit('ItemDropped', { position: this.player.position });
+      }),
+    );
+    new LootSystem(
+      data,
+      rng.fork('loot'),
+      new ItemGenerator(data, rng.fork('items')),
+      this.nav,
+      (position, content) => this.spawnGroundItem(position, content),
+      () => this.itemLevel,
+      this.events,
+    );
     this.deathHandler = new DeathHandler(this.player, this.events, () => this.spawnPoint, p.respawnDelay);
 
     const enemyFactory = new EnemyFactory();
@@ -125,6 +178,20 @@ export class GameWorld {
       const def = data.enemies.get(spawn.enemyId);
       this.addActor(enemyFactory.create(def, this.nextActorId++, vec2(...spawn.at)));
     }
+    for (const chest of this.map.chests) {
+      this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position: vec2(...chest.at), lootTable: chest.lootTable, opened: false });
+    }
+  }
+
+  /** 背包 / 裝備 / 手上物品的變動版本號；UI 只在變動時重建快照 */
+  get itemsVersion(): number {
+    return this.inventory.version + this.equipment.version + this.cursor.version;
+  }
+
+  spawnGroundItem(position: Vec2, content: GroundContent): GroundItem {
+    const item: GroundItem = { kind: 'ground', id: this.nextInteractableId++, position, content };
+    this.groundItems.push(item);
+    return item;
   }
 
   update(dt: number): void {
@@ -136,6 +203,7 @@ export class GameWorld {
     this.skills.update(this.actors, dt);
     this.movement.update(this.actors, dt);
     this.separation.update(this.actors);
+    this.interaction.update();
     this.projectileSystem.update(this.projectiles, dt);
     this.deaths.update(this.actors);
     this.deathHandler.update(dt);

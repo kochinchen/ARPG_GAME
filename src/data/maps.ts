@@ -49,5 +49,10 @@ export const maps: z.input<typeof MapDefSchema>[] = [
       { enemyId: 'enemy.skeleton', at: [24.5, 14.5] },
       { enemyId: 'enemy.skeleton', at: [22.5, 17.5] },
     ],
+    chests: [
+      { at: [4.5, 4.5], lootTable: 'loot.chest' },
+      { at: [27.5, 1.5], lootTable: 'loot.chest' },
+      { at: [2.5, 21.5], lootTable: 'loot.chest' },
+    ],
   },
 ];

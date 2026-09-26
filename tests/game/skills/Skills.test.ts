@@ -32,7 +32,7 @@ const TEST_BOLT = {
 };
 
 function setup(spawns = [dummyAt(6.5, 1.5)], extraSkills: unknown[] = []) {
-  const ctx = createWorldWithMap(ROOM, spawns, 1, extraSkills);
+  const ctx = createWorldWithMap(ROOM, spawns, { extra: { skills: extraSkills } });
   ctx.world.player.stats.setBase('critChance', 0);
   return ctx;
 }
@@ -242,7 +242,7 @@ describe('藥水與魔力回復（M4）', () => {
 
   it('藥水用完後無效', () => {
     const { world, commands } = setup([]);
-    world.potions.count = 0;
+    while (world.inventory.takePotion(world.potions.potionId));
     world.player.hp = 10;
     commands.push({ type: 'UsePotion' });
     world.update(DT);

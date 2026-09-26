@@ -4,10 +4,12 @@ import { items, potions } from './items';
 import { maps } from './maps';
 import { enemies } from './enemies';
 import { skills } from './skills';
+import { affixes } from './affixes';
+import { lootTables } from './lootTables';
 
 /**
  * 所有遊戲資料的集合，交給 DataRegistry.load() 驗證。
- * affixes / lootTables / floors 依 Milestone 逐步加入。
+ * floors 於 M7 加入。
  */
 export const gameData: RawGameData = {
   balance,
@@ -15,8 +17,8 @@ export const gameData: RawGameData = {
   enemies,
   items,
   potions,
-  affixes: [],
-  lootTables: [],
+  affixes,
+  lootTables,
   floors: [],
   maps,
 };

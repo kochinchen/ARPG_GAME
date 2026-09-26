@@ -24,6 +24,23 @@ export const PALETTE = {
   marker: 0xe8c47a,
 } as const;
 
+/** 物品名稱顏色（依稀有度） */
+export const RARITY_COLORS: Record<string, number> = {
+  normal: 0xe8e2d4,
+  magic: 0x6f8dff,
+  rare: 0xf2d24b,
+  legendary: 0xd8843a,
+};
+
+export const LOOT_COLORS = {
+  potion: 0xd0453a,
+  gold: 0xe8c47a,
+  chest: 0x7a5230,
+  chestDark: 0x4a3018,
+  chestTrim: 0xc8a25a,
+  labelBack: 0x000000,
+} as const;
+
 /** 元素顏色（投射物、範圍效果） */
 export const ELEMENT_COLORS: Record<string, number> = {
   physical: 0xd8cbb4,

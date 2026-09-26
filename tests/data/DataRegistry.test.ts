@@ -139,3 +139,25 @@ describe('MapDef spawns 驗證', () => {
     expect(load([{ enemyId: 'enemy.training_dummy', at: [2.5, 1.5] }]).maps.get('map.spawns').spawns).toHaveLength(1);
   });
 });
+
+describe('物品與寶箱資料驗證（M5）', () => {
+  it('寶箱的掉落表必須存在', () => {
+    const map = { id: 'map.chest', rows: ['#####', '#S..#', '#####'], chests: [{ at: [2.5, 1.5], lootTable: 'loot.nope' }] };
+    expect(expectProblems(withData({ maps: [...gameData.maps, map] }))).toEqual([
+      expect.stringContaining("不存在的 lootTable 'loot.nope'"),
+    ]);
+  });
+
+  it('寶箱位置必須在地板上', () => {
+    const map = { id: 'map.chest', rows: ['#####', '#S..#', '#####'], chests: [{ at: [0.5, 0.5], lootTable: 'loot.chest' }] };
+    expect(expectProblems(withData({ maps: [...gameData.maps, map] }))).toEqual([expect.stringContaining('不在地板上')]);
+  });
+
+  it('物品屬性與詞綴只能使用已定義的屬性名稱', () => {
+    const badItem = { id: 'weapon.bad', name: 'x', slot: 'weapon', levelReq: 1, baseStats: { luck: 5 } };
+    const badAffix = { id: 'affix.bad', name: 'x', kind: 'item', stat: 'luck', value: [1, 2], minItemLevel: 1, weight: 1 };
+    const problems = expectProblems(withData({ items: [...gameData.items, badItem], affixes: [...gameData.affixes, badAffix] }));
+    expect(problems.some((p) => p.includes("item[8] 'weapon.bad'.baseStats"))).toBe(true);
+    expect(problems.some((p) => p.includes("'affix.bad'.stat"))).toBe(true);
+  });
+});

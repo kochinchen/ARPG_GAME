@@ -2,6 +2,7 @@ import type { EventBus } from '../core/EventBus';
 import type { Vec2 } from '../core/math/Vec2';
 import type { Element } from '../data/schema/common';
 import type { ActorId, Faction } from './entities/Actor';
+import type { EquipmentSlot } from './items/ItemInstance';
 
 /**
  * 遊戲事件清單。一件事發生、多個系統要反應時使用（見 ARCHITECTURE.md 第 G 節）。
@@ -31,6 +32,18 @@ export interface GameEvents {
   /** 玩家倒地後回到存檔點（玩家死亡本身為 ActorDied，faction = 'player'） */
   PlayerRespawned: { position: Vec2 };
   PotionUsed: { hpRestored: number; mpRestored: number; remaining: number };
+  ChestOpened: { chestId: number; position: Vec2; lootTable: string };
+  ItemPickedUp: { uid: string; position: Vec2 };
+  /** count：這次撿到幾瓶 */
+  PotionPickedUp: { count: number; position: Vec2 };
+  GoldPickedUp: { amount: number; position: Vec2 };
+  PickupFailed: { reason: 'inventoryFull' };
+  ItemEquipped: { uid: string; slot: EquipmentSlot };
+  ItemUnequipped: { uid: string; slot: EquipmentSlot };
+  /** 手上的物品不能穿在這個欄位 */
+  EquipFailed: { slot: EquipmentSlot };
+  /** 玩家把手上的物品丟在地上 */
+  ItemDropped: { position: Vec2 };
 }
 
 export type GameEventBus = EventBus<GameEvents>;

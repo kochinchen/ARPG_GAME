@@ -32,6 +32,9 @@ export const BalanceSchema = z.strictObject({
     /** 使用的藥水種類（PotionDef ID） */
     potionId: IdSchema,
     startingPotions: z.int().nonnegative(),
+    /** 背包格數：寬 × 高，每格放一件物品或一疊藥水 */
+    inventoryCols: z.int().positive(),
+    inventoryRows: z.int().positive(),
     /** 新角色的技能配置；M6 起由技能樹學習取代 */
     startingLoadout: z.strictObject({
       left: IdSchema,

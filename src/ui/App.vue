@@ -1,5 +1,46 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { debugView } from './bridge/DebugView';
+import { resolveHover, type HoverTarget } from './bridge/InventoryView';
+import InventoryPanel from './components/InventoryPanel.vue';
+import ItemCell from './components/ItemCell.vue';
+import ItemTooltip from './components/ItemTooltip.vue';
+import ResourceOrb from './components/ResourceOrb.vue';
+
+// 以下都是 UI 自己的狀態（面板開關、游標位置、hover），不經過遊戲
+const inventoryOpen = ref(false);
+const pointer = ref({ x: 0, y: 0 });
+const hoverTarget = ref<HoverTarget | null>(null);
+/** 依最新快照計算，穿脫或交換後 Tooltip 立即更新 */
+const hovered = computed(() => resolveHover(debugView.inventory, hoverTarget.value));
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.code === 'KeyI') inventoryOpen.value = !inventoryOpen.value;
+  else if (e.code === 'Escape') inventoryOpen.value = false;
+  if (!inventoryOpen.value) hoverTarget.value = null;
+}
+function onPointerMove(e: PointerEvent) {
+  pointer.value = { x: e.clientX, y: e.clientY };
+}
+function onHover(target: HoverTarget | null) {
+  hoverTarget.value = target;
+}
+
+/** Tooltip 放在游標左側（面板在右邊），並保持在畫面內 */
+const tooltipStyle = computed(() => ({
+  right: `${Math.max(8, window.innerWidth - pointer.value.x + 16)}px`,
+  top: `${Math.min(Math.max(8, pointer.value.y - 20), window.innerHeight - 280)}px`,
+}));
+const heldStyle = computed(() => ({ left: `${pointer.value.x}px`, top: `${pointer.value.y}px` }));
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('pointermove', onPointerMove, { passive: true });
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeyDown);
+  window.removeEventListener('pointermove', onPointerMove);
+});
 </script>
 
 <template>
@@ -7,10 +48,39 @@ import { debugView } from './bridge/DebugView';
     <div class="title">ARPG · {{ debugView.milestone }}</div>
     <div>Tick {{ debugView.tick }} · {{ debugView.fps }} FPS</div>
     <div>Player ({{ debugView.player.x.toFixed(2) }}, {{ debugView.player.y.toFixed(2) }})</div>
-    <div>HP {{ debugView.playerHp }} · MP {{ debugView.playerMp }}</div>
-    <div>藥水 {{ debugView.potions }} · 敵人 {{ debugView.enemies }}</div>
+    <div>藥水 {{ debugView.potions }} · 金幣 {{ debugView.gold }} · 敵人 {{ debugView.enemies }}</div>
     <div>Target {{ debugView.target }}</div>
-    <div class="hint">左鍵：移動 / 攻擊 · 右鍵：技能 · QWE：切換 · Space：藥水</div>
+    <div class="hint">左鍵：移動 / 攻擊 / 撿取 · 右鍵：技能 · QWE：切換 · Space：藥水 · I：背包</div>
+  </div>
+
+  <div class="orb-left">
+    <ResourceOrb id="hp-orb" label="HP" :value="debugView.hp.value" :max="debugView.hp.max" color="#b3261e" rim="#e0574b" />
+  </div>
+  <div class="orb-right">
+    <ResourceOrb id="mp-orb" label="MP" :value="debugView.mp.value" :max="debugView.mp.max" color="#1f4fb8" rim="#5a8cf0" />
+  </div>
+
+  <InventoryPanel
+    v-if="inventoryOpen"
+    :view="debugView.inventory"
+    :gold="debugView.gold"
+    @close="
+      inventoryOpen = false;
+      hoverTarget = null;
+    "
+    @hover="onHover"
+  />
+
+  <!-- 背包物品對應的裝備欄已有物品時，並排顯示以便比較 -->
+  <div v-if="hovered && !debugView.inventory.held" class="tooltips" :style="tooltipStyle">
+    <ItemTooltip v-for="(item, i) in hovered.compare" :key="i" :entry="item" caption="目前裝備" />
+    <ItemTooltip :entry="hovered.entry" />
+  </div>
+
+  <!-- 拿在滑鼠上的物品 -->
+  <div v-if="debugView.inventory.held" class="held" :style="heldStyle">
+    <ItemCell :entry="debugView.inventory.held" size="slot" />
+    <span class="held-hint">點背包 / 裝備欄放下 · 點地面丟棄</span>
   </div>
 
   <div class="skill-bar">
@@ -49,6 +119,43 @@ import { debugView } from './bridge/DebugView';
 .hint {
   margin-top: 4px;
   color: #8a7c68;
+}
+.tooltips {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+}
+.held {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  border: 1px solid #c8a25a;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 70%);
+}
+.held-hint {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font: 11px/1 sans-serif;
+  color: #b8ab94;
+  text-shadow: 0 1px 3px #000;
+}
+.orb-left,
+.orb-right {
+  position: absolute;
+  bottom: 12px;
+}
+.orb-left {
+  left: 16px;
+}
+.orb-right {
+  right: 16px;
 }
 .skill-bar {
   position: absolute;

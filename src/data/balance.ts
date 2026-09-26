@@ -23,6 +23,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     respawnDelay: 2,
     potionId: 'potion.rejuvenation',
     startingPotions: 3,
+    inventoryCols: 10,
+    inventoryRows: 8,
     startingLoadout: {
       left: 'basic.attack',
       right: ['melee.bash', 'magic.fireball', 'magic.frost_nova'],

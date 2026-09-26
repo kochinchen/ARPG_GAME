@@ -1,14 +1,6 @@
-export type StatId =
-  | 'maxHp'
-  | 'maxMana'
-  | 'manaRegen'
-  | 'moveSpeed'
-  | 'damageMin'
-  | 'damageMax'
-  | 'attackSpeed'
-  | 'attackRange'
-  | 'critChance'
-  | 'defense';
+import type { StatId } from '../../data/schema/common';
+
+export type { StatId };
 
 /**
  * flat：加在基礎值上；increased：同類相加後一起乘；more：各自獨立相乘。

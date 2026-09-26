@@ -18,6 +18,8 @@ import { Renderer } from './render/Renderer';
 import { PALETTE } from './render/palette';
 import { InputManager } from './input/InputManager';
 import { debugView } from './ui/bridge/DebugView';
+import { gameBridge } from './ui/bridge/GameBridge';
+import { buildInventoryView } from './ui/bridge/InventoryView';
 import App from './ui/App.vue';
 
 const START_MAP = 'map.test_1';
@@ -49,15 +51,25 @@ async function bootstrap(): Promise<void> {
 
   const projection = new IsoProjection();
   const camera = new Camera(projection);
-  const renderer = new Renderer(app, projection, world, camera);
+  const renderer = new Renderer(app, projection, world, camera, data);
 
-  // 7. UI
+  // 7. UI：讀取唯讀快照，寫入一律送 Command
+  gameBridge.connect((command) => commands.push(command));
+  // 背包 / 裝備 / 手上物品有變動時才重建快照（在 Tick 完整結束後，避免讀到處理到一半的狀態）
+  let inventoryVersion = -1;
+  const refreshInventory = () => {
+    if (world.itemsVersion === inventoryVersion) return;
+    inventoryVersion = world.itemsVersion;
+    debugView.inventory = buildInventoryView(world, data);
+  };
+  refreshInventory();
   createApp(App).mount('#ui');
 
   // 8. Input（最後才開始接受輸入）
   const input = new InputManager(app.canvas, commands, {
     screenToWorld: (screen) => camera.screenToWorld(screen),
     pickActor: (screen) => renderer.pickActorAt(screen),
+    pickInteractable: (screen) => renderer.pickInteractableAt(screen),
   });
 
   // 9. Loop
@@ -65,7 +77,11 @@ async function bootstrap(): Promise<void> {
   const loop = new GameLoop({
     update: (dt) => world.update(dt),
     render: (alpha) => {
-      renderer.setHovered(renderer.pickActorAt(input.pointerScreen));
+      const hoveredInteractable = renderer.pickInteractableAt(input.pointerScreen);
+      renderer.setHovered(
+        hoveredInteractable === null ? renderer.pickActorAt(input.pointerScreen) : null,
+        hoveredInteractable,
+      );
       renderer.render(alpha);
       input.poll(now());
       debugView.tick = loop.tick;
@@ -74,9 +90,13 @@ async function bootstrap(): Promise<void> {
       debugView.player.y = world.player.position.y;
       debugView.waypoints = world.player.path.length;
       const player = world.player;
-      debugView.playerHp = `${Math.ceil(player.hp)} / ${Math.ceil(player.maxHp)}`;
-      debugView.playerMp = `${Math.floor(player.mana)} / ${Math.ceil(player.maxMana)}`;
-      debugView.potions = `${world.potions.count} / ${world.potions.max}`;
+      debugView.hp.value = player.hp;
+      debugView.hp.max = player.maxHp;
+      debugView.mp.value = player.mana;
+      debugView.mp.max = player.maxMana;
+      debugView.potions = `${world.potions.count}`;
+      refreshInventory();
+      debugView.gold = world.wallet.gold;
       debugView.leftSkill = data.skills.get(world.loadout.left).name;
       debugView.rightSlots = world.loadout.right.map((id, i) => {
         const skill = id === null ? null : data.skills.get(id);

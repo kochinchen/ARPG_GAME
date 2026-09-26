@@ -1,5 +1,6 @@
 import type { Vec2 } from '../core/math/Vec2';
 import type { ActorId } from './entities/Actor';
+import type { EquipmentSlot } from './items/ItemInstance';
 
 /**
  * Input / UI 能對遊戲送出的所有指令。
@@ -7,10 +8,11 @@ import type { ActorId } from './entities/Actor';
  *
  * targetId：畫面層判斷游標下的角色（角色有高度，點到頭或身體都算），
  * 由 game 再驗證是否為合法目標。
+ * interactId：游標下的地上物品或寶箱（優先於角色）。
  */
 export type GameCommand =
   /** 左鍵按下（held=false）或按住期間的重複送出（held=true） */
-  | { type: 'PrimaryAction'; worldPos: Vec2; targetId: ActorId | null; held: boolean }
+  | { type: 'PrimaryAction'; worldPos: Vec2; targetId: ActorId | null; interactId?: number | null; held: boolean }
   /** 左鍵放開 */
   | { type: 'PrimaryRelease' }
   /** 右鍵：施放目前啟用的右鍵技能 */
@@ -18,6 +20,10 @@ export type GameCommand =
   /** Q / W / E */
   | { type: 'SelectRightSlot'; slot: 0 | 1 | 2 }
   /** Space：同時回復 HP 與 MP */
-  | { type: 'UsePotion' };
+  | { type: 'UsePotion' }
+  /** 背包格：手上沒東西 → 拿起；有東西 → 放下（互換 / 合併） */
+  | { type: 'InventoryClick'; cell: number }
+  /** 裝備欄：手上沒東西 → 拿起；有東西 → 穿上（互換） */
+  | { type: 'EquipmentClick'; slot: EquipmentSlot };
 
 export type GameCommandType = GameCommand['type'];

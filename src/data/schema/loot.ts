@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdSchema } from './common';
+import { IdSchema, RangeSchema } from './common';
 
 export const LootTableDefSchema = z.strictObject({
   id: IdSchema,
@@ -13,6 +13,8 @@ export const LootTableDefSchema = z.strictObject({
       }),
     )
     .min(1),
+  /** 掉落金幣時的數量範圍 */
+  gold: RangeSchema.default([1, 10]),
   rarityWeights: z.strictObject({
     normal: z.number().nonnegative(),
     magic: z.number().nonnegative(),

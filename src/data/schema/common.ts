@@ -11,5 +11,22 @@ export const RangeSchema = z
 /** World 座標（Tile） */
 export const PointSchema = z.tuple([z.number(), z.number()]);
 
+/** 角色屬性名稱；物品、詞綴、Buff 都以此指定要影響的屬性 */
+export const StatIdSchema = z.enum([
+  'maxHp',
+  'maxMana',
+  'manaRegen',
+  'moveSpeed',
+  'damageMin',
+  'damageMax',
+  'attackSpeed',
+  'attackRange',
+  'critChance',
+  'defense',
+]);
+export type StatId = z.infer<typeof StatIdSchema>;
+
+export const ModifierKindSchema = z.enum(['flat', 'increased', 'more']);
+
 export const ElementSchema = z.enum(['physical', 'fire', 'cold', 'lightning', 'poison']);
 export type Element = z.infer<typeof ElementSchema>;

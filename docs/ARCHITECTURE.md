@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0～M4 完成；下一步 M5 Loot。
+> 狀態：M0～M5 完成（另提前完成 HP / MP 球）；下一步 M6 Progression。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -256,7 +256,8 @@ arpg/
 | stats | `StatBlock` | 由 Base 值 + Modifier 清單計算最終屬性（flat → increased% → more%） |
 | player | `PlayerController` | 把 Command 轉成玩家意圖：移動、攻擊、施法、喝水；只協調，不計算傷害 |
 | player | `PlayerLoadout` | 左鍵技能、右鍵 Q/W/E 三格、目前啟用哪一格 |
-| player | `PotionBelt` | 補血劑數量與上限、使用冷卻；一次同時回復 HP 與 MP |
+| player | `PotionBelt` | Space 喝藥水：從背包的藥水疊取一瓶，同時回復 HP 與 MP；使用冷卻 |
+| player | `ItemActions` | 背包 / 裝備欄的點擊規則：拿起、放下、互換、合併、穿上；拿著物品點地面丟棄 |
 | player | `DeathHandler` | 玩家死亡時把角色送回本層最後啟動的存檔點、補滿狀態 |
 | movement | `MovementSystem` | 沿路徑移動 Actor、處理碰撞 |
 | movement | `Pathfinder` | 在 `NavGrid` 上做 A* |
@@ -278,13 +279,17 @@ arpg/
 | summons | `SummonSystem` | 召喚上限、存活時間；AI 重用 `AiSystem`，只是目標陣營相反 |
 | world | `FloorManager` | 目前樓層、進入 / 離開樓層流程 |
 | world | `CheckpointSystem` | 每層兩個存檔點（樓梯口 / 中途）的啟動與重生位置 |
-| world | `ChestSystem` | 寶箱互動、開啟後交給 LootSystem 產生掉落 |
+| items | `ChestSystem` | 寶箱只能開一次，開啟時發出 `ChestOpened` |
+| player | `InteractionSystem` | 點擊地上物品 / 寶箱後走過去撿 / 開；藥水與金幣走過去自動撿 |
+| player | `Wallet` | 金幣 |
 | world | `DifficultyScaler` | 純函式：Floor → 怪物 HP / 傷害 / 密度 / Elite 機率倍率 |
 | world | `SpawnSystem` | 依 FloorDef 產生 SpawnRequest 並交給 EnemyFactory |
 | items | `ItemGenerator` | 擲稀有度、Tier、詞綴，產生 `ItemInstance` |
-| items | `LootSystem` | 監聽 `ActorDied` 與 `ChestOpened`，查 LootTable，在地上生成物品與補血劑 |
-| items | `Inventory` | 物品清單的增刪（MVP 用 List，不做格子） |
-| items | `Equipment` | 裝備欄位；穿脫時把詞綴轉成 StatModifier 加到玩家 StatBlock |
+| items | `LootSystem` | 監聽 `ActorDied` 與 `ChestOpened`，查 LootTable，在地上生成物品、藥水、金幣 |
+| items | `ItemDescriber` | 由 ItemInstance（ID + 擲骰值）推導顯示名稱與屬性說明；Render 與 UI 共用 |
+| items | `Inventory` | 10 × 8 格背包，每格一件物品或一疊藥水（20 瓶一疊，可多疊）；變動時增加 version |
+| items | `ItemCursor` | 滑鼠上拿著的物品；屬於遊戲狀態，存檔時不會遺失 |
+| items | `Equipment` | 裝備欄位（戒指兩格）；檢查欄位是否相符；穿脫時把基底屬性與詞綴轉成 StatModifier |
 | progression | `ExperienceSystem` | 監聽 `ActorDied` 加經驗、判斷升級、給技能點 |
 
 ### input / render / ui / save
@@ -355,8 +360,9 @@ Event 用於「一件事發生後，多個互不相關的系統都要反應」�
 | `MasteryAchieved` | SkillTree | UI（提示其他類別 T1～T3 已開放）、Audio |
 | `T4CategoryUnlocked` | SkillTree | UI、Audio |
 | `ChestOpened` | ChestSystem | LootSystem、Audio |
+| `UnequipFailed` | PlayerController | Render（「背包已滿」） |
 | `CheckpointActivated` | CheckpointSystem | SaveService（自動存檔）、UI、Audio |
-| `ItemDropped` / `ItemPickedUp` | LootSystem / Inventory | Render、UI |
+| `ItemPickedUp` / `PotionPickedUp` / `GoldPickedUp` / `PickupFailed` | InteractionSystem | Render（提示文字）、UI（背包快照） |
 | `ItemEquipped` / `ItemUnequipped` | Equipment | UI、Audio |
 | `PotionUsed` | PotionBelt | Render（回復量）、UI、Audio |
 | `FloorEntered` / `FloorCleared` | FloorManager | SpawnSystem、SaveService（自動存檔）、UI |
@@ -721,6 +727,20 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **Dependencies**：M3、M4（PotionBelt）
 - **Acceptance**：怪物死亡、寶箱開啟依機率掉 Normal / Magic / Rare 物品與補血劑；地上顯示名稱（顏色依稀有度）；左鍵點物品或寶箱會走過去撿 / 開；補血劑達上限時不撿；裝備後角色屬性改變。
 - **Test**：固定 Seed 產生 1000 件物品，稀有度分佈符合設定機率 ±3%；穿上再脫下，StatBlock 回到原值；寶箱只能開一次。
+- **狀態**：✅ 完成（137 個測試通過）。實作細節：
+  - 資料：8 種裝備基底、9 條物品詞綴（限定可出現的欄位）、骷髏與寶箱各一張掉落表；測試地圖放 3 個寶箱
+  - 屬性名稱清單（`StatIdSchema`）移到 `data/schema/common.ts`，物品與詞綴的屬性在啟動時驗證
+  - Magic 1～2 條詞綴、Rare 3～4 條；Legendary 權重目前為 0（留待 Legendary 系統）
+  - 地上物品顯示名稱（顏色依稀有度），重疊時往上疊；點名稱或圖示走過去撿
+  - 背包滿時撿不起來、脫不下裝備；藥水達上限時不自動撿
+  - 背包面板（按 I）：紙娃娃式裝備欄、屬性、10 × 8 格背包；Diablo 式「點一下拿起、點一下放下」，放到有物品的位置則互換
+  - 藥水放在背包，每 20 瓶一疊、可以有很多疊；Space 從最少的那一疊取用
+  - 拿著物品點地面會丟在腳下；自己丟下的藥水 / 金幣不會自動撿回
+  - Hover 顯示 Tooltip；背包物品對應的裝備欄已有物品時，並排顯示目前裝備（戒指最多兩個）以便比較
+  - UI 快照依 `world.itemsVersion` 在 Tick 結束後重建；Tooltip 記住「滑鼠所在位置」而非內容，穿脫後立即更新
+  - 修正：原本在「裝備脫下」事件當下重建快照，物品尚未放回背包，導致點擊後物品暫時消失
+  - HP / MP 球（`ResourceOrb.vue`）：左下紅、右下藍，液面依百分比，0% 為空心圓框
+  - 暫定：空手傷害與武器傷害相加（未來可改為「裝備武器時取代空手傷害」）；裝備等級需求於 M6 有角色等級後啟用
 
 ### M6 Progression
 

@@ -29,6 +29,7 @@ export const enemies: z.input<typeof EnemyDefSchema>[] = [
     detectRange: 7,
     ai: 'melee',
     skills: ['basic.attack'],
+    lootTable: 'loot.skeleton',
     xp: 12,
   },
 ];

@@ -12,6 +12,8 @@ export interface InputAdapters {
   screenToWorld: (screen: Vec2) => Vec2;
   /** 游標下的角色 ID（Renderer 以畫面空間判定），沒有則 null */
   pickActor: (screen: Vec2) => number | null;
+  /** 游標下的地上物品 / 寶箱 ID，沒有則 null */
+  pickInteractable: (screen: Vec2) => number | null;
 }
 
 /**
@@ -72,7 +74,7 @@ export class InputManager {
     if (e.button === 0) {
       this.leftHeld = true;
       this.lastRepeat = e.timeStamp / 1000;
-      this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: false });
+      this.commands.push({ type: 'PrimaryAction', ...this.primaryTarget(), held: false });
     } else if (e.button === 2) {
       this.rightHeld = true;
       this.lastRightRepeat = e.timeStamp / 1000;
@@ -104,6 +106,16 @@ export class InputManager {
 
   private pointerTarget(): { worldPos: Vec2; targetId: number | null } {
     return { worldPos: this.adapters.screenToWorld(this.pointer), targetId: this.adapters.pickActor(this.pointer) };
+  }
+
+  /** 左鍵按下：物品 / 寶箱優先於角色 */
+  private primaryTarget(): { worldPos: Vec2; targetId: number | null; interactId: number | null } {
+    const interactId = this.adapters.pickInteractable(this.pointer);
+    return {
+      worldPos: this.adapters.screenToWorld(this.pointer),
+      targetId: interactId === null ? this.adapters.pickActor(this.pointer) : null,
+      interactId,
+    };
   }
 
   private listen<K extends keyof HTMLElementEventMap & keyof WindowEventMap>(
