@@ -1,6 +1,7 @@
 import type { RawGameData } from './DataRegistry';
 import { balance } from './balance';
 import { items, potions } from './items';
+import { maps } from './maps';
 
 /**
  * 所有遊戲資料的集合，交給 DataRegistry.load() 驗證。
@@ -15,4 +16,5 @@ export const gameData: RawGameData = {
   affixes: [],
   lootTables: [],
   floors: [],
+  maps,
 };

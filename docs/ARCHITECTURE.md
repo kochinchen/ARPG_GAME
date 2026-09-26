@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0 Project Foundation 完成；下一步 M1 Player Movement。
+> 狀態：M0、M1 完成；下一步 M2 Combat。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -183,7 +183,7 @@ arpg/
 │  │
 │  ├─ game/                       # 純遊戲邏輯；禁止 import DOM / Pixi / Vue
 │  │  ├─ Commands.ts              # 遊戲接受的 Command 型別（input / ui 可 import）
-│  │  ├─ GameEvents.ts            # 遊戲事件型別（M1 起加入）
+│  │  ├─ GameEvents.ts            # 遊戲事件型別（M2 起加入）
 │  │  ├─ GameWorld.ts
 │  │  ├─ entities/                # Actor / Projectile / GroundItem
 │  │  ├─ stats/                   # StatBlock / StatModifier
@@ -643,10 +643,15 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **Goal**：斜 45 度地圖上，左鍵點地面，角色沿路徑走過去。
 - **Classes**：`GameWorld`、`Actor`、`PlayerController`、`MovementSystem`、`NavGrid`、`Pathfinder`、`InputManager`、`Renderer`、`Camera`
 - **Interfaces**：無
-- **Data**：一張手繪測試地圖（含牆壁）
+- **Data**：`data/maps.ts` 手繪 ASCII 地圖（`#` 牆、`.` 地板、`S` 出生點），由 `MapDef` Schema 驗證
 - **Dependencies**：M0
 - **Acceptance**：點擊可到達的位置，角色繞過牆走到；點牆壁會走到最近的可達點；按住左鍵持續朝游標移動；鏡頭跟隨。
 - **Test**：Pathfinder 單元測試（直線、繞牆、無路可走）；手動點地圖四個角落。
+- **狀態**：✅ 完成（52 個測試通過）。實作細節：
+  - A* 8 方向、不切牆角，之後以視線檢查拉直路徑（角色走直線，不會每格轉彎）
+  - 點到牆壁 → 走到牆邊最近的地板（同距離時選靠玩家的一側）；目標無法到達 → 走到最接近的位置
+  - 按住左鍵每 0.1 秒重新送出移動指令
+  - 擋住玩家的牆會半透明
 
 ### M2 Combat
 

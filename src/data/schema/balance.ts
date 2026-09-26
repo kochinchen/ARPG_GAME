@@ -14,7 +14,10 @@ export const BalanceSchema = z.strictObject({
     baseHp: z.number().positive(),
     baseMana: z.number().positive(),
     manaRegenPerSec: z.number().nonnegative(),
+    /** Tile / 秒 */
     moveSpeed: z.number().positive(),
+    /** 碰撞半徑（Tile） */
+    radius: z.number().positive().max(0.5),
   }),
   combat: z.strictObject({
     critMultiplier: z.number().min(1),

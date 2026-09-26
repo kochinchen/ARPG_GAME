@@ -12,6 +12,7 @@ import {
 } from './schema/item';
 import { LootTableDefSchema, type LootTableDef } from './schema/loot';
 import { FloorDefSchema, type FloorDef } from './schema/floor';
+import { MapDefSchema, type MapDef } from './schema/map';
 
 /** 尚未驗證的原始資料（來自 data/*.ts） */
 export interface RawGameData {
@@ -23,6 +24,7 @@ export interface RawGameData {
   affixes: readonly unknown[];
   lootTables: readonly unknown[];
   floors: readonly unknown[];
+  maps: readonly unknown[];
 }
 
 export class DataValidationError extends Error {
@@ -68,6 +70,7 @@ export class DataRegistry {
     readonly affixes: DataTable<AffixDef>,
     readonly lootTables: DataTable<LootTableDef>,
     readonly floors: DataTable<FloorDef>,
+    readonly maps: DataTable<MapDef>,
   ) {}
 
   static load(raw: RawGameData): DataRegistry {
@@ -81,6 +84,7 @@ export class DataRegistry {
     const affixes = parseTable('affix', AffixDefSchema, raw.affixes, problems);
     const lootTables = parseTable('lootTable', LootTableDefSchema, raw.lootTables, problems);
     const floors = parseTable('floor', FloorDefSchema, raw.floors, problems);
+    const maps = parseTable('map', MapDefSchema, raw.maps, problems);
 
     // 交叉引用檢查
     for (const enemy of enemies.all) {
@@ -95,10 +99,11 @@ export class DataRegistry {
       for (const { enemyId } of floor.monsterPool) {
         if (!enemies.has(enemyId)) problems.push(`floor '${floor.id}' 引用不存在的 enemy '${enemyId}'`);
       }
+      if (!maps.has(floor.map)) problems.push(`floor '${floor.id}' 引用不存在的 map '${floor.map}'`);
     }
 
     if (problems.length > 0 || !balance) throw new DataValidationError(problems);
-    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors);
+    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps);
   }
 }
 

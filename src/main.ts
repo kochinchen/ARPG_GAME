@@ -6,56 +6,68 @@ import { Application } from 'pixi.js';
 import { createApp } from 'vue';
 import { DataRegistry } from './data/DataRegistry';
 import { gameData } from './data';
+import { CommandQueue } from './core/CommandQueue';
 import { GameLoop } from './core/GameLoop';
 import { IsoProjection } from './core/math/IsoProjection';
-import { vec2 } from './core/math/Vec2';
-import { DebugGridView } from './render/DebugGridView';
+import type { GameCommand } from './game/Commands';
+import { GameWorld } from './game/GameWorld';
+import { Camera } from './render/Camera';
+import { Renderer } from './render/Renderer';
+import { PALETTE } from './render/palette';
+import { InputManager } from './input/InputManager';
 import { debugView } from './ui/bridge/DebugView';
 import App from './ui/App.vue';
 
-const GRID_SIZE = 12;
+const START_MAP = 'map.test_1';
 
 async function bootstrap(): Promise<void> {
   // 1. 資料驗證失敗就停止
-  DataRegistry.load(gameData);
+  const data = DataRegistry.load(gameData);
+
+  // 2. 基礎設施
+  const commands = new CommandQueue<GameCommand>();
+
+  // 4. GameWorld
+  const world = new GameWorld({ data, mapId: START_MAP, commands });
 
   // 6. Render
   const host = document.getElementById('game');
   if (!host) throw new Error('#game not found');
   const app = new Application();
-  await app.init({ resizeTo: host, background: 0x0b0a09, antialias: true });
+  await app.init({
+    resizeTo: host,
+    background: PALETTE.background,
+    antialias: true,
+    resolution: window.devicePixelRatio,
+    autoDensity: true,
+  });
   host.appendChild(app.canvas);
 
   const projection = new IsoProjection();
-  const grid = new DebugGridView(projection, GRID_SIZE);
-  app.stage.addChild(grid.container);
-
-  const center = projection.toScreen(vec2(GRID_SIZE / 2, GRID_SIZE / 2));
-  const layout = () => {
-    grid.container.position.set(app.screen.width / 2 - center.x, app.screen.height / 2 - center.y);
-  };
-  layout();
-  app.renderer.on('resize', layout);
-
-  app.stage.eventMode = 'static';
-  app.stage.hitArea = app.screen;
-  app.stage.on('pointermove', (e) => {
-    const local = grid.container.toLocal(e.global);
-    debugView.hoverTile = grid.setHover(projection.toWorld(vec2(local.x, local.y)));
-  });
+  const camera = new Camera(projection);
+  const renderer = new Renderer(app, projection, world, camera);
 
   // 7. UI
   createApp(App).mount('#ui');
 
+  // 8. Input（最後才開始接受輸入）
+  const input = new InputManager(app.canvas, commands, (screen) => camera.screenToWorld(screen));
+
   // 9. Loop
+  const now = () => performance.now() / 1000;
   const loop = new GameLoop({
-    update: () => {},
-    render: () => {
+    update: (dt) => world.update(dt),
+    render: (alpha) => {
+      renderer.render(alpha);
+      input.poll(now());
       debugView.tick = loop.tick;
       debugView.fps = Math.round(app.ticker.FPS);
+      debugView.player.x = world.player.position.x;
+      debugView.player.y = world.player.position.y;
+      debugView.waypoints = world.player.path.length;
     },
   });
-  loop.start({ now: () => performance.now() / 1000 }, (cb) => requestAnimationFrame(cb));
+  loop.start({ now }, (cb) => requestAnimationFrame(cb));
 }
 
 bootstrap().catch((error: unknown) => {

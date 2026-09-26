@@ -4,13 +4,11 @@ import { debugView } from './bridge/DebugView';
 
 <template>
   <div class="debug">
-    <div class="title">ARPG · M0 Project Foundation</div>
+    <div class="title">ARPG · {{ debugView.milestone }}</div>
     <div>Tick {{ debugView.tick }} · {{ debugView.fps }} FPS</div>
-    <div>
-      Tile
-      <template v-if="debugView.hoverTile">({{ debugView.hoverTile.x }}, {{ debugView.hoverTile.y }})</template>
-      <template v-else>—</template>
-    </div>
+    <div>Player ({{ debugView.player.x.toFixed(2) }}, {{ debugView.player.y.toFixed(2) }})</div>
+    <div>Waypoints {{ debugView.waypoints }}</div>
+    <div class="hint">左鍵點地面移動 · 按住左鍵持續移動</div>
   </div>
 </template>
 
@@ -27,5 +25,9 @@ import { debugView } from './bridge/DebugView';
 }
 .title {
   color: #e8c47a;
+}
+.hint {
+  margin-top: 4px;
+  color: #8a7c68;
 }
 </style>

@@ -80,3 +80,20 @@ describe('DataRegistry', () => {
     expect(() => data.skills.get('nope')).toThrow('skill not found: nope');
   });
 });
+
+describe('MapDef 驗證', () => {
+  const load = (rows: string[]) => DataRegistry.load(withData({ maps: [{ id: 'map.bad', rows }] }));
+
+  it('每列長度必須一致', () => {
+    expect(() => load(['#S#', '##'])).toThrow('長度');
+  });
+
+  it('出生點必須剛好一個', () => {
+    expect(() => load(['#..#'])).toThrow("出生點 'S'");
+    expect(() => load(['#SS#'])).toThrow("出生點 'S'");
+  });
+
+  it('不允許未定義的字元', () => {
+    expect(() => load(['#SX#'])).toThrow("不合法的字元 'X'");
+  });
+});

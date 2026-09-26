@@ -14,6 +14,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     baseMana: 50,
     manaRegenPerSec: 1.5,
     moveSpeed: 4,
+    radius: 0.3,
   },
   combat: {
     critMultiplier: 1.5,
