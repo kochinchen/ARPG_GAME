@@ -296,11 +296,25 @@ export class GameWorld {
     const killed = new Set(restore?.killed ?? []);
     // 只生成這一層已經開放的怪物（minFloor）
     const pool = { ...def, monsterPool: def.monsterPool.filter((m) => m.minFloor <= floor) };
-    const plan = spawner.planMonsters(pool, scaling.density, safe, this.data.balance.floor.safeRadius);
+    const eliteConfig = this.data.balance.elite;
+    const elite =
+      floor >= eliteConfig.minFloor
+        ? {
+            chance: def.eliteChance,
+            count: def.affixCount,
+            pool: this.data.eliteAffixes.all.filter((a) => a.minFloor <= floor),
+            rng: new Rng(this.seed).fork(`elite-${floor}`),
+          }
+        : undefined;
+    const plan = spawner.planMonsters(pool, scaling.density, safe, this.data.balance.floor.safeRadius, elite);
     const spawnedIds: [number, number][] = [];
     plan.forEach((request, index) => {
       if (killed.has(index)) return;
-      const actor = this.addActor(this.enemyFactory.create(this.data.enemies.get(request.enemyId), this.nextActorId++, request.position, scaling));
+      const eliteSpec = request.eliteAffixes
+        ? { config: eliteConfig, affixes: request.eliteAffixes.map((id) => this.data.eliteAffixes.get(id)) }
+        : undefined;
+      const enemyDef = this.data.enemies.get(request.enemyId);
+      const actor = this.addActor(this.enemyFactory.create(enemyDef, this.nextActorId++, request.position, scaling, eliteSpec));
       spawnedIds.push([actor.id, index]);
     });
     spawner.planChests(rng.int(def.chests[0], def.chests[1]), safe).forEach((position, index) => {

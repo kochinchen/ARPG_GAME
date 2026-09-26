@@ -56,8 +56,10 @@ export interface GameEvents {
     defId: string | null;
     killerId: ActorId | null;
     position: Vec2;
-    /** 擊殺可得的經驗（已套用樓層倍率） */
+    /** 擊殺可得的經驗（已套用樓層與精英倍率） */
     xp: number;
+    /** 精英怪：另外掉落精英掉落表 */
+    elite: boolean;
   };
   /** 進入某一層（含第一次進入遊戲） */
   FloorEntered: { floor: number; mapId: string };

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IdSchema, RangeSchema, StatIdSchema } from './common';
+import { EliteConfigSchema } from './elite';
 
 /** 屬性的一項效果：每點給 stat 一個 flat 加成 */
 export const AttributeEffectSchema = z.strictObject({
@@ -105,6 +106,8 @@ export const BalanceSchema = z.strictObject({
     /** 走到中途存檔點多近時啟動 */
     checkpointRadius: z.number().positive(),
   }),
+  /** 精英怪（每群隊長）的共通強化 */
+  elite: EliteConfigSchema,
   /** 近戰 / 遠程 / 魔法技能的共通倍率 */
   skillCategories: z.strictObject({ melee: CategoryTraitsSchema, ranged: CategoryTraitsSchema, magic: CategoryTraitsSchema }),
   combo: z.strictObject({

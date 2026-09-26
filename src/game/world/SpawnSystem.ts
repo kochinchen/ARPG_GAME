@@ -7,6 +7,17 @@ import { tileCenter } from '../movement/NavGrid';
 export interface SpawnRequest {
   enemyId: string;
   position: Vec2;
+  /** 精英怪的詞綴 ID（一般怪物為 undefined） */
+  eliteAffixes?: string[];
+}
+
+/** 精英怪設定：每群的隊長有 chance 機率成為精英，從 pool 抽 count 個不重複的詞綴 */
+export interface EliteRoll {
+  chance: number;
+  count: readonly [number, number];
+  pool: readonly { id: string; weight: number }[];
+  /** 獨立的亂數：加入精英怪不會改變原本怪物的位置與種類 */
+  rng: Rng;
 }
 
 /** 同一群怪物之間、以及和其他群的最小距離 */
@@ -23,7 +34,13 @@ export class SpawnSystem {
     private readonly rng: Rng,
   ) {}
 
-  planMonsters(floor: FloorDef, densityMultiplier: number, avoid: readonly Vec2[], safeRadius: number): SpawnRequest[] {
+  planMonsters(
+    floor: FloorDef,
+    densityMultiplier: number,
+    avoid: readonly Vec2[],
+    safeRadius: number,
+    elite?: EliteRoll,
+  ): SpawnRequest[] {
     const tiles = this.candidates(avoid, safeRadius);
     const target = Math.round((this.nav.walkableTiles().length / 100) * floor.density * densityMultiplier);
     const requests: SpawnRequest[] = [];
@@ -37,7 +54,12 @@ export class SpawnSystem {
       for (let i = 0; i < size; i++) {
         const position = i === 0 ? center : this.near(center, avoid, safeRadius);
         if (!position) continue;
-        requests.push({ enemyId: this.rng.weighted(floor.monsterPool).enemyId, position });
+        const request: SpawnRequest = { enemyId: this.rng.weighted(floor.monsterPool).enemyId, position };
+        if (i === 0 && elite) {
+          const affixes = rollElite(elite);
+          if (affixes) request.eliteAffixes = affixes;
+        }
+        requests.push(request);
       }
     }
     return requests;
@@ -69,4 +91,18 @@ export class SpawnSystem {
     }
     return null;
   }
+}
+
+/** 這一群的隊長是否成為精英；是的話回傳詞綴 ID（不重複） */
+function rollElite(elite: EliteRoll): string[] | null {
+  if (elite.pool.length === 0 || !elite.rng.chance(elite.chance)) return null;
+  const count = Math.min(elite.rng.int(elite.count[0], elite.count[1]), elite.pool.length);
+  const remaining = [...elite.pool];
+  const picked: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const affix = elite.rng.weighted(remaining);
+    picked.push(affix.id);
+    remaining.splice(remaining.indexOf(affix), 1);
+  }
+  return picked;
 }

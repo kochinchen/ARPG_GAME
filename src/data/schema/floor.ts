@@ -19,9 +19,10 @@ export const FloorDefSchema = z.strictObject({
   density: z.number().positive(),
   /** 一群怪物的隻數範圍 */
   packSize: RangeSchema.default([2, 4]),
-  /** Elite 機制尚未實作，先保留欄位 */
+  /** 每一群的隊長成為精英怪的機率（balance.elite.minFloor 之前不會出現） */
   eliteChance: z.number().min(0).max(1).default(0),
-  affixCount: RangeSchema.default([0, 0]),
+  /** 精英怪的詞綴數量範圍 */
+  affixCount: RangeSchema.default([1, 1]),
   lootTier: z.int().positive(),
   /** 寶箱數量範圍 */
   chests: RangeSchema,

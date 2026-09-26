@@ -26,6 +26,8 @@ export class ActorView {
   private readonly nameLabel: Text;
   private readonly isEnemy: boolean;
   private readonly isPlayer: boolean;
+  private readonly isElite: boolean;
+  private readonly aura = new Graphics();
   private lungeTime = 0;
   private lungeDir = { x: 0, y: 0 };
   hovered = false;
@@ -36,6 +38,7 @@ export class ActorView {
   ) {
     this.isEnemy = actor.faction === 'enemy';
     this.isPlayer = actor.faction === 'player';
+    this.isElite = actor.elite;
     const [color, dark] = this.isEnemy
       ? (ENEMY_COLORS[actor.defId ?? ''] ?? [PALETTE.enemy, PALETTE.enemyDark])
       : [PALETTE.player, PALETTE.playerDark];
@@ -54,13 +57,20 @@ export class ActorView {
 
     this.nameLabel = new Text({
       text: actor.name,
-      style: { fontFamily: 'sans-serif', fontSize: 12, fill: PALETTE.hoverName, stroke: { color: 0x000000, width: 3 } },
+      style: {
+        fontFamily: 'sans-serif',
+        fontSize: 12,
+        fill: this.isElite ? PALETTE.eliteName : PALETTE.hoverName,
+        stroke: { color: 0x000000, width: 3 },
+      },
     });
     this.nameLabel.anchor.set(0.5, 1);
     this.nameLabel.position.set(0, BAR_Y - 4);
     this.nameLabel.visible = false;
 
-    this.container.addChild(shadow, this.facingMark, this.body, this.hpBar, this.nameLabel);
+    // 精英怪：腳下的金色光圈
+    if (this.isElite) this.aura.ellipse(0, 0, px * 1.35, px * 0.68).stroke({ color: PALETTE.eliteName, width: 2 });
+    this.container.addChild(shadow, this.aura, this.facingMark, this.body, this.hpBar, this.nameLabel);
   }
 
   /** 揮擊動畫：往 direction（畫面座標）前衝一下 */
@@ -90,14 +100,16 @@ export class ActorView {
     this.container.alpha = actor.alive ? 1 : 0.55;
     this.facingMark.visible = actor.alive;
 
-    this.nameLabel.visible = this.isEnemy && this.hovered;
+    // 精英怪的名稱（含詞綴）一直顯示
+    this.nameLabel.visible = actor.alive && this.isEnemy && (this.hovered || this.isElite);
+    if (this.isElite) this.aura.alpha = actor.alive ? 0.6 + 0.4 * Math.sin(performance.now() / 300) : 0;
     this.drawHpBar(actor);
   }
 
   private drawHpBar(actor: Actor): void {
     const ratio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 0;
     // 敵人：滑鼠移上或受傷時顯示；玩家：受傷時顯示（M8 會改為血球）
-    const visible = actor.alive && ((this.isEnemy && this.hovered) || ratio < 1);
+    const visible = actor.alive && ((this.isEnemy && (this.hovered || this.isElite)) || ratio < 1);
     this.hpBar.visible = visible;
     if (!visible) return;
     this.hpBar
@@ -106,6 +118,7 @@ export class ActorView {
       .fill({ color: PALETTE.hpBack })
       .rect(-BAR_WIDTH / 2, BAR_Y, BAR_WIDTH * ratio, 5)
       .fill({ color: this.isPlayer ? PALETTE.playerHpFill : PALETTE.hpFill });
+    if (this.isElite) this.hpBar.rect(-BAR_WIDTH / 2 - 1, BAR_Y - 1, BAR_WIDTH + 2, 7).stroke({ color: PALETTE.eliteName, width: 1 });
   }
 }
 

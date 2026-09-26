@@ -4,7 +4,7 @@ import type { AffixDefSchema } from './schema/item';
 const ARMOR = ['helmet', 'armor', 'gloves', 'boots'] as const;
 const JEWELRY = ['ring', 'amulet'] as const;
 
-/** 物品詞綴。Elite 怪物詞綴（kind: 'elite'）於後續加入同一張表。 */
+/** 物品詞綴（精英怪詞綴見 eliteAffixes.ts）。 */
 export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'affix.sharp', name: '鋒利的', kind: 'item', stat: 'damageMin', value: [1, 3], minItemLevel: 1, weight: 10, slots: ['weapon'] },
   { id: 'affix.brutal', name: '殘暴的', kind: 'item', stat: 'damageMax', value: [2, 5], minItemLevel: 1, weight: 10, slots: ['weapon'] },

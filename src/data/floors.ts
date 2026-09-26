@@ -16,6 +16,9 @@ export const floors: z.input<typeof FloorDefSchema>[] = [
     ],
     density: 2.2,
     packSize: [2, 4],
+    // 精英怪第 3 層起出現（balance.elite.minFloor）
+    eliteChance: 0.2,
+    affixCount: [1, 1],
     lootTier: 1,
     chests: [1, 2],
     chestLootTable: 'loot.chest',
@@ -35,6 +38,8 @@ export const floors: z.input<typeof FloorDefSchema>[] = [
     ],
     density: 2.6,
     packSize: [3, 5],
+    eliteChance: 0.3,
+    affixCount: [1, 2],
     lootTier: 2,
     chests: [1, 3],
     chestLootTable: 'loot.chest',

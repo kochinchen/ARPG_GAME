@@ -8,6 +8,7 @@ import { comboRules } from './comboRules';
 import { floors } from './floors';
 import { affixes } from './affixes';
 import { lootTables } from './lootTables';
+import { eliteAffixes } from './eliteAffixes';
 
 /**
  * 所有遊戲資料的集合，交給 DataRegistry.load() 驗證。
@@ -23,4 +24,5 @@ export const gameData: RawGameData = {
   floors,
   maps,
   comboRules,
+  eliteAffixes,
 };

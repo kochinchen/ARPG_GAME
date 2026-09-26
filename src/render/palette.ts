@@ -16,6 +16,8 @@ export const PALETTE = {
   hpFill: 0xb02a1e,
   playerHpFill: 0x3f9e4a,
   hoverName: 0xf0e2c0,
+  /** 精英怪名稱、光圈、血條外框 */
+  eliteName: 0xe8c47a,
   damageText: 0xf4efe4,
   critText: 0xffb347,
   healText: 0x6fd46f,

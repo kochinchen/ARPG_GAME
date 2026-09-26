@@ -14,6 +14,7 @@ import { LootTableDefSchema, type LootTableDef } from './schema/loot';
 import { FloorDefSchema, type FloorDef } from './schema/floor';
 import { MapDefSchema, type MapDef } from './schema/map';
 import { ComboRuleSchema, isRangeSequenceValid, type ComboRuleDef } from './schema/combo';
+import { EliteAffixDefSchema, type EliteAffixDef } from './schema/elite';
 import { checkComboTags } from './skillAnalysis';
 import { findMarker, reachableTiles } from './mapAnalysis';
 import { MAP_TILES } from './schema/map';
@@ -31,6 +32,7 @@ export interface RawGameData {
   floors: readonly unknown[];
   maps: readonly unknown[];
   comboRules: readonly unknown[];
+  eliteAffixes: readonly unknown[];
 }
 
 export class DataValidationError extends Error {
@@ -78,6 +80,7 @@ export class DataRegistry {
     readonly floors: DataTable<FloorDef>,
     readonly maps: DataTable<MapDef>,
     readonly comboRules: DataTable<ComboRuleDef>,
+    readonly eliteAffixes: DataTable<EliteAffixDef>,
   ) {}
 
   static load(raw: RawGameData): DataRegistry {
@@ -93,6 +96,10 @@ export class DataRegistry {
     const floors = parseTable('floor', FloorDefSchema, raw.floors, problems);
     const maps = parseTable('map', MapDefSchema, raw.maps, problems);
     const comboRules = parseTable('comboRule', ComboRuleSchema, raw.comboRules, problems);
+    const eliteAffixes = parseTable('eliteAffix', EliteAffixDefSchema, raw.eliteAffixes, problems);
+    if (balance && !lootTables.has(balance.elite.lootTable)) {
+      problems.push(`balance.elite 引用不存在的 lootTable '${balance.elite.lootTable}'`);
+    }
 
     // 交叉引用檢查
     for (const enemy of enemies.all) {
@@ -201,7 +208,7 @@ export class DataRegistry {
     }
 
     if (problems.length > 0 || !balance) throw new DataValidationError(problems);
-    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules);
+    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules, eliteAffixes);
   }
 }
 

@@ -21,6 +21,8 @@ export interface ActorInit {
   /** 會的技能與等級 */
   skillRanks?: ReadonlyMap<string, number>;
   isBoss?: boolean;
+  /** 精英怪（每群的隊長）：名稱加上詞綴、較大、較強、掉落較好 */
+  elite?: boolean;
   /** 被擊殺時給予的經驗 */
   xpReward?: number;
 }
@@ -76,6 +78,7 @@ export class Actor {
   /** 有 AI 的角色（怪物、召喚物）；玩家與訓練木樁為 null */
   readonly ai: AiBrain | null;
   readonly isBoss: boolean;
+  readonly elite: boolean;
   readonly xpReward: number;
   radius: number;
 
@@ -119,6 +122,7 @@ export class Actor {
     this.stats = init.stats;
     this.ai = init.ai ?? null;
     this.isBoss = init.isBoss ?? false;
+    this.elite = init.elite ?? false;
     this.xpReward = init.xpReward ?? 0;
     this.skillRanks = new Map(init.skillRanks ?? []);
     this.hp = init.stats.get('maxHp');

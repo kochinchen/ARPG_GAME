@@ -15,6 +15,18 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     rarityWeights: { normal: 70, magic: 25, rare: 5, legendary: 0 },
   },
   {
+    // 精英怪額外掉落（原本的掉落之外再擲這張）：至少一件物品、稀有度較高
+    id: 'loot.elite',
+    rolls: 2,
+    entries: [
+      { kind: 'item', weight: 70 },
+      { kind: 'potion', weight: 15 },
+      { kind: 'gold', weight: 15 },
+    ],
+    gold: [15, 40],
+    rarityWeights: { normal: 25, magic: 50, rare: 25, legendary: 0 },
+  },
+  {
     id: 'loot.chest',
     rolls: 3,
     entries: [

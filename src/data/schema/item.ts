@@ -31,7 +31,8 @@ export const AffixDefSchema = z.strictObject({
   id: IdSchema,
   /** 顯示名稱，例如「鋒利的」 */
   name: z.string(),
-  kind: z.enum(['item', 'elite']),
+  /** 物品詞綴（精英怪詞綴另見 schema/elite.ts） */
+  kind: z.enum(['item']).default('item'),
   stat: StatIdSchema,
   modifier: ModifierKindSchema.default('flat'),
   /** 擲骰範圍；兩端都是整數時擲整數，否則取到小數第 2 位 */

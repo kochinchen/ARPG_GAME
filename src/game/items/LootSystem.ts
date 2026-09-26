@@ -27,6 +27,7 @@ export class LootSystem {
       if (e.faction !== 'enemy' || e.defId === null) return;
       const table = this.data.enemies.get(e.defId).lootTable;
       if (table) this.drop(table, e.position);
+      if (e.elite) this.drop(this.data.balance.elite.lootTable, e.position);
     });
     events.on('ChestOpened', (e) => this.drop(e.lootTable, e.position));
   }

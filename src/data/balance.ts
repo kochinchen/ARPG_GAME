@@ -75,6 +75,14 @@ export const balance: z.input<typeof BalanceSchema> = {
     safeRadius: 7,
     checkpointRadius: 1.2,
   },
+  elite: {
+    minFloor: 3,
+    hpMultiplier: 3,
+    damageMultiplier: 1.3,
+    xpMultiplier: 3,
+    radiusMultiplier: 1.2,
+    lootTable: 'loot.elite',
+  },
   skillCategories: {
     melee: { manaCost: 0.85, lifeSteal: 1.3 },
     ranged: { manaCost: 1, lifeSteal: 1 },

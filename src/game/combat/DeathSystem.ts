@@ -22,6 +22,7 @@ export class DeathSystem {
         killerId: actor.lastDamagedBy,
         position: actor.position,
         xp: actor.xpReward,
+        elite: actor.elite,
       });
     }
   }
