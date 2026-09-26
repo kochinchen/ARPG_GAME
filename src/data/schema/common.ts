@@ -29,6 +29,8 @@ export const StatIdSchema = z.enum([
   'defense',
   /** 所有傷害加成（比例） */
   'damageBonus',
+  /** 近戰技能（tag: melee）額外傷害加成（比例），與 damageBonus 相乘 */
+  'meleeDamageBonus',
   /** 受到傷害減免（比例，上限 90%） */
   'damageReduction',
   /** 受到暴擊時額外的暴擊傷害（比例） */

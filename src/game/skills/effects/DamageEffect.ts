@@ -2,6 +2,7 @@ import { rankValue } from '../../../data/schema/common';
 import type { DamageEffectDef } from '../../../data/schema/effects';
 import type { Actor } from '../../entities/Actor';
 import type { EffectContext, IEffect } from './IEffect';
+import { combatCategory } from '../skillCategory';
 
 /** Spell Power 傷害的浮動範圍 */
 const SPELL_SPREAD = 0.2;
@@ -35,6 +36,10 @@ export class DamageEffect implements IEffect<'damage'> {
       if (c.type === 'crit') extraCritChance += c.value;
     }
     multiplier *= 1 + comboDamage;
+    // 近戰技能額外加成（屬性點「攻擊」對近戰效果較高）
+    const category = combatCategory(ctx.skill);
+    if (category === 'melee') multiplier *= 1 + stats.get('meleeDamageBonus');
+    const lifeStealMultiplier = category ? ctx.services.categoryTraits[category].lifeSteal : 1;
 
     const { pipeline } = ctx.services;
     for (let hit = 0; hit < def.hits + mods.hitCount; hit++) {
@@ -47,6 +52,7 @@ export class DamageEffect implements IEffect<'damage'> {
         element: def.element,
         extraCritChance,
         armorPenetration: mods.armorPenetration,
+        lifeStealMultiplier,
       });
       // Combo：每一擊追加元素傷害
       for (const extra of mods.elementDamage) {

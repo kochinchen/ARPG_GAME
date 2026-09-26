@@ -46,6 +46,8 @@ function progressedWorld() {
   const { world, commands } = newWorld(11, 1);
   for (let i = 0; i < 7; i++) world.experience.grantLevel();
   world.experience.addXp(10);
+  world.attributes.allocate('vitality', 6);
+  world.attributes.allocate('crit', 4);
   const learnable = data.skills.all.filter((s) => s.tree && s.tree.tier === 1 && s.kind === 'active');
   for (const skill of learnable.slice(0, 3)) world.skillTree.learn(skill.id);
   const passive = data.skills.all.find((s) => s.tree && s.tree.tier === 1 && s.kind === 'passive')!;
@@ -140,6 +142,32 @@ describe('SaveMapper：Round-trip', () => {
       expect(existing.has(item.uid)).toBe(false);
       expect(counter(item.uid)).toBeGreaterThan(Math.max(...[...existing].map(counter)));
     }
+  });
+});
+
+describe('SaveMapper：屬性點', () => {
+  it('已分配與未分配的屬性點還原；加成重新套用', () => {
+    const { world } = progressedWorld();
+    const { world: loaded, save } = reload(world);
+    expect(save.attributes).toEqual({ unspent: 21 - 10, allocated: { vitality: 6, crit: 4 } });
+    expect(loaded.attributes.points('vitality')).toBe(6);
+    expect(loaded.progress.attributePoints).toBe(11);
+    expect(loaded.player.maxHp).toBeCloseTo(world.player.maxHp);
+  });
+
+  it('修復：屬性已移除 → 退點；超過上限 → 退回多出的；總數超過等級 → 全部重置', () => {
+    const base = SaveMapper.capture(progressedWorld().world, CREATED);
+    const removed = structuredClone(base);
+    removed.attributes.allocated['luck'] = 3;
+    removed.attributes.unspent -= 3;
+    expect(repairSave(removed, data).data.attributes).toEqual(base.attributes);
+
+    const over = structuredClone(base);
+    over.character.level = 2;
+    over.character.xp = 0;
+    over.skills = { ...over.skills };
+    const fixed = repairSave(over, data).data.attributes;
+    expect(fixed).toEqual({ unspent: 3, allocated: {} });
   });
 });
 

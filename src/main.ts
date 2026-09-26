@@ -21,6 +21,7 @@ import { debugView } from './ui/bridge/DebugView';
 import { gameBridge } from './ui/bridge/GameBridge';
 import { buildInventoryView } from './ui/bridge/InventoryView';
 import { buildSkillTreeView, skillTreeSignature } from './ui/bridge/SkillTreeView';
+import { buildCharacterView, characterSignature } from './ui/bridge/CharacterView';
 import { saveBridge } from './ui/bridge/SaveBridge';
 import App from './ui/App.vue';
 import { AutoSaver } from './save/AutoSaver';
@@ -101,6 +102,14 @@ async function bootstrap(): Promise<void> {
     debugView.skillTree = buildSkillTreeView(world, data);
   };
   refreshSkillTree();
+  let characterSig = '';
+  const refreshCharacter = () => {
+    const sig = characterSignature(world);
+    if (sig === characterSig) return;
+    characterSig = sig;
+    debugView.character = buildCharacterView(world, data);
+  };
+  refreshCharacter();
   debugView.devKeys = import.meta.env.DEV;
   let floorTimer = 0;
   const showFloorBanner = (floor: number) => {
@@ -211,6 +220,7 @@ async function bootstrap(): Promise<void> {
       debugView.potions = `${world.potions.count}`;
       refreshInventory();
       refreshSkillTree();
+      refreshCharacter();
       debugView.xp.level = world.progress.level;
       debugView.xp.value = world.progress.xp;
       debugView.xp.next = world.experience.xpForNextLevel;

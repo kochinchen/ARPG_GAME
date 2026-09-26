@@ -1,3 +1,4 @@
+import type { Balance } from '../../../data/schema/balance';
 import type { Rng } from '../../../core/Rng';
 import type { Vec2 } from '../../../core/math/Vec2';
 import type { DelayedEffectDef, EffectDef, EffectType, ZoneEffectDef } from '../../../data/schema/effects';
@@ -26,6 +27,8 @@ export interface EffectServices {
   rng: Rng;
   scheduler: EffectSchedulerPort;
   spawnProjectile: (projectile: Omit<Projectile, 'id'>) => void;
+  /** 近戰 / 遠程 / 魔法的共通倍率（吸血） */
+  categoryTraits: Balance['skillCategories'];
 }
 
 /**

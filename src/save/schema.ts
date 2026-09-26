@@ -3,11 +3,12 @@ import { RaritySchema } from '../data/schema/item';
 import { SkillCategorySchema } from '../data/schema/skill';
 
 /**
- * 存檔格式 v1（規格見 docs/SAVE_SYSTEM.md 第 2 節）。
+ * 存檔格式（目前 v2；規格見 docs/SAVE_SYSTEM.md 第 2 節）。
+ * v2：加入屬性點（attributes）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -37,7 +38,7 @@ const comboSlots = z.tuple([skillSlot, skillSlot, skillSlot]);
 
 export const EquipmentSlotSchema = z.enum(['weapon', 'helmet', 'armor', 'gloves', 'boots', 'ring1', 'ring2', 'amulet']);
 
-export const SaveDataV1Schema = z.object({
+export const SaveDataSchema = z.object({
   meta: z.object({
     createdAt: z.string(),
     playTimeSec: finite.min(0),
@@ -55,6 +56,12 @@ export const SaveDataV1Schema = z.object({
     unspentPoints: nonNegInt,
     t4Charges: nonNegInt,
     t4Unlocked: z.array(SkillCategorySchema),
+  }),
+  attributes: z.object({
+    /** 尚未分配的點數 */
+    unspent: nonNegInt,
+    /** 屬性 ID → 已分配點數 */
+    allocated: z.record(z.string(), int.min(1)),
   }),
   loadout: z.object({
     left: z.string(),
@@ -93,8 +100,7 @@ export const SaveDataV1Schema = z.object({
   }),
 });
 
-export type SaveDataV1 = z.infer<typeof SaveDataV1Schema>;
-export type SaveData = SaveDataV1;
+export type SaveData = z.infer<typeof SaveDataSchema>;
 export type SavedEntry = z.infer<typeof SavedEntrySchema>;
-export type SavedGroundItem = SaveDataV1['floor']['groundItems'][number];
+export type SavedGroundItem = SaveData['floor']['groundItems'][number];
 export type SavedItem = z.infer<typeof ItemInstanceSchema>;

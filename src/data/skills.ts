@@ -27,28 +27,41 @@ const special: SkillInput[] = [
 
 // ─────────────────────────────── Melee 近戰 ───────────────────────────────
 // A Heavy 重擊：高傷害、破甲、擊退 ｜ B Combo 連擊：快速、多段 ｜ C Guard 防禦：防守、反擊、控制
+// 近戰承擔貼身風險（M7.5）：同 Tier 傷害約為遠程的 1.25～1.35 倍（Heavy ×1.3、Fast ×1.2、Guard ×1.25），
+// 揮砍自帶扇形範圍（Fast 80°、Heavy 110°），主要目標一定命中。
+/** 揮砍的觸及半徑（從角色中心；再加上目標半徑） */
+const SWING_RADIUS = 1.3;
+type EffectInput = NonNullable<SkillInput['effects']>[number];
+const swing = (angleDeg: number, effects: EffectInput[]): EffectInput => ({
+  type: 'area',
+  radius: SWING_RADIUS,
+  angleDeg,
+  includeTarget: true,
+  effects,
+});
+
 const melee: SkillInput[] = [
   {
     id: 'melee.heavy_slash',
     name: '重砍',
-    description: '前方重擊，適合作為 Finisher。',
+    description: '向前方 110° 重擊，適合作為 Finisher。',
     tree: { category: 'melee', tier: 1, branch: 'A' },
     targeting: 'enemy',
     useAttackSpeed: true,
     cost: { mana: [2, 2, 3, 3, 4] },
     tags: ['attack', 'melee', 'heavy'],
-    effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(120, 135, 150, 165, 180) }],
+    effects: [swing(110, [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(156, 176, 195, 215, 234) }])],
   },
   {
     id: 'melee.quick_slash',
     name: '快斬',
-    description: '快速斬擊。',
+    description: '快速斬擊前方 80°。',
     tree: { category: 'melee', tier: 1, branch: 'B' },
     targeting: 'enemy',
     useAttackSpeed: true,
     cost: { mana: [1, 1, 2, 2, 3] },
     tags: ['attack', 'melee', 'combo'],
-    effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(80, 90, 100, 110, 120) }],
+    effects: [swing(80, [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(96, 108, 120, 132, 144) }])],
   },
   {
     id: 'melee.guard_stance',
@@ -64,27 +77,29 @@ const melee: SkillInput[] = [
   {
     id: 'melee.armor_break',
     name: '破甲斬',
-    description: '重擊並降低敵人防禦。',
+    description: '向前方 110° 重擊並降低敵人防禦。',
     tree: { category: 'melee', tier: 2, branch: 'A' },
     targeting: 'enemy',
     useAttackSpeed: true,
     cost: { mana: [4, 5, 5, 6, 7] },
     tags: ['attack', 'melee', 'heavy'],
     effects: [
-      { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(135, 150, 165, 180, 195) },
-      { type: 'status', status: 'armorBreak', duration: 5, magnitude: pct(10, 13, 16, 19, 22) },
+      swing(110, [
+        { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(176, 195, 215, 234, 254) },
+        { type: 'status', status: 'armorBreak', duration: 5, magnitude: pct(10, 13, 16, 19, 22) },
+      ]),
     ],
   },
   {
     id: 'melee.double_slash',
     name: '雙重斬',
-    description: '快速斬擊兩次。',
+    description: '快速斬擊前方 80° 兩次。',
     tree: { category: 'melee', tier: 2, branch: 'B' },
     targeting: 'enemy',
     useAttackSpeed: true,
     cost: { mana: [4, 4, 5, 6, 7] },
     tags: ['attack', 'melee', 'combo'],
-    effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 2, multiplier: pct(65, 72, 79, 86, 93) }],
+    effects: [swing(80, [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 2, multiplier: pct(78, 86, 95, 103, 112) }])],
   },
   {
     id: 'melee.shield_bash',
@@ -98,7 +113,7 @@ const melee: SkillInput[] = [
     tags: ['attack', 'melee', 'guard'],
     effects: [
       { type: 'dash', distance: 3, direction: 'forward' },
-      { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(90, 105, 120, 135, 150) },
+      { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(113, 131, 150, 169, 188) },
       { type: 'status', status: 'stun', duration: 1 },
       { type: 'knockback', distance: 1 },
     ],
@@ -106,7 +121,7 @@ const melee: SkillInput[] = [
   {
     id: 'melee.earth_break',
     name: '裂地擊',
-    description: '向前方扇形釋放震波，並擊退敵人。',
+    description: '向前方 160° 釋放震波，並擊退敵人。',
     tree: { category: 'melee', tier: 3, branch: 'A' },
     targeting: 'direction',
     useAttackSpeed: true,
@@ -116,9 +131,9 @@ const melee: SkillInput[] = [
       {
         type: 'area',
         radius: 3,
-        angleDeg: 90,
+        angleDeg: 160,
         effects: [
-          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(170, 190, 210, 230, 250) },
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(221, 247, 273, 299, 325) },
           { type: 'knockback', distance: 1.5 },
         ],
       },
@@ -134,7 +149,7 @@ const melee: SkillInput[] = [
     cost: { mana: T3_MP },
     tags: ['attack', 'melee', 'combo', 'area'],
     effects: [
-      { type: 'area', radius: 1.8, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 3, multiplier: pct(55, 62, 69, 76, 83) }] },
+      { type: 'area', radius: 1.8, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 3, multiplier: pct(66, 74, 83, 91, 100) }] },
     ],
   },
   {
@@ -167,7 +182,7 @@ const melee: SkillInput[] = [
             type: 'damage',
             element: 'physical',
             scaling: 'weapon',
-            multiplier: pct(240, 275, 310, 345, 380),
+            multiplier: pct(312, 358, 403, 449, 494),
             bonus: { when: { status: 'armorBreak' }, damagePct: 0.3 },
           },
         ],
@@ -177,13 +192,13 @@ const melee: SkillInput[] = [
   {
     id: 'melee.phantom_blades',
     name: '幻影連斬',
-    description: '快速連續五擊。',
+    description: '快速連續五擊前方 80°。',
     tree: { category: 'melee', tier: 4, branch: 'B' },
     targeting: 'enemy',
     useAttackSpeed: true,
     cost: { mana: T4_MP },
     tags: ['attack', 'melee', 'combo'],
-    effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 5, multiplier: pct(48, 54, 60, 66, 72) }],
+    effects: [swing(80, [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 5, multiplier: pct(58, 65, 72, 79, 86) }])],
   },
   {
     id: 'melee.iron_will',

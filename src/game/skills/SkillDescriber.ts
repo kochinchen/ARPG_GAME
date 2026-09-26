@@ -12,7 +12,7 @@ const ELEMENT_LABELS: Record<string, string> = {
 };
 
 const TARGETING_LABELS: Record<TargetType, string> = {
-  enemy: '單體',
+  enemy: '指定目標',
   direction: '方向',
   ground: '地面',
   self: '自身',

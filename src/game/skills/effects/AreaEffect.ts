@@ -28,6 +28,8 @@ export class AreaEffect implements IEffect<'area'> {
         return d.x * ctx.direction.x + d.y * ctx.direction.y >= halfCos;
       });
     }
+    // 主要目標一定命中（近戰揮砍：目標在出招途中稍微移動也不會落空）
+    if (def.includeTarget && ctx.target?.alive && !victims.includes(ctx.target)) victims.unshift(ctx.target);
     for (const target of victims) ctx.run(def.effects, { ...ctx, target, origin: center });
   }
 }

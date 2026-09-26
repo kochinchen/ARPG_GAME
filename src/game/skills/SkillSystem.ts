@@ -8,6 +8,8 @@ import type { Pathfinder } from '../movement/Pathfinder';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { SkillExecutor } from './SkillExecutor';
 import { NO_MODS, type StepMods } from '../combo/StepMods';
+import type { Balance } from '../../data/schema/balance';
+import { combatCategory } from './skillCategory';
 
 /** 追擊時重新尋路的間隔（秒） */
 const REPATH_INTERVAL = 0.25;
@@ -26,6 +28,8 @@ export class SkillSystem {
     private readonly pathfinder: Pathfinder,
     private readonly executor: SkillExecutor,
     private readonly events: GameEventBus,
+    /** 近戰 / 遠程 / 魔法的 MP 倍率 */
+    private readonly categoryTraits: Balance['skillCategories'],
   ) {}
 
   update(actors: readonly Actor[], dt: number): void {
@@ -46,7 +50,9 @@ export class SkillSystem {
   /** 此等級的魔力消耗（套用施放者的魔力消耗降低與 Combo 的 MP 加成） */
   manaCost(skill: SkillDef, rank: number, caster?: Actor, mods: Readonly<StepMods> = NO_MODS): number {
     const reduction = Math.min(0.9, Math.max(0, caster?.stats.get('manaCostReduction') ?? 0));
-    return Math.max(0, rankValue(skill.cost.mana, rank) * (1 - reduction) * (1 + mods.mp));
+    const category = combatCategory(skill);
+    const categoryMult = category ? this.categoryTraits[category].manaCost : 1;
+    return Math.max(0, rankValue(skill.cost.mana, rank) * categoryMult * (1 - reduction) * (1 + mods.mp));
   }
 
   /** 施放時間：近戰 / 弓箭依攻速，法術依施法速度；Combo 的動作速度加成對兩者都有效 */

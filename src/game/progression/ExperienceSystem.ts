@@ -13,7 +13,7 @@ export function xpToNext(level: number, balance: Pick<Balance, 'xpCurve'>): numb
 }
 
 /**
- * 監聽敵人死亡給經驗；升級時給技能點、Mastery 後再給 T4 開通次數，並成長基礎屬性。
+ * 監聽敵人死亡給經驗；升級時給技能點、屬性點、Mastery 後再給 T4 開通次數，並成長基礎屬性。
  */
 export class ExperienceSystem {
   constructor(
@@ -54,7 +54,7 @@ export class ExperienceSystem {
 
   /**
    * 讀檔：從 Lv1 的新角色還原到指定等級。只套用每級的基礎屬性成長；
-   * 技能點、T4 開通次數由存檔直接還原（不重新發放），也不發出升級事件。
+   * 技能點、屬性點、T4 開通次數由存檔直接還原（不重新發放），也不發出升級事件。
    */
   restore(level: number, xp: number): void {
     if (this.progress.level !== 1) throw new Error('restore() must be called on a new character');
@@ -76,6 +76,7 @@ export class ExperienceSystem {
     const p = this.progress;
     p.level++;
     p.skillPoints += balance.skillPointsPerLevel;
+    p.attributePoints += balance.attributes.pointsPerLevel;
     // Mastery 後，每升一級得到 T4 開通次數
     if (this.skillTree.mastery) p.t4Charges += balance.t4UnlockChargesPerLevel;
     for (const [stat, value] of Object.entries(balance.statsPerLevel) as [StatId, number][]) {

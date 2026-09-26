@@ -1,6 +1,34 @@
 import { z } from 'zod';
 import { IdSchema, RangeSchema, StatIdSchema } from './common';
 
+/** 屬性的一項效果：每點給 stat 一個 flat 加成 */
+export const AttributeEffectSchema = z.strictObject({
+  stat: StatIdSchema,
+  perPoint: z.number().positive(),
+  /** 顯示：效果名稱，與是否以百分比顯示 */
+  label: z.string(),
+  percent: z.boolean().default(false),
+});
+
+/** 屬性點可以加的項目；一個屬性可以有多項效果 */
+export const AttributeDefSchema = z.strictObject({
+  /** 存檔使用的 ID，改名需要寫 Migration */
+  id: z.string().regex(/^[a-z]+$/),
+  name: z.string(),
+  effects: z.array(AttributeEffectSchema).min(1),
+  /** 最多可以加幾點（例如暴擊率避免超過 100%） */
+  maxPoints: z.int().positive().optional(),
+});
+export type AttributeDef = z.infer<typeof AttributeDefSchema>;
+
+/** 技能類型的共通特性（近戰承擔貼身風險，續航與 MP 效率較好） */
+const CategoryTraitsSchema = z.strictObject({
+  /** MP 消耗倍率 */
+  manaCost: z.number().positive(),
+  /** 吸血效率倍率 */
+  lifeSteal: z.number().nonnegative(),
+});
+
 const ComboSlotsSchema = z.tuple([IdSchema.nullable(), IdSchema.nullable(), IdSchema.nullable()]);
 
 export const BalanceSchema = z.strictObject({
@@ -54,6 +82,13 @@ export const BalanceSchema = z.strictObject({
       supports: z.tuple([IdSchema.nullable(), IdSchema.nullable(), IdSchema.nullable()]),
     }),
   }),
+  /** 屬性點：每升一級得到 pointsPerLevel 點，自由加到 list 中的項目 */
+  attributes: z
+    .strictObject({
+      pointsPerLevel: z.int().nonnegative(),
+      list: z.array(AttributeDefSchema).min(1),
+    })
+    .refine((a) => new Set(a.list.map((d) => d.id)).size === a.list.length, '屬性 ID 不可重複'),
   /** 樓層難度：第 N 層的倍率 = 1 + 每層成長 × (N - 1) */
   difficulty: z.strictObject({
     hpPerFloor: z.number().nonnegative(),
@@ -69,6 +104,12 @@ export const BalanceSchema = z.strictObject({
     safeRadius: z.number().nonnegative(),
     /** 走到中途存檔點多近時啟動 */
     checkpointRadius: z.number().positive(),
+  }),
+  /** 近戰 / 遠程 / 魔法技能的共通倍率 */
+  skillCategories: z.strictObject({ melee: CategoryTraitsSchema, ranged: CategoryTraitsSchema, magic: CategoryTraitsSchema }),
+  combo: z.strictObject({
+    /** 「近 → 近 → 遠」的 Combo：第三招額外加成（前兩招承擔貼身風險的回報） */
+    nearNearFarBonus: z.strictObject({ damage: z.number().nonnegative(), aoeRadius: z.number().nonnegative() }),
   }),
   combat: z.strictObject({
     critMultiplier: z.number().min(1),

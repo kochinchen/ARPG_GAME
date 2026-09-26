@@ -36,6 +36,8 @@ export type GameCommand =
   | { type: 'SetComboSlot'; combo: 0 | 1 | 2; step: 0 | 1 | 2; skillId: string | null }
   /** 設定 Support 欄位（null = 卸下） */
   | { type: 'SetSupportSlot'; slot: 0 | 1 | 2; skillId: string | null }
+  /** 角色面板：把屬性點加到某個屬性（count 點，不足時加到用完為止） */
+  | { type: 'AllocateAttribute'; attribute: string; count: number }
   /** 開發用：直接升一級（只有 dev 版的 Input 會送出） */
   | { type: 'DebugLevelUp' }
   /** 開發用：在玩家周圍生成寶箱 */

@@ -114,7 +114,8 @@ describe('Combo Discovery 與 Codex（D01～D05）', () => {
 });
 
 describe('Combo 加成實際作用在技能上', () => {
-  it('烈焰終擊：第三招火球的爆炸範圍 +40%、投射物 +30%；單獨施放火球沒有加成', () => {
+  // 重砍 → 重砍 → 火球 是「近 → 近 → 遠」，第三招另有近身回報 +10% 傷害、+10% 範圍（M7.5）
+  it('烈焰終擊：第三招火球的爆炸範圍 +40%（+10% 近身回報）、投射物 +30%；單獨施放火球沒有加成', () => {
     const radii = (steps: string[]) => {
       const { world, commands, events } = setup();
       setQ(world, ...steps);
@@ -133,7 +134,7 @@ describe('Combo 加成實際作用在技能上', () => {
     };
     const combo = radii(FLAME);
     const plain = radii(['magic.fireball']);
-    expect(combo.area).toBeCloseTo(plain.area! * 1.4);
+    expect(combo.area).toBeCloseTo(plain.area! * 1.5);
     expect(combo.size).toBeCloseTo(plain.size * 1.3);
   });
 
@@ -145,7 +146,8 @@ describe('Combo 加成實際作用在技能上', () => {
     run(world, 5, () => {
       if (world.player.cast) mods.push(world.player.cast.mods.damage);
     });
-    expect(new Set(mods)).toEqual(new Set([0, 0.3]));
+    // 0.3（規則）+ 0.1（近身回報）
+    expect(new Set(mods.map((m) => Math.round(m * 1000) / 1000))).toEqual(new Set([0, 0.4]));
   });
 
   it('元素附刃：第二、三招每一擊追加火焰傷害', () => {

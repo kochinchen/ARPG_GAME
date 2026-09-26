@@ -58,6 +58,31 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   save.skills.ranks = Object.fromEntries(ranks);
   save.skills.t4Unlocked = [...new Set(save.skills.t4Unlocked)];
 
+  // ---- 屬性點：總數 = 每級點數 × (等級 − 1) ----
+  const attributeDefs = balance.attributes.list;
+  const allocated = new Map<string, number>();
+  for (const [id, points] of Object.entries(save.attributes.allocated)) {
+    const def = attributeDefs.find((d) => d.id === id);
+    if (!def) {
+      notes.push(`屬性「${id}」已移除，退回屬性點`);
+      continue;
+    }
+    const capped = def.maxPoints === undefined ? points : Math.min(points, def.maxPoints);
+    if (capped !== points) notes.push(`「${def.name}」超過上限，退回多出的屬性點`);
+    allocated.set(id, capped);
+  }
+  const totalAttributes = balance.attributes.pointsPerLevel * (level - 1);
+  const spentAttributes = [...allocated.values()].reduce((sum, p) => sum + p, 0);
+  if (spentAttributes > totalAttributes) {
+    notes.push('屬性點與等級不符，已重置並退回全部屬性點');
+    allocated.clear();
+    save.attributes.unspent = totalAttributes;
+  } else if (save.attributes.unspent !== totalAttributes - spentAttributes) {
+    notes.push(`未分配屬性點修正為 ${totalAttributes - spentAttributes}`);
+    save.attributes.unspent = totalAttributes - spentAttributes;
+  }
+  save.attributes.allocated = Object.fromEntries(allocated);
+
   // ---- 按鍵配置：只能放已學會、種類正確的技能 ----
   const learned = (id: string | null, kind: 'active' | 'passive') =>
     id !== null && ranks.has(id) && data.skills.get(id).kind === kind;

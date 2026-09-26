@@ -62,7 +62,7 @@ export class DamagePipeline implements DamageDealer {
     target.lastDamagedBy = source?.id ?? null;
 
     if (source?.alive) {
-      source.hp = Math.min(source.maxHp, source.hp + amount * source.stats.get('lifeSteal'));
+      source.hp = Math.min(source.maxHp, source.hp + amount * source.stats.get('lifeSteal') * (request.lifeStealMultiplier ?? 1));
       source.mana = Math.min(source.maxMana, source.mana + amount * source.stats.get('manaSteal'));
       if (!isDot) source.mana = Math.min(source.maxMana, source.mana + source.stats.get('manaOnHit'));
     }

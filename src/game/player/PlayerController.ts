@@ -7,6 +7,7 @@ import type { TargetingService } from '../targeting/TargetingService';
 import type { InteractionSystem } from './InteractionSystem';
 import type { ItemActions } from './ItemActions';
 import type { SkillTree } from '../skills/SkillTree';
+import type { AttributeSystem } from '../progression/AttributeSystem';
 import type { ComboSystem } from '../combo/ComboSystem';
 import type { DataTable } from '../../data/DataRegistry';
 import type { SkillDef } from '../../data/schema/skill';
@@ -42,6 +43,7 @@ export class PlayerController {
     private readonly skills: DataTable<SkillDef>,
     /** 目前解鎖的連段格數 */
     private readonly unlockedSlots: () => number,
+    private readonly attributes: AttributeSystem,
   ) {}
 
   handle(command: GameCommand): void {
@@ -81,6 +83,9 @@ export class PlayerController {
         break;
       case 'SetComboSlot':
         this.setComboSlot(command.combo, command.step, command.skillId);
+        break;
+      case 'AllocateAttribute':
+        this.attributes.allocate(command.attribute, command.count);
         break;
       case 'SetSupportSlot':
         this.setSupportSlot(command.slot, command.skillId);

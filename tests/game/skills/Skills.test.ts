@@ -439,3 +439,30 @@ describe('怪物也經由 SkillSystem 攻擊', () => {
     expect(new Set(casts)).toEqual(new Set(['basic.attack']));
   });
 });
+
+describe('近戰傷害加成（屬性點「攻擊」）', () => {
+  /** 對木樁施放一招，回傳第一下的傷害 */
+  function firstHit(skillId: string, meleeBonus: number): number {
+    const ctx = setup([dummyAt(2.6, 1.5)]);
+    const stats = ctx.world.player.stats;
+    stats.setBase('damageMin', 20);
+    stats.setBase('damageMax', 20);
+    stats.setBase('meleeDamageBonus', meleeBonus);
+    comboQ(ctx.world, skillId);
+    const dummy = enemiesOf(ctx.world)[0]!;
+    makeInvulnerable(dummy);
+    const hits: number[] = [];
+    ctx.events.on('ActorDamaged', (e) => {
+      if (e.targetId === dummy.id) hits.push(e.amount);
+    });
+    ctx.commands.push(castAt(dummy));
+    run(ctx.world, 2);
+    return hits[0]!;
+  }
+
+  it('只影響近戰技能（tag: melee），遠程與魔法不受影響', () => {
+    expect(firstHit('melee.heavy_slash', 0.5)).toBeCloseTo(firstHit('melee.heavy_slash', 0) * 1.5);
+    expect(firstHit('ranged.quick_shot', 0.5)).toBeCloseTo(firstHit('ranged.quick_shot', 0));
+    expect(firstHit('magic.fireball', 0.5)).toBeCloseTo(firstHit('magic.fireball', 0));
+  });
+});

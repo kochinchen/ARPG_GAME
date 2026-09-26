@@ -43,6 +43,10 @@ export const SaveMapper = {
         t4Charges: progress.t4Charges,
         t4Unlocked: [...progress.t4Unlocked],
       },
+      attributes: {
+        unspent: progress.attributePoints,
+        allocated: Object.fromEntries([...progress.attributes].filter(([, points]) => points > 0)),
+      },
       loadout: {
         left: loadout.left,
         combos: [[...loadout.combos[0]], [...loadout.combos[1]], [...loadout.combos[2]]],
@@ -94,6 +98,10 @@ export const SaveMapper = {
     progress.t4Charges = save.skills.t4Charges;
     progress.t4Unlocked.clear();
     for (const c of save.skills.t4Unlocked) progress.t4Unlocked.add(c);
+    progress.attributePoints = save.attributes.unspent;
+    progress.attributes.clear();
+    for (const [id, points] of Object.entries(save.attributes.allocated)) progress.attributes.set(id, points);
+    world.attributes.apply();
 
     // 按鍵配置
     const loadout = world.loadout;

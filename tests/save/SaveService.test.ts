@@ -6,7 +6,7 @@ import { decodeSave, encodeSave } from '../../src/save/Envelope';
 import { migrate } from '../../src/save/migrations';
 import { EMERGENCY_KEY, SaveService, type SyncStore } from '../../src/save/SaveService';
 import { repairSave } from '../../src/save/SaveRepair';
-import { SAVE_VERSION, SaveDataV1Schema, type SaveData } from '../../src/save/schema';
+import { SAVE_VERSION, SaveDataSchema, type SaveData } from '../../src/save/schema';
 import { sha256 } from '../../src/save/sha256';
 import { MemoryStorage } from '../../src/save/storage/MemoryStorage';
 
@@ -20,6 +20,7 @@ function sample(gold: number): SaveData {
     meta: { createdAt: '2026-01-01T00:00:00.000Z', playTimeSec: 12, runSeed: 42 },
     character: { level: 1, xp: 0, gold, hp: 50, mana: 20 },
     skills: { ranks: { 'basic.attack': 1, 'melee.heavy_slash': 1, 'magic.fireball': 1 }, unspentPoints: 2, t4Charges: 0, t4Unlocked: [] },
+    attributes: { unspent: 0, allocated: {} },
     loadout: {
       left: 'basic.attack',
       combos: [['melee.heavy_slash', null, null], ['magic.fireball', null, null], [null, null, null]],
@@ -102,7 +103,7 @@ describe('Envelope', () => {
 });
 
 describe('Migration', () => {
-  it('v0 假資料 → v1：通過 Schema，修復後內容合理', () => {
+  it('v0 假資料 → 目前版本：通過 Schema，修復後內容合理', () => {
     const v0 = {
       character: { level: 3, xp: 10, gold: 55 },
       skills: {
@@ -117,7 +118,9 @@ describe('Migration', () => {
       potions: 23,
       progress: { currentFloor: 2, highestFloor: 2, checkpoint: 'midway' },
     };
-    const v1 = SaveDataV1Schema.parse(migrate(v0, 0));
+    const v1 = SaveDataSchema.parse(migrate(v0, 0));
+    // v2：過去 2 級補發屬性點
+    expect(v1.attributes).toEqual({ unspent: 6, allocated: {} });
     expect(v1.loadout.combos).toEqual([['melee.heavy_slash', null, null], ['magic.fireball', null, null], [null, null, null]]);
     expect(v1.loadout.activeCombo).toBe(1);
     expect(v1.inventory.cells.filter((c) => c?.kind === 'potion').map((c) => c?.kind === 'potion' && c.count)).toEqual([20, 3]);
@@ -130,6 +133,18 @@ describe('Migration', () => {
     const payload = JSON.stringify(v0);
     const envelope = { schemaVersion: 0, savedAt: '2025-01-01T00:00:00.000Z', checksum: sha256(payload), payload };
     expect(decodeSave(JSON.stringify(envelope)).ok).toBe(true);
+  });
+});
+
+describe('Migration v1 → v2（屬性點）', () => {
+  it('舊角色補發過去每一級的屬性點；其他內容不變', () => {
+    const { attributes: _drop, ...v1 } = { ...sample(5), character: { ...sample(5).character, level: 10 } };
+    const v2 = SaveDataSchema.parse(migrate(v1, 1));
+    expect(v2.attributes).toEqual({ unspent: 27, allocated: {} });
+    expect(v2.character.level).toBe(10);
+    expect(v2.character.gold).toBe(5);
+    // 修復：與目前規則一致（每級 3 點）時不做改動
+    expect(repairSave({ ...v2, skills: { ...v2.skills, unspentPoints: 2 + 9 } }, data).data.attributes).toEqual({ unspent: 27, allocated: {} });
   });
 });
 

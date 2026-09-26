@@ -10,6 +10,7 @@
 - **何時存檔改用「變動簽章」判斷**（`saveSignature()`）而不是逐一訂閱事件：每幀比對版本號與計數（等級、背包版本、配置、擊殺數、地上物品…），不會漏掉沒有發事件的變動（例如更換連段配置）。換層、啟動存檔點、出口開啟屬於 immediate。
 - **開發用 B 重置**：先停止自動存檔並等待進行中的寫入完成，再清除存檔，避免舊狀態被寫回去。
 - **匯出 / 匯入**：暫時放在左上 Debug 面板（M8 移到選單）。
+- **v2（屬性點）**：`attributes` 區塊。Migration v1 → v2 為舊角色補發過去每一級的點數（每級 3 點），全部未分配。修復規則同技能點：總數 = 每級點數 × (等級 − 1)，屬性被移除或超過上限時退點，已分配超過總數時全部重置。
 - 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---
@@ -47,6 +48,11 @@ interface SaveDataV1 {
     unspentPoints: number;
     t4Charges: number;                      // 尚未使用的 T4 開通次數（取得時機依賴 Mastery 達成的時間點，無法推導）
     t4Unlocked: SkillCategory[];            // 已開通的類別
+  };
+
+  attributes: {                             // v2 新增
+    unspent: number;                        // 未分配的屬性點
+    allocated: Record<AttributeId, number>; // 'attack' | 'vitality' | 'defense' | 'crit' → 點數
   };
 
   loadout: {

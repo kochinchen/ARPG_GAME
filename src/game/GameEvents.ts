@@ -76,6 +76,8 @@ export interface GameEvents {
   /** 第一次學會 T4：其他類別的 T1～T3 開放 */
   MasteryAchieved: { category: SkillCategory };
   T4CategoryUnlocked: { category: SkillCategory };
+  /** 分配屬性點；points 為分配後該屬性的總點數 */
+  AttributeAllocated: { attribute: string; points: number };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }

@@ -1,6 +1,6 @@
 import type { DataTable } from '../../data/DataRegistry';
 import { isRangeSequenceValid, type ComboRuleDef, type StepMatcher } from '../../data/schema/combo';
-import { buildModifiers, describeModifiers, type BuiltModifiers } from './ComboModifierFactory';
+import { buildModifiers, describeModifiers, levelFactor, type BuiltModifiers } from './ComboModifierFactory';
 import type { ComboProfile, ComboSkillIndex } from './ComboSkillIndex';
 
 export type NoComboReason = 'tooShort' | 'tripleSame' | 'invalidRange' | 'noRule' | 'notComboSkill';
@@ -28,6 +28,8 @@ export class ComboResolver {
   constructor(
     rules: DataTable<ComboRuleDef>,
     private readonly skills: ComboSkillIndex,
+    /** 「近 → 近 → 遠」第三招的額外加成（前兩招承擔貼身風險的回報） */
+    private readonly nearNearFar: { damage: number; aoeRadius: number } = { damage: 0, aoeRadius: 0 },
   ) {
     // Tier 小 → Specificity 大 → order 小
     this.rules = [...rules.all].sort((a, b) => a.tier - b.tier || specificity(b) - specificity(a) || a.order - b.order);
@@ -46,7 +48,16 @@ export class ComboResolver {
     const rule = this.rules.find((r) => matches(r, [a, b, c]));
     if (!rule) return { status: 'none', steps, reason: 'noRule' };
 
-    const modifiers = buildModifiers(rule, [a, b, c], steps.map(rankOf));
+    const ranks = steps.map(rankOf);
+    const modifiers = buildModifiers(rule, [a, b, c], ranks);
+    const nearNearFar = a.range === 'Near' && b.range === 'Near' && c.range === 'Far' && this.nearNearFar.damage + this.nearNearFar.aoeRadius > 0;
+    if (nearNearFar) {
+      const factor = levelFactor(ranks[2] ?? 1);
+      modifiers.steps[2].damage += this.nearNearFar.damage * factor;
+      modifiers.steps[2].aoeRadius += this.nearNearFar.aoeRadius * factor;
+    }
+    const description = describeModifiers(modifiers);
+    if (nearNearFar) description.push('近身回報：前兩招貼身，第三招加成提高');
     return {
       status: 'combo',
       steps,
@@ -54,7 +65,7 @@ export class ComboResolver {
       comboId: `${rule.id}|${steps.join('>')}`,
       displayName: rule.displayNames.find((d) => d.finalSkill === c.id)?.name ?? rule.name,
       modifiers,
-      description: describeModifiers(modifiers),
+      description,
     };
   }
 }

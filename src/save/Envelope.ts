@@ -1,5 +1,5 @@
 import { migrate } from './migrations';
-import { SAVE_VERSION, SaveDataV1Schema, type SaveData } from './schema';
+import { SAVE_VERSION, SaveDataSchema, type SaveData } from './schema';
 import { sha256 } from './sha256';
 
 /**
@@ -50,7 +50,7 @@ export function decodeSave(text: string): DecodeResult {
   } catch (error) {
     return { ok: false, reason: 'migration', message: error instanceof Error ? error.message : String(error), savedAt };
   }
-  const parsed = SaveDataV1Schema.safeParse(migrated);
+  const parsed = SaveDataSchema.safeParse(migrated);
   if (!parsed.success) return { ok: false, reason: 'schema', message: parsed.error.message, savedAt };
   return { ok: true, data: parsed.data, savedAt, schemaVersion: envelope.schemaVersion };
 }

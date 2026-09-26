@@ -41,6 +41,25 @@ export const balance: z.input<typeof BalanceSchema> = {
       supports: [null, null, null],
     },
   },
+  attributes: {
+    pointsPerLevel: 3,
+    list: [
+      // 近戰要貼身承受傷害，攻擊點數對近戰技能稍高（遠程 / 魔法 +1%，近戰另外 +0.5%，兩者相乘約 +1.5%）
+      {
+        id: 'attack',
+        name: '攻擊',
+        effects: [
+          { stat: 'damageBonus', perPoint: 0.01, label: '傷害', percent: true },
+          { stat: 'meleeDamageBonus', perPoint: 0.005, label: '近戰傷害', percent: true },
+        ],
+      },
+      { id: 'vitality', name: '生命', effects: [{ stat: 'maxHp', perPoint: 5, label: '最大生命' }] },
+      { id: 'mana', name: '魔力', effects: [{ stat: 'maxMana', perPoint: 4, label: '最大魔力' }] },
+      { id: 'defense', name: '防禦', effects: [{ stat: 'defense', perPoint: 2, label: '防禦' }] },
+      // 暴擊率上限 +40%：基礎 10% + 屬性 40% + 裝備 / 被動，避免輕易到 100%
+      { id: 'crit', name: '暴擊', maxPoints: 80, effects: [{ stat: 'critChance', perPoint: 0.005, label: '暴擊率', percent: true }] },
+    ],
+  },
   difficulty: {
     hpPerFloor: 0.2,
     damagePerFloor: 0.12,
@@ -53,6 +72,14 @@ export const balance: z.input<typeof BalanceSchema> = {
     // 與骷髏的偵測距離相同：站在存檔點上不會被發現
     safeRadius: 7,
     checkpointRadius: 1.2,
+  },
+  skillCategories: {
+    melee: { manaCost: 0.85, lifeSteal: 1.3 },
+    ranged: { manaCost: 1, lifeSteal: 1 },
+    magic: { manaCost: 1, lifeSteal: 0.8 },
+  },
+  combo: {
+    nearNearFarBonus: { damage: 0.1, aoeRadius: 0.1 },
   },
   combat: {
     critMultiplier: 1.5,

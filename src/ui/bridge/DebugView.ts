@@ -1,6 +1,7 @@
 import { reactive } from 'vue';
 import { emptyInventoryView } from './InventoryView';
 import { emptySkillTreeView } from './SkillTreeView';
+import { emptyCharacterView } from './CharacterView';
 
 export interface ComboBarView {
   key: string;
@@ -40,6 +41,7 @@ export const debugView = reactive({
   /** 第一次發現 Combo 時顯示幾秒的橫幅 */
   discovery: null as { name: string; description: string[] } | null,
   skillTree: emptySkillTreeView(),
+  character: emptyCharacterView(),
   xp: { level: 1, value: 0, next: 1 },
   skillPoints: 0,
   /** 存檔狀態：最後一次成功存檔的時間、錯誤訊息 */

@@ -42,6 +42,7 @@ import { ComboSkillIndex } from './combo/ComboSkillIndex';
 import { ComboSystem } from './combo/ComboSystem';
 import { EffectScheduler } from './skills/EffectScheduler';
 import { SupportSystem } from './skills/SupportSystem';
+import { AttributeSystem } from './progression/AttributeSystem';
 import { ExperienceSystem } from './progression/ExperienceSystem';
 import { PlayerProgress } from './progression/PlayerProgress';
 import { RegenSystem } from './stats/RegenSystem';
@@ -100,6 +101,7 @@ export class GameWorld {
   readonly progress = new PlayerProgress();
   readonly skillTree: SkillTree;
   readonly experience: ExperienceSystem;
+  readonly attributes: AttributeSystem;
   /** 掉落物品等級：等於樓層 */
   itemLevel = 1;
   readonly events: GameEventBus;
@@ -159,15 +161,16 @@ export class GameWorld {
       nav: this.nav,
       rng: rng.fork('effects'),
       scheduler: this.scheduler,
+      categoryTraits: data.balance.skillCategories,
       spawnProjectile: (p) => {
         this.projectiles.push({ ...p, id: this.nextProjectileId++ });
       },
     });
-    this.comboResolver = new ComboResolver(data.comboRules, new ComboSkillIndex(data.skills));
+    this.comboResolver = new ComboResolver(data.comboRules, new ComboSkillIndex(data.skills), data.balance.combo.nearNearFarBonus);
     this.combos = new ComboSystem(this.comboResolver, this.targeting, this.statuses, this.events);
     new ComboDiscoverySystem(this.codex, this.events);
     this.comboSlotLevels = data.balance.player.comboSlotLevels;
-    this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events);
+    this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories);
     this.projectileSystem = new ProjectileSystem(this.nav, this.targeting, executor);
     this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events);
     this.separation = new SeparationSystem(this.nav);
@@ -208,6 +211,7 @@ export class GameWorld {
     this.progress.skillPoints = p.startingSkillPoints;
     this.skillTree = new SkillTree(this.player, this.progress, data, this.events);
     this.experience = new ExperienceSystem(this.player, this.progress, this.skillTree, data, this.events, this.targeting);
+    this.attributes = new AttributeSystem(this.player, this.progress, data, this.events);
     this.inventory = new Inventory(p.inventoryCols, p.inventoryRows, (id) => data.potions.get(id).maxStack);
     this.inventory.addPotions(p.potionId, p.startingPotions);
     this.potions = new PotionBelt(this.player, data.potions.get(p.potionId), this.inventory, this.events);
@@ -236,6 +240,7 @@ export class GameWorld {
       this.combos,
       data.skills,
       () => this.comboSlotsUnlocked,
+      this.attributes,
     );
     this.support = new SupportSystem(this.player, this.loadout, data.skills);
     this.support.update();

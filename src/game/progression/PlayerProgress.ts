@@ -10,6 +10,10 @@ export class PlayerProgress {
   xp = 0;
   skillPoints = 0;
   t4Charges = 0;
+  /** 尚未分配的屬性點 */
+  attributePoints = 0;
+  /** 已分配的屬性點（屬性 ID → 點數） */
+  readonly attributes = new Map<string, number>();
   readonly t4Unlocked = new Set<SkillCategory>();
   /** 目前所在樓層與到過的最高樓層（測試地圖模式為 0） */
   currentFloor = 0;

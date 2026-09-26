@@ -109,6 +109,8 @@ export const AreaEffectSchema = z.strictObject({
   at: z.enum(['origin', 'target']).default('origin'),
   /** 扇形角度（朝施放方向）；省略 = 360° */
   angleDeg: z.number().positive().max(360).optional(),
+  /** 主要目標一定命中（近戰揮砍：目標在出招途中稍微移動也不會落空） */
+  includeTarget: z.boolean().default(false),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },

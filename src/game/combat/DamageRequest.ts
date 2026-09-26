@@ -18,6 +18,8 @@ export interface DamageRequest {
   isDot?: boolean;
   /** 反擊造成的傷害不會再觸發反擊 */
   noCounter?: boolean;
+  /** 吸血倍率（依技能類型：近戰較高、魔法較低），預設 1 */
+  lifeStealMultiplier?: number;
 }
 
 export interface DamageResult {

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { debugView } from './bridge/DebugView';
 import { saveBridge } from './bridge/SaveBridge';
 import { resolveHover, type HoverTarget } from './bridge/InventoryView';
+import CharacterPanel from './components/CharacterPanel.vue';
 import InventoryPanel from './components/InventoryPanel.vue';
 import ItemCell from './components/ItemCell.vue';
 import ItemTooltip from './components/ItemTooltip.vue';
@@ -12,6 +13,7 @@ import SkillTreePanel from './components/SkillTreePanel.vue';
 // 以下都是 UI 自己的狀態（面板開關、游標位置、hover），不經過遊戲
 const inventoryOpen = ref(false);
 const skillTreeOpen = ref(false);
+const characterOpen = ref(false);
 const pointer = ref({ x: 0, y: 0 });
 const hoverTarget = ref<HoverTarget | null>(null);
 /** 依最新快照計算，穿脫或交換後 Tooltip 立即更新 */
@@ -19,10 +21,17 @@ const hovered = computed(() => resolveHover(debugView.inventory, hoverTarget.val
 
 function onKeyDown(e: KeyboardEvent) {
   if (e.code === 'KeyI') inventoryOpen.value = !inventoryOpen.value;
-  else if (e.code === 'KeyT') skillTreeOpen.value = !skillTreeOpen.value;
-  else if (e.code === 'Escape') {
+  else if (e.code === 'KeyT') {
+    // 角色面板與技能樹都在左側，一次只開一個
+    skillTreeOpen.value = !skillTreeOpen.value;
+    if (skillTreeOpen.value) characterOpen.value = false;
+  } else if (e.code === 'KeyC') {
+    characterOpen.value = !characterOpen.value;
+    if (characterOpen.value) skillTreeOpen.value = false;
+  } else if (e.code === 'Escape') {
     inventoryOpen.value = false;
     skillTreeOpen.value = false;
+    characterOpen.value = false;
   }
   if (!inventoryOpen.value) hoverTarget.value = null;
 }
@@ -74,7 +83,7 @@ onBeforeUnmount(() => {
     <div>Player ({{ debugView.player.x.toFixed(2) }}, {{ debugView.player.y.toFixed(2) }})</div>
     <div>藥水 {{ debugView.potions }} · 金幣 {{ debugView.gold }} · 敵人 {{ debugView.enemies }}</div>
     <div>Target {{ debugView.target }}</div>
-    <div class="hint">左鍵：移動 / 攻擊 / 撿取 · 右鍵：施放連段 · QWE：切換連段 · Space：藥水 · I：背包 · T：技能</div>
+    <div class="hint">左鍵：移動 / 攻擊 / 撿取 · 右鍵：施放連段 · QWE：切換連段 · Space：藥水 · I：背包 · T：技能 · C：角色</div>
     <div v-if="debugView.devKeys" class="dev-hint">測試：B 重置 · N 升一級 · M 生成寶箱</div>
     <div class="save-row">
       <span v-if="debugView.save.error" class="save-error" :title="debugView.save.error">存檔失敗</span>
@@ -86,12 +95,14 @@ onBeforeUnmount(() => {
   </div>
 
   <SkillTreePanel v-if="skillTreeOpen" :view="debugView.skillTree" @close="skillTreeOpen = false" />
+  <CharacterPanel v-if="characterOpen" :view="debugView.character" @close="characterOpen = false" />
 
   <div class="xp-bar" :title="`經驗 ${debugView.xp.value} / ${debugView.xp.next}`">
     <div class="xp-fill" :style="{ width: `${Math.min(100, (debugView.xp.value / debugView.xp.next) * 100)}%` }" />
     <span class="xp-text">
       Lv {{ debugView.xp.level }} · {{ debugView.xp.value }} / {{ debugView.xp.next }}
       <template v-if="debugView.skillPoints > 0"> · 技能點 {{ debugView.skillPoints }}（T）</template>
+      <template v-if="debugView.character.unspent > 0"> · 屬性點 {{ debugView.character.unspent }}（C）</template>
     </span>
   </div>
 

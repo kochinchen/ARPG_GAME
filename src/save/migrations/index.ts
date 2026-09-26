@@ -73,8 +73,19 @@ const v0ToV1: Migration = (raw) => {
   };
 };
 
-/** index = 起始版本（0 → 1 …） */
-const MIGRATIONS: Migration[] = [v0ToV1];
+/**
+ * v1 → v2：加入屬性點。舊角色補發過去每一級的點數（每級 3 點，v2 推出時的數值），全部未分配。
+ * Migration 寫死當時的數值：之後平衡調整由 SaveRepair 依當下規則修正，不改寫這一步。
+ */
+const V2_ATTRIBUTE_POINTS_PER_LEVEL = 3;
+const v1ToV2: Migration = (v1) => {
+  const level = (v1.character as { level?: unknown } | undefined)?.level;
+  const levels = typeof level === 'number' && level > 1 ? Math.floor(level) - 1 : 0;
+  return { ...v1, attributes: { unspent: levels * V2_ATTRIBUTE_POINTS_PER_LEVEL, allocated: {} } };
+};
+
+/** index = 起始版本（0 → 1 → 2 …） */
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2];
 
 export class MigrationError extends Error {}
 
