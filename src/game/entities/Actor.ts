@@ -1,8 +1,10 @@
 import { vec2, type Vec2 } from '../../core/math/Vec2';
+import type { AiBrain } from '../ai/AiBrain';
 import type { StatBlock } from '../stats/StatBlock';
 
-export type ActorId = number;
-export type Faction = 'player' | 'enemy' | 'summon';
+import type { ActorId, Faction } from './ActorTypes';
+
+export type { ActorId, Faction } from './ActorTypes';
 
 export interface ActorInit {
   id: ActorId;
@@ -13,6 +15,7 @@ export interface ActorInit {
   position: Vec2;
   radius: number;
   stats: StatBlock;
+  ai?: AiBrain | null;
 }
 
 /**
@@ -24,6 +27,8 @@ export class Actor {
   readonly name: string;
   readonly defId: string | null;
   readonly stats: StatBlock;
+  /** 有 AI 的角色（怪物、召喚物）；玩家與訓練木樁為 null */
+  readonly ai: AiBrain | null;
   radius: number;
 
   position: Vec2;
@@ -58,6 +63,7 @@ export class Actor {
     this.prevPosition = init.position;
     this.radius = init.radius;
     this.stats = init.stats;
+    this.ai = init.ai ?? null;
     this.hp = init.stats.get('maxHp');
   }
 

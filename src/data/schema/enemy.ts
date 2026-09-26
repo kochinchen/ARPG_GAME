@@ -14,7 +14,10 @@ export const EnemyDefSchema = z.strictObject({
   attackRange: z.number().positive(),
   /** 每秒攻擊次數 */
   attackSpeed: z.number().positive().default(1),
+  /** 偵測範圍（Tile）：範圍內且視線未被牆擋住才會發現玩家 */
   detectRange: z.number().nonnegative(),
+  /** 離出生點超過此距離就放棄追擊、走回原位 */
+  leashRange: z.number().positive().default(14),
   /** none = 不行動（訓練木樁） */
   ai: z.enum(['none', 'melee']),
   skills: z.array(IdSchema).default([]),

@@ -24,6 +24,8 @@ export interface GameEvents {
     killerId: ActorId | null;
     position: Vec2;
   };
+  /** 玩家倒地後回到存檔點（玩家死亡本身為 ActorDied，faction = 'player'） */
+  PlayerRespawned: { position: Vec2 };
 }
 
 export type GameEventBus = EventBus<GameEvents>;

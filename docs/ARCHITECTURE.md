@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0～M2 完成；下一步 M3 Enemy。
+> 狀態：M0～M3 完成；下一步 M4 Skill。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -260,6 +260,7 @@ arpg/
 | player | `DeathHandler` | 玩家死亡時把角色送回本層最後啟動的存檔點、補滿狀態 |
 | movement | `MovementSystem` | 沿路徑移動 Actor、處理碰撞 |
 | movement | `Pathfinder` | 在 `NavGrid` 上做 A* |
+| movement | `SeparationSystem` | 角色之間互相推開，避免疊在一起；不會移動的角色只推別人 |
 | targeting | `TargetingService` | 回答「這個點附近有沒有可攻擊目標」「範圍內有哪些敵人」 |
 | combat | `DamagePipeline` | 所有傷害唯一入口：基礎傷害 → 暴擊 → 防禦（物理）→ 取整 → 扣血 → `ActorDamaged`。命中判定與元素抗性之後加在同一流程，不另建 HitResolver |
 | combat | `AttackSystem` | 普通攻擊：目標在距離外就追、進入距離後依攻速出手；玩家與怪物共用。M4 起改由 SkillSystem 施放 |
@@ -271,7 +272,7 @@ arpg/
 | skills | `ModifierResolver` | 施放前把符合 Tag 的 BehaviorModifier 套到 SkillDef，產生本次實際使用的定義 |
 | skills | `SkillTree` | 已學技能與等級（1～5）、點數分配、T4 開通次數；呼叫 `MasteryRule` 判斷能否學 |
 | skills | `MasteryRule` | 純函式：給定技能樹狀態與角色等級，判斷某節點能否學 / 升級、某類別能否開通 T4 |
-| ai | `AiSystem` | 對每個有 AI 的 Actor 執行狀態機（Idle → Chase → Attack → Cooldown） |
+| ai | `AiSystem` | 對每個有 `AiBrain` 的 Actor 執行狀態機（Idle → Chase → Return）。狀態只做決策，追擊與出手交給 AttackSystem |
 | enemies | `EnemyFactory` | 由 EnemyDef + Floor 難度 + Affix 組出一隻怪 |
 | enemies | `AffixApplier` | 把 Elite Affix 轉成 StatModifier 與行為掛勾 |
 | summons | `SummonSystem` | 召喚上限、存活時間；AI 重用 `AiSystem`，只是目標陣營相反 |
@@ -344,7 +345,8 @@ Event 用於「一件事發生後，多個互不相關的系統都要反應」�
 |---|---|---|
 | `ActorDamaged` | DamagePipeline | Render（跳字）、Audio、StatusEffect（OnHit） |
 | `ActorDied` | DeathSystem | LootSystem、ExperienceSystem、SummonSystem、Audio |
-| `PlayerDied` | DeathSystem | DeathHandler（送回存檔點）、UI、Audio |
+| `ActorDied`（faction = player） | DeathSystem | DeathHandler（倒地後送回存檔點）、UI、Audio |
+| `PlayerRespawned` | DeathHandler | UI、Audio |
 | `PlayerLeveledUp` | ExperienceSystem | SkillTree（加技能點；Mastery 後加 T4 開通次數）、UI、Audio |
 | `SkillCast` | SkillSystem | Render（動畫 / VFX）、Audio |
 | `SkillLearned` / `SkillRankedUp` | SkillTree | UI |
@@ -680,6 +682,14 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **Dependencies**：M2
 - **Acceptance**：怪物在偵測範圍外閒置、進入後追擊、進入攻擊距離後攻擊；玩家可被打死，死亡後由 `DeathHandler` 送回樓梯口（M7 加入中途存檔點後改為最後啟動的存檔點）。
 - **Test**：AI 狀態轉換的單元測試（距離 → 狀態）；5 隻怪同時追擊不重疊成一點。
+- **狀態**：✅ 完成（94 個測試通過）。實作細節：
+  - 骷髏戰士（`enemy.skeleton`）：30 HP、2～5 傷害、移速 2.6（玩家 4）、偵測 7 格、Leash 14 格
+  - 仇恨：偵測範圍內且視線未被牆擋住才會發現；被攻擊時一定反擊
+  - 狀態改為 Idle / Chase / Return：Attack 與 Cooldown 本來就由 AttackSystem 處理，不重複建狀態
+  - 離出生點超過 Leash 就放棄，走回原位途中不理會玩家
+  - 新增 `SeparationSystem`：角色互相推開；一方被牆擋住時由另一方承擔全部位移
+  - 玩家死亡：倒地 2 秒（`balance.player.respawnDelay`），期間不接受操作，怪物放棄追擊；之後回到樓梯口並補滿 HP
+  - `ActorId` / `Faction` 移到 `entities/ActorTypes.ts`，避免 Actor 與 AiBrain 循環引用
 
 ### M4 Skill
 
@@ -724,6 +734,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **Dependencies**：M3、M5
 - **Acceptance**：進入樓層時樓梯口存檔點自動啟動；觸碰中途存檔點後啟動；死亡時回到最後啟動的存檔點；清完一定比例怪物後出口開啟；下一層怪物 HP / 傷害 / 數量依設定增加。
 - **Test**：`DifficultyScaler` 單元測試（Floor 1 / 10 / 50 的倍率）；啟動中途點後死亡，重生位置為中途點；進入新樓層後重生位置重設為樓梯口。
+- **注意（M3 發現）**：怪物若擺在存檔點附近，玩家重生後會立刻被圍，可能陷入死亡循環。M7 需擇一處理：地圖驗證「存檔點周圍 N 格內不可放怪」，或重生後短暫無敵。
 
 ### M8 UI
 

@@ -73,6 +73,10 @@ async function bootstrap(): Promise<void> {
       debugView.player.x = world.player.position.x;
       debugView.player.y = world.player.position.y;
       debugView.waypoints = world.player.path.length;
+      const player = world.player;
+      debugView.playerHp = `${Math.ceil(player.hp)} / ${Math.ceil(player.maxHp)}`;
+      debugView.enemies = world.actors.filter((a) => a.faction === 'enemy' && a.ai !== null).length;
+      debugView.respawnIn = world.deathHandler.secondsUntilRespawn;
       const hovered = renderer.hovered === null ? undefined : world.targeting.getActor(renderer.hovered);
       debugView.target = hovered ? `${hovered.name} ${Math.ceil(hovered.hp)} / ${Math.ceil(hovered.maxHp)}` : '—';
     },

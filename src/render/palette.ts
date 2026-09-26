@@ -14,9 +14,16 @@ export const PALETTE = {
   enemyDark: 0x5a3622,
   hpBack: 0x1a0f0c,
   hpFill: 0xb02a1e,
+  playerHpFill: 0x3f9e4a,
   hoverName: 0xf0e2c0,
   damageText: 0xf4efe4,
   critText: 0xffb347,
   shadow: 0x000000,
   marker: 0xe8c47a,
 } as const;
+
+/** 各怪物的暫用顏色 [主色, 外框]；未列出的用 PALETTE.enemy */
+export const ENEMY_COLORS: Record<string, readonly [number, number]> = {
+  'enemy.training_dummy': [0x8c5a3c, 0x5a3622],
+  'enemy.skeleton': [0xd8d0bc, 0x7d7462],
+};

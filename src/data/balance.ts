@@ -20,6 +20,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     attackRange: 0.5,
     critChance: 0.1,
     defense: 0,
+    respawnDelay: 2,
   },
   combat: {
     critMultiplier: 1.5,

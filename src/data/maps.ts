@@ -36,6 +36,18 @@ export const maps: z.input<typeof MapDefSchema>[] = [
       { enemyId: 'enemy.training_dummy', at: [10.5, 5.5] },
       { enemyId: 'enemy.training_dummy', at: [3.5, 6.5] },
       { enemyId: 'enemy.training_dummy', at: [15.5, 10.5] },
+      // 左下大房間：5 隻一群，測試群體追擊不重疊
+      { enemyId: 'enemy.skeleton', at: [10.5, 17.5] },
+      { enemyId: 'enemy.skeleton', at: [12.5, 17.5] },
+      { enemyId: 'enemy.skeleton', at: [14.5, 17.5] },
+      { enemyId: 'enemy.skeleton', at: [11.5, 18.5] },
+      { enemyId: 'enemy.skeleton', at: [13.5, 18.5] },
+      // 右側零星分布
+      { enemyId: 'enemy.skeleton', at: [24.5, 4.5] },
+      { enemyId: 'enemy.skeleton', at: [26.5, 6.5] },
+      { enemyId: 'enemy.skeleton', at: [21.5, 1.5] },
+      { enemyId: 'enemy.skeleton', at: [24.5, 14.5] },
+      { enemyId: 'enemy.skeleton', at: [22.5, 17.5] },
     ],
   },
 ];

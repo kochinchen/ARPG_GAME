@@ -1,5 +1,6 @@
 import type { Vec2 } from '../../core/math/Vec2';
 import type { EnemyDef } from '../../data/schema/enemy';
+import { createBrain } from '../ai/AiBrain';
 import { Actor, type ActorId } from '../entities/Actor';
 import { StatBlock } from '../stats/StatBlock';
 
@@ -25,6 +26,7 @@ export class EnemyFactory {
       position,
       radius: def.radius,
       stats,
+      ai: def.ai === 'none' ? null : createBrain(position, def.detectRange, def.leashRange),
     });
   }
 }

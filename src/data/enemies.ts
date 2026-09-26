@@ -16,4 +16,18 @@ export const enemies: z.input<typeof EnemyDefSchema>[] = [
     ai: 'none',
     xp: 0,
   },
+  {
+    id: 'enemy.skeleton',
+    name: '骷髏戰士',
+    hp: 30,
+    damage: [2, 5],
+    defense: 5,
+    moveSpeed: 2.6,
+    radius: 0.32,
+    attackRange: 0.4,
+    attackSpeed: 1,
+    detectRange: 7,
+    ai: 'melee',
+    xp: 12,
+  },
 ];

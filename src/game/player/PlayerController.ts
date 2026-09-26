@@ -24,6 +24,8 @@ export class PlayerController {
   ) {}
 
   handle(command: GameCommand): void {
+    // 倒地期間不接受任何操作
+    if (!this.player.alive) return;
     switch (command.type) {
       case 'PrimaryAction':
         if (command.held) this.onPrimaryHeld(command.worldPos, command.targetId);

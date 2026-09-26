@@ -8,8 +8,13 @@ import { debugView } from './bridge/DebugView';
     <div>Tick {{ debugView.tick }} · {{ debugView.fps }} FPS</div>
     <div>Player ({{ debugView.player.x.toFixed(2) }}, {{ debugView.player.y.toFixed(2) }})</div>
     <div>Waypoints {{ debugView.waypoints }}</div>
+    <div>HP {{ debugView.playerHp }} · 敵人 {{ debugView.enemies }}</div>
     <div>Target {{ debugView.target }}</div>
-    <div class="hint">左鍵點地面移動 · 點木樁攻擊一下 · 按住持續攻擊</div>
+    <div class="hint">左鍵點地面移動 · 點敵人攻擊一下 · 按住持續攻擊</div>
+  </div>
+  <div v-if="debugView.respawnIn !== null" class="death">
+    <div class="death-title">你倒下了</div>
+    <div>{{ Math.ceil(debugView.respawnIn) }} 秒後回到樓梯口</div>
   </div>
 </template>
 
@@ -26,6 +31,21 @@ import { debugView } from './bridge/DebugView';
 }
 .title {
   color: #e8c47a;
+}
+.death {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font: 16px/1.6 serif;
+  color: #d8cbb4;
+  text-shadow: 0 2px 6px #000;
+}
+.death-title {
+  font-size: 34px;
+  color: #b02a1e;
+  letter-spacing: 0.2em;
 }
 .hint {
   margin-top: 4px;

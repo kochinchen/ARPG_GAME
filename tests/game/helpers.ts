@@ -37,6 +37,27 @@ export function createWorld(seed = 1) {
   return { world, commands, events, data };
 }
 
+/** 用自訂地圖建立 GameWorld（地圖會加入資料一起驗證） */
+export function createWorldWithMap(
+  rows: string[],
+  spawns: { enemyId: string; at: [number, number] }[] = [],
+  seed = 1,
+) {
+  const data = DataRegistry.load({ ...gameData, maps: [...gameData.maps, { id: 'map.custom', rows, spawns }] });
+  const commands = new CommandQueue<GameCommand>();
+  const events = new EventBus<GameEvents>();
+  const world = new GameWorld({ data, mapId: 'map.custom', commands, events, seed });
+  return { world, commands, events, data };
+}
+
+/** 讓玩家（幾乎）不會死，方便觀察怪物行為 */
+export function makeInvulnerable(actor: Actor): void {
+  actor.stats.setBase('maxHp', 1e9);
+  actor.hp = 1e9;
+}
+
+export const enemiesOf = (world: GameWorld) => world.actors.filter((a) => a.faction === 'enemy');
+
 /** 執行 seconds 秒的邏輯 Tick；每個 Tick 前呼叫 beforeTick（可用來模擬按住按鍵） */
 export function run(world: GameWorld, seconds: number, beforeTick?: (tick: number) => void): void {
   const ticks = Math.round(seconds / DT);

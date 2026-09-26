@@ -2,7 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { Actor } from '../../game/entities/Actor';
-import { PALETTE } from '../palette';
+import { ENEMY_COLORS, PALETTE } from '../palette';
 
 const BODY_HEIGHT = 40;
 const HEAD_Y = -50;
@@ -25,6 +25,7 @@ export class ActorView {
   private readonly hpBar = new Graphics();
   private readonly nameLabel: Text;
   private readonly isEnemy: boolean;
+  private readonly isPlayer: boolean;
   private lungeTime = 0;
   private lungeDir = { x: 0, y: 0 };
   hovered = false;
@@ -34,8 +35,10 @@ export class ActorView {
     actor: Actor,
   ) {
     this.isEnemy = actor.faction === 'enemy';
-    const color = this.isEnemy ? PALETTE.enemy : PALETTE.player;
-    const dark = this.isEnemy ? PALETTE.enemyDark : PALETTE.playerDark;
+    this.isPlayer = actor.faction === 'player';
+    const [color, dark] = this.isEnemy
+      ? (ENEMY_COLORS[actor.defId ?? ''] ?? [PALETTE.enemy, PALETTE.enemyDark])
+      : [PALETTE.player, PALETTE.playerDark];
     const px = actor.radius * projection.tileWidth;
 
     const shadow = new Graphics().ellipse(0, 0, px, px / 2).fill({ color: PALETTE.shadow, alpha: 0.45 });
@@ -78,6 +81,10 @@ export class ActorView {
     const k = Math.sin((this.lungeTime / LUNGE_DURATION) * Math.PI) * LUNGE_DISTANCE;
     this.body.position.set(this.lungeDir.x * k, this.lungeDir.y * k);
     this.body.alpha = this.hovered ? 0.85 : 1;
+    // 倒地：身體側躺、變淡
+    this.body.rotation = actor.alive ? 0 : -Math.PI / 2.4;
+    this.container.alpha = actor.alive ? 1 : 0.55;
+    this.facingMark.visible = actor.alive;
 
     this.nameLabel.visible = this.isEnemy && this.hovered;
     this.drawHpBar(actor);
@@ -85,7 +92,8 @@ export class ActorView {
 
   private drawHpBar(actor: Actor): void {
     const ratio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 0;
-    const visible = this.isEnemy && (this.hovered || ratio < 1);
+    // 敵人：滑鼠移上或受傷時顯示；玩家：受傷時顯示（M8 會改為血球）
+    const visible = actor.alive && ((this.isEnemy && this.hovered) || ratio < 1);
     this.hpBar.visible = visible;
     if (!visible) return;
     this.hpBar
@@ -93,6 +101,6 @@ export class ActorView {
       .rect(-BAR_WIDTH / 2, BAR_Y, BAR_WIDTH, 5)
       .fill({ color: PALETTE.hpBack })
       .rect(-BAR_WIDTH / 2, BAR_Y, BAR_WIDTH * ratio, 5)
-      .fill({ color: PALETTE.hpFill });
+      .fill({ color: this.isPlayer ? PALETTE.playerHpFill : PALETTE.hpFill });
   }
 }

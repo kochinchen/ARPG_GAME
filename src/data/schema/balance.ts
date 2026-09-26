@@ -27,6 +27,8 @@ export const BalanceSchema = z.strictObject({
     attackRange: z.number().positive(),
     critChance: z.number().min(0).max(1),
     defense: z.number().nonnegative(),
+    /** 死亡後幾秒回到存檔點 */
+    respawnDelay: z.number().nonnegative(),
   }),
   combat: z.strictObject({
     critMultiplier: z.number().min(1),
