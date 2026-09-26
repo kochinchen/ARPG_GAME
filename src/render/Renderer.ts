@@ -10,6 +10,7 @@ import { ActorView, HIT_BOX } from './views/ActorView';
 import { EffectLayer } from './views/EffectLayer';
 import { FloatingTextLayer } from './views/FloatingTextLayer';
 import { InteractableLayer } from './views/InteractableLayer';
+import { FloorMarkersView } from './views/FloorMarkersView';
 import { TileMapView } from './views/TileMapView';
 
 /**
@@ -20,7 +21,8 @@ export class Renderer {
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly marker = new Graphics();
   private readonly floatingText = new FloatingTextLayer();
-  private readonly tileMap: TileMapView;
+  private tileMap: TileMapView;
+  private readonly markers: FloorMarkersView;
   private readonly effects: EffectLayer;
   private readonly interactables: InteractableLayer;
   private readonly actorViews = new Map<ActorId, ActorView>();
@@ -37,10 +39,13 @@ export class Renderer {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer);
     this.effects = new EffectLayer(projection, this.objectLayer);
     this.interactables = new InteractableLayer(projection, this.objectLayer, data);
+    this.markers = new FloorMarkersView(projection);
+    this.markers.rebuild(world.checkpoints.checkpoints);
     this.marker.poly([0, -6, 12, 0, 0, 6, -12, 0]).stroke({ color: PALETTE.marker, width: 2 });
 
     this.worldLayer.addChild(
       this.tileMap.floor,
+      this.markers.container,
       this.effects.ground,
       this.interactables.ground,
       this.marker,
@@ -56,6 +61,13 @@ export class Renderer {
 
     world.events.on('ActorDamaged', (e) => {
       this.floatingText.spawn(projection.toScreen(e.position), e.amount, e.isCrit);
+    });
+    // 換樓層：重建地圖與地面標記（角色、物品依 ID 同步，會自動清掉）
+    world.events.on('FloorEntered', () => {
+      this.tileMap.destroy();
+      this.tileMap = new TileMapView(projection, world.nav, this.objectLayer);
+      this.worldLayer.addChildAt(this.tileMap.floor, 0);
+      this.markers.rebuild(world.checkpoints.checkpoints);
     });
     world.events.on('SkillCast', (e) => {
       // 對單一敵人的技能（近戰）播放前衝動作
@@ -88,6 +100,9 @@ export class Renderer {
       this.floatingText.spawnText(projection.toScreen(world.player.position), e.name, PALETTE.critText, 18);
     });
     world.events.on('ComboInterrupted', () => say(world.player.position, '連段中斷', PALETTE.manaText));
+    world.events.on('CheckpointActivated', (e) => say(e.position, '存檔點已啟動', PALETTE.manaText));
+    world.events.on('ExitOpened', () => say(world.player.position, '出口已開啟', 0xe0c8ff));
+    world.events.on('ExitLocked', (e) => say(world.player.position, `還需擊敗 ${e.remaining} 隻`, PALETTE.manaText));
     world.events.on('StatusTriggered', (e) => {
       const actor = world.targeting.getActor(e.actorId);
       if (!actor) return;
@@ -103,7 +118,8 @@ export class Renderer {
   /** 游標下的地上物品或寶箱（名稱標籤也算） */
   pickInteractableAt(screen: Vec2): number | null {
     const local = sub(screen, this.camera.offset);
-    return this.interactables.pickAt(local, [...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
+    const exit = this.world.exit ? [this.world.exit] : [];
+    return this.interactables.pickAt(local, [...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
   }
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
@@ -149,7 +165,8 @@ export class Renderer {
     this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos);
     this.interactables.setHovered(this.hoveredInteractable);
-    this.interactables.update(this.world.groundItems, this.world.chests);
+    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1);
+    this.markers.update(this.app.ticker.lastTime);
     this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
     this.floatingText.update(dt);
     this.updateMarker(player.intent === null ? player.path[player.path.length - 1] : undefined);

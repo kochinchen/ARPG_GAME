@@ -54,6 +54,22 @@ export const BalanceSchema = z.strictObject({
       supports: z.tuple([IdSchema.nullable(), IdSchema.nullable(), IdSchema.nullable()]),
     }),
   }),
+  /** 樓層難度：第 N 層的倍率 = 1 + 每層成長 × (N - 1) */
+  difficulty: z.strictObject({
+    hpPerFloor: z.number().nonnegative(),
+    damagePerFloor: z.number().nonnegative(),
+    defensePerFloor: z.number().nonnegative(),
+    xpPerFloor: z.number().nonnegative(),
+    densityPerFloor: z.number().nonnegative(),
+    /** 怪物密度倍率上限 */
+    maxDensityMultiplier: z.number().min(1),
+  }),
+  floor: z.strictObject({
+    /** 存檔點與出口附近多少格內不放怪物（避免重生後立刻被圍） */
+    safeRadius: z.number().nonnegative(),
+    /** 走到中途存檔點多近時啟動 */
+    checkpointRadius: z.number().positive(),
+  }),
   combat: z.strictObject({
     critMultiplier: z.number().min(1),
     /** 減傷 = defense / (defense + defenseConstant) */

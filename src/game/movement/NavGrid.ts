@@ -3,24 +3,47 @@ import { MAP_TILES, type MapDef } from '../../data/schema/map';
 
 /**
  * 可行走網格。Tile (x, y) 佔 World 範圍 [x, x+1) × [y, y+1)。
+ * 換樓層時以 load() 就地替換地圖，持有此物件的系統不需要重建。
  */
 export class NavGrid {
-  private constructor(
-    readonly width: number,
-    readonly height: number,
-    private readonly walkable: Uint8Array,
-  ) {}
+  private _width = 0;
+  private _height = 0;
+  private walkable = new Uint8Array(0);
 
-  static fromMap(map: MapDef): NavGrid {
-    const height = map.rows.length;
-    const width = map.rows[0]?.length ?? 0;
-    const walkable = new Uint8Array(width * height);
+  private constructor() {}
+
+  static fromMap(map: Pick<MapDef, 'rows'>): NavGrid {
+    const nav = new NavGrid();
+    nav.load(map);
+    return nav;
+  }
+
+  get width(): number {
+    return this._width;
+  }
+
+  get height(): number {
+    return this._height;
+  }
+
+  load(map: Pick<MapDef, 'rows'>): void {
+    this._height = map.rows.length;
+    this._width = map.rows[0]?.length ?? 0;
+    this.walkable = new Uint8Array(this._width * this._height);
     map.rows.forEach((row, y) => {
-      for (let x = 0; x < width; x++) {
-        walkable[y * width + x] = row[x] === MAP_TILES.wall ? 0 : 1;
+      for (let x = 0; x < this._width; x++) {
+        this.walkable[y * this._width + x] = row[x] === MAP_TILES.wall ? 0 : 1;
       }
     });
-    return new NavGrid(width, height, walkable);
+  }
+
+  /** 所有可走的 Tile */
+  walkableTiles(): Vec2[] {
+    const tiles: Vec2[] = [];
+    for (let y = 0; y < this._height; y++) {
+      for (let x = 0; x < this._width; x++) if (this.walkable[y * this._width + x] === 1) tiles.push(vec2(x, y));
+    }
+    return tiles;
   }
 
   inBounds(tx: number, ty: number): boolean {

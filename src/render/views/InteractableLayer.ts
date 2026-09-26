@@ -2,9 +2,9 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { Chest, GroundItem, Interactable } from '../../game/entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable } from '../../game/entities/Interactable';
 import { describeItem } from '../../game/items/ItemDescriber';
-import { LOOT_COLORS, PALETTE, RARITY_COLORS } from '../palette';
+import { FLOOR_COLORS, LOOT_COLORS, PALETTE, RARITY_COLORS } from '../palette';
 
 /** 名稱標籤離地面的高度（px） */
 const LABEL_OFFSET = 18;
@@ -31,6 +31,7 @@ interface View {
   /** 點選範圍（相對 container，px）：標籤與圖示各一塊，避免上疊的標籤蓋住下面的標籤 */
   hit: Rect[];
   chest: { lid: Graphics; opened: boolean } | null;
+  exit?: { portal: Graphics; open: boolean };
 }
 
 /**
@@ -68,7 +69,7 @@ export class InteractableLayer {
     return null;
   }
 
-  update(groundItems: readonly GroundItem[], chests: readonly Chest[]): void {
+  update(groundItems: readonly GroundItem[], chests: readonly Chest[], exit: ExitPortal | null = null, nextFloor = 0): void {
     const seen = new Set<number>();
     let changed = false;
     for (const g of groundItems) {
@@ -79,6 +80,13 @@ export class InteractableLayer {
         changed = true;
       }
       this.highlight(view, g.id);
+    }
+    if (exit) {
+      seen.add(exit.id);
+      const view = this.views.get(exit.id) ?? this.createExitView(exit);
+      if (view.exit && view.exit.open !== exit.open) this.drawExit(view, exit.open, nextFloor);
+      if (view.exit) view.exit.portal.alpha = exit.open ? 0.75 + 0.25 * Math.sin(performance.now() / 250) : 1;
+      this.highlight(view, exit.id);
     }
     for (const c of chests) {
       seen.add(c.id);
@@ -186,6 +194,48 @@ export class InteractableLayer {
     const view: View = { container, label: null, labelBack: null, labelShift: 0, chest, hit: [{ x: -20, y: -34, width: 40, height: 40 }] };
     this.views.set(c.id, view);
     return view;
+  }
+
+  private createExitView(exit: ExitPortal): View {
+    const s = this.projection.toScreen(exit.position);
+    const container = new Container();
+    container.position.set(s.x, s.y);
+    container.zIndex = this.projection.depth(exit.position) - 0.5;
+    const portal = new Graphics();
+    container.addChild(portal);
+    this.objectLayer.addChild(container);
+    const label = new Text({ text: '', style: { fontFamily: 'sans-serif', fontSize: 12, fill: 0xffffff } });
+    label.anchor.set(0.5, 1);
+    label.position.set(s.x, s.y - 58);
+    const labelBack = new Graphics();
+    labelBack.position.copyFrom(label.position);
+    this.labels.addChild(labelBack, label);
+    const view: View = { container, label, labelBack, labelShift: 0, chest: null, exit: { portal, open: !exit.open }, hit: [{ x: -26, y: -56, width: 52, height: 64 }] };
+    this.views.set(exit.id, view);
+    this.drawExit(view, exit.open, 0);
+    return view;
+  }
+
+  /** 出口：未開啟為暗色石門；開啟後為發光的傳送門 */
+  private drawExit(view: View, open: boolean, nextFloor: number): void {
+    const exit = view.exit!;
+    exit.open = open;
+    const color = open ? FLOOR_COLORS.exitOpen : FLOOR_COLORS.exitClosed;
+    exit.portal
+      .clear()
+      .ellipse(0, 0, 26, 13)
+      .fill({ color: 0x000000, alpha: 0.5 })
+      .roundRect(-18, -52, 36, 52, 16)
+      .fill({ color, alpha: open ? 0.55 : 0.9 })
+      .stroke({ color: open ? 0xe0c8ff : 0x2a2632, width: 2 });
+    const label = view.label!;
+    label.text = open ? (nextFloor > 0 ? `出口 → 第 ${nextFloor} 層` : '出口') : '出口（未開啟）';
+    label.style.fill = open ? 0xe0c8ff : 0x8a8498;
+    const pad = LABEL_PAD;
+    view.labelBack!
+      .clear()
+      .rect(-label.width / 2 - pad, -label.height - pad / 2, label.width + pad * 2, label.height + pad)
+      .fill({ color: LOOT_COLORS.labelBack, alpha: 0.55 });
   }
 
   private drawLid(chest: { lid: Graphics; opened: boolean }, opened: boolean): void {

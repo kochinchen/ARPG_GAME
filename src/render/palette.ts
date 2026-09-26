@@ -32,6 +32,14 @@ export const RARITY_COLORS: Record<string, number> = {
   legendary: 0xd8843a,
 };
 
+export const FLOOR_COLORS = {
+  checkpointIdle: 0x5a5a6a,
+  checkpointActive: 0x6fa8ff,
+  stairs: 0xc8a25a,
+  exitClosed: 0x4a4458,
+  exitOpen: 0xb07cff,
+} as const;
+
 export const LOOT_COLORS = {
   potion: 0xd0453a,
   gold: 0xe8c47a,

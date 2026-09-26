@@ -20,16 +20,16 @@ export class ExperienceSystem {
     private readonly player: Actor,
     private readonly progress: PlayerProgress,
     private readonly skillTree: SkillTree,
-    private readonly data: Pick<DataRegistry, 'enemies' | 'balance'>,
+    private readonly data: Pick<DataRegistry, 'balance'>,
     private readonly events: GameEventBus,
     targeting: TargetingService,
   ) {
     events.on('ActorDied', (e) => {
-      if (e.faction !== 'enemy' || e.defId === null || e.killerId === null) return;
+      if (e.faction !== 'enemy' || e.killerId === null) return;
       // 玩家或召喚物擊殺才有經驗
       const killer = targeting.getActor(e.killerId);
       if (!killer || killer.faction === 'enemy') return;
-      this.addXp(this.data.enemies.get(e.defId).xp);
+      this.addXp(e.xp);
     });
   }
 

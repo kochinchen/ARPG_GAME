@@ -21,6 +21,7 @@ export class DeathSystem {
         defId: actor.defId,
         killerId: actor.lastDamagedBy,
         position: actor.position,
+        xp: actor.xpReward,
       });
     }
   }

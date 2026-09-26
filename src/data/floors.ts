@@ -1,0 +1,30 @@
+import type { z } from 'zod';
+import type { FloorDefSchema } from './schema/floor';
+
+/** 樓層區間設定。怪物強度依 balance.difficulty 逐層提高。 */
+export const floors: z.input<typeof FloorDefSchema>[] = [
+  {
+    id: 'floor.crypt_1',
+    floors: [1, 5],
+    maps: ['map.crypt_a', 'map.crypt_b'],
+    monsterPool: [{ enemyId: 'enemy.skeleton', weight: 1 }],
+    density: 2.2,
+    packSize: [2, 4],
+    lootTier: 1,
+    chests: [1, 2],
+    chestLootTable: 'loot.chest',
+    clearRatio: 0.7,
+  },
+  {
+    id: 'floor.crypt_2',
+    floors: [6, 999],
+    maps: ['map.crypt_b', 'map.crypt_a'],
+    monsterPool: [{ enemyId: 'enemy.skeleton', weight: 1 }],
+    density: 2.6,
+    packSize: [3, 5],
+    lootTier: 2,
+    chests: [1, 3],
+    chestLootTable: 'loot.chest',
+    clearRatio: 0.7,
+  },
+];

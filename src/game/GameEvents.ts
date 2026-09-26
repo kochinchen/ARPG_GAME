@@ -48,7 +48,15 @@ export interface GameEvents {
     defId: string | null;
     killerId: ActorId | null;
     position: Vec2;
+    /** 擊殺可得的經驗（已套用樓層倍率） */
+    xp: number;
   };
+  /** 進入某一層（含第一次進入遊戲） */
+  FloorEntered: { floor: number; mapId: string };
+  CheckpointActivated: { kind: 'stairs' | 'midway'; position: Vec2 };
+  ExitOpened: { floor: number };
+  /** 點了尚未開啟的出口 */
+  ExitLocked: { remaining: number };
   /** 玩家倒地後回到存檔點（玩家死亡本身為 ActorDied，faction = 'player'） */
   PlayerRespawned: { position: Vec2 };
   PotionUsed: { hpRestored: number; mpRestored: number; remaining: number };

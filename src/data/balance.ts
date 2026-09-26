@@ -41,6 +41,19 @@ export const balance: z.input<typeof BalanceSchema> = {
       supports: [null, null, null],
     },
   },
+  difficulty: {
+    hpPerFloor: 0.2,
+    damagePerFloor: 0.12,
+    defensePerFloor: 0.1,
+    xpPerFloor: 0.15,
+    densityPerFloor: 0.05,
+    maxDensityMultiplier: 2,
+  },
+  floor: {
+    // 與骷髏的偵測距離相同：站在存檔點上不會被發現
+    safeRadius: 7,
+    checkpointRadius: 1.2,
+  },
   combat: {
     critMultiplier: 1.5,
     defenseConstant: 100,

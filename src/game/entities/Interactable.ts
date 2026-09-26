@@ -24,5 +24,13 @@ export interface Chest {
   opened: boolean;
 }
 
+/** 本層出口：擊敗足夠怪物後開啟，點擊進入下一層 */
+export interface ExitPortal {
+  kind: 'exit';
+  id: number;
+  position: Vec2;
+  open: boolean;
+}
+
 /** 玩家可以點擊互動的物件 */
-export type Interactable = GroundItem | Chest;
+export type Interactable = GroundItem | Chest | ExitPortal;

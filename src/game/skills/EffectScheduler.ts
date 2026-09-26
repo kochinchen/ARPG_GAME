@@ -73,6 +73,12 @@ export class EffectScheduler implements EffectSchedulerPort {
     }
   }
 
+  /** 換樓層時清除所有地面區域與延遲效果 */
+  clear(): void {
+    this.zones.length = 0;
+    this.pending.length = 0;
+  }
+
   update(dt: number): void {
     for (let i = 0; i < this.pending.length; ) {
       const p = this.pending[i]!;

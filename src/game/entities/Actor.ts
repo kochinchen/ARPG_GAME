@@ -21,6 +21,8 @@ export interface ActorInit {
   /** 會的技能與等級 */
   skillRanks?: ReadonlyMap<string, number>;
   isBoss?: boolean;
+  /** 被擊殺時給予的經驗 */
+  xpReward?: number;
 }
 
 /** 身上的狀態（由 StatusEffectSystem 管理） */
@@ -74,6 +76,7 @@ export class Actor {
   /** 有 AI 的角色（怪物、召喚物）；玩家與訓練木樁為 null */
   readonly ai: AiBrain | null;
   readonly isBoss: boolean;
+  readonly xpReward: number;
   radius: number;
 
   position: Vec2;
@@ -116,6 +119,7 @@ export class Actor {
     this.stats = init.stats;
     this.ai = init.ai ?? null;
     this.isBoss = init.isBoss ?? false;
+    this.xpReward = init.xpReward ?? 0;
     this.skillRanks = new Map(init.skillRanks ?? []);
     this.hp = init.stats.get('maxHp');
     this.mana = init.stats.get('maxMana');

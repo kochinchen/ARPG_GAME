@@ -12,7 +12,7 @@ export interface ComboBarView {
 
 /** 除錯資訊的唯讀快照；M8 會由 GameViewStore 取代 */
 export const debugView = reactive({
-  milestone: 'M6 Combo',
+  milestone: 'M7 Floor',
   /** 開發模式才顯示測試快捷鍵說明 */
   devKeys: false,
   tick: 0,
@@ -31,6 +31,12 @@ export const debugView = reactive({
   combos: [] as ComboBarView[],
   supports: [] as string[],
   inventory: emptyInventoryView(),
+  /** 樓層進度（固定地圖模式 floor = 0） */
+  floor: { floor: 0, killed: 0, total: 0, remaining: 0, exitOpen: false },
+  /** 進入新樓層時顯示幾秒的橫幅 */
+  floorBanner: null as number | null,
+  /** 倒地後回到哪個存檔點 */
+  respawnAt: '樓梯口',
   /** 第一次發現 Combo 時顯示幾秒的橫幅 */
   discovery: null as { name: string; description: string[] } | null,
   skillTree: emptySkillTreeView(),

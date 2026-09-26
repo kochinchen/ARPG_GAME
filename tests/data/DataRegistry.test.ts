@@ -213,7 +213,7 @@ describe('DataRegistry', () => {
 });
 
 describe('MapDef 驗證', () => {
-  const load = (rows: string[]) => DataRegistry.load(withData({ maps: [{ id: 'map.bad', rows }] }));
+  const load = (rows: string[]) => DataRegistry.load(withData({ maps: [...gameData.maps, { id: 'map.bad', rows }] }));
 
   it('每列長度必須一致', () => {
     expect(() => load(['#S#', '##'])).toThrow('長度');
@@ -225,13 +225,18 @@ describe('MapDef 驗證', () => {
   });
 
   it('不允許未定義的字元', () => {
-    expect(() => load(['#SX#'])).toThrow("不合法的字元 'X'");
+    expect(() => load(['#SZ#'])).toThrow("不合法的字元 'Z'");
+  });
+
+  it('中途存檔點 M 與出口 X 最多各一個', () => {
+    expect(() => load(['#SMM#'])).toThrow("'M' 最多 1 個");
+    expect(() => load(['#SXX#'])).toThrow("'X' 最多 1 個");
   });
 });
 
 describe('MapDef spawns 驗證', () => {
   const load = (spawns: { enemyId: string; at: [number, number] }[]) =>
-    DataRegistry.load(withData({ maps: [{ id: 'map.spawns', rows: ['#####', '#S..#', '#####'], spawns }] }));
+    DataRegistry.load(withData({ maps: [...gameData.maps, { id: 'map.spawns', rows: ['#####', '#S..#', '#####'], spawns }] }));
 
   it('擺放位置必須在地板上', () => {
     expect(() => load([{ enemyId: 'enemy.training_dummy', at: [0.5, 0.5] }])).toThrow('不在地板上');
@@ -267,3 +272,40 @@ describe('物品與寶箱資料驗證（M5）', () => {
     expect(problems.some((p) => p.includes("'affix.bad'.stat"))).toBe(true);
   });
 });
+
+describe('樓層資料驗證（M7）', () => {
+  const floor = (id: string, floors: [number, number], maps: string[]) => ({
+    id,
+    floors,
+    maps,
+    monsterPool: [{ enemyId: 'enemy.skeleton', weight: 1 }],
+    density: 1,
+    lootTier: 1,
+    chests: [0, 0],
+    chestLootTable: 'loot.chest',
+    clearRatio: 0.5,
+  });
+
+  it('樓層地圖必須有中途存檔點與出口，且從樓梯口走得到', () => {
+    const maps = [
+      ...gameData.maps,
+      { id: 'map.no_exit', rows: ['#####', '#S.M#', '#####'] },
+      { id: 'map.walled', rows: ['#######', '#S.M#X#', '#######'] },
+    ];
+    const problems = expectProblems(withData({ maps, floors: [floor('floor.a', [1, 1], ['map.no_exit', 'map.walled'])] }));
+    expect(problems).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("'map.no_exit' 沒有出口 X"),
+        expect.stringContaining("'map.walled' 的出口 X從樓梯口走不到"),
+      ]),
+    );
+  });
+
+  it('樓層區間必須從 1 開始連續', () => {
+    const problems = expectProblems(
+      withData({ floors: [floor('floor.a', [1, 3], ['map.crypt_a']), floor('floor.b', [5, 9], ['map.crypt_a'])] }),
+    );
+    expect(problems).toEqual([expect.stringContaining("floor 'floor.b' 應從第 4 層開始")]);
+  });
+});
+

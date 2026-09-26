@@ -1,19 +1,30 @@
 import { z } from 'zod';
-import { IdSchema, PointSchema, RangeSchema } from './common';
+import { IdSchema, RangeSchema } from './common';
 
-export const FloorDefSchema = z
-  .strictObject({
-    id: IdSchema,
-    /** 適用樓層區間 [from, to] */
-    floors: RangeSchema,
-    map: IdSchema,
-    monsterPool: z.array(z.strictObject({ enemyId: IdSchema, weight: z.number().positive() })).min(1),
-    density: z.number().positive(),
-    eliteChance: z.number().min(0).max(1),
-    affixCount: RangeSchema,
-    lootTier: z.int().positive(),
-    checkpoints: z.strictObject({ stairs: PointSchema, midway: PointSchema }),
-    chests: z.int().nonnegative(),
-  });
+/**
+ * 樓層設定：一段樓層區間共用的怪物池、密度、寶箱數與地圖清單。
+ * 各層實際的怪物強度由 balance.difficulty 依樓層計算。
+ */
+export const FloorDefSchema = z.strictObject({
+  id: IdSchema,
+  /** 適用樓層區間 [from, to]（含兩端）；所有區間必須從 1 開始連續 */
+  floors: z.tuple([z.int().positive(), z.int().positive()]).refine(([a, b]) => a <= b, 'from 必須 <= to'),
+  /** 此區間輪替使用的地圖（必須有 S、M、X） */
+  maps: z.array(IdSchema).min(1),
+  monsterPool: z.array(z.strictObject({ enemyId: IdSchema, weight: z.number().positive() })).min(1),
+  /** 每 100 格地板的怪物數（第一層基準，之後依 balance.difficulty 增加） */
+  density: z.number().positive(),
+  /** 一群怪物的隻數範圍 */
+  packSize: RangeSchema.default([2, 4]),
+  /** Elite 機制尚未實作，先保留欄位 */
+  eliteChance: z.number().min(0).max(1).default(0),
+  affixCount: RangeSchema.default([0, 0]),
+  lootTier: z.int().positive(),
+  /** 寶箱數量範圍 */
+  chests: RangeSchema,
+  chestLootTable: IdSchema,
+  /** 擊敗此比例的怪物後出口開啟 */
+  clearRatio: z.number().min(0).max(1),
+});
 
 export type FloorDef = z.infer<typeof FloorDefSchema>;

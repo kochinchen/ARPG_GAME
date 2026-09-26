@@ -11,7 +11,7 @@ import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { EnemyFactory } from './enemies/EnemyFactory';
 import { Actor } from './entities/Actor';
-import type { Chest, GroundContent, GroundItem } from './entities/Interactable';
+import type { Chest, ExitPortal, GroundContent, GroundItem } from './entities/Interactable';
 import type { Projectile } from './entities/Projectile';
 import { ChestSystem } from './items/ChestSystem';
 import { Equipment } from './items/Equipment';
@@ -46,11 +46,19 @@ import { ExperienceSystem } from './progression/ExperienceSystem';
 import { PlayerProgress } from './progression/PlayerProgress';
 import { RegenSystem } from './stats/RegenSystem';
 import { StatBlock } from './stats/StatBlock';
+import { CheckpointSystem } from './world/CheckpointSystem';
+import { scaleForFloor } from './world/DifficultyScaler';
+import { FloorManager } from './world/FloorManager';
+import { SpawnSystem } from './world/SpawnSystem';
+import { findMarker } from '../data/mapAnalysis';
 import { TargetingService } from './targeting/TargetingService';
 
 export interface GameWorldOptions {
   data: DataRegistry;
-  mapId: string;
+  /** 固定地圖模式（測試用）：使用地圖內擺放的怪物與寶箱，沒有樓層與出口 */
+  mapId?: string;
+  /** 樓層模式：從第幾層開始（省略 mapId 時預設第 1 層） */
+  floor?: number;
   commands: CommandQueue<GameCommand>;
   events: GameEventBus;
   seed: number;
@@ -60,8 +68,12 @@ export interface GameWorldOptions {
  * 持有所有 Entity 與 System，依固定順序執行每個 Tick。
  */
 export class GameWorld {
-  readonly map: MapDef;
+  map: MapDef;
   readonly nav: NavGrid;
+  /** 本層出口（固定地圖模式沒有出口） */
+  exit: ExitPortal | null = null;
+  readonly checkpoints: CheckpointSystem;
+  readonly floors: FloorManager;
   readonly actors: Actor[] = [];
   readonly projectiles: Projectile[] = [];
   readonly groundItems: GroundItem[] = [];
@@ -78,7 +90,7 @@ export class GameWorld {
   readonly progress = new PlayerProgress();
   readonly skillTree: SkillTree;
   readonly experience: ExperienceSystem;
-  /** 掉落物品等級；M7 起依樓層決定 */
+  /** 掉落物品等級：等於樓層 */
   itemLevel = 1;
   readonly events: GameEventBus;
   /** 唯讀查詢服務；Render 也可用來查詢 */
@@ -91,8 +103,6 @@ export class GameWorld {
   readonly codex = new ComboCodex();
   private readonly comboSlotLevels: readonly number[];
   readonly deathHandler: DeathHandler;
-  /** 本層重生點；M7 起由 CheckpointSystem 管理（樓梯口 / 中途） */
-  readonly spawnPoint: Vec2;
 
   private nextActorId = 1;
   private nextProjectileId = 1;
@@ -107,13 +117,20 @@ export class GameWorld {
   private readonly playerController: PlayerController;
   private readonly pipeline: DamagePipeline;
   private readonly support: SupportSystem;
+  private readonly data: DataRegistry;
+  private readonly seed: number;
+  private readonly enemyFactory = new EnemyFactory();
 
   constructor(options: GameWorldOptions) {
     const { data } = options;
+    this.data = data;
+    this.seed = options.seed;
     this.commands = options.commands;
     this.events = options.events;
-    this.map = data.maps.get(options.mapId);
+    this.floors = new FloorManager(data, this.events);
+    this.map = options.mapId !== undefined ? data.maps.get(options.mapId) : this.floors.mapFor(options.floor ?? 1);
     this.nav = NavGrid.fromMap(this.map);
+    this.checkpoints = new CheckpointSystem(this.events, data.balance.floor.checkpointRadius);
 
     const rng = new Rng(options.seed);
     const pathfinder = new Pathfinder(this.nav);
@@ -144,7 +161,7 @@ export class GameWorld {
     this.deaths = new DeathSystem(this.events);
 
     const p = data.balance.player;
-    this.spawnPoint = findSpawn(this.map);
+    const start = markerPoint(this.map, MAP_TILES.spawn)!;
     const { left, combos, supports } = p.startingLoadout;
     this.loadout = new PlayerLoadout(
       left,
@@ -157,7 +174,7 @@ export class GameWorld {
         faction: 'player',
         name: '冒險者',
         defId: null,
-        position: this.spawnPoint,
+        position: start,
         radius: p.radius,
         stats: new StatBlock({
           maxHp: p.baseHp,
@@ -218,16 +235,84 @@ export class GameWorld {
       () => this.itemLevel,
       this.events,
     );
-    this.deathHandler = new DeathHandler(this.player, this.events, () => this.spawnPoint, p.respawnDelay);
+    this.deathHandler = new DeathHandler(this.player, this.events, () => this.checkpoints.respawn.position, p.respawnDelay);
 
-    const enemyFactory = new EnemyFactory();
+    if (options.mapId !== undefined) this.loadFixedMap();
+    else this.enterFloor(options.floor ?? 1);
+  }
+
+  /** 樓梯口位置 */
+  get spawnPoint(): Vec2 {
+    return this.checkpoints.checkpoints[0]!.position;
+  }
+
+  /** 進入某一層：換地圖、清空本層實體、依樓層難度生成怪物與寶箱。玩家的所有進度保留。 */
+  enterFloor(floor: number): void {
+    const def = this.floors.defFor(floor);
+    this.resetLevel(this.floors.mapFor(floor));
+    this.itemLevel = floor;
+    this.progress.currentFloor = floor;
+    this.progress.highestFloor = Math.max(this.progress.highestFloor, floor);
+
+    const rng = new Rng(this.seed).fork(`floor-${floor}`);
+    const spawner = new SpawnSystem(this.nav, rng);
+    const scaling = scaleForFloor(floor, this.data.balance.difficulty);
+    const safe = [this.spawnPoint, ...this.checkpoints.checkpoints.slice(1).map((c) => c.position)];
+    if (this.exit) safe.push(this.exit.position);
+    for (const request of spawner.planMonsters(def, scaling.density, safe, this.data.balance.floor.safeRadius)) {
+      this.addActor(this.enemyFactory.create(this.data.enemies.get(request.enemyId), this.nextActorId++, request.position, scaling));
+    }
+    for (const position of spawner.planChests(rng.int(def.chests[0], def.chests[1]), safe)) {
+      this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position, lootTable: def.chestLootTable, opened: false });
+    }
+    this.floors.begin(floor, this.actors.length - 1);
+    if (this.exit) this.exit.open = this.floors.exitOpen;
+    this.events.emit('FloorEntered', { floor, mapId: this.map.id });
+  }
+
+  /** 固定地圖模式：地圖內擺放的怪物與寶箱 */
+  private loadFixedMap(): void {
+    this.resetLevel(this.map);
+    this.exit = null;
     for (const spawn of this.map.spawns) {
-      const def = data.enemies.get(spawn.enemyId);
-      this.addActor(enemyFactory.create(def, this.nextActorId++, vec2(...spawn.at)));
+      this.addActor(this.enemyFactory.create(this.data.enemies.get(spawn.enemyId), this.nextActorId++, vec2(...spawn.at)));
     }
     for (const chest of this.map.chests) {
       this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position: vec2(...chest.at), lootTable: chest.lootTable, opened: false });
     }
+  }
+
+  /** 換地圖並清空本層所有實體；玩家回到樓梯口（陣列就地清空，其他系統持有的參考仍有效） */
+  private resetLevel(map: MapDef): void {
+    this.map = map;
+    this.nav.load(map);
+    this.actors.length = 0;
+    this.actors.push(this.player);
+    this.projectiles.length = 0;
+    this.groundItems.length = 0;
+    this.chests.length = 0;
+    this.scheduler.clear();
+    this.combos.cancel(this.player);
+    this.interaction.clear();
+    this.statuses.clear(this.player);
+
+    const stairs = markerPoint(map, MAP_TILES.spawn)!;
+    this.checkpoints.reset(stairs, markerPoint(map, MAP_TILES.midway));
+    const exit = markerPoint(map, MAP_TILES.exit);
+    this.exit = exit ? { kind: 'exit', id: this.nextInteractableId++, position: exit, open: false } : null;
+
+    const player = this.player;
+    player.position = stairs;
+    player.prevPosition = stairs;
+    player.path = [];
+    player.intent = null;
+    player.cast = null;
+  }
+
+  /** 玩家點了出口 */
+  useExit(): void {
+    const remaining = this.floors.requestDescend();
+    if (remaining > 0) this.events.emit('ExitLocked', { remaining });
   }
 
   /** 目前等級已解鎖的連段格數（1～3） */
@@ -298,9 +383,14 @@ export class GameWorld {
     this.interaction.update();
     this.projectileSystem.update(this.projectiles, dt);
     this.scheduler.update(dt);
+    this.checkpoints.update(this.player);
     this.deaths.update(this.actors);
     this.deathHandler.update(dt);
     this.removeDead();
+    if (this.exit) this.exit.open = this.floors.exitOpen;
+    // 切換樓層放在 Tick 最後，避免在系統更新途中替換實體
+    const next = this.floors.takePending();
+    if (next !== null) this.enterFloor(next);
   }
 
   private addActor(actor: Actor): Actor {
@@ -317,10 +407,8 @@ export class GameWorld {
   }
 }
 
-function findSpawn(map: MapDef): Vec2 {
-  for (const [y, row] of map.rows.entries()) {
-    const x = row.indexOf(MAP_TILES.spawn);
-    if (x >= 0) return tileCenter(vec2(x, y));
-  }
-  throw new Error(`map '${map.id}' has no spawn`);
+/** 地圖記號（S / M / X）所在 Tile 的中心點 */
+function markerPoint(map: MapDef, marker: string): Vec2 | null {
+  const tile = findMarker(map, marker);
+  return tile ? tileCenter(vec2(tile.x, tile.y)) : null;
 }

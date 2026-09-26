@@ -12,7 +12,7 @@ import { StatBlock, type StatId } from '../../src/game/stats/StatBlock';
 
 export const DT = 1 / 60;
 
-export const navFrom = (...rows: string[]) => NavGrid.fromMap({ id: 'map.test', rows, spawns: [], chests: [] });
+export const navFrom = (...rows: string[]) => NavGrid.fromMap({ rows });
 
 let nextId = 1000;
 export function makeActor(

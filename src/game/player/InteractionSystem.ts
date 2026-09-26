@@ -1,6 +1,6 @@
 import { distance } from '../../core/math/Vec2';
 import type { Actor } from '../entities/Actor';
-import type { Chest, GroundItem, Interactable } from '../entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable } from '../entities/Interactable';
 import type { GameEventBus } from '../GameEvents';
 import type { ChestSystem } from '../items/ChestSystem';
 import type { Inventory } from '../items/Inventory';
@@ -15,6 +15,9 @@ const AUTO_PICKUP_RANGE = 0.6;
 export interface InteractionWorld {
   groundItems: GroundItem[];
   chests: Chest[];
+  exit: ExitPortal | null;
+  /** 點擊出口 */
+  useExit(): void;
 }
 
 /**
@@ -38,7 +41,12 @@ export class InteractionSystem {
   }
 
   find(id: number): Interactable | undefined {
-    return this.world.groundItems.find((g) => g.id === id) ?? this.world.chests.find((c) => c.id === id && !c.opened);
+    const exit = this.world.exit;
+    return (
+      this.world.groundItems.find((g) => g.id === id) ??
+      this.world.chests.find((c) => c.id === id && !c.opened) ??
+      (exit?.id === id ? exit : undefined)
+    );
   }
 
   /** 開始走向互動目標；目標不存在時回傳 false */
@@ -78,6 +86,7 @@ export class InteractionSystem {
     this.player.path = [];
     this.targetId = null;
     if (target.kind === 'chest') this.chests.open(target);
+    else if (target.kind === 'exit') this.world.useExit();
     else this.pickUp(target, true);
   }
 

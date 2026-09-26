@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0～M6 完成，並完成技能系統大改（4 大類、Q/W/E 三段 Combo、Support 常駐被動）；下一步 M7 Floor。
+> 狀態：M0～M7 完成（含技能系統大改與三段 Combo）；下一步 M9 Save（M8 UI 排在存檔之後）。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -277,13 +277,13 @@ arpg/
 | ai | `AiSystem` | 對每個有 `AiBrain` 的 Actor 執行狀態機（Idle → Chase → Return）。狀態只做決策，追擊與出手交給 SkillSystem |
 | enemies | `EnemyFactory` | 由 EnemyDef + Floor 難度 + Affix 組出一隻怪 |
 | enemies | `AffixApplier` | 把 Elite Affix 轉成 StatModifier 與行為掛勾 |
-| world | `FloorManager` | 目前樓層、進入 / 離開樓層流程 |
+| world | `FloorManager` | 目前樓層、樓層設定、地圖輪替、擊敗數與出口開啟 |
 | world | `CheckpointSystem` | 每層兩個存檔點（樓梯口 / 中途）的啟動與重生位置 |
+| world | `SpawnSystem` | 依樓層設定規劃怪物群與寶箱位置（不建立實體） |
 | items | `ChestSystem` | 寶箱只能開一次，開啟時發出 `ChestOpened` |
 | player | `InteractionSystem` | 點擊地上物品 / 寶箱後走過去撿 / 開；藥水與金幣走過去自動撿 |
 | player | `Wallet` | 金幣 |
 | world | `DifficultyScaler` | 純函式：Floor → 怪物 HP / 傷害 / 密度 / Elite 機率倍率 |
-| world | `SpawnSystem` | 依 FloorDef 產生 SpawnRequest 並交給 EnemyFactory |
 | items | `ItemGenerator` | 擲稀有度、Tier、詞綴，產生 `ItemInstance` |
 | items | `LootSystem` | 監聽 `ActorDied` 與 `ChestOpened`，查 LootTable，在地上生成物品、藥水、金幣 |
 | items | `ItemDescriber` | 由 ItemInstance（ID + 擲骰值）推導顯示名稱與屬性說明；Render 與 UI 共用 |
@@ -366,7 +366,7 @@ Event 用於「一件事發生後，多個互不相關的系統都要反應」�
 | `ItemPickedUp` / `PotionPickedUp` / `GoldPickedUp` / `PickupFailed` | InteractionSystem | Render（提示文字）、UI（背包快照） |
 | `ItemEquipped` / `ItemUnequipped` | Equipment | UI、Audio |
 | `PotionUsed` | PotionBelt | Render（回復量）、UI、Audio |
-| `FloorEntered` / `FloorCleared` | FloorManager | SpawnSystem、SaveService（自動存檔）、UI |
+| `FloorEntered` / `ExitOpened` / `ExitLocked` | GameWorld / FloorManager | Render（重建地圖、提示）、UI（樓層橫幅）、SaveService（M9 自動存檔） |
 
 **不要用 Event 的地方**：需要回傳值的呼叫（例如「算出傷害是多少」）、同一模組內部的呼叫、以及必須保證執行順序的流程。這些直接呼叫函式即可。
 
@@ -832,7 +832,15 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **Dependencies**：M3、M5
 - **Acceptance**：進入樓層時樓梯口存檔點自動啟動；觸碰中途存檔點後啟動；死亡時回到最後啟動的存檔點；清完一定比例怪物後出口開啟；下一層怪物 HP / 傷害 / 數量依設定增加。
 - **Test**：`DifficultyScaler` 單元測試（Floor 1 / 10 / 50 的倍率）；啟動中途點後死亡，重生位置為中途點；進入新樓層後重生位置重設為樓梯口。
-- **注意（M3 發現）**：怪物若擺在存檔點附近，玩家重生後會立刻被圍，可能陷入死亡循環。M7 需擇一處理：地圖驗證「存檔點周圍 N 格內不可放怪」，或重生後短暫無敵。
+- **注意（M3 發現）**：怪物若擺在存檔點附近，玩家重生後會立刻被圍，可能陷入死亡循環。M7 已處理：怪物不會生成在存檔點與出口 7 格內（等於骷髏偵測距離）。
+- **狀態**：✅ 完成（260 個測試通過）。實作細節：
+  - 地圖：手繪 2 張地窖（40×30），以 `S` 樓梯口、`M` 中途存檔點、`X` 出口標記；載入時檢查 M、X 從樓梯口走得到
+  - `data/floors.ts`：第 1～5 層、第 6 層起兩個區間，各自的怪物池、密度、群組大小、寶箱數、出口開啟比例（70%），區間內地圖輪替
+  - `DifficultyScaler`：第 N 層 = 1 + 每層成長 ×（N − 1）；HP +20%、傷害 +12%、防禦 +10%、經驗 +15%、密度 +5%（上限 2 倍）／層
+  - `SpawnSystem`：依密度成群生成（Seed 可重現），避開存檔點與出口
+  - 換樓層：`NavGrid.load()` 就地替換地圖，實體陣列就地清空；玩家的等級、背包、裝備、技能、連段、組合表全部保留；掉寶等級 = 樓層
+  - 切換在 Tick 最後執行，避免系統更新途中替換實體
+  - 固定地圖模式（`mapId`）保留給測試；遊戲本身從第 1 層開始
 
 ### M8 UI
 
@@ -845,6 +853,8 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **Test**：搜尋 `ui/` 目錄內沒有任何對 GameWorld 的直接寫入（lint 規則）。
 
 ### M9 Save
+
+> 詳細規格見 [SAVE_SYSTEM.md](SAVE_SYSTEM.md)（取代第 1.2 節的舊版 SaveDataV1）。
 
 - **Goal**：可靠的存讀檔。
 - **Classes**：`SaveService`、`SaveMapper`、`IndexedDbStorage`、`Migrations`

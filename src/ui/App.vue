@@ -118,6 +118,16 @@ onBeforeUnmount(() => {
     </div>
   </div>
 
+  <div v-if="debugView.floor.floor > 0" class="floor-info">
+    <b>第 {{ debugView.floor.floor }} 層</b>
+    · 擊敗 {{ debugView.floor.killed }} / {{ debugView.floor.total }}
+    ·
+    <span v-if="debugView.floor.exitOpen" class="exit-open">出口已開啟</span>
+    <span v-else>出口：還需 {{ debugView.floor.remaining }} 隻</span>
+  </div>
+
+  <div v-if="debugView.floorBanner !== null" class="floor-banner" role="status">第 {{ debugView.floorBanner }} 層</div>
+
   <div v-if="debugView.discovery" class="discovery" role="status">
     <div class="discovery-title">COMBO DISCOVERED</div>
     <div class="discovery-name">{{ debugView.discovery.name }}</div>
@@ -126,7 +136,7 @@ onBeforeUnmount(() => {
 
   <div v-if="debugView.respawnIn !== null" class="death">
     <div class="death-title">你倒下了</div>
-    <div>{{ Math.ceil(debugView.respawnIn) }} 秒後回到樓梯口</div>
+    <div>{{ Math.ceil(debugView.respawnIn) }} 秒後回到{{ debugView.respawnAt }}</div>
   </div>
 </template>
 
@@ -287,6 +297,35 @@ onBeforeUnmount(() => {
   font-size: 18px;
   color: #fff;
   background: rgb(0 0 0 / 60%);
+}
+.floor-info {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 14px;
+  font: 12px/1.6 sans-serif;
+  color: #b8ab94;
+  white-space: nowrap;
+  background: rgb(0 0 0 / 55%);
+  border: 1px solid #3d342c;
+}
+.floor-info b {
+  color: #e8c47a;
+}
+.exit-open {
+  color: #c8a8ff;
+}
+.floor-banner {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 38px/1 serif;
+  letter-spacing: 0.3em;
+  color: #e8c47a;
+  text-shadow: 0 3px 10px #000;
+  animation: discovery-in 0.5s ease-out;
 }
 .discovery {
   position: absolute;

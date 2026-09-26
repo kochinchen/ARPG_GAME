@@ -48,6 +48,13 @@ export class TileMapView {
     }
   }
 
+  /** 換樓層時移除地板與牆壁 */
+  destroy(): void {
+    for (const wall of this.walls) wall.graphics.destroy();
+    this.walls.length = 0;
+    this.floor.destroy();
+  }
+
   /** 在玩家前方、且畫面上蓋住玩家身體的牆改為半透明 */
   update(playerPos: Vec2): void {
     const playerDepth = this.projection.depth(playerPos);

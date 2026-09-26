@@ -23,8 +23,6 @@ import { buildInventoryView } from './ui/bridge/InventoryView';
 import { buildSkillTreeView, skillTreeSignature } from './ui/bridge/SkillTreeView';
 import App from './ui/App.vue';
 
-const START_MAP = 'map.test_1';
-
 async function bootstrap(): Promise<void> {
   // 1. 資料驗證失敗就停止
   const data = DataRegistry.load(gameData);
@@ -35,7 +33,8 @@ async function bootstrap(): Promise<void> {
   const seed = Date.now() >>> 0;
 
   // 4. GameWorld
-  const world = new GameWorld({ data, mapId: START_MAP, commands, events, seed });
+  // 從第 1 層開始；測試地圖只給單元測試使用
+  const world = new GameWorld({ data, floor: 1, commands, events, seed });
 
   // 6. Render
   const host = document.getElementById('game');
@@ -73,6 +72,14 @@ async function bootstrap(): Promise<void> {
   };
   refreshSkillTree();
   debugView.devKeys = import.meta.env.DEV;
+  let floorTimer = 0;
+  const showFloorBanner = (floor: number) => {
+    debugView.floorBanner = floor;
+    window.clearTimeout(floorTimer);
+    floorTimer = window.setTimeout(() => (debugView.floorBanner = null), 2500);
+  };
+  showFloorBanner(world.floors.floor);
+  events.on('FloorEntered', (e) => showFloorBanner(e.floor));
   let discoveryTimer = 0;
   events.on('ComboDiscovered', (e) => {
     debugView.discovery = { name: e.name, description: e.description };
@@ -137,6 +144,13 @@ async function bootstrap(): Promise<void> {
       debugView.supports = world.loadout.supports.flatMap((id) => (id === null ? [] : [data.skills.get(id).name]));
       debugView.enemies = world.actors.filter((a) => a.faction === 'enemy' && a.ai !== null).length;
       debugView.respawnIn = world.deathHandler.secondsUntilRespawn;
+      debugView.respawnAt = world.checkpoints.respawn.kind === 'midway' ? '中途存檔點' : '樓梯口';
+      const floors = world.floors;
+      debugView.floor.floor = floors.floor;
+      debugView.floor.killed = floors.killed;
+      debugView.floor.total = floors.total;
+      debugView.floor.remaining = floors.remainingToOpen;
+      debugView.floor.exitOpen = floors.exitOpen;
       const hovered = renderer.hovered === null ? undefined : world.targeting.getActor(renderer.hovered);
       debugView.target = hovered ? `${hovered.name} ${Math.ceil(hovered.hp - 1e-6)} / ${Math.round(hovered.maxHp)}` : '—';
     },

@@ -15,6 +15,8 @@ import { FloorDefSchema, type FloorDef } from './schema/floor';
 import { MapDefSchema, type MapDef } from './schema/map';
 import { ComboRuleSchema, isRangeSequenceValid, type ComboRuleDef } from './schema/combo';
 import { checkComboTags } from './skillAnalysis';
+import { findMarker, reachableTiles } from './mapAnalysis';
+import { MAP_TILES } from './schema/map';
 import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS } from './schema/skill';
 
 /** 尚未驗證的原始資料（來自 data/*.ts） */
@@ -105,7 +107,29 @@ export class DataRegistry {
       for (const { enemyId } of floor.monsterPool) {
         if (!enemies.has(enemyId)) problems.push(`floor '${floor.id}' 引用不存在的 enemy '${enemyId}'`);
       }
-      if (!maps.has(floor.map)) problems.push(`floor '${floor.id}' 引用不存在的 map '${floor.map}'`);
+      if (!lootTables.has(floor.chestLootTable)) problems.push(`floor '${floor.id}' 引用不存在的 lootTable '${floor.chestLootTable}'`);
+      for (const mapId of floor.maps) {
+        if (!maps.has(mapId)) {
+          problems.push(`floor '${floor.id}' 引用不存在的 map '${mapId}'`);
+          continue;
+        }
+        const map = maps.get(mapId);
+        // 樓層地圖必須有中途存檔點與出口，且從樓梯口走得到
+        const start = findMarker(map, MAP_TILES.spawn)!;
+        const reachable = reachableTiles(map, start);
+        for (const [marker, label] of [[MAP_TILES.midway, '中途存檔點 M'], [MAP_TILES.exit, '出口 X']] as const) {
+          const at = findMarker(map, marker);
+          if (!at) problems.push(`floor '${floor.id}' 使用的 map '${mapId}' 沒有${label}`);
+          else if (!reachable.has(`${at.x},${at.y}`)) problems.push(`map '${mapId}' 的${label}從樓梯口走不到`);
+        }
+      }
+    }
+    // 樓層區間必須從 1 開始連續、不重疊
+    const ranges = [...floors.all].sort((a, b) => a.floors[0] - b.floors[0]);
+    let expected = 1;
+    for (const f of ranges) {
+      if (f.floors[0] !== expected) problems.push(`floor '${f.id}' 應從第 ${expected} 層開始（目前 ${f.floors[0]}）`);
+      expected = f.floors[1] + 1;
     }
 
     if (balance) {

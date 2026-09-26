@@ -11,6 +11,9 @@ export class PlayerProgress {
   skillPoints = 0;
   t4Charges = 0;
   readonly t4Unlocked = new Set<SkillCategory>();
+  /** 目前所在樓層與到過的最高樓層（測試地圖模式為 0） */
+  currentFloor = 0;
+  highestFloor = 0;
   private _version = 0;
 
   get version(): number {
