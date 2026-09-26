@@ -5,13 +5,10 @@ import { gameData } from '../../src/data';
 const skill = (id: string) => ({
   id,
   name: id,
-  category: 'melee',
-  tier: 1,
-  branch: 'A',
+  tree: { category: 'melee', tier: 1, branch: 'A' },
   targeting: 'enemy',
   cost: { mana: 0 },
-  range: 1.2,
-  effects: [{ type: 'damage' }],
+  effects: [{ type: 'damage', element: 'physical', source: 'weapon' }],
 });
 
 const withData = (patch: Partial<RawGameData>): RawGameData => ({ ...gameData, ...patch });
@@ -34,11 +31,13 @@ describe('DataRegistry', () => {
   });
 
   it('套用 Schema 預設值', () => {
-    const data = DataRegistry.load(withData({ skills: [skill('melee.bash')] }));
-    const bash = data.skills.get('melee.bash');
+    const data = DataRegistry.load(withData({ skills: [...gameData.skills, skill('melee.test')] }));
+    const bash = data.skills.get('melee.test');
     expect(bash.cooldown).toBe(0);
     expect(bash.cost.perRank).toBe(0);
     expect(bash.tags).toEqual([]);
+    expect(bash.castTime).toBe(0.3);
+    expect(bash.effects[0]).toMatchObject({ multiplier: 1, perRankPct: 0 });
   });
 
   it('ID 重複時報錯', () => {
@@ -47,8 +46,34 @@ describe('DataRegistry', () => {
   });
 
   it('欄位錯誤時指出位置', () => {
-    const problems = expectProblems(withData({ skills: [{ ...skill('melee.bash'), tier: 5 }] }));
-    expect(problems[0]).toContain("skill[0] 'melee.bash'.tier");
+    const problems = expectProblems(
+      withData({ skills: [{ ...skill('melee.bash'), tree: { category: 'melee', tier: 5, branch: 'A' } }] }),
+    );
+    expect(problems[0]).toContain("skill[0] 'melee.bash'.tree.tier");
+  });
+
+  it('驗證巢狀的 Effect 格式', () => {
+    const nested = {
+      ...skill('magic.test'),
+      effects: [{ type: 'projectile', speed: 5, radius: 0.2, range: 5, onHit: [{ type: 'area', radius: 1, effects: [{ type: 'damage', element: 'plasma', source: 'weapon' }] }] }],
+    };
+    expect(expectProblems(withData({ skills: [nested] }))[0]).toContain('effects.0.onHit.0.effects.0.element');
+  });
+
+  it('未知的 Effect 類型、flat 傷害缺少 base 都會報錯', () => {
+    const unknown = { ...skill('magic.a'), effects: [{ type: 'teleport' }] };
+    const noBase = { ...skill('magic.b'), effects: [{ type: 'damage', element: 'fire', source: 'flat' }] };
+    const problems = expectProblems(withData({ skills: [unknown, noBase] }));
+    expect(problems.some((p) => p.includes("skill[0] 'magic.a'.effects.0"))).toBe(true);
+    expect(problems.some((p) => p.includes("source 為 'flat' 時必須提供 base"))).toBe(true);
+  });
+
+  it('有 AI 的怪物至少要有一個技能', () => {
+    const enemy = {
+      id: 'enemy.mute', name: 'x', hp: 1, damage: [1, 1], defense: 0, moveSpeed: 1,
+      attackRange: 1, detectRange: 5, ai: 'melee', xp: 0,
+    };
+    expect(expectProblems(withData({ enemies: [...gameData.enemies, enemy] }))[0]).toContain('至少需要一個技能');
   });
 
   it('引用不存在的 ID 時報錯', () => {

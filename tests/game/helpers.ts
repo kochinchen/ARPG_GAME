@@ -42,8 +42,13 @@ export function createWorldWithMap(
   rows: string[],
   spawns: { enemyId: string; at: [number, number] }[] = [],
   seed = 1,
+  extraSkills: unknown[] = [],
 ) {
-  const data = DataRegistry.load({ ...gameData, maps: [...gameData.maps, { id: 'map.custom', rows, spawns }] });
+  const data = DataRegistry.load({
+    ...gameData,
+    skills: [...gameData.skills, ...extraSkills],
+    maps: [...gameData.maps, { id: 'map.custom', rows, spawns }],
+  });
   const commands = new CommandQueue<GameCommand>();
   const events = new EventBus<GameEvents>();
   const world = new GameWorld({ data, mapId: 'map.custom', commands, events, seed });

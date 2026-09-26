@@ -1,6 +1,7 @@
 export type StatId =
   | 'maxHp'
   | 'maxMana'
+  | 'manaRegen'
   | 'moveSpeed'
   | 'damageMin'
   | 'damageMax'

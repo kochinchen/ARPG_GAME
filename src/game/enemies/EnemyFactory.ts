@@ -26,7 +26,8 @@ export class EnemyFactory {
       position,
       radius: def.radius,
       stats,
-      ai: def.ai === 'none' ? null : createBrain(position, def.detectRange, def.leashRange),
+      ai: def.ai === 'none' ? null : createBrain(position, def.detectRange, def.leashRange, def.skills[0]!),
+      skillRanks: new Map(def.skills.map((id) => [id, 1])),
     });
   }
 }

@@ -5,7 +5,7 @@ export class ReturnState implements IAiState {
   readonly name = 'return' as const;
 
   enter({ self, brain, pathfinder }: AiContext): void {
-    self.attackTarget = null;
+    self.intent = null;
     brain.targetId = null;
     brain.provokedBy = null;
     self.path = pathfinder.findPath(self.position, brain.home, self.radius);

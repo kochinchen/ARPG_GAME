@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { IdSchema, RangeSchema } from './common';
 
-export const EnemyDefSchema = z.strictObject({
+export const EnemyDefSchema = z
+  .strictObject({
   id: IdSchema,
   name: z.string(),
   hp: z.number().positive(),
@@ -20,10 +21,12 @@ export const EnemyDefSchema = z.strictObject({
   leashRange: z.number().positive().default(14),
   /** none = 不行動（訓練木樁） */
   ai: z.enum(['none', 'melee']),
+  /** 第一個技能為主要攻擊（AI 追擊時使用） */
   skills: z.array(IdSchema).default([]),
   lootTable: IdSchema.optional(),
   xp: z.number().nonnegative(),
-});
+  })
+  .refine((e) => e.ai === 'none' || e.skills.length > 0, { message: '有 AI 的怪物至少需要一個技能' });
 
 export type EnemyDef = z.infer<typeof EnemyDefSchema>;
 export type EnemyDefInput = z.input<typeof EnemyDefSchema>;

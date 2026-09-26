@@ -16,15 +16,20 @@ export class FloatingTextLayer {
   readonly container = new Container();
   private readonly items: FloatingText[] = [];
 
-  /** screen：World 圖層內的畫面座標（腳底） */
+  /** 傷害數字；screen 為 World 圖層內的畫面座標（腳底） */
   spawn(screen: Vec2, value: number, isCrit: boolean): void {
+    this.spawnText(screen, isCrit ? `${value}!` : `${value}`, isCrit ? PALETTE.critText : PALETTE.damageText, isCrit ? 22 : 16);
+  }
+
+  /** 任意文字（回復量、魔力不足等） */
+  spawnText(screen: Vec2, content: string, color: number, fontSize = 15): void {
     const text = new Text({
-      text: isCrit ? `${value}!` : `${value}`,
+      text: content,
       style: {
         fontFamily: 'sans-serif',
         fontWeight: 'bold',
-        fontSize: isCrit ? 22 : 16,
-        fill: isCrit ? PALETTE.critText : PALETTE.damageText,
+        fontSize,
+        fill: color,
         stroke: { color: 0x000000, width: 4 },
       },
     });

@@ -7,7 +7,7 @@ export class IdleState implements IAiState {
   readonly name = 'idle' as const;
 
   enter({ self, brain }: AiContext): void {
-    self.attackTarget = null;
+    self.intent = null;
     self.path = [];
     brain.targetId = null;
   }

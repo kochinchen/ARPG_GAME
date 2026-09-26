@@ -5,8 +5,8 @@
 export class CommandQueue<Command> {
   private pending: Command[] = [];
 
-  push(command: Command): void {
-    this.pending.push(command);
+  push(...commands: Command[]): void {
+    this.pending.push(...commands);
   }
 
   /** 取出目前所有 Command 並清空佇列 */

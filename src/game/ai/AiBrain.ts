@@ -16,8 +16,10 @@ export interface AiBrain {
   targetId: ActorId | null;
   /** 最近一次被誰打；閒置時會對其反擊 */
   provokedBy: ActorId | null;
+  /** 追擊時使用的技能 */
+  skillId: string;
 }
 
-export function createBrain(home: Vec2, detectRange: number, leashRange: number): AiBrain {
-  return { state: 'idle', home, detectRange, leashRange, targetId: null, provokedBy: null };
+export function createBrain(home: Vec2, detectRange: number, leashRange: number, skillId: string): AiBrain {
+  return { state: 'idle', home, detectRange, leashRange, targetId: null, provokedBy: null, skillId };
 }

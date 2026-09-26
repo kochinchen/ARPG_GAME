@@ -1,7 +1,7 @@
 import { vec2, type Vec2 } from '../../core/math/Vec2';
+import type { SkillDef } from '../../data/schema/skill';
 import type { AiBrain } from '../ai/AiBrain';
 import type { StatBlock } from '../stats/StatBlock';
-
 import type { ActorId, Faction } from './ActorTypes';
 
 export type { ActorId, Faction } from './ActorTypes';
@@ -16,6 +16,31 @@ export interface ActorInit {
   radius: number;
   stats: StatBlock;
   ai?: AiBrain | null;
+  /** 會的技能與等級 */
+  skillRanks?: ReadonlyMap<string, number>;
+}
+
+/** 想要施放的技能（由 PlayerController / AI 設定，SkillSystem 執行） */
+export interface SkillIntent {
+  skillId: string;
+  /** targeting = 'enemy' 時的目標 */
+  targetId: ActorId | null;
+  /** 游標的 World 座標（direction / ground 使用） */
+  point: Vec2;
+  /** true：施放後保留意圖，持續施放（按住左鍵、怪物追擊）；false：施放一次 */
+  hold: boolean;
+}
+
+/** 施放中的技能：施放時間結束前不能移動或施放其他技能 */
+export interface CastState {
+  skill: SkillDef;
+  rank: number;
+  targetId: ActorId | null;
+  point: Vec2;
+  direction: Vec2;
+  elapsed: number;
+  duration: number;
+  fired: boolean;
 }
 
 /**
@@ -40,17 +65,20 @@ export class Actor {
   facing: Vec2 = vec2(1, 0);
 
   hp: number;
+  mana: number;
   alive = true;
   /** 最後一個造成傷害的來源，用於判定擊殺者 */
   lastDamagedBy: ActorId | null = null;
 
-  // ---- 攻擊狀態（由 AttackSystem 使用） ----
-  attackTarget: ActorId | null = null;
-  /** true：持續攻擊；false：打完一下就停 */
-  attackHold = false;
-  attackCooldown = 0;
-  /** 累計攻擊次數 */
-  attackCount = 0;
+  // ---- 技能狀態（由 SkillSystem 使用） ----
+  /** 技能 ID → 等級（1～5） */
+  readonly skillRanks: Map<string, number>;
+  intent: SkillIntent | null = null;
+  cast: CastState | null = null;
+  /** 技能 ID → 剩餘冷卻秒數 */
+  readonly cooldowns = new Map<string, number>();
+  /** 累計施放次數 */
+  castCount = 0;
   /** 追擊目標時重新尋路的冷卻 */
   repathCooldown = 0;
 
@@ -64,7 +92,9 @@ export class Actor {
     this.radius = init.radius;
     this.stats = init.stats;
     this.ai = init.ai ?? null;
+    this.skillRanks = new Map(init.skillRanks ?? []);
     this.hp = init.stats.get('maxHp');
+    this.mana = init.stats.get('maxMana');
   }
 
   /** Tile / 秒 */
@@ -76,7 +106,20 @@ export class Actor {
     return this.stats.get('maxHp');
   }
 
+  get maxMana(): number {
+    return this.stats.get('maxMana');
+  }
+
   get isMoving(): boolean {
     return this.path.length > 0;
+  }
+
+  get isCasting(): boolean {
+    return this.cast !== null;
+  }
+
+  /** 目前意圖的目標（沒有則 null） */
+  get intentTargetId(): ActorId | null {
+    return this.intent?.targetId ?? null;
   }
 }

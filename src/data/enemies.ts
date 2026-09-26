@@ -28,6 +28,7 @@ export const enemies: z.input<typeof EnemyDefSchema>[] = [
     attackSpeed: 1,
     detectRange: 7,
     ai: 'melee',
+    skills: ['basic.attack'],
     xp: 12,
   },
 ];

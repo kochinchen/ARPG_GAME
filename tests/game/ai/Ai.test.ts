@@ -29,7 +29,7 @@ describe('怪物 AI（M3）', () => {
     expect(skeleton!.ai!.state).toBe('chase');
 
     run(world, 4);
-    expect(skeleton!.attackCount).toBeGreaterThan(0);
+    expect(skeleton!.castCount).toBeGreaterThan(0);
     expect(world.player.hp).toBeLessThan(world.player.maxHp);
   });
 
@@ -61,7 +61,7 @@ describe('怪物 AI（M3）', () => {
     });
     run(world, DT);
     expect(skeleton.ai!.state).toBe('chase');
-    expect(skeleton.attackTarget).toBe(world.player.id);
+    expect(skeleton.intentTargetId).toBe(world.player.id);
   });
 
   it('離家超過 Leash 距離就放棄，走回出生點後回到閒置', () => {
@@ -150,7 +150,7 @@ describe('玩家死亡（M3）', () => {
     run(world, 2);
     expect(world.player.alive).toBe(false);
     expect(near!.ai!.state).not.toBe('chase');
-    expect(near!.attackTarget).toBeNull();
+    expect(near!.intentTargetId).toBeNull();
 
     run(world, 3);
     expect(world.player.alive).toBe(true);

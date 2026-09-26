@@ -20,8 +20,10 @@ export interface InputAdapters {
  */
 export class InputManager {
   private leftHeld = false;
+  private rightHeld = false;
   private pointer: Vec2 = vec2(0, 0);
   private lastRepeat = 0;
+  private lastRightRepeat = 0;
   private readonly disposers: (() => void)[] = [];
 
   constructor(
@@ -33,8 +35,12 @@ export class InputManager {
     this.listen(target, 'pointermove', (e) => this.updatePointer(e));
     this.listen(window, 'pointerup', (e) => {
       if (e.button === 0) this.releaseLeft();
+      if (e.button === 2) this.rightHeld = false;
     });
-    this.listen(window, 'blur', () => this.releaseLeft());
+    this.listen(window, 'blur', () => {
+      this.releaseLeft();
+      this.rightHeld = false;
+    });
     this.listen(window, 'keydown', (e) => this.onKeyDown(e));
     this.listen(target, 'contextmenu', (e) => e.preventDefault());
   }
@@ -44,11 +50,16 @@ export class InputManager {
     return this.pointer;
   }
 
-  /** 每幀呼叫：按住左鍵時持續送出指令 */
+  /** 每幀呼叫：按住左鍵 / 右鍵時持續送出指令 */
   poll(now: number): void {
-    if (!this.leftHeld || now - this.lastRepeat < HOLD_REPEAT_INTERVAL) return;
-    this.lastRepeat = now;
-    this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: true });
+    if (this.leftHeld && now - this.lastRepeat >= HOLD_REPEAT_INTERVAL) {
+      this.lastRepeat = now;
+      this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: true });
+    }
+    if (this.rightHeld && now - this.lastRightRepeat >= HOLD_REPEAT_INTERVAL) {
+      this.lastRightRepeat = now;
+      this.commands.push({ type: 'CastRight', ...this.pointerTarget() });
+    }
   }
 
   dispose(): void {
@@ -63,6 +74,8 @@ export class InputManager {
       this.lastRepeat = e.timeStamp / 1000;
       this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: false });
     } else if (e.button === 2) {
+      this.rightHeld = true;
+      this.lastRightRepeat = e.timeStamp / 1000;
       this.commands.push({ type: 'CastRight', ...this.pointerTarget() });
     }
   }

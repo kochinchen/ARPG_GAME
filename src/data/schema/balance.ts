@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RangeSchema } from './common';
+import { IdSchema, RangeSchema } from './common';
 
 export const BalanceSchema = z.strictObject({
   maxLevel: z.int().positive(),
@@ -29,6 +29,14 @@ export const BalanceSchema = z.strictObject({
     defense: z.number().nonnegative(),
     /** 死亡後幾秒回到存檔點 */
     respawnDelay: z.number().nonnegative(),
+    /** 使用的藥水種類（PotionDef ID） */
+    potionId: IdSchema,
+    startingPotions: z.int().nonnegative(),
+    /** 新角色的技能配置；M6 起由技能樹學習取代 */
+    startingLoadout: z.strictObject({
+      left: IdSchema,
+      right: z.tuple([IdSchema.nullable(), IdSchema.nullable(), IdSchema.nullable()]),
+    }),
   }),
   combat: z.strictObject({
     critMultiplier: z.number().min(1),

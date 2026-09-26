@@ -12,7 +12,8 @@ export class DeathSystem {
     for (const actor of actors) {
       if (!actor.alive || actor.hp > 0) continue;
       actor.alive = false;
-      actor.attackTarget = null;
+      actor.intent = null;
+      actor.cast = null;
       actor.path = [];
       this.events.emit('ActorDied', {
         actorId: actor.id,

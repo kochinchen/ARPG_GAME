@@ -18,9 +18,25 @@ export const PALETTE = {
   hoverName: 0xf0e2c0,
   damageText: 0xf4efe4,
   critText: 0xffb347,
+  healText: 0x6fd46f,
+  manaText: 0x6fa8ff,
   shadow: 0x000000,
   marker: 0xe8c47a,
 } as const;
+
+/** 元素顏色（投射物、範圍效果） */
+export const ELEMENT_COLORS: Record<string, number> = {
+  physical: 0xd8cbb4,
+  fire: 0xff7a2a,
+  cold: 0x7fd4ff,
+  lightning: 0xf5e663,
+  poison: 0x7ed957,
+};
+
+/** 投射物的暫用顏色（依技能） */
+export const PROJECTILE_COLORS: Record<string, number> = {
+  'magic.fireball': 0xff7a2a,
+};
 
 /** 各怪物的暫用顏色 [主色, 外框]；未列出的用 PALETTE.enemy */
 export const ENEMY_COLORS: Record<string, readonly [number, number]> = {

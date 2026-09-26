@@ -26,6 +26,13 @@ export class TargetingService {
     return target;
   }
 
+  /** 以 center 為圓心、半徑 radius 內（含目標自身半徑）所有活著的敵對角色 */
+  hostilesWithin(source: Actor, center: Vec2, radius: number): Actor[] {
+    return this.actors.filter(
+      (a) => a.alive && this.isHostile(source.faction, a.faction) && distance(a.position, center) <= radius + a.radius,
+    );
+  }
+
   /** World 座標點選：回傳最接近該點的敵對目標 */
   pickAt(source: Actor, worldPos: Vec2): Actor | null {
     let best: Actor | null = null;

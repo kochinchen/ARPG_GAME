@@ -102,6 +102,13 @@ export class DataRegistry {
       if (!maps.has(floor.map)) problems.push(`floor '${floor.id}' 引用不存在的 map '${floor.map}'`);
     }
 
+    if (balance) {
+      if (!potions.has(balance.player.potionId)) problems.push(`balance.player.potionId 引用不存在的 potion '${balance.player.potionId}'`);
+      const { left, right } = balance.player.startingLoadout;
+      for (const skillId of [left, ...right]) {
+        if (skillId !== null && !skills.has(skillId)) problems.push(`balance.player.startingLoadout 引用不存在的 skill '${skillId}'`);
+      }
+    }
     for (const map of maps.all) {
       for (const { enemyId } of map.spawns) {
         if (!enemies.has(enemyId)) problems.push(`map '${map.id}' 引用不存在的 enemy '${enemyId}'`);

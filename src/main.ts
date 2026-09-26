@@ -75,6 +75,19 @@ async function bootstrap(): Promise<void> {
       debugView.waypoints = world.player.path.length;
       const player = world.player;
       debugView.playerHp = `${Math.ceil(player.hp)} / ${Math.ceil(player.maxHp)}`;
+      debugView.playerMp = `${Math.floor(player.mana)} / ${Math.ceil(player.maxMana)}`;
+      debugView.potions = `${world.potions.count} / ${world.potions.max}`;
+      debugView.leftSkill = data.skills.get(world.loadout.left).name;
+      debugView.rightSlots = world.loadout.right.map((id, i) => {
+        const skill = id === null ? null : data.skills.get(id);
+        return {
+          key: 'QWE'[i]!,
+          name: skill?.name ?? '—',
+          active: world.loadout.activeRight === i,
+          cooldown: id === null ? 0 : (player.cooldowns.get(id) ?? 0),
+          manaCost: skill ? world.skills.manaCost(skill, player.skillRanks.get(skill.id) ?? 1) : 0,
+        };
+      });
       debugView.enemies = world.actors.filter((a) => a.faction === 'enemy' && a.ai !== null).length;
       debugView.respawnIn = world.deathHandler.secondsUntilRespawn;
       const hovered = renderer.hovered === null ? undefined : world.targeting.getActor(renderer.hovered);

@@ -15,7 +15,7 @@ export interface AiContext {
 
 /**
  * AI 狀態只做「決策」：要追誰、要不要放棄。
- * 實際的追擊尋路與出手由 AttackSystem 執行（與玩家共用）。
+ * 實際的追擊尋路與出手由 SkillSystem 執行（與玩家共用）。
  */
 export interface IAiState {
   readonly name: AiStateName;

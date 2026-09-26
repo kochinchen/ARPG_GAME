@@ -38,10 +38,11 @@ export class DeathHandler {
     player.position = position;
     player.prevPosition = position;
     player.path = [];
-    player.attackTarget = null;
-    player.attackHold = false;
+    player.intent = null;
+    player.cast = null;
     player.lastDamagedBy = null;
     player.hp = player.maxHp;
+    player.mana = player.maxMana;
     player.alive = true;
     this.respawnTimer = null;
     this.events.emit('PlayerRespawned', { position });

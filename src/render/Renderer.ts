@@ -4,8 +4,9 @@ import { lerp, sub, type Vec2 } from '../core/math/Vec2';
 import type { ActorId } from '../game/entities/Actor';
 import type { GameWorld } from '../game/GameWorld';
 import type { Camera } from './Camera';
-import { PALETTE } from './palette';
+import { ELEMENT_COLORS, PALETTE } from './palette';
 import { ActorView, HIT_BOX } from './views/ActorView';
+import { EffectLayer } from './views/EffectLayer';
 import { FloatingTextLayer } from './views/FloatingTextLayer';
 import { TileMapView } from './views/TileMapView';
 
@@ -18,6 +19,7 @@ export class Renderer {
   private readonly marker = new Graphics();
   private readonly floatingText = new FloatingTextLayer();
   private readonly tileMap: TileMapView;
+  private readonly effects: EffectLayer;
   private readonly actorViews = new Map<ActorId, ActorView>();
   private hoveredId: ActorId | null = null;
 
@@ -28,9 +30,16 @@ export class Renderer {
     private readonly camera: Camera,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer);
+    this.effects = new EffectLayer(projection, this.objectLayer);
     this.marker.poly([0, -6, 12, 0, 0, 6, -12, 0]).stroke({ color: PALETTE.marker, width: 2 });
 
-    this.worldLayer.addChild(this.tileMap.floor, this.marker, this.objectLayer, this.floatingText.container);
+    this.worldLayer.addChild(
+      this.tileMap.floor,
+      this.effects.ground,
+      this.marker,
+      this.objectLayer,
+      this.floatingText.container,
+    );
     app.stage.addChild(this.worldLayer);
 
     const resize = () => camera.setViewport(app.screen.width, app.screen.height);
@@ -40,12 +49,23 @@ export class Renderer {
     world.events.on('ActorDamaged', (e) => {
       this.floatingText.spawn(projection.toScreen(e.position), e.amount, e.isCrit);
     });
-    world.events.on('ActorAttacked', (e) => {
+    world.events.on('SkillCast', (e) => {
+      // 對單一敵人的技能（近戰）播放前衝動作
       const attacker = world.targeting.getActor(e.actorId);
-      const target = world.targeting.getActor(e.targetId);
-      if (!attacker || !target) return;
-      const dir = sub(projection.toScreen(target.position), projection.toScreen(attacker.position));
+      if (!attacker || e.targetId === null) return;
+      const dir = sub(projection.toScreen(e.point), projection.toScreen(attacker.position));
       this.actorViews.get(e.actorId)?.lunge(dir);
+    });
+    world.events.on('AreaTriggered', (e) => {
+      this.effects.spawnRing(e.position, e.radius, ELEMENT_COLORS[e.element ?? 'physical'] ?? 0xffffff);
+    });
+    world.events.on('SkillFailed', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (actor === world.player) this.floatingText.spawnText(projection.toScreen(actor.position), '魔力不足', PALETTE.manaText);
+    });
+    world.events.on('PotionUsed', (e) => {
+      const at = projection.toScreen(world.player.position);
+      this.floatingText.spawnText(at, `+${Math.round(e.hpRestored)} HP  +${Math.round(e.mpRestored)} MP`, PALETTE.healText);
     });
   }
 
@@ -90,8 +110,9 @@ export class Renderer {
 
     this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos);
+    this.effects.update(dt, this.world.projectiles, alpha);
     this.floatingText.update(dt);
-    this.updateMarker(player.attackTarget === null ? player.path[player.path.length - 1] : undefined);
+    this.updateMarker(player.intent === null ? player.path[player.path.length - 1] : undefined);
   }
 
   private syncActorViews(alpha: number, dt: number): void {

@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0～M3 完成；下一步 M4 Skill。
+> 狀態：M0～M4 完成；下一步 M5 Loot。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -190,7 +190,7 @@ arpg/
 │  │  ├─ player/                  # PlayerController / PlayerLoadout / PotionBelt
 │  │  ├─ movement/                # MovementSystem / NavGrid / Pathfinder
 │  │  ├─ targeting/               # TargetingService
-│  │  ├─ combat/                  # DamagePipeline / AttackSystem / DeathSystem / StatusEffectSystem
+│  │  ├─ combat/                  # DamagePipeline / DeathSystem / StatusEffectSystem
 │  │  ├─ skills/
 │  │  │  ├─ SkillSystem.ts
 │  │  │  ├─ SkillExecutor.ts
@@ -263,16 +263,16 @@ arpg/
 | movement | `SeparationSystem` | 角色之間互相推開，避免疊在一起；不會移動的角色只推別人 |
 | targeting | `TargetingService` | 回答「這個點附近有沒有可攻擊目標」「範圍內有哪些敵人」 |
 | combat | `DamagePipeline` | 所有傷害唯一入口：基礎傷害 → 暴擊 → 防禦（物理）→ 取整 → 扣血 → `ActorDamaged`。命中判定與元素抗性之後加在同一流程，不另建 HitResolver |
-| combat | `AttackSystem` | 普通攻擊：目標在距離外就追、進入距離後依攻速出手；玩家與怪物共用。M4 起改由 SkillSystem 施放 |
 | combat | `StatusEffectSystem` | Buff / Debuff 的持續時間、疊層、Tick（燃燒、中毒走 DamagePipeline） |
 | combat | `DeathSystem` | 偵測 HP ≤ 0、發出 `ActorDied` 事件、移除 Entity |
-| skills | `SkillSystem` | 檢查冷卻 / 消耗 / 距離，決定能否施放 |
-| skills | `SkillExecutor` | 依 SkillDef 的 Effect 清單依序執行 |
-| skills | `EffectRegistry` | `effect.type` → 對應 Effect 實作的對照表 |
+| skills | `SkillSystem` | 執行 Actor 的技能意圖：距離外先走過去 → 檢查冷卻 / 魔力 → 施放時間（不能移動）→ 一半時觸發效果。普通攻擊、右鍵技能、怪物攻擊共用 |
+| skills | `SkillExecutor` | 依 SkillDef 的 Effect 清單依序執行（含巢狀效果） |
+| skills | `EffectRegistry` | `effect.type` → 對應 Effect 實作的對照表；Effect 格式定義在 `data/schema/effects.ts` |
+| skills | `ProjectileSystem` | 移動投射物、擊中敵人或撞牆時執行 onHit |
 | skills | `ModifierResolver` | 施放前把符合 Tag 的 BehaviorModifier 套到 SkillDef，產生本次實際使用的定義 |
 | skills | `SkillTree` | 已學技能與等級（1～5）、點數分配、T4 開通次數；呼叫 `MasteryRule` 判斷能否學 |
 | skills | `MasteryRule` | 純函式：給定技能樹狀態與角色等級，判斷某節點能否學 / 升級、某類別能否開通 T4 |
-| ai | `AiSystem` | 對每個有 `AiBrain` 的 Actor 執行狀態機（Idle → Chase → Return）。狀態只做決策，追擊與出手交給 AttackSystem |
+| ai | `AiSystem` | 對每個有 `AiBrain` 的 Actor 執行狀態機（Idle → Chase → Return）。狀態只做決策，追擊與出手交給 SkillSystem |
 | enemies | `EnemyFactory` | 由 EnemyDef + Floor 難度 + Affix 組出一隻怪 |
 | enemies | `AffixApplier` | 把 Elite Affix 轉成 StatModifier 與行為掛勾 |
 | summons | `SummonSystem` | 召喚上限、存活時間；AI 重用 `AiSystem`，只是目標陣營相反 |
@@ -349,6 +349,8 @@ Event 用於「一件事發生後，多個互不相關的系統都要反應」�
 | `PlayerRespawned` | DeathHandler | UI、Audio |
 | `PlayerLeveledUp` | ExperienceSystem | SkillTree（加技能點；Mastery 後加 T4 開通次數）、UI、Audio |
 | `SkillCast` | SkillSystem | Render（動畫 / VFX）、Audio |
+| `SkillFailed` | SkillSystem | Render（「魔力不足」）、Audio |
+| `AreaTriggered` | AreaEffect | Render（範圍擴散圈） |
 | `SkillLearned` / `SkillRankedUp` | SkillTree | UI |
 | `MasteryAchieved` | SkillTree | UI（提示其他類別 T1～T3 已開放）、Audio |
 | `T4CategoryUnlocked` | SkillTree | UI、Audio |
@@ -356,7 +358,7 @@ Event 用於「一件事發生後，多個互不相關的系統都要反應」�
 | `CheckpointActivated` | CheckpointSystem | SaveService（自動存檔）、UI、Audio |
 | `ItemDropped` / `ItemPickedUp` | LootSystem / Inventory | Render、UI |
 | `ItemEquipped` / `ItemUnequipped` | Equipment | UI、Audio |
-| `PotionUsed` | PotionBelt | UI、Audio |
+| `PotionUsed` | PotionBelt | Render（回復量）、UI、Audio |
 | `FloorEntered` / `FloorCleared` | FloorManager | SpawnSystem、SaveService（自動存檔）、UI |
 
 **不要用 Event 的地方**：需要回傳值的呼叫（例如「算出傷害是多少」）、同一模組內部的呼叫、以及必須保證執行順序的流程。這些直接呼叫函式即可。
@@ -685,7 +687,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **狀態**：✅ 完成（94 個測試通過）。實作細節：
   - 骷髏戰士（`enemy.skeleton`）：30 HP、2～5 傷害、移速 2.6（玩家 4）、偵測 7 格、Leash 14 格
   - 仇恨：偵測範圍內且視線未被牆擋住才會發現；被攻擊時一定反擊
-  - 狀態改為 Idle / Chase / Return：Attack 與 Cooldown 本來就由 AttackSystem 處理，不重複建狀態
+  - 狀態改為 Idle / Chase / Return：Attack 與 Cooldown 本來就由 AttackSystem（M4 起為 SkillSystem）處理，不重複建狀態
   - 離出生點超過 Leash 就放棄，走回原位途中不理會玩家
   - 新增 `SeparationSystem`：角色互相推開；一方被牆擋住時由另一方承擔全部位移
   - 玩家死亡：倒地 2 秒（`balance.player.respawnDelay`），期間不接受操作，怪物放棄追擊；之後回到樓梯口並補滿 HP
@@ -700,6 +702,15 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **Dependencies**：M2、M3
 - **Acceptance**：右鍵依 TargetType 施放；Q/W/E 切換後右鍵施放不同技能；冷卻與魔力消耗生效；Space 同時回復 HP 與 MP、數量減 1、數量為 0 時無效；怪物的攻擊也走 SkillSystem。
 - **Test**：新增一個技能**只需要改 Data 檔，不需改程式**；同一技能 Lv1 與 Lv5 的傷害與魔力消耗符合 `perRank` 設定。
+- **狀態**：✅ 完成（114 個測試通過）。實作細節：
+  - 技能：普通攻擊（左鍵，玩家與怪物共用）、Q 重擊、W 火球（投射物＋爆炸範圍）、E 冰霜新星（自身範圍，冷卻 3 秒）
+  - M2 的 `AttackSystem` 由 `SkillSystem` 取代，Actor 的攻擊狀態改為 `intent`（想施放什麼）與 `cast`（施放中）
+  - Effect 格式放在 `data/schema/effects.ts`，啟動時完整驗證巢狀效果；game 只負責執行
+  - SkillDef 的技能樹位置改為選填的 `tree`（普通攻擊與怪物技能不屬於技能樹）
+  - 施放中不能移動（路徑保留，施放完繼續走）；冷卻中保留意圖，冷卻結束自動施放；魔力不足時發出 `SkillFailed`
+  - 游標在敵人身上時，方向 / 地面技能瞄準敵人腳下（角色有高度，游標下的地面點其實在敵人後方）
+  - 右鍵可按住連續施放；藥水在 HP 與 MP 都滿時不會使用
+  - 初始技能配置與藥水種類寫在 `balance.player.startingLoadout` / `potionId`
 
 ### M5 Loot
 
@@ -797,10 +808,10 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 | 13 | `Camera` + `Renderer` | render | M1 |
 | 14 | `StatBlock` | game/stats | M2 |
 | 15 | `TargetingService` | game/targeting | M2 |
-| 16 | `DamagePipeline` + `AttackSystem` | game/combat | M2 |
+| 16 | `DamagePipeline` | game/combat | M2 |
 | 17 | `DeathSystem` | game/combat | M2 |
 | 18 | `AiSystem` + 3 個 State | game/ai | M3 |
-| 19 | `SkillSystem` + `SkillExecutor` + `EffectRegistry` | game/skills | M4 |
+| 19 | `SkillSystem` + `SkillExecutor` + `EffectRegistry` + `ProjectileSystem` | game/skills | M4 |
 | 20 | `PlayerLoadout` + `PotionBelt` + `DeathHandler` | game/player | M3～M4 |
 
 完成這 20 個就是第一個 Vertical Slice：**可以走、可以打、怪會追、可以放技能、可以喝水**。Loot、升級、樓層、UI、存檔依 M5～M9 接上。
