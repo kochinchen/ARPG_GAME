@@ -1,3 +1,47 @@
+import { CommandQueue } from '../../src/core/CommandQueue';
+import { EventBus } from '../../src/core/EventBus';
+import { vec2, type Vec2 } from '../../src/core/math/Vec2';
+import { gameData } from '../../src/data';
+import { DataRegistry } from '../../src/data/DataRegistry';
+import type { GameCommand } from '../../src/game/Commands';
+import type { GameEvents } from '../../src/game/GameEvents';
+import { GameWorld } from '../../src/game/GameWorld';
+import { Actor, type Faction } from '../../src/game/entities/Actor';
 import { NavGrid } from '../../src/game/movement/NavGrid';
+import { StatBlock, type StatId } from '../../src/game/stats/StatBlock';
 
-export const navFrom = (...rows: string[]) => NavGrid.fromMap({ id: 'map.test', rows });
+export const DT = 1 / 60;
+
+export const navFrom = (...rows: string[]) => NavGrid.fromMap({ id: 'map.test', rows, spawns: [] });
+
+let nextId = 1000;
+export function makeActor(
+  options: { faction?: Faction; position?: Vec2; radius?: number; stats?: Partial<Record<StatId, number>> } = {},
+): Actor {
+  return new Actor({
+    id: nextId++,
+    faction: options.faction ?? 'player',
+    name: 'test',
+    defId: null,
+    position: options.position ?? vec2(0, 0),
+    radius: options.radius ?? 0.3,
+    stats: new StatBlock({ maxHp: 100, moveSpeed: 4, ...options.stats }),
+  });
+}
+
+export function createWorld(seed = 1) {
+  const data = DataRegistry.load(gameData);
+  const commands = new CommandQueue<GameCommand>();
+  const events = new EventBus<GameEvents>();
+  const world = new GameWorld({ data, mapId: 'map.test_1', commands, events, seed });
+  return { world, commands, events, data };
+}
+
+/** 執行 seconds 秒的邏輯 Tick；每個 Tick 前呼叫 beforeTick（可用來模擬按住按鍵） */
+export function run(world: GameWorld, seconds: number, beforeTick?: (tick: number) => void): void {
+  const ticks = Math.round(seconds / DT);
+  for (let t = 0; t < ticks; t++) {
+    beforeTick?.(t);
+    world.update(DT);
+  }
+}

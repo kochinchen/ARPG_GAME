@@ -10,6 +10,13 @@ export const PALETTE = {
   wallEdge: 0x6e6154,
   player: 0xc8a25a,
   playerDark: 0x8a6d38,
+  enemy: 0x8c5a3c,
+  enemyDark: 0x5a3622,
+  hpBack: 0x1a0f0c,
+  hpFill: 0xb02a1e,
+  hoverName: 0xf0e2c0,
+  damageText: 0xf4efe4,
+  critText: 0xffb347,
   shadow: 0x000000,
   marker: 0xe8c47a,
 } as const;

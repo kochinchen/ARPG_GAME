@@ -1,10 +1,12 @@
 import { Container, Graphics, type Application } from 'pixi.js';
 import type { IsoProjection } from '../core/math/IsoProjection';
-import { lerp, type Vec2 } from '../core/math/Vec2';
+import { lerp, sub, type Vec2 } from '../core/math/Vec2';
+import type { ActorId } from '../game/entities/Actor';
 import type { GameWorld } from '../game/GameWorld';
 import type { Camera } from './Camera';
 import { PALETTE } from './palette';
-import { ActorView } from './views/ActorView';
+import { ActorView, HIT_BOX } from './views/ActorView';
+import { FloatingTextLayer } from './views/FloatingTextLayer';
 import { TileMapView } from './views/TileMapView';
 
 /**
@@ -14,8 +16,10 @@ export class Renderer {
   private readonly worldLayer = new Container();
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly marker = new Graphics();
+  private readonly floatingText = new FloatingTextLayer();
   private readonly tileMap: TileMapView;
-  private readonly playerView: ActorView;
+  private readonly actorViews = new Map<ActorId, ActorView>();
+  private hoveredId: ActorId | null = null;
 
   constructor(
     private readonly app: Application,
@@ -24,32 +28,90 @@ export class Renderer {
     private readonly camera: Camera,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer);
-    this.playerView = new ActorView(projection, world.player.radius);
-    this.objectLayer.addChild(this.playerView.container);
+    this.marker.poly([0, -6, 12, 0, 0, 6, -12, 0]).stroke({ color: PALETTE.marker, width: 2 });
 
-    this.marker
-      .poly([0, -6, 12, 0, 0, 6, -12, 0])
-      .stroke({ color: PALETTE.marker, width: 2 });
-
-    this.worldLayer.addChild(this.tileMap.floor, this.marker, this.objectLayer);
+    this.worldLayer.addChild(this.tileMap.floor, this.marker, this.objectLayer, this.floatingText.container);
     app.stage.addChild(this.worldLayer);
 
     const resize = () => camera.setViewport(app.screen.width, app.screen.height);
     resize();
     app.renderer.on('resize', resize);
+
+    world.events.on('ActorDamaged', (e) => {
+      this.floatingText.spawn(projection.toScreen(e.position), e.amount, e.isCrit);
+    });
+    world.events.on('ActorAttacked', (e) => {
+      const attacker = world.targeting.getActor(e.actorId);
+      const target = world.targeting.getActor(e.targetId);
+      if (!attacker || !target) return;
+      const dir = sub(projection.toScreen(target.position), projection.toScreen(attacker.position));
+      this.actorViews.get(e.actorId)?.lunge(dir);
+    });
+  }
+
+  /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
+  pickActorAt(screen: Vec2): ActorId | null {
+    const local = sub(screen, this.camera.offset);
+    let best: ActorId | null = null;
+    let bestDepth = -Infinity;
+    for (const actor of this.world.actors) {
+      if (!actor.alive || actor === this.world.player) continue;
+      if (!this.world.targeting.isHostile(this.world.player.faction, actor.faction)) continue;
+      const feet = this.projection.toScreen(actor.position);
+      const dx = local.x - feet.x;
+      const dy = local.y - feet.y;
+      if (Math.abs(dx) > HIT_BOX.halfWidth || dy < HIT_BOX.top || dy > HIT_BOX.bottom) continue;
+      // 重疊時選最前面（最靠近鏡頭）的
+      const depth = this.projection.depth(actor.position);
+      if (depth > bestDepth) {
+        bestDepth = depth;
+        best = actor.id;
+      }
+    }
+    return best;
+  }
+
+  setHovered(id: ActorId | null): void {
+    this.hoveredId = id;
+  }
+
+  get hovered(): ActorId | null {
+    return this.hoveredId;
   }
 
   /** alpha：本幀在兩個邏輯 Tick 之間的比例，用於位置插值 */
   render(alpha: number): void {
+    const dt = this.app.ticker.deltaMS / 1000;
     const player = this.world.player;
     const playerPos = lerp(player.prevPosition, player.position, alpha);
 
     this.camera.follow(playerPos);
     this.worldLayer.position.set(this.camera.offset.x, this.camera.offset.y);
 
-    this.playerView.update(playerPos, player.facing);
+    this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos);
-    this.updateMarker(player.path[player.path.length - 1]);
+    this.floatingText.update(dt);
+    this.updateMarker(player.attackTarget === null ? player.path[player.path.length - 1] : undefined);
+  }
+
+  private syncActorViews(alpha: number, dt: number): void {
+    const alive = new Set<ActorId>();
+    for (const actor of this.world.actors) {
+      alive.add(actor.id);
+      let view = this.actorViews.get(actor.id);
+      if (!view) {
+        view = new ActorView(this.projection, actor);
+        this.actorViews.set(actor.id, view);
+        this.objectLayer.addChild(view.container);
+      }
+      view.hovered = actor.id === this.hoveredId;
+      view.update(actor, lerp(actor.prevPosition, actor.position, alpha), dt);
+    }
+    for (const [id, view] of this.actorViews) {
+      if (alive.has(id)) continue;
+      view.container.destroy({ children: true });
+      this.actorViews.delete(id);
+    }
   }
 
   private updateMarker(destination: Vec2 | undefined): void {
@@ -61,3 +123,4 @@ export class Renderer {
     this.marker.scale.set(pulse);
   }
 }
+

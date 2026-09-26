@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { vec2 } from '../../src/core/math/Vec2';
-import { Actor } from '../../src/game/entities/Actor';
 import { MovementSystem } from '../../src/game/movement/MovementSystem';
-
-const makeActor = () =>
-  new Actor({ id: 1, faction: 'player', position: vec2(0, 0), radius: 0.3, moveSpeed: 4 });
+import { makeActor } from './helpers';
 
 describe('MovementSystem', () => {
   it('依速度前進並更新面向', () => {

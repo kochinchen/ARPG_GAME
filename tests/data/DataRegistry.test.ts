@@ -97,3 +97,20 @@ describe('MapDef 驗證', () => {
     expect(() => load(['#SX#'])).toThrow("不合法的字元 'X'");
   });
 });
+
+describe('MapDef spawns 驗證', () => {
+  const load = (spawns: { enemyId: string; at: [number, number] }[]) =>
+    DataRegistry.load(withData({ maps: [{ id: 'map.spawns', rows: ['#####', '#S..#', '#####'], spawns }] }));
+
+  it('擺放位置必須在地板上', () => {
+    expect(() => load([{ enemyId: 'enemy.training_dummy', at: [0.5, 0.5] }])).toThrow('不在地板上');
+  });
+
+  it('怪物 ID 必須存在', () => {
+    expect(() => load([{ enemyId: 'enemy.nope', at: [2.5, 1.5] }])).toThrow("不存在的 enemy 'enemy.nope'");
+  });
+
+  it('合法的擺放可以載入', () => {
+    expect(load([{ enemyId: 'enemy.training_dummy', at: [2.5, 1.5] }]).maps.get('map.spawns').spawns).toHaveLength(1);
+  });
+});

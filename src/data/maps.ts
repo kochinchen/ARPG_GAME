@@ -3,7 +3,7 @@ import type { MapDefSchema } from './schema/map';
 
 export const maps: z.input<typeof MapDefSchema>[] = [
   {
-    // M1 移動測試：房間、長牆缺口、U 型死路、柱列
+    // 測試地圖：房間、長牆缺口、U 型死路、柱列、訓練木樁
     id: 'map.test_1',
     rows: [
       '##############################',
@@ -30,6 +30,12 @@ export const maps: z.input<typeof MapDefSchema>[] = [
       '#...#..............######....#',
       '#............................#',
       '##############################',
+    ],
+    spawns: [
+      { enemyId: 'enemy.training_dummy', at: [8.5, 2.5] },
+      { enemyId: 'enemy.training_dummy', at: [10.5, 5.5] },
+      { enemyId: 'enemy.training_dummy', at: [3.5, 6.5] },
+      { enemyId: 'enemy.training_dummy', at: [15.5, 10.5] },
     ],
   },
 ];

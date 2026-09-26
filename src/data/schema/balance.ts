@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RangeSchema } from './common';
 
 export const BalanceSchema = z.strictObject({
   maxLevel: z.int().positive(),
@@ -18,6 +19,14 @@ export const BalanceSchema = z.strictObject({
     moveSpeed: z.number().positive(),
     /** 碰撞半徑（Tile） */
     radius: z.number().positive().max(0.5),
+    /** 空手傷害；M5 起由武器提供 */
+    baseDamage: RangeSchema,
+    /** 每秒攻擊次數 */
+    attackSpeed: z.number().positive(),
+    /** 攻擊距離（Tile，從雙方邊緣算起） */
+    attackRange: z.number().positive(),
+    critChance: z.number().min(0).max(1),
+    defense: z.number().nonnegative(),
   }),
   combat: z.strictObject({
     critMultiplier: z.number().min(1),

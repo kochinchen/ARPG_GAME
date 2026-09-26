@@ -7,9 +7,11 @@ import { createApp } from 'vue';
 import { DataRegistry } from './data/DataRegistry';
 import { gameData } from './data';
 import { CommandQueue } from './core/CommandQueue';
+import { EventBus } from './core/EventBus';
 import { GameLoop } from './core/GameLoop';
 import { IsoProjection } from './core/math/IsoProjection';
 import type { GameCommand } from './game/Commands';
+import type { GameEvents } from './game/GameEvents';
 import { GameWorld } from './game/GameWorld';
 import { Camera } from './render/Camera';
 import { Renderer } from './render/Renderer';
@@ -26,9 +28,11 @@ async function bootstrap(): Promise<void> {
 
   // 2. 基礎設施
   const commands = new CommandQueue<GameCommand>();
+  const events = new EventBus<GameEvents>();
+  const seed = Date.now() >>> 0;
 
   // 4. GameWorld
-  const world = new GameWorld({ data, mapId: START_MAP, commands });
+  const world = new GameWorld({ data, mapId: START_MAP, commands, events, seed });
 
   // 6. Render
   const host = document.getElementById('game');
@@ -51,13 +55,17 @@ async function bootstrap(): Promise<void> {
   createApp(App).mount('#ui');
 
   // 8. Input（最後才開始接受輸入）
-  const input = new InputManager(app.canvas, commands, (screen) => camera.screenToWorld(screen));
+  const input = new InputManager(app.canvas, commands, {
+    screenToWorld: (screen) => camera.screenToWorld(screen),
+    pickActor: (screen) => renderer.pickActorAt(screen),
+  });
 
   // 9. Loop
   const now = () => performance.now() / 1000;
   const loop = new GameLoop({
     update: (dt) => world.update(dt),
     render: (alpha) => {
+      renderer.setHovered(renderer.pickActorAt(input.pointerScreen));
       renderer.render(alpha);
       input.poll(now());
       debugView.tick = loop.tick;
@@ -65,6 +73,8 @@ async function bootstrap(): Promise<void> {
       debugView.player.x = world.player.position.x;
       debugView.player.y = world.player.position.y;
       debugView.waypoints = world.player.path.length;
+      const hovered = renderer.hovered === null ? undefined : world.targeting.getActor(renderer.hovered);
+      debugView.target = hovered ? `${hovered.name} ${Math.ceil(hovered.hp)} / ${Math.ceil(hovered.maxHp)}` : '—';
     },
   });
   loop.start({ now }, (cb) => requestAnimationFrame(cb));

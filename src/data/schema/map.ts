@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdSchema } from './common';
+import { IdSchema, PointSchema } from './common';
 
 /**
  * 手繪地圖（ASCII）。第 y 列第 x 字元 = Tile (x, y)。
@@ -11,6 +11,8 @@ export const MapDefSchema = z
   .strictObject({
     id: IdSchema,
     rows: z.array(z.string().min(1)).min(1),
+    /** 固定擺放的怪物（例如訓練木樁）。一般怪物由 M7 SpawnSystem 依 FloorDef 產生 */
+    spawns: z.array(z.strictObject({ enemyId: IdSchema, at: PointSchema })).default([]),
   })
   .superRefine((map, ctx) => {
     const width = map.rows[0]?.length ?? 0;
@@ -24,6 +26,12 @@ export const MapDefSchema = z
         else if (char !== MAP_TILES.wall && char !== MAP_TILES.floor) {
           ctx.addIssue({ code: 'custom', path: ['rows', y], message: `(${x}, ${y}) 不合法的字元 '${char}'` });
         }
+      }
+    });
+    map.spawns.forEach(({ at: [x, y] }, i) => {
+      const char = map.rows[Math.floor(y)]?.[Math.floor(x)];
+      if (char === undefined || char === MAP_TILES.wall) {
+        ctx.addIssue({ code: 'custom', path: ['spawns', i], message: `(${x}, ${y}) 不在地板上` });
       }
     });
     if (spawns !== 1) ctx.addIssue({ code: 'custom', path: ['rows'], message: `出生點 'S' 必須剛好 1 個，目前 ${spawns} 個` });

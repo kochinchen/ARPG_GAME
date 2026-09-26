@@ -7,12 +7,18 @@ export const EnemyDefSchema = z.strictObject({
   hp: z.number().positive(),
   damage: RangeSchema,
   defense: z.number().nonnegative(),
-  moveSpeed: z.number().positive(),
+  /** Tile / 秒；0 = 不會移動（例如訓練木樁） */
+  moveSpeed: z.number().nonnegative(),
+  /** 碰撞半徑（Tile） */
+  radius: z.number().positive().max(0.5).default(0.35),
   attackRange: z.number().positive(),
-  detectRange: z.number().positive(),
-  ai: z.enum(['melee']),
-  skills: z.array(IdSchema).min(1),
-  lootTable: IdSchema,
+  /** 每秒攻擊次數 */
+  attackSpeed: z.number().positive().default(1),
+  detectRange: z.number().nonnegative(),
+  /** none = 不行動（訓練木樁） */
+  ai: z.enum(['none', 'melee']),
+  skills: z.array(IdSchema).default([]),
+  lootTable: IdSchema.optional(),
   xp: z.number().nonnegative(),
 });
 

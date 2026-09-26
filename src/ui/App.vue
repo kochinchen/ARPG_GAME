@@ -8,7 +8,8 @@ import { debugView } from './bridge/DebugView';
     <div>Tick {{ debugView.tick }} · {{ debugView.fps }} FPS</div>
     <div>Player ({{ debugView.player.x.toFixed(2) }}, {{ debugView.player.y.toFixed(2) }})</div>
     <div>Waypoints {{ debugView.waypoints }}</div>
-    <div class="hint">左鍵點地面移動 · 按住左鍵持續移動</div>
+    <div>Target {{ debugView.target }}</div>
+    <div class="hint">左鍵點地面移動 · 點木樁攻擊一下 · 按住持續攻擊</div>
   </div>
 </template>
 

@@ -2,14 +2,21 @@ import type { CommandQueue } from '../core/CommandQueue';
 import { vec2, type Vec2 } from '../core/math/Vec2';
 import type { GameCommand } from '../game/Commands';
 
-/** 按住左鍵時，重新送出移動指令的間隔（秒） */
+/** 按住左鍵時，重新送出指令的間隔（秒） */
 const HOLD_REPEAT_INTERVAL = 0.1;
 
 const RIGHT_SLOT_KEYS: Record<string, 0 | 1 | 2> = { KeyQ: 0, KeyW: 1, KeyE: 2 };
 
+export interface InputAdapters {
+  /** 畫面座標 → World 座標（Camera） */
+  screenToWorld: (screen: Vec2) => Vec2;
+  /** 游標下的角色 ID（Renderer 以畫面空間判定），沒有則 null */
+  pickActor: (screen: Vec2) => number | null;
+}
+
 /**
  * 把滑鼠 / 鍵盤事件轉成 GameCommand。不知道任何遊戲規則。
- * screenToWorld 由外部注入（Camera），Input 不需要知道投影方式。
+ * 座標換算與點選由外部注入，Input 不需要知道投影方式或角色外觀。
  */
 export class InputManager {
   private leftHeld = false;
@@ -20,25 +27,28 @@ export class InputManager {
   constructor(
     private readonly target: HTMLElement,
     private readonly commands: CommandQueue<GameCommand>,
-    private readonly screenToWorld: (screen: Vec2) => Vec2,
+    private readonly adapters: InputAdapters,
   ) {
     this.listen(target, 'pointerdown', (e) => this.onPointerDown(e));
     this.listen(target, 'pointermove', (e) => this.updatePointer(e));
     this.listen(window, 'pointerup', (e) => {
-      if (e.button === 0) this.leftHeld = false;
+      if (e.button === 0) this.releaseLeft();
     });
-    this.listen(window, 'blur', () => {
-      this.leftHeld = false;
-    });
+    this.listen(window, 'blur', () => this.releaseLeft());
     this.listen(window, 'keydown', (e) => this.onKeyDown(e));
     this.listen(target, 'contextmenu', (e) => e.preventDefault());
   }
 
-  /** 每幀呼叫：按住左鍵時持續更新目的地 */
+  /** 目前游標的畫面座標 */
+  get pointerScreen(): Vec2 {
+    return this.pointer;
+  }
+
+  /** 每幀呼叫：按住左鍵時持續送出指令 */
   poll(now: number): void {
     if (!this.leftHeld || now - this.lastRepeat < HOLD_REPEAT_INTERVAL) return;
     this.lastRepeat = now;
-    this.commands.push({ type: 'PrimaryAction', worldPos: this.pointerWorld(), held: true });
+    this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: true });
   }
 
   dispose(): void {
@@ -51,10 +61,16 @@ export class InputManager {
     if (e.button === 0) {
       this.leftHeld = true;
       this.lastRepeat = e.timeStamp / 1000;
-      this.commands.push({ type: 'PrimaryAction', worldPos: this.pointerWorld(), held: false });
+      this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: false });
     } else if (e.button === 2) {
-      this.commands.push({ type: 'CastRight', worldPos: this.pointerWorld() });
+      this.commands.push({ type: 'CastRight', ...this.pointerTarget() });
     }
+  }
+
+  private releaseLeft(): void {
+    if (!this.leftHeld) return;
+    this.leftHeld = false;
+    this.commands.push({ type: 'PrimaryRelease' });
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -73,8 +89,8 @@ export class InputManager {
     this.pointer = vec2(e.clientX - rect.left, e.clientY - rect.top);
   }
 
-  private pointerWorld(): Vec2 {
-    return this.screenToWorld(this.pointer);
+  private pointerTarget(): { worldPos: Vec2; targetId: number | null } {
+    return { worldPos: this.adapters.screenToWorld(this.pointer), targetId: this.adapters.pickActor(this.pointer) };
   }
 
   private listen<K extends keyof HTMLElementEventMap & keyof WindowEventMap>(

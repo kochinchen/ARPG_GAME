@@ -91,7 +91,7 @@ export class DataRegistry {
       for (const skillId of enemy.skills) {
         if (!skills.has(skillId)) problems.push(`enemy '${enemy.id}' 引用不存在的 skill '${skillId}'`);
       }
-      if (!lootTables.has(enemy.lootTable)) {
+      if (enemy.lootTable !== undefined && !lootTables.has(enemy.lootTable)) {
         problems.push(`enemy '${enemy.id}' 引用不存在的 lootTable '${enemy.lootTable}'`);
       }
     }
@@ -100,6 +100,12 @@ export class DataRegistry {
         if (!enemies.has(enemyId)) problems.push(`floor '${floor.id}' 引用不存在的 enemy '${enemyId}'`);
       }
       if (!maps.has(floor.map)) problems.push(`floor '${floor.id}' 引用不存在的 map '${floor.map}'`);
+    }
+
+    for (const map of maps.all) {
+      for (const { enemyId } of map.spawns) {
+        if (!enemies.has(enemyId)) problems.push(`map '${map.id}' 引用不存在的 enemy '${enemyId}'`);
+      }
     }
 
     if (problems.length > 0 || !balance) throw new DataValidationError(problems);

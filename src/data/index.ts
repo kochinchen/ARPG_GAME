@@ -2,15 +2,16 @@ import type { RawGameData } from './DataRegistry';
 import { balance } from './balance';
 import { items, potions } from './items';
 import { maps } from './maps';
+import { enemies } from './enemies';
 
 /**
  * 所有遊戲資料的集合，交給 DataRegistry.load() 驗證。
- * skills / enemies / affixes / lootTables / floors 依 Milestone 逐步加入。
+ * skills / affixes / lootTables / floors 依 Milestone 逐步加入。
  */
 export const gameData: RawGameData = {
   balance,
   skills: [],
-  enemies: [],
+  enemies,
   items,
   potions,
   affixes: [],

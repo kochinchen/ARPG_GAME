@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0、M1 完成；下一步 M2 Combat。
+> 狀態：M0～M2 完成；下一步 M3 Enemy。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -190,7 +190,7 @@ arpg/
 │  │  ├─ player/                  # PlayerController / PlayerLoadout / PotionBelt
 │  │  ├─ movement/                # MovementSystem / NavGrid / Pathfinder
 │  │  ├─ targeting/               # TargetingService
-│  │  ├─ combat/                  # DamagePipeline / HitResolver / StatusEffectSystem / DeathSystem
+│  │  ├─ combat/                  # DamagePipeline / AttackSystem / DeathSystem / StatusEffectSystem
 │  │  ├─ skills/
 │  │  │  ├─ SkillSystem.ts
 │  │  │  ├─ SkillExecutor.ts
@@ -261,7 +261,8 @@ arpg/
 | movement | `MovementSystem` | 沿路徑移動 Actor、處理碰撞 |
 | movement | `Pathfinder` | 在 `NavGrid` 上做 A* |
 | targeting | `TargetingService` | 回答「這個點附近有沒有可攻擊目標」「範圍內有哪些敵人」 |
-| combat | `DamagePipeline` | 所有傷害唯一入口：命中 → 基礎傷害 → 防禦 → 暴擊 / 元素 → 套用 → OnHit → 死亡檢查 |
+| combat | `DamagePipeline` | 所有傷害唯一入口：基礎傷害 → 暴擊 → 防禦（物理）→ 取整 → 扣血 → `ActorDamaged`。命中判定與元素抗性之後加在同一流程，不另建 HitResolver |
+| combat | `AttackSystem` | 普通攻擊：目標在距離外就追、進入距離後依攻速出手；玩家與怪物共用。M4 起改由 SkillSystem 施放 |
 | combat | `StatusEffectSystem` | Buff / Debuff 的持續時間、疊層、Tick（燃燒、中毒走 DamagePipeline） |
 | combat | `DeathSystem` | 偵測 HP ≤ 0、發出 `ActorDied` 事件、移除 Entity |
 | skills | `SkillSystem` | 檢查冷卻 / 消耗 / 距離，決定能否施放 |
@@ -603,8 +604,10 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 
 | 輸入 | Command | 行為 |
 |---|---|---|
-| 左鍵點地面（可按住） | `PrimaryAction{worldPos}` | 移動 |
-| 左鍵點敵人（可按住） | `PrimaryAction{worldPos}` | 使用 `loadout.left`（預設普通攻擊，可換成特殊攻擊） |
+| 左鍵點地面（可按住） | `PrimaryAction{worldPos, targetId: null}` | 移動；從地面開始按住拖曳時，掃過敵人也不會停下 |
+| 左鍵點敵人 | `PrimaryAction{worldPos, targetId}` | 走過去打一下，使用 `loadout.left`（預設普通攻擊） |
+| 左鍵按住敵人 | 每 0.1 秒 `PrimaryAction{held: true}` | 持續攻擊同一目標，直到放開或目標死亡 |
+| 放開左鍵 | `PrimaryRelease` | 停止持續攻擊 |
 | 右鍵 | `CastRight{worldPos}` | 使用 `loadout.right[activeRight]` |
 | Q / W / E | `SelectRightSlot{0\|1\|2}` | 切換右鍵技能 |
 | Space | `UsePotion` | 喝補血劑，同時回復 HP 與 MP |
@@ -621,7 +624,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - 一次同時回復 HP 與 MP；回復量、攜帶上限、使用冷卻寫在 `PotionDef`。
 - 走過去自動撿取，放入 `PotionBelt`（不佔背包格）。
 
-說明：左鍵只送一個 `PrimaryAction`，由 `PlayerController` 透過 `TargetingService` 判斷是「移動」還是「攻擊」。因為「游標下是不是敵人」屬於遊戲知識，Input 不應知道。
+說明：角色有高度，點到頭或身體都要算數，所以「游標下是哪個角色」由 Render 以畫面空間判定（`Renderer.pickActorAt`），Input 把結果放進 `targetId`。`PlayerController` 再透過 `TargetingService` 驗證目標是否合法（存在、活著、敵對），不合法就改用 World 座標點選或當作移動。
 
 ---
 
@@ -656,12 +659,17 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 ### M2 Combat
 
 - **Goal**：統一 Damage Pipeline，有 HP 與死亡。
-- **Classes**：`StatBlock`、`DamagePipeline`、`HitResolver`、`DeathSystem`、`TargetingService`
+- **Classes**：`StatBlock`、`DamagePipeline`、`AttackSystem`、`DeathSystem`、`TargetingService`、`EnemyFactory`
 - **Interfaces**：無
 - **Data**：`balance.ts` 的防禦公式、暴擊倍率
 - **Dependencies**：M1
 - **Acceptance**：左鍵點木樁，角色走到攻擊距離內自動攻擊；木樁扣血、跳傷害數字；HP 歸零消失並發出 `ActorDied`。
 - **Test**：DamagePipeline 單元測試（防禦減傷、暴擊、固定 Seed 結果可重現）。
+- **狀態**：✅ 完成（81 個測試通過）。實作細節：
+  - 訓練木樁寫在 `data/enemies.ts`，由地圖的 `spawns` 擺放（會驗證位置在地板上、怪物 ID 存在）
+  - 單擊打一下；按住持續攻擊；從地面開始拖曳不會誤打；點地面取消攻擊
+  - 敵人滑鼠移上去顯示名稱與血條；受傷後持續顯示血條；暴擊數字較大、橘色並加「!」
+  - 未建立 `HitResolver`：目前沒有閃避機制，命中判定之後直接加在 DamagePipeline 內
 
 ### M3 Enemy
 
@@ -778,7 +786,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 | 13 | `Camera` + `Renderer` | render | M1 |
 | 14 | `StatBlock` | game/stats | M2 |
 | 15 | `TargetingService` | game/targeting | M2 |
-| 16 | `DamagePipeline` | game/combat | M2 |
+| 16 | `DamagePipeline` + `AttackSystem` | game/combat | M2 |
 | 17 | `DeathSystem` | game/combat | M2 |
 | 18 | `AiSystem` + 3 個 State | game/ai | M3 |
 | 19 | `SkillSystem` + `SkillExecutor` + `EffectRegistry` | game/skills | M4 |
