@@ -256,3 +256,57 @@ describe('回到上一層（M9）', () => {
     expect(distance(world.player.position, world.spawnPoint)).toBeLessThan(0.01);
   });
 });
+
+describe('離開樓層前的確認（M8）', () => {
+  function openExit(world: GameWorld) {
+    for (const e of enemies(world)) e.hp = 0;
+    run(world, 1 / 60);
+  }
+  const rareItem = (world: GameWorld) => world.itemGenerator.create(data.items.all[0]!, 'rare', 1);
+
+  it('地上有稀有以上物品：點出口先詢問、不換層；確認後才換層', () => {
+    const { world, commands, events } = floorWorld(1);
+    openExit(world);
+    world.spawnGroundItem(world.spawnPoint, { kind: 'item', item: rareItem(world) });
+    world.spawnGroundItem(world.spawnPoint, { kind: 'item', item: world.itemGenerator.create(data.items.all[0]!, 'magic', 1) });
+    const asked = vi.fn();
+    events.on('LeaveFloorConfirm', asked);
+    useExit(world, commands);
+    expect(asked).toHaveBeenCalledWith({ direction: 'down', toFloor: 2, valuableItems: 1 });
+    expect(world.floors.floor).toBe(1);
+
+    commands.push({ type: 'ConfirmLeaveFloor', direction: 'down' });
+    run(world, 1 / 60);
+    expect(world.floors.floor).toBe(2);
+  });
+
+  it('只有普通 / 魔法物品、藥水、金幣：不詢問，直接換層', () => {
+    const { world, commands, events } = floorWorld(1);
+    openExit(world);
+    world.spawnGroundItem(world.spawnPoint, { kind: 'gold', amount: 5 });
+    const asked = vi.fn();
+    events.on('LeaveFloorConfirm', asked);
+    useExit(world, commands);
+    expect(asked).not.toHaveBeenCalled();
+    expect(world.floors.floor).toBe(2);
+  });
+
+  it('往上的樓梯也會詢問；出口未開時仍是「還需擊敗幾隻」', () => {
+    const { world, commands, events } = floorWorld(2);
+    world.spawnGroundItem(world.spawnPoint, { kind: 'item', item: rareItem(world) });
+    const asked = vi.fn();
+    const locked = vi.fn();
+    events.on('LeaveFloorConfirm', asked);
+    events.on('ExitLocked', locked);
+    useExit(world, commands);
+    expect(locked).toHaveBeenCalled();
+    expect(asked).not.toHaveBeenCalled();
+
+    const stairs = world.stairsUp!;
+    world.player.position = stairs.position;
+    commands.push({ type: 'PrimaryAction', worldPos: stairs.position, targetId: null, interactId: stairs.id, held: false });
+    run(world, 0.2);
+    expect(asked).toHaveBeenCalledWith({ direction: 'up', toFloor: 1, valuableItems: 1 });
+    expect(world.floors.floor).toBe(2);
+  });
+});

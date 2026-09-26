@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0～M7、M9 完成（含技能系統大改、三段 Combo、存檔與回到上一層、屬性點）；進行中 M7.5 近戰平衡，之後 M8 UI；M10 戰鬥深度排在 M8 之後。
+> 狀態：M0～M9 完成（含 M7.5 近戰平衡、三段 Combo、存檔與回到上一層、屬性點）；下一步 M10 戰鬥深度。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -883,6 +883,14 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
 - **Dependencies**：M4～M7
 - **Acceptance**：所有操作都能從 UI 完成；UI 修改全部經由 Command；開啟面板時點擊不會穿透到遊戲畫面。
 - **Test**：搜尋 `ui/` 目錄內沒有任何對 GameWorld 的直接寫入（lint 規則）。
+- **實作備註（M8 完成）**：
+  - `ui/bridge/GameViewStore.ts`（`gameView`）取代 M1 起的 debugView；`ViewSync` 每幀在 Tick 結束後複製狀態，背包 / 技能樹 / 角色面板依版本簽章才重建
+  - HUD：`Hud.vue`（血球、魔力球、經驗條、藥水按鈕、金幣）、`SkillBar.vue`（點 Q / W / E 切換、魔力不足變暗、已發現的 Combo 名稱）、`FloorHud.vue`、`Notices.vue`、`MenuBar.vue`（角色 / 技能 / 背包 / 選單，有未分配點數時顯示數字）
+  - `PauseMenu.vue`（Esc）：開啟時遊戲暫停（`GameLoop.paused`，Input 不送指令）；操作說明、匯出 / 匯入存檔、開始新角色、開發用除錯開關
+  - 離開樓層確認：地上還有稀有以上物品時，點出口 / 往上樓梯會先發 `LeaveFloorConfirm`，玩家確認後送 `ConfirmLeaveFloor`
+  - 暫停、存檔、開新角色不是遊戲狀態，走 `ui/bridge/SystemBridge`，不經過 CommandQueue
+  - 除錯資訊只在 `npm run dev` 顯示，F3 切換（預設關閉）
+  - 測試：`tests/ui/NoDirectWrites.test.ts` 掃描 ui/ 內對 world 的寫入
 
 ### M9 Save
 

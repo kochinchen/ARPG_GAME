@@ -92,7 +92,8 @@ export class PlayerController {
         break;
       case 'DebugLevelUp':
       case 'DebugSpawnChests':
-        // 開發用指令由 GameWorld 處理
+      case 'ConfirmLeaveFloor':
+        // 由 GameWorld 處理
         break;
     }
   }

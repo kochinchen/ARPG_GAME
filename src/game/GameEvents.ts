@@ -57,6 +57,8 @@ export interface GameEvents {
   ExitOpened: { floor: number };
   /** 點了尚未開啟的出口 */
   ExitLocked: { remaining: number };
+  /** 要離開樓層，但地上還有稀有以上的物品：等待玩家確認（ConfirmLeaveFloor） */
+  LeaveFloorConfirm: { direction: 'down' | 'up'; toFloor: number; valuableItems: number };
   /** 玩家倒地後回到存檔點（玩家死亡本身為 ActorDied，faction = 'player'） */
   PlayerRespawned: { position: Vec2 };
   PotionUsed: { hpRestored: number; mpRestored: number; remaining: number };

@@ -38,6 +38,8 @@ export type GameCommand =
   | { type: 'SetSupportSlot'; slot: 0 | 1 | 2; skillId: string | null }
   /** 角色面板：把屬性點加到某個屬性（count 點，不足時加到用完為止） */
   | { type: 'AllocateAttribute'; attribute: string; count: number }
+  /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
+  | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 開發用：直接升一級（只有 dev 版的 Input 會送出） */
   | { type: 'DebugLevelUp' }
   /** 開發用：在玩家周圍生成寶箱 */

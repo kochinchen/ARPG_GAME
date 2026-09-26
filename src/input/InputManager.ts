@@ -14,6 +14,8 @@ export interface InputAdapters {
   pickActor: (screen: Vec2) => number | null;
   /** 游標下的地上物品 / 寶箱 ID，沒有則 null */
   pickInteractable: (screen: Vec2) => number | null;
+  /** 暫停中（選單開啟）：不送出任何遊戲指令 */
+  isPaused?: () => boolean;
   /** 開發用快捷鍵：B 重置、N 升一級、M 生成寶箱 */
   debugKeys?: boolean;
   /** B：重置遊戲（由 main.ts 決定如何重置） */
@@ -58,6 +60,7 @@ export class InputManager {
 
   /** 每幀呼叫：按住左鍵 / 右鍵時持續送出指令 */
   poll(now: number): void {
+    if (this.paused) return;
     if (this.leftHeld && now - this.lastRepeat >= HOLD_REPEAT_INTERVAL) {
       this.lastRepeat = now;
       this.commands.push({ type: 'PrimaryAction', ...this.pointerTarget(), held: true });
@@ -73,8 +76,13 @@ export class InputManager {
     this.disposers.length = 0;
   }
 
+  private get paused(): boolean {
+    return this.adapters.isPaused?.() ?? false;
+  }
+
   private onPointerDown(e: PointerEvent): void {
     this.updatePointer(e);
+    if (this.paused) return;
     if (e.button === 0) {
       this.leftHeld = true;
       this.lastRepeat = e.timeStamp / 1000;
@@ -93,7 +101,7 @@ export class InputManager {
   }
 
   private onKeyDown(e: KeyboardEvent): void {
-    if (e.repeat) return;
+    if (e.repeat || this.paused) return;
     const slot = RIGHT_SLOT_KEYS[e.code];
     if (slot !== undefined) {
       this.commands.push({ type: 'SelectRightSlot', slot });

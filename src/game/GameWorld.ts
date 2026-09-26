@@ -363,15 +363,38 @@ export class GameWorld {
     player.cast = null;
   }
 
-  /** 玩家點了出口 */
+  /** 玩家點了出口。地上還有稀有以上物品時先詢問（換層後地上物品會消失） */
   useExit(): void {
-    const remaining = this.floors.requestDescend();
-    if (remaining > 0) this.events.emit('ExitLocked', { remaining });
+    if (!this.floors.exitOpen) {
+      this.events.emit('ExitLocked', { remaining: this.floors.remainingToOpen });
+      return;
+    }
+    if (this.askBeforeLeaving('down')) return;
+    this.floors.requestDescend();
   }
 
   /** 玩家點了往上的樓梯 */
   useStairsUp(): void {
+    if (this.floors.floor <= 1 || this.askBeforeLeaving('up')) return;
     this.floors.requestAscend();
+  }
+
+  /** 地上稀有以上的物品數量（離開樓層前提醒） */
+  get valuableGroundItems(): number {
+    return this.groundItems.filter((g) => g.content.kind === 'item' && (g.content.item.rarity === 'rare' || g.content.item.rarity === 'legendary')).length;
+  }
+
+  private askBeforeLeaving(direction: 'down' | 'up'): boolean {
+    const valuableItems = this.valuableGroundItems;
+    if (valuableItems === 0) return false;
+    const toFloor = this.floors.floor + (direction === 'down' ? 1 : -1);
+    this.events.emit('LeaveFloorConfirm', { direction, toFloor, valuableItems });
+    return true;
+  }
+
+  private confirmLeave(direction: 'down' | 'up'): void {
+    if (direction === 'down') this.floors.requestDescend();
+    else this.floors.requestAscend();
   }
 
   /**
@@ -388,14 +411,17 @@ export class GameWorld {
     return this.comboSlotLevels.filter((level) => this.progress.level >= level).length;
   }
 
-  /** 開發用指令（Input 只在 dev 版送出）；回傳是否已處理 */
-  private handleDebug(command: GameCommand): boolean {
+  /** 由 GameWorld 直接處理的指令（樓層確認、開發用指令）；回傳是否已處理 */
+  private handleWorldCommand(command: GameCommand): boolean {
     switch (command.type) {
       case 'DebugLevelUp':
         this.experience.grantLevel();
         return true;
       case 'DebugSpawnChests':
         this.spawnChestsNear(this.player.position, command.count);
+        return true;
+      case 'ConfirmLeaveFloor':
+        if (this.player.alive) this.confirmLeave(command.direction);
         return true;
       default:
         return false;
@@ -438,7 +464,7 @@ export class GameWorld {
     this.playTime += dt;
     for (const actor of this.actors) actor.prevPosition = actor.position;
     for (const command of this.commands.drain()) {
-      if (!this.handleDebug(command)) this.playerController.handle(command);
+      if (!this.handleWorldCommand(command)) this.playerController.handle(command);
     }
     this.support.update();
     this.potions.update(dt);
