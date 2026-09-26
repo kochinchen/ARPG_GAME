@@ -29,6 +29,12 @@ export class CheckpointSystem {
     if (midway) this.checkpoints.push({ kind: 'midway', position: midway, active: false });
   }
 
+  /** 讀檔：中途存檔點直接設為已啟動（不發事件） */
+  restoreMidway(): void {
+    const midway = this.checkpoints.find((c) => c.kind === 'midway');
+    if (midway) midway.active = true;
+  }
+
   update(player: Actor): void {
     if (!player.alive) return;
     for (const cp of this.checkpoints) {

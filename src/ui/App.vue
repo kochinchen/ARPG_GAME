@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { debugView } from './bridge/DebugView';
+import { saveBridge } from './bridge/SaveBridge';
 import { resolveHover, type HoverTarget } from './bridge/InventoryView';
 import InventoryPanel from './components/InventoryPanel.vue';
 import ItemCell from './components/ItemCell.vue';
@@ -32,6 +33,23 @@ function onHover(target: HoverTarget | null) {
   hoverTarget.value = target;
 }
 
+const importInput = ref<HTMLInputElement | null>(null);
+/** 按鈕點完立即移除焦點：避免之後按 Space（喝藥水）又觸發按鈕 */
+function onExport(e: MouseEvent) {
+  (e.currentTarget as HTMLElement).blur();
+  saveBridge.exportSave();
+}
+function onImportClick(e: MouseEvent) {
+  (e.currentTarget as HTMLElement).blur();
+  importInput.value?.click();
+}
+function onImportFile(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (file) saveBridge.importSave(file);
+}
+
 /** Tooltip 放在游標左側（面板在右邊），並保持在畫面內 */
 const tooltipStyle = computed(() => ({
   right: `${Math.max(8, window.innerWidth - pointer.value.x + 16)}px`,
@@ -58,6 +76,13 @@ onBeforeUnmount(() => {
     <div>Target {{ debugView.target }}</div>
     <div class="hint">左鍵：移動 / 攻擊 / 撿取 · 右鍵：施放連段 · QWE：切換連段 · Space：藥水 · I：背包 · T：技能</div>
     <div v-if="debugView.devKeys" class="dev-hint">測試：B 重置 · N 升一級 · M 生成寶箱</div>
+    <div class="save-row">
+      <span v-if="debugView.save.error" class="save-error" :title="debugView.save.error">存檔失敗</span>
+      <span v-else>{{ debugView.save.lastSavedAt ? `已存檔 ${debugView.save.lastSavedAt}` : '尚未存檔' }}</span>
+      <button type="button" @click="onExport">匯出存檔</button>
+      <button type="button" @click="onImportClick">匯入存檔</button>
+      <input ref="importInput" type="file" accept=".json,application/json" hidden @change="onImportFile" />
+    </div>
   </div>
 
   <SkillTreePanel v-if="skillTreeOpen" :view="debugView.skillTree" @close="skillTreeOpen = false" />
@@ -134,6 +159,10 @@ onBeforeUnmount(() => {
     <div v-for="line in debugView.discovery.description" :key="line" class="discovery-line">{{ line }}</div>
   </div>
 
+  <div v-if="debugView.saveNotices.length" class="save-notices" role="status">
+    <div v-for="n in debugView.saveNotices" :key="n">{{ n }}</div>
+  </div>
+
   <div v-if="debugView.respawnIn !== null" class="death">
     <div class="death-title">你倒下了</div>
     <div>{{ Math.ceil(debugView.respawnIn) }} 秒後回到{{ debugView.respawnAt }}</div>
@@ -160,6 +189,40 @@ onBeforeUnmount(() => {
 }
 .dev-hint {
   color: #6fa8ff;
+}
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  pointer-events: auto;
+}
+.save-row button {
+  padding: 1px 6px;
+  font: inherit;
+  color: #d8cbb4;
+  cursor: pointer;
+  background: #2a231d;
+  border: 1px solid #5a4c3e;
+}
+.save-row button:hover {
+  border-color: #e8c47a;
+}
+.save-error {
+  color: #ff7b6b;
+}
+.save-notices {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  max-width: 520px;
+  padding: 8px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #f2e2b8;
+  background: rgb(20 14 8 / 85%);
+  border: 1px solid #8a6a3a;
+  transform: translateX(-50%);
 }
 .tooltips {
   position: absolute;

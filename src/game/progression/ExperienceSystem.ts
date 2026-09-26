@@ -52,6 +52,20 @@ export class ExperienceSystem {
     p.changed();
   }
 
+  /**
+   * 讀檔：從 Lv1 的新角色還原到指定等級。只套用每級的基礎屬性成長；
+   * 技能點、T4 開通次數由存檔直接還原（不重新發放），也不發出升級事件。
+   */
+  restore(level: number, xp: number): void {
+    if (this.progress.level !== 1) throw new Error('restore() must be called on a new character');
+    const { balance } = this.data;
+    for (const [stat, value] of Object.entries(balance.statsPerLevel) as [StatId, number][]) {
+      this.player.stats.setBase(stat, this.player.stats.getBase(stat) + value * (level - 1));
+    }
+    this.progress.level = level;
+    this.progress.xp = xp;
+  }
+
   /** 直接升一級（開發測試用） */
   grantLevel(): void {
     this.addXp(this.xpForNextLevel - this.progress.xp);

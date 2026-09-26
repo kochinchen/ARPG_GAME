@@ -119,7 +119,8 @@ export class Renderer {
   pickInteractableAt(screen: Vec2): number | null {
     const local = sub(screen, this.camera.offset);
     const exit = this.world.exit ? [this.world.exit] : [];
-    return this.interactables.pickAt(local, [...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
+    const stairs = this.world.stairsUp ? [this.world.stairsUp] : [];
+    return this.interactables.pickAt(local, [...stairs, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
   }
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
@@ -165,7 +166,7 @@ export class Renderer {
     this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos);
     this.interactables.setHovered(this.hoveredInteractable);
-    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1);
+    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp);
     this.markers.update(this.app.ticker.lastTime);
     this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
     this.floatingText.update(dt);

@@ -11,7 +11,7 @@ import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { EnemyFactory } from './enemies/EnemyFactory';
 import { Actor } from './entities/Actor';
-import type { Chest, ExitPortal, GroundContent, GroundItem } from './entities/Interactable';
+import type { Chest, ExitPortal, GroundContent, GroundItem, StairsUp } from './entities/Interactable';
 import type { Projectile } from './entities/Projectile';
 import { ChestSystem } from './items/ChestSystem';
 import { Equipment } from './items/Equipment';
@@ -53,6 +53,14 @@ import { SpawnSystem } from './world/SpawnSystem';
 import { findMarker } from '../data/mapAnalysis';
 import { TargetingService } from './targeting/TargetingService';
 
+/** 讀檔時還原本層狀態（一般換層不需要） */
+export interface FloorRestore {
+  /** 已擊殺怪物的生成索引 */
+  killed: readonly number[];
+  midwayActive: boolean;
+  exitOpen: boolean;
+}
+
 export interface GameWorldOptions {
   data: DataRegistry;
   /** 固定地圖模式（測試用）：使用地圖內擺放的怪物與寶箱，沒有樓層與出口 */
@@ -72,6 +80,8 @@ export class GameWorld {
   readonly nav: NavGrid;
   /** 本層出口（固定地圖模式沒有出口） */
   exit: ExitPortal | null = null;
+  /** 往上的樓梯（第 2 層以上） */
+  stairsUp: StairsUp | null = null;
   readonly checkpoints: CheckpointSystem;
   readonly floors: FloorManager;
   readonly actors: Actor[] = [];
@@ -103,6 +113,9 @@ export class GameWorld {
   readonly codex = new ComboCodex();
   private readonly comboSlotLevels: readonly number[];
   readonly deathHandler: DeathHandler;
+  readonly itemGenerator: ItemGenerator;
+  /** 累計遊戲時間（秒，只算有執行的 Tick） */
+  playTime = 0;
 
   private nextActorId = 1;
   private nextProjectileId = 1;
@@ -226,16 +239,22 @@ export class GameWorld {
     );
     this.support = new SupportSystem(this.player, this.loadout, data.skills);
     this.support.update();
+    this.itemGenerator = new ItemGenerator(data, rng.fork('items'));
     new LootSystem(
       data,
       rng.fork('loot'),
-      new ItemGenerator(data, rng.fork('items')),
+      this.itemGenerator,
       this.nav,
       (position, content) => this.spawnGroundItem(position, content),
       () => this.itemLevel,
       this.events,
     );
     this.deathHandler = new DeathHandler(this.player, this.events, () => this.checkpoints.respawn.position, p.respawnDelay);
+    // 寶箱只能開一次：記錄每層已開啟的寶箱（開發用生成的寶箱沒有索引，不記錄）
+    this.events.on('ChestOpened', (e) => {
+      const chest = this.chests.find((c) => c.id === e.chestId);
+      if (chest?.spawnIndex !== undefined) this.floors.markChestOpened(this.floors.floor, chest.spawnIndex);
+    });
 
     if (options.mapId !== undefined) this.loadFixedMap();
     else this.enterFloor(options.floor ?? 1);
@@ -246,8 +265,18 @@ export class GameWorld {
     return this.checkpoints.checkpoints[0]!.position;
   }
 
-  /** 進入某一層：換地圖、清空本層實體、依樓層難度生成怪物與寶箱。玩家的所有進度保留。 */
-  enterFloor(floor: number): void {
+  /** 世界種子：樓層佈局由它推導（存檔內容） */
+  get runSeed(): number {
+    return this.seed;
+  }
+
+  /**
+   * 進入某一層：換地圖、清空本層實體、依樓層難度生成怪物與寶箱。玩家的所有進度保留。
+   * 任何換層（往上或往下）都是重新進入：怪物重生、從樓梯口開始；已開過的寶箱維持開啟。
+   * 已經通過的樓層（低於最高到達樓層）出口直接開啟。
+   * restore：讀檔時還原本層的擊殺、中途存檔點與出口狀態。
+   */
+  enterFloor(floor: number, restore?: FloorRestore): void {
     const def = this.floors.defFor(floor);
     this.resetLevel(this.floors.mapFor(floor));
     this.itemLevel = floor;
@@ -259,14 +288,29 @@ export class GameWorld {
     const scaling = scaleForFloor(floor, this.data.balance.difficulty);
     const safe = [this.spawnPoint, ...this.checkpoints.checkpoints.slice(1).map((c) => c.position)];
     if (this.exit) safe.push(this.exit.position);
-    for (const request of spawner.planMonsters(def, scaling.density, safe, this.data.balance.floor.safeRadius)) {
-      this.addActor(this.enemyFactory.create(this.data.enemies.get(request.enemyId), this.nextActorId++, request.position, scaling));
-    }
-    for (const position of spawner.planChests(rng.int(def.chests[0], def.chests[1]), safe)) {
-      this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position, lootTable: def.chestLootTable, opened: false });
-    }
-    this.floors.begin(floor, this.actors.length - 1);
+    const killed = new Set(restore?.killed ?? []);
+    const plan = spawner.planMonsters(def, scaling.density, safe, this.data.balance.floor.safeRadius);
+    const spawnedIds: [number, number][] = [];
+    plan.forEach((request, index) => {
+      if (killed.has(index)) return;
+      const actor = this.addActor(this.enemyFactory.create(this.data.enemies.get(request.enemyId), this.nextActorId++, request.position, scaling));
+      spawnedIds.push([actor.id, index]);
+    });
+    spawner.planChests(rng.int(def.chests[0], def.chests[1]), safe).forEach((position, index) => {
+      const opened = this.floors.isChestOpened(floor, index);
+      this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position, lootTable: def.chestLootTable, opened, spawnIndex: index });
+    });
+    this.floors.begin(floor, plan.length, {
+      killed: plan.flatMap((_, i) => (killed.has(i) ? [i] : [])),
+      exitOpen: (restore?.exitOpen ?? false) || floor < this.progress.highestFloor,
+    });
+    for (const [actorId, index] of spawnedIds) this.floors.trackSpawn(actorId, index);
     if (this.exit) this.exit.open = this.floors.exitOpen;
+    this.stairsUp = floor >= 2 ? { kind: 'stairsUp', id: this.nextInteractableId++, position: this.spawnPoint } : null;
+    if (restore?.midwayActive) {
+      this.checkpoints.restoreMidway();
+      this.placePlayer(this.checkpoints.respawn.position);
+    }
     this.events.emit('FloorEntered', { floor, mapId: this.map.id });
   }
 
@@ -291,6 +335,7 @@ export class GameWorld {
     this.projectiles.length = 0;
     this.groundItems.length = 0;
     this.chests.length = 0;
+    this.stairsUp = null;
     this.scheduler.clear();
     this.combos.cancel(this.player);
     this.interaction.clear();
@@ -301,9 +346,13 @@ export class GameWorld {
     const exit = markerPoint(map, MAP_TILES.exit);
     this.exit = exit ? { kind: 'exit', id: this.nextInteractableId++, position: exit, open: false } : null;
 
+    this.placePlayer(stairs);
+  }
+
+  private placePlayer(position: Vec2): void {
     const player = this.player;
-    player.position = stairs;
-    player.prevPosition = stairs;
+    player.position = position;
+    player.prevPosition = position;
     player.path = [];
     player.intent = null;
     player.cast = null;
@@ -313,6 +362,20 @@ export class GameWorld {
   useExit(): void {
     const remaining = this.floors.requestDescend();
     if (remaining > 0) this.events.emit('ExitLocked', { remaining });
+  }
+
+  /** 玩家點了往上的樓梯 */
+  useStairsUp(): void {
+    this.floors.requestAscend();
+  }
+
+  /**
+   * 讀檔：還原 HP / MP。先重新套用 Support 被動（可能影響上限），再限制在上限內。
+   */
+  restoreResources(hp: number, mana: number): void {
+    this.support.update();
+    this.player.hp = Math.min(Math.max(1, hp), this.player.maxHp);
+    this.player.mana = Math.min(Math.max(0, mana), this.player.maxMana);
   }
 
   /** 目前等級已解鎖的連段格數（1～3） */
@@ -367,6 +430,7 @@ export class GameWorld {
   }
 
   update(dt: number): void {
+    this.playTime += dt;
     for (const actor of this.actors) actor.prevPosition = actor.position;
     for (const command of this.commands.drain()) {
       if (!this.handleDebug(command)) this.playerController.handle(command);

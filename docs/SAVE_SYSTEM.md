@@ -1,6 +1,16 @@
 # M9 存檔系統規格（Save System）
 
-> 狀態：規格已確認，尚未實作。取代 ARCHITECTURE.md 第 1.2 節的 `SaveDataV1`（該版寫於 M5 前，技能配置、背包格式都已過時）。
+> 狀態：**已實作（M9）**。取代 ARCHITECTURE.md 第 1.2 節的 `SaveDataV1`（該版寫於 M5 前，技能配置、背包格式都已過時）。
+
+---
+
+## 實作備註（與規格的差異）
+
+- **Checksum 用同步 SHA-256**（`save/sha256.ts`）：`crypto.subtle` 是非同步的，關閉分頁（`pagehide`）時無法等待，緊急副本必須同步寫入。
+- **何時存檔改用「變動簽章」判斷**（`saveSignature()`）而不是逐一訂閱事件：每幀比對版本號與計數（等級、背包版本、配置、擊殺數、地上物品…），不會漏掉沒有發事件的變動（例如更換連段配置）。換層、啟動存檔點、出口開啟屬於 immediate。
+- **開發用 B 重置**：先停止自動存檔並等待進行中的寫入完成，再清除存檔，避免舊狀態被寫回去。
+- **匯出 / 匯入**：暫時放在左上 Debug 面板（M8 移到選單）。
+- 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---
 
@@ -72,7 +82,7 @@ interface SaveDataV1 {
   };
 
   counters: {
-    nextItemUid: number;        // ItemGenerator 的流水號，避免讀檔後 uid 重複
+    itemUidCounter: number;     // ItemGenerator 最後使用的流水號，避免讀檔後 uid 重複
   };
 }
 
@@ -156,7 +166,7 @@ type SavedEntry = { kind: 'item'; item: ItemInstance } | { kind: 'potion'; potio
 ### 4.6 物品 uid 不可重複
 
 目前 uid = `流水號-隨機6碼`，流水號每次開遊戲從 0 開始，讀檔後有極小機率與背包內物品撞號（裝備的 StatModifier 用 `item:uid` 當來源，撞號會導致卸下時移除錯的屬性）。
-**處理**：存 `nextItemUid`；讀檔時取 `max(存檔值, 所有已存物品的流水號 + 1)`。
+**處理**：存 `itemUidCounter`；讀檔時取 `max(存檔值, 所有已存物品的最大流水號)`，下一件從它的下一號開始。
 
 ### 4.7 Codex 順序
 

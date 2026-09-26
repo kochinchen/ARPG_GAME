@@ -178,3 +178,81 @@ describe('存檔點（M7）', () => {
     expect(enemies(deeper)[0]!.xpReward).toBe(Math.round(data.enemies.get('enemy.skeleton').xp * scaleForFloor(11, data.balance.difficulty).xp));
   });
 });
+
+describe('回到上一層（M9）', () => {
+  function useStairsUp(world: GameWorld, commands: CommandQueue<GameCommand>) {
+    const stairs = world.stairsUp!;
+    commands.push({ type: 'PrimaryAction', worldPos: stairs.position, targetId: null, interactId: stairs.id, held: false });
+    run(world, 0.2);
+  }
+  function openChest(world: GameWorld, commands: CommandQueue<GameCommand>, index = 0) {
+    const chest = world.chests.find((c) => c.spawnIndex === index)!;
+    world.player.position = vec2(chest.position.x - 0.5, chest.position.y);
+    commands.push({ type: 'PrimaryAction', worldPos: chest.position, targetId: null, interactId: chest.id, held: false });
+    run(world, 0.5);
+    return chest;
+  }
+
+  it('第 1 層沒有往上的樓梯；第 2 層以上樓梯口可以往上', () => {
+    const { world } = floorWorld(1);
+    expect(world.stairsUp).toBeNull();
+    world.enterFloor(2);
+    expect(world.stairsUp).not.toBeNull();
+    expect(world.stairsUp!.position).toEqual(world.spawnPoint);
+  });
+
+  it('第 3 層往上：到第 2 層樓梯口，怪物全部重生、擊殺數 0、中途未啟動、出口已開', () => {
+    const { world, commands } = floorWorld(2, 7);
+    const fullCount = enemies(world).length;
+    kill(world, 3);
+    const midway = world.checkpoints.checkpoints.find((c) => c.kind === 'midway')!;
+    world.player.position = midway.position;
+    run(world, 1 / 60);
+    expect(midway.active).toBe(true);
+    world.enterFloor(3);
+
+    useStairsUp(world, commands);
+    expect(world.floors.floor).toBe(2);
+    expect(world.progress.highestFloor).toBe(3);
+    expect(enemies(world).length).toBe(fullCount);
+    expect(world.floors.killed).toBe(0);
+    expect(world.checkpoints.checkpoints.find((c) => c.kind === 'midway')!.active).toBe(false);
+    expect(distance(world.player.position, world.spawnPoint)).toBeLessThan(0.01);
+    expect(world.floors.exitOpen).toBe(true);
+    expect(world.exit!.open).toBe(true);
+  });
+
+  it('最深的樓層出口仍需清怪；已通過的樓層往下後再回來，出口直接開', () => {
+    const { world, commands } = floorWorld(1);
+    expect(world.floors.exitOpen).toBe(false);
+    world.enterFloor(2);
+    expect(world.floors.exitOpen).toBe(false);
+    useStairsUp(world, commands);
+    expect(world.floors.floor).toBe(1);
+    expect(world.floors.exitOpen).toBe(true);
+  });
+
+  it('寶箱只能開一次：開過的寶箱下樓再上樓仍是開啟狀態', () => {
+    const { world, commands } = floorWorld(2);
+    const chest = openChest(world, commands);
+    expect(chest.opened).toBe(true);
+    expect(world.floors.isChestOpened(2, 0)).toBe(true);
+    world.enterFloor(3);
+    useStairsUp(world, commands);
+    expect(world.floors.floor).toBe(2);
+    expect(world.chests.find((c) => c.spawnIndex === 0)!.opened).toBe(true);
+    expect(world.chests.filter((c) => c.spawnIndex !== 0).every((c) => !c.opened)).toBe(true);
+  });
+
+  it('回到上層後再往下：下一層怪物重生、從樓梯口開始', () => {
+    const { world, commands } = floorWorld(3, 4);
+    const fullCount = enemies(world).length;
+    kill(world, 4);
+    useStairsUp(world, commands);
+    expect(world.floors.floor).toBe(2);
+    useExit(world, commands);
+    expect(world.floors.floor).toBe(3);
+    expect(enemies(world).length).toBe(fullCount);
+    expect(distance(world.player.position, world.spawnPoint)).toBeLessThan(0.01);
+  });
+});

@@ -32,6 +32,20 @@ export class ComboCodex {
     return this.entries.get(comboId);
   }
 
+  /** 下一個發現順序（讀檔後接續） */
+  get nextOrder(): number {
+    let next = 0;
+    for (const e of this.entries.values()) next = Math.max(next, e.firstDiscoveredAt + 1);
+    return next;
+  }
+
+  /** 讀檔：以存檔內容取代目前的 Codex */
+  restore(entries: readonly ComboCodexEntry[]): void {
+    this.entries.clear();
+    for (const e of entries) this.entries.set(e.comboId, { ...e });
+    this._version++;
+  }
+
   /** 記錄一次完整施放；回傳是否為第一次發現 */
   record(entry: Omit<ComboCodexEntry, 'timesUsed' | 'firstDiscoveredAt'>, now: number): boolean {
     const existing = this.entries.get(entry.comboId);

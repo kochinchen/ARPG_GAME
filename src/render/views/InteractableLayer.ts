@@ -2,7 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { Chest, ExitPortal, GroundItem, Interactable } from '../../game/entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable, StairsUp } from '../../game/entities/Interactable';
 import { describeItem } from '../../game/items/ItemDescriber';
 import { FLOOR_COLORS, LOOT_COLORS, PALETTE, RARITY_COLORS } from '../palette';
 
@@ -69,7 +69,13 @@ export class InteractableLayer {
     return null;
   }
 
-  update(groundItems: readonly GroundItem[], chests: readonly Chest[], exit: ExitPortal | null = null, nextFloor = 0): void {
+  update(
+    groundItems: readonly GroundItem[],
+    chests: readonly Chest[],
+    exit: ExitPortal | null = null,
+    nextFloor = 0,
+    stairsUp: StairsUp | null = null,
+  ): void {
     const seen = new Set<number>();
     let changed = false;
     for (const g of groundItems) {
@@ -87,6 +93,11 @@ export class InteractableLayer {
       if (view.exit && view.exit.open !== exit.open) this.drawExit(view, exit.open, nextFloor);
       if (view.exit) view.exit.portal.alpha = exit.open ? 0.75 + 0.25 * Math.sin(performance.now() / 250) : 1;
       this.highlight(view, exit.id);
+    }
+    if (stairsUp) {
+      seen.add(stairsUp.id);
+      const view = this.views.get(stairsUp.id) ?? this.createStairsView(stairsUp, nextFloor - 2);
+      this.highlight(view, stairsUp.id);
     }
     for (const c of chests) {
       seen.add(c.id);
@@ -213,6 +224,45 @@ export class InteractableLayer {
     const view: View = { container, label, labelBack, labelShift: 0, chest: null, exit: { portal, open: !exit.open }, hit: [{ x: -26, y: -56, width: 52, height: 64 }] };
     this.views.set(exit.id, view);
     this.drawExit(view, exit.open, 0);
+    return view;
+  }
+
+  /** 往上的樓梯：樓梯口旁的石階，標籤「往上 → 第 N 層」 */
+  private createStairsView(stairs: StairsUp, floor: number): View {
+    const s = this.projection.toScreen(stairs.position);
+    const container = new Container();
+    container.position.set(s.x, s.y);
+    container.zIndex = this.projection.depth(stairs.position) - 0.6;
+    const steps = new Graphics();
+    for (let i = 0; i < 3; i++) {
+      steps
+        .rect(-14 + i * 3, -8 - i * 7, 28 - i * 6, 7)
+        .fill({ color: FLOOR_COLORS.stairs, alpha: 0.85 - i * 0.15 })
+        .stroke({ color: 0x3a2e1a, width: 1 });
+    }
+    steps.poly([0, -40, -7, -31, 7, -31]).fill({ color: 0xf2e2b8 });
+    steps.position.set(0, -6);
+    container.addChild(steps);
+    this.objectLayer.addChild(container);
+    const label = new Text({ text: `往上 → 第 ${floor} 層`, style: { fontFamily: 'sans-serif', fontSize: 12, fill: 0xf2e2b8 } });
+    label.anchor.set(0.5, 1);
+    label.position.set(s.x, s.y - 50);
+    const labelBack = new Graphics();
+    labelBack.position.copyFrom(label.position);
+    const pad = LABEL_PAD;
+    labelBack
+      .rect(-label.width / 2 - pad, -label.height - pad / 2, label.width + pad * 2, label.height + pad)
+      .fill({ color: LOOT_COLORS.labelBack, alpha: 0.55 });
+    this.labels.addChild(labelBack, label);
+    const view: View = {
+      container,
+      label,
+      labelBack,
+      labelShift: 0,
+      chest: null,
+      hit: [{ x: -label.width / 2 - pad, y: -50 - label.height - pad / 2, width: label.width + pad * 2, height: label.height + pad }],
+    };
+    this.views.set(stairs.id, view);
     return view;
   }
 

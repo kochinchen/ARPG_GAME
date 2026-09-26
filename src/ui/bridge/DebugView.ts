@@ -12,7 +12,7 @@ export interface ComboBarView {
 
 /** 除錯資訊的唯讀快照；M8 會由 GameViewStore 取代 */
 export const debugView = reactive({
-  milestone: 'M7 Floor',
+  milestone: 'M9 Save',
   /** 開發模式才顯示測試快捷鍵說明 */
   devKeys: false,
   tick: 0,
@@ -42,4 +42,8 @@ export const debugView = reactive({
   skillTree: emptySkillTreeView(),
   xp: { level: 1, value: 0, next: 1 },
   skillPoints: 0,
+  /** 存檔狀態：最後一次成功存檔的時間、錯誤訊息 */
+  save: { lastSavedAt: '', error: null as string | null },
+  /** 讀檔時的提示（從備份還原、資料修復），顯示幾秒 */
+  saveNotices: [] as string[],
 });

@@ -1,57 +1,90 @@
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { FloorDef } from '../../data/schema/floor';
 import type { MapDef } from '../../data/schema/map';
+import type { ActorId } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
+
+export interface FloorBeginOptions {
+  /** 本層已擊殺的怪物（生成順序索引）；讀檔時使用 */
+  killed?: readonly number[];
+  /** 出口一開始就開啟（已通過的樓層、或讀檔時已開啟） */
+  exitOpen?: boolean;
+}
+
+type FloorData = Pick<DataRegistry, 'floors' | 'maps'>;
 
 /**
  * 目前樓層、該層設定與出口狀態。
- * 擊敗本層 clearRatio 比例的怪物後出口開啟；進入下一層的實際切換由 GameWorld 在 Tick 結尾執行。
+ * 擊敗本層 clearRatio 比例的怪物後出口開啟；實際換層由 GameWorld 在 Tick 結尾執行。
+ * 也記錄存檔需要的樓層狀態：本層已擊殺的怪物、每層已開啟的寶箱。
  */
 export class FloorManager {
   floor = 0;
   def: FloorDef | null = null;
-  /** 本層生成的怪物數與已擊敗數 */
+  /** 本層生成計畫的怪物總數與已擊敗數 */
   total = 0;
   killed = 0;
   exitOpen = false;
+  /** 本層已擊殺怪物的生成索引（換層時清空） */
+  readonly killedSpawns: number[] = [];
+  /** 樓層 → 已開啟寶箱的生成索引（跨層永久保留：寶箱只能開一次） */
+  readonly openedChests = new Map<number, Set<number>>();
+  private readonly spawnIndexOf = new Map<ActorId, number>();
   private pendingFloor: number | null = null;
 
   constructor(
-    private readonly data: Pick<DataRegistry, 'floors' | 'maps'>,
+    private readonly data: FloorData,
     private readonly events: GameEventBus,
   ) {
     events.on('ActorDied', (e) => {
       if (e.faction !== 'enemy' || this.def === null) return;
+      const index = this.spawnIndexOf.get(e.actorId);
+      if (index !== undefined) this.killedSpawns.push(index);
       this.killed++;
       this.checkExit();
     });
   }
 
   defFor(floor: number): FloorDef {
-    const def = this.data.floors.all.find((f) => floor >= f.floors[0] && floor <= f.floors[1]);
-    if (!def) throw new Error(`no floor definition for floor ${floor}`);
-    return def;
+    return floorDefFor(this.data, floor);
   }
 
-  /** 同一區間內依樓層輪替地圖 */
   mapFor(floor: number): MapDef {
-    const def = this.defFor(floor);
-    return this.data.maps.get(def.maps[(floor - def.floors[0]) % def.maps.length]!);
+    return this.data.maps.get(mapIdForFloor(this.data, floor));
   }
 
   /** 還需要擊敗幾隻出口才會開 */
   get remainingToOpen(): number {
-    if (!this.def) return 0;
+    if (!this.def || this.exitOpen) return 0;
     return Math.max(0, Math.ceil(this.total * this.def.clearRatio) - this.killed);
   }
 
-  begin(floor: number, monsterCount: number): void {
+  begin(floor: number, monsterCount: number, options: FloorBeginOptions = {}): void {
     this.floor = floor;
     this.def = this.defFor(floor);
     this.total = monsterCount;
-    this.killed = 0;
-    this.exitOpen = false;
+    this.killedSpawns.length = 0;
+    this.killedSpawns.push(...(options.killed ?? []));
+    this.killed = this.killedSpawns.length;
+    this.spawnIndexOf.clear();
+    // 預先開啟時不發事件（不是這次擊殺造成的）
+    this.exitOpen = options.exitOpen ?? false;
     this.checkExit();
+  }
+
+  /** 記錄怪物的生成索引（擊殺時寫入 killedSpawns） */
+  trackSpawn(actorId: ActorId, index: number): void {
+    this.spawnIndexOf.set(actorId, index);
+  }
+
+  isChestOpened(floor: number, index: number): boolean {
+    return this.openedChests.get(floor)?.has(index) ?? false;
+  }
+
+  markChestOpened(floor: number, index: number): void {
+    let opened = this.openedChests.get(floor);
+    if (!opened) this.openedChests.set(floor, (opened = new Set()));
+    opened.add(index);
   }
 
   /** 玩家點了出口：開啟時排定下一層，未開時回傳還差幾隻 */
@@ -59,6 +92,13 @@ export class FloorManager {
     if (!this.exitOpen) return this.remainingToOpen;
     this.pendingFloor = this.floor + 1;
     return 0;
+  }
+
+  /** 玩家點了往上的樓梯：第 1 層沒有上一層 */
+  requestAscend(): boolean {
+    if (this.floor <= 1) return false;
+    this.pendingFloor = this.floor - 1;
+    return true;
   }
 
   /** Tick 結尾取出待切換的樓層 */
@@ -73,4 +113,16 @@ export class FloorManager {
     this.exitOpen = true;
     this.events.emit('ExitOpened', { floor: this.floor });
   }
+}
+
+export function floorDefFor(data: FloorData, floor: number): FloorDef {
+  const def = data.floors.all.find((f) => floor >= f.floors[0] && floor <= f.floors[1]);
+  if (!def) throw new Error(`no floor definition for floor ${floor}`);
+  return def;
+}
+
+/** 同一區間內依樓層輪替地圖 */
+export function mapIdForFloor(data: FloorData, floor: number): string {
+  const def = floorDefFor(data, floor);
+  return def.maps[(floor - def.floors[0]) % def.maps.length]!;
 }

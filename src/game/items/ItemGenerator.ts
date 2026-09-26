@@ -17,6 +17,15 @@ export class ItemGenerator {
     private readonly rng: Rng,
   ) {}
 
+  /** 流水號（存檔用）：讀檔後從這裡接續，避免 uid 與已存在的物品重複 */
+  get uidCounter(): number {
+    return this.counter;
+  }
+
+  set uidCounter(value: number) {
+    this.counter = value;
+  }
+
   generate(itemLevel: number, rarityWeights: LootTableDef['rarityWeights']): ItemInstance {
     const rarity = this.rollRarity(rarityWeights);
     const bases = this.data.items.all.filter((b) => b.levelReq <= itemLevel);

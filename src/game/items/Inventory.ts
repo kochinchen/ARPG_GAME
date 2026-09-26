@@ -127,6 +127,13 @@ export class Inventory {
     return current;
   }
 
+  /** 讀檔：以存檔內容取代所有格子（長度必須相同） */
+  restore(cells: readonly (InventoryEntry | null)[]): void {
+    if (cells.length !== this.cells.length) throw new Error(`inventory size mismatch: ${cells.length} vs ${this.cells.length}`);
+    cells.forEach((c, i) => (this.cells[i] = c));
+    this.changed();
+  }
+
   /** 依 uid 移除物品（測試與後續系統使用） */
   removeItem(uid: string): ItemInstance | null {
     const cell = this.cells.findIndex((c) => c?.kind === 'item' && c.item.uid === uid);

@@ -53,6 +53,13 @@ module.exports = {
       to: { path: '^src/game/', pathNot: '^src/game/(Commands|GameEvents)\\.ts$' },
     },
     {
+      name: 'save-below-ui',
+      comment: 'save 只透過 SaveMapper 讀寫 game，不可依賴 ui / render / input。',
+      severity: 'error',
+      from: { path: '^src/save/' },
+      to: { path: '^src/(ui|render|input)/' },
+    },
+    {
       name: 'render-read-only',
       comment: 'render 不可依賴 ui / save / input。',
       severity: 'error',

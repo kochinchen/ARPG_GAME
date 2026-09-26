@@ -1,6 +1,6 @@
 import { distance } from '../../core/math/Vec2';
 import type { Actor } from '../entities/Actor';
-import type { Chest, ExitPortal, GroundItem, Interactable } from '../entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable, StairsUp } from '../entities/Interactable';
 import type { GameEventBus } from '../GameEvents';
 import type { ChestSystem } from '../items/ChestSystem';
 import type { Inventory } from '../items/Inventory';
@@ -16,8 +16,11 @@ export interface InteractionWorld {
   groundItems: GroundItem[];
   chests: Chest[];
   exit: ExitPortal | null;
+  stairsUp: StairsUp | null;
   /** 點擊出口 */
   useExit(): void;
+  /** 點擊往上的樓梯 */
+  useStairsUp(): void;
 }
 
 /**
@@ -41,11 +44,12 @@ export class InteractionSystem {
   }
 
   find(id: number): Interactable | undefined {
-    const exit = this.world.exit;
+    const { exit, stairsUp } = this.world;
     return (
       this.world.groundItems.find((g) => g.id === id) ??
       this.world.chests.find((c) => c.id === id && !c.opened) ??
-      (exit?.id === id ? exit : undefined)
+      (exit?.id === id ? exit : undefined) ??
+      (stairsUp?.id === id ? stairsUp : undefined)
     );
   }
 
@@ -87,6 +91,7 @@ export class InteractionSystem {
     this.targetId = null;
     if (target.kind === 'chest') this.chests.open(target);
     else if (target.kind === 'exit') this.world.useExit();
+    else if (target.kind === 'stairsUp') this.world.useStairsUp();
     else this.pickUp(target, true);
   }
 

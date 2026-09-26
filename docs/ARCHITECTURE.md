@@ -1,6 +1,6 @@
 # ARPG Project Architecture（Phase 0）
 
-> 狀態：M0～M7 完成（含技能系統大改與三段 Combo）；下一步 M9 Save（M8 UI 排在存檔之後）。
+> 狀態：M0～M7、M9 完成（含技能系統大改、三段 Combo、存檔與回到上一層）；下一步 M8 UI。
 > 目標：先定義模組邊界、依賴方向、資料格式與 MVP 里程碑，再進入第一個 Vertical Slice。
 
 ---
@@ -71,6 +71,8 @@ Screen (sx, sy) ──IsoProjection.toWorld()──►  World (x, y)   ← 滑�
 | 未來若有排行榜 / 交易 | — | 必須改為 Server-authoritative（見 1.4），客戶端驗證永遠不夠 |
 
 ### 1.2 存檔格式原則
+
+> 下方程式碼是最初的規劃，實際格式見 [SAVE_SYSTEM.md](SAVE_SYSTEM.md)；這份舊格式在程式中作為 v0，用來驗證 Migration。
 
 1. **只存 ID、數值、狀態**，不存物件、不存 Class 實例、不存函式。
 2. **不存可推導的資料**：最終攻擊力、Mastery 是否解鎖，都在讀檔後由規則重新計算。這樣改平衡數值時，舊存檔會自動套用新規則。

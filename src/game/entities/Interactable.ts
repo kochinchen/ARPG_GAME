@@ -22,6 +22,8 @@ export interface Chest {
   position: Vec2;
   lootTable: string;
   opened: boolean;
+  /** 樓層生成順序（存檔記錄已開啟的寶箱用）；開發用生成的寶箱沒有 */
+  spawnIndex?: number;
 }
 
 /** 本層出口：擊敗足夠怪物後開啟，點擊進入下一層 */
@@ -32,5 +34,12 @@ export interface ExitPortal {
   open: boolean;
 }
 
+/** 往上的樓梯：第 2 層以上的樓梯口，點擊回到上一層 */
+export interface StairsUp {
+  kind: 'stairsUp';
+  id: number;
+  position: Vec2;
+}
+
 /** 玩家可以點擊互動的物件 */
-export type Interactable = GroundItem | Chest | ExitPortal;
+export type Interactable = GroundItem | Chest | ExitPortal | StairsUp;
