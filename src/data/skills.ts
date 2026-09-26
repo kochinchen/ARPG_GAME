@@ -638,4 +638,85 @@ const support: SkillInput[] = [
 const withComboTags = (list: SkillInput[]): SkillInput[] =>
   list.map((s) => (skillComboTags[s.id] ? { ...s, combo: skillComboTags[s.id] } : s));
 
-export const skills: SkillInput[] = [...special, ...withComboTags([...melee, ...ranged, ...magic]), ...support];
+// ─────────────────────────────── 怪物技能 ───────────────────────────────
+// 怪物專用（不在技能樹）。傷害一律以 EnemyDef.damage 為基準（scaling: 'weapon'），
+// 投射物比玩家的慢、重擊與法術有前搖提示（telegraph），讓玩家有機會躲開。
+const enemySkills: SkillInput[] = [
+  {
+    id: 'enemy.bow_shot',
+    name: '射箭',
+    description: '骷髏弓手的遠程攻擊。',
+    targeting: 'enemy',
+    range: 6,
+    useAttackSpeed: true,
+    tags: ['attack', 'ranged', 'projectile'],
+    effects: [
+      {
+        type: 'projectile',
+        speed: 9,
+        radius: 0.18,
+        range: 9,
+        onHit: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1 }],
+      },
+    ],
+  },
+  {
+    id: 'enemy.brute_smash',
+    name: '重擊',
+    description: '重甲骷髏蓄力後向前方 120° 重擊並擊退。前搖時地上會顯示範圍，走出範圍即可躲開。',
+    targeting: 'enemy',
+    range: 1.2,
+    castTime: 1.4,
+    impactAt: 0.7,
+    telegraph: true,
+    cooldown: 4,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [
+      {
+        type: 'area',
+        radius: 2,
+        angleDeg: 120,
+        effects: [
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 2.2 },
+          { type: 'knockback', distance: 1.2 },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'enemy.frost_bolt',
+    name: '冰霜箭',
+    description: '骷髏法師的遠程法術，命中造成緩速。',
+    targeting: 'enemy',
+    range: 6.5,
+    castTime: 0.8,
+    tags: ['spell', 'projectile', 'cold'],
+    effects: [
+      {
+        type: 'projectile',
+        speed: 8,
+        radius: 0.22,
+        range: 10,
+        onHit: [
+          { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: 1 },
+          { type: 'status', status: 'slow', duration: 1.5, magnitude: 0.3 },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'enemy.flame_burst',
+    name: '烈焰爆裂',
+    description: '骷髏法師在目標腳下引爆火焰。前搖時地上會顯示範圍。',
+    targeting: 'ground',
+    range: 7,
+    castTime: 1.3,
+    impactAt: 0.85,
+    telegraph: true,
+    cooldown: 6,
+    tags: ['spell', 'area', 'fire'],
+    effects: [{ type: 'area', radius: 1.4, effects: [{ type: 'damage', element: 'fire', scaling: 'weapon', multiplier: 1.8 }] }],
+  },
+];
+
+export const skills: SkillInput[] = [...special, ...withComboTags([...melee, ...ranged, ...magic]), ...support, ...enemySkills];

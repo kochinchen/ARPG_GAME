@@ -172,7 +172,7 @@ export class GameWorld {
     this.comboSlotLevels = data.balance.player.comboSlotLevels;
     this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories);
     this.projectileSystem = new ProjectileSystem(this.nav, this.targeting, executor);
-    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events);
+    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events, data.skills);
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
 
@@ -294,7 +294,9 @@ export class GameWorld {
     const safe = [this.spawnPoint, ...this.checkpoints.checkpoints.slice(1).map((c) => c.position)];
     if (this.exit) safe.push(this.exit.position);
     const killed = new Set(restore?.killed ?? []);
-    const plan = spawner.planMonsters(def, scaling.density, safe, this.data.balance.floor.safeRadius);
+    // 只生成這一層已經開放的怪物（minFloor）
+    const pool = { ...def, monsterPool: def.monsterPool.filter((m) => m.minFloor <= floor) };
+    const plan = spawner.planMonsters(pool, scaling.density, safe, this.data.balance.floor.safeRadius);
     const spawnedIds: [number, number][] = [];
     plan.forEach((request, index) => {
       if (killed.has(index)) return;

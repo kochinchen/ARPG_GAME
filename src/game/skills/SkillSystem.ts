@@ -13,8 +13,6 @@ import { combatCategory } from './skillCategory';
 
 /** 追擊時重新尋路的間隔（秒） */
 const REPATH_INTERVAL = 0.25;
-/** 施放到這個比例時觸發效果（出手瞬間） */
-const HIT_FRACTION = 0.5;
 
 /**
  * 執行 Actor 的技能意圖：
@@ -132,7 +130,15 @@ export class SkillSystem {
       mods,
     };
     if (!intent.hold) actor.intent = null;
-    this.events.emit('SkillCast', { actorId: actor.id, skillId: skill.id, targetId, point });
+    const cast = actor.cast;
+    this.events.emit('SkillCast', {
+      actorId: actor.id,
+      skillId: skill.id,
+      targetId,
+      point,
+      direction,
+      impactIn: cast.duration * skill.impactAt,
+    });
     // 瞬發技能當下就觸發
     this.advanceCast(actor, 0);
   }
@@ -140,7 +146,7 @@ export class SkillSystem {
   private advanceCast(actor: Actor, dt: number): void {
     const cast = actor.cast!;
     cast.elapsed += dt;
-    if (!cast.fired && cast.elapsed >= cast.duration * HIT_FRACTION) {
+    if (!cast.fired && cast.elapsed >= cast.duration * cast.skill.impactAt) {
       cast.fired = true;
       this.fire(actor);
     }

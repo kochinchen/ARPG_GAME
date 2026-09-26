@@ -11,7 +11,10 @@ export const FloorDefSchema = z.strictObject({
   floors: z.tuple([z.int().positive(), z.int().positive()]).refine(([a, b]) => a <= b, 'from 必須 <= to'),
   /** 此區間輪替使用的地圖（必須有 S、M、X） */
   maps: z.array(IdSchema).min(1),
-  monsterPool: z.array(z.strictObject({ enemyId: IdSchema, weight: z.number().positive() })).min(1),
+  /** minFloor：這種怪物從第幾層開始出現（預設區間第一層） */
+  monsterPool: z
+    .array(z.strictObject({ enemyId: IdSchema, weight: z.number().positive(), minFloor: z.int().positive().default(1) }))
+    .min(1),
   /** 每 100 格地板的怪物數（第一層基準，之後依 balance.difficulty 增加） */
   density: z.number().positive(),
   /** 一群怪物的隻數範圍 */

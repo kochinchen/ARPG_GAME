@@ -49,8 +49,12 @@ export const SkillDefSchema = z
     cost: z.strictObject({ mana: RankNumberSchema }).default({ mana: 0 }),
     /** 冷卻（秒） */
     cooldown: z.number().nonnegative().default(0),
-    /** 施放時間（秒）；效果在施放到一半時觸發 */
+    /** 施放時間（秒） */
     castTime: z.number().nonnegative().default(0.3),
+    /** 效果在施放時間的哪個比例觸發（0～1）；重擊類可以設晚一點，前搖較長 */
+    impactAt: z.number().min(0).max(1).default(0.5),
+    /** 前搖期間在地上顯示攻擊範圍（怪物的重擊、法術），讓玩家有時間躲開 */
+    telegraph: z.boolean().default(false),
     /** true：施放時間 = 1 / 攻速（普通攻擊、近戰、弓箭） */
     useAttackSpeed: z.boolean().default(false),
     /** 施放距離（Tile）；省略時使用角色的 attackRange（近戰） */

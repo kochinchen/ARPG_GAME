@@ -172,10 +172,11 @@ describe('存檔點（M7）', () => {
     enemy.lastDamagedBy = world.player.id;
     enemy.hp = 0;
     run(world, 1 / 60);
-    expect(world.progress.xp).toBe(data.enemies.get('enemy.skeleton').xp);
+    expect(world.progress.xp).toBe(data.enemies.get(enemy.defId!).xp);
 
     const deeper = floorWorld(11).world;
-    expect(enemies(deeper)[0]!.xpReward).toBe(Math.round(data.enemies.get('enemy.skeleton').xp * scaleForFloor(11, data.balance.difficulty).xp));
+    const d = enemies(deeper)[0]!;
+    expect(d.xpReward).toBe(Math.round(data.enemies.get(d.defId!).xp * scaleForFloor(11, data.balance.difficulty).xp));
   });
 });
 

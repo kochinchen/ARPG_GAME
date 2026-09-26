@@ -5,7 +5,7 @@ import type { EffectContext, IEffect } from './IEffect';
 import { combatCategory } from '../skillCategory';
 
 /** Spell Power 傷害的浮動範圍 */
-const SPELL_SPREAD = 0.2;
+export const SPELL_SPREAD = 0.2;
 
 export class DamageEffect implements IEffect<'damage'> {
   readonly type = 'damage' as const;

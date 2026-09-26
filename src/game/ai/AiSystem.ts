@@ -1,3 +1,5 @@
+import type { DataTable } from '../../data/DataRegistry';
+import type { SkillDef } from '../../data/schema/skill';
 import type { Actor } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
 import type { NavGrid } from '../movement/NavGrid';
@@ -24,6 +26,7 @@ export class AiSystem {
     private readonly nav: NavGrid,
     private readonly pathfinder: Pathfinder,
     events: GameEventBus,
+    private readonly skills: DataTable<SkillDef>,
   ) {
     // 被攻擊時記錄仇恨來源
     events.on('ActorDamaged', (e) => {
@@ -36,7 +39,15 @@ export class AiSystem {
     for (const self of actors) {
       const brain = self.ai;
       if (!brain || !self.alive || self.isDisabled) continue;
-      const ctx: AiContext = { self, brain, actors, targeting: this.targeting, nav: this.nav, pathfinder: this.pathfinder };
+      const ctx: AiContext = {
+        self,
+        brain,
+        actors,
+        targeting: this.targeting,
+        nav: this.nav,
+        pathfinder: this.pathfinder,
+        skills: this.skills,
+      };
       const next = this.states[brain.state].update(ctx);
       if (next !== null && next !== brain.state) {
         brain.state = next;

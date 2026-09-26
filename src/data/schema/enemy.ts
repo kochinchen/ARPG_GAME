@@ -19,16 +19,21 @@ export const EnemyDefSchema = z
   detectRange: z.number().nonnegative(),
   /** 離出生點超過此距離就放棄追擊、走回原位 */
   leashRange: z.number().positive().default(14),
-  /** none = 不行動（訓練木樁） */
-  ai: z.enum(['none', 'melee']),
-  /** 第一個技能為主要攻擊（AI 追擊時使用） */
+  /** none = 不行動（訓練木樁）；melee = 貼身攻擊；ranged = 保持距離攻擊，被貼身時後退 */
+  ai: z.enum(['none', 'melee', 'ranged']),
+  /** ranged：目標比這個距離近時後退（Tile） */
+  keepDistance: z.number().nonnegative().default(0),
+  /**
+   * 第一個技能為主要攻擊；其餘為特殊技能（應有冷卻），冷卻結束且目標在範圍內時優先使用。
+   */
   skills: z.array(IdSchema).default([]),
   lootTable: IdSchema.optional(),
   xp: z.number().nonnegative(),
   /** Boss：冰凍改為強力緩速 */
   boss: z.boolean().default(false),
   })
-  .refine((e) => e.ai === 'none' || e.skills.length > 0, { message: '有 AI 的怪物至少需要一個技能' });
+  .refine((e) => e.ai === 'none' || e.skills.length > 0, { message: '有 AI 的怪物至少需要一個技能' })
+  .refine((e) => e.ai !== 'ranged' || e.keepDistance > 0, { message: 'ranged AI 需要設定 keepDistance' });
 
 export type EnemyDef = z.infer<typeof EnemyDefSchema>;
 export type EnemyDefInput = z.input<typeof EnemyDefSchema>;

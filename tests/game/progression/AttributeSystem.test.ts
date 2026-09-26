@@ -15,11 +15,24 @@ describe('屬性點（AttributeSystem）', () => {
     const { world, commands } = createWorld();
     for (let i = 0; i < 5; i++) world.experience.grantLevel();
     const s = world.player.stats;
-    const before = { dmg: s.get('damageBonus'), hp: world.player.maxHp, mp: world.player.maxMana, def: s.get('defense'), crit: s.get('critChance') };
+    const before = {
+      min: s.get('damageMin'),
+      max: s.get('damageMax'),
+      spell: s.get('spellPower'),
+      bonus: s.get('damageBonus'),
+      hp: world.player.maxHp,
+      mp: world.player.maxMana,
+      def: s.get('defense'),
+      crit: s.get('critChance'),
+    };
     for (const attribute of ['attack', 'vitality', 'mana', 'defense', 'crit']) commands.push({ type: 'AllocateAttribute', attribute, count: 3 });
     run(world, 1 / 60);
     expect(world.progress.attributePoints).toBe(0);
-    expect(s.get('damageBonus')).toBeCloseTo(before.dmg + 0.03);
+    // 攻擊：基礎攻擊（武器最小 / 最大值、法術強度）各 +0.3，近戰另外 +0.5%；不再加全部傷害 %
+    expect(s.get('damageMin')).toBeCloseTo(before.min + 0.9);
+    expect(s.get('damageMax')).toBeCloseTo(before.max + 0.9);
+    expect(s.get('spellPower')).toBeCloseTo(before.spell + 0.9);
+    expect(s.get('damageBonus')).toBeCloseTo(before.bonus);
     expect(s.get('meleeDamageBonus')).toBeCloseTo(0.015);
     expect(world.player.maxMana).toBeCloseTo(before.mp + 12);
     expect(world.player.maxHp).toBeCloseTo(before.hp + 15);

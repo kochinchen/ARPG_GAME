@@ -7,6 +7,7 @@ import { firstElement } from '../../game/skills/effects/AreaEffect';
 import { ELEMENT_COLORS, PROJECTILE_COLORS } from '../palette';
 
 const RING_LIFETIME = 0.35;
+const TELEGRAPH_COLOR = 0xff4a3a;
 const CHAIN_LIFETIME = 0.25;
 
 interface Ring {
@@ -15,6 +16,17 @@ interface Ring {
   /** 範圍的 World 座標外框（圓或扇形） */
   outline: Vec2[];
   center: Vec2;
+}
+
+/** 前搖提示：範圍外框 + 由中心往外填滿，填滿的瞬間命中 */
+interface Telegraph {
+  graphics: Graphics;
+  age: number;
+  duration: number;
+  outline: Vec2[];
+  center: Vec2;
+  /** 施放被打斷（暈眩、冰凍、死亡）時提早移除 */
+  active: () => boolean;
 }
 
 interface Bolt {
@@ -30,6 +42,7 @@ export class EffectLayer {
   readonly ground = new Container();
   private readonly rings: Ring[] = [];
   private readonly bolts: Bolt[] = [];
+  private readonly telegraphs: Telegraph[] = [];
   private readonly projectileViews = new Map<number, Graphics>();
   private readonly zoneViews = new Map<number, Graphics>();
   private readonly pendingViews = new Map<number, Graphics>();
@@ -46,6 +59,13 @@ export class EffectLayer {
     graphics.tint = color;
     this.ground.addChild(graphics);
     this.rings.push({ graphics, age: 0, outline: sector(center, radius, direction, angleDeg), center });
+  }
+
+  /** 怪物重擊 / 法術的前搖提示：duration 秒後命中 */
+  spawnTelegraph(center: Vec2, radius: number, direction: Vec2, angleDeg: number, duration: number, active: () => boolean): void {
+    const graphics = new Graphics();
+    this.ground.addChild(graphics);
+    this.telegraphs.push({ graphics, age: 0, duration, outline: sector(center, radius, direction, angleDeg), center, active });
   }
 
   /** 連鎖閃電：依序連線 */
@@ -86,6 +106,28 @@ export class EffectLayer {
         .poly(points)
         .fill({ color: 0xffffff, alpha: 0.18 * (1 - t) })
         .stroke({ color: 0xffffff, width: 3, alpha: 1 - t });
+    }
+    for (let i = this.telegraphs.length - 1; i >= 0; i--) {
+      const tg = this.telegraphs[i]!;
+      tg.age += dt;
+      if (tg.age >= tg.duration || !tg.active()) {
+        tg.graphics.destroy();
+        this.telegraphs.splice(i, 1);
+        continue;
+      }
+      const t = tg.age / tg.duration;
+      const toScreen = (k: number) =>
+        tg.outline.flatMap((p) => {
+          const s = this.projection.toScreen(vec2(tg.center.x + (p.x - tg.center.x) * k, tg.center.y + (p.y - tg.center.y) * k));
+          return [s.x, s.y];
+        });
+      tg.graphics
+        .clear()
+        .poly(toScreen(1))
+        .fill({ color: TELEGRAPH_COLOR, alpha: 0.12 })
+        .stroke({ color: TELEGRAPH_COLOR, width: 2, alpha: 0.85 })
+        .poly(toScreen(t))
+        .fill({ color: TELEGRAPH_COLOR, alpha: 0.3 });
     }
     for (let i = this.bolts.length - 1; i >= 0; i--) {
       const bolt = this.bolts[i]!;

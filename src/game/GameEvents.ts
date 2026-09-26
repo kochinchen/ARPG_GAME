@@ -11,7 +11,15 @@ import type { EquipmentSlot } from './items/ItemInstance';
  */
 export interface GameEvents {
   /** 開始施放技能（Render 播放動作） */
-  SkillCast: { actorId: ActorId; skillId: string; targetId: ActorId | null; point: Vec2 };
+  SkillCast: {
+    actorId: ActorId;
+    skillId: string;
+    targetId: ActorId | null;
+    point: Vec2;
+    direction: Vec2;
+    /** 距離效果觸發還有幾秒（前搖提示的顯示時間） */
+    impactIn: number;
+  };
   /** 技能無法施放 */
   SkillFailed: { actorId: ActorId; skillId: string; reason: 'mana' };
   /** 範圍效果觸發（Render 播放擴散圈） */

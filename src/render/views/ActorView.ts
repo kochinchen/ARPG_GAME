@@ -2,7 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { Actor } from '../../game/entities/Actor';
-import { ENEMY_COLORS, PALETTE, STATUS_TINTS } from '../palette';
+import { ENEMY_ACCENTS, ENEMY_COLORS, PALETTE, STATUS_TINTS } from '../palette';
 
 const BODY_HEIGHT = 40;
 const HEAD_Y = -50;
@@ -49,6 +49,8 @@ export class ActorView {
     const head = new Graphics().circle(0, HEAD_Y, 8).fill({ color }).stroke({ color: dark, width: 2 });
     this.facingMark.circle(0, 0, 3).fill({ color: PALETTE.marker });
     this.body.addChild(torso, head);
+    const accent = this.isEnemy ? ENEMY_ACCENTS[actor.defId ?? ''] : undefined;
+    if (accent) this.body.addChild(drawAccent(accent, px, dark));
 
     this.nameLabel = new Text({
       text: actor.name,
@@ -105,4 +107,26 @@ export class ActorView {
       .rect(-BAR_WIDTH / 2, BAR_Y, BAR_WIDTH * ratio, 5)
       .fill({ color: this.isPlayer ? PALETTE.playerHpFill : PALETTE.hpFill });
   }
+}
+
+/** 怪物的辨識配件（在身體之上，跟著前衝與傾倒） */
+function drawAccent(accent: 'bow' | 'hat' | 'helmet' | 'hunch', px: number, dark: number): Graphics {
+  const g = new Graphics();
+  switch (accent) {
+    case 'bow':
+      g.arc(px * 0.9, -BODY_HEIGHT / 2 - 4, 14, -Math.PI / 2.2, Math.PI / 2.2).stroke({ color: 0x8a5a2a, width: 3 });
+      g.moveTo(px * 0.9 + 6, -BODY_HEIGHT / 2 - 17).lineTo(px * 0.9 + 6, -BODY_HEIGHT / 2 + 9).stroke({ color: 0xe8e0c8, width: 1 });
+      break;
+    case 'hat':
+      g.poly([-11, HEAD_Y - 4, 11, HEAD_Y - 4, 2, HEAD_Y - 26]).fill({ color: 0x4a3a72 }).stroke({ color: dark, width: 2 });
+      break;
+    case 'helmet':
+      g.roundRect(-10, HEAD_Y - 10, 20, 11, 4).fill({ color: 0x4a4f58 }).stroke({ color: 0x22252a, width: 2 });
+      g.rect(-px * 0.7, -BODY_HEIGHT - 6, px * 1.4, 7).fill({ color: 0x5a606a });
+      break;
+    case 'hunch':
+      g.ellipse(-px * 0.2, -BODY_HEIGHT + 2, px * 0.6, 8).fill({ color: dark, alpha: 0.6 });
+      break;
+  }
+  return g;
 }

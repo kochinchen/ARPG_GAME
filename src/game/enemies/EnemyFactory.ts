@@ -29,7 +29,15 @@ export class EnemyFactory {
       position,
       radius: def.radius,
       stats,
-      ai: def.ai === 'none' ? null : createBrain(position, def.detectRange, def.leashRange, def.skills[0]!),
+      ai:
+        def.ai === 'none'
+          ? null
+          : createBrain(position, {
+              detectRange: def.detectRange,
+              leashRange: def.leashRange,
+              skills: def.skills,
+              keepDistance: def.ai === 'ranged' ? def.keepDistance : 0,
+            }),
       skillRanks: new Map(def.skills.map((skillId) => [skillId, 1])),
       isBoss: def.boss,
       xpReward: Math.round(def.xp * scaling.xp),

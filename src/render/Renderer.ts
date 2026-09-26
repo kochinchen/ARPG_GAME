@@ -34,7 +34,7 @@ export class Renderer {
     private readonly projection: IsoProjection,
     private readonly world: GameWorld,
     private readonly camera: Camera,
-    data: Pick<DataRegistry, 'items' | 'affixes' | 'potions'>,
+    data: Pick<DataRegistry, 'items' | 'affixes' | 'potions' | 'skills'>,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer);
     this.effects = new EffectLayer(projection, this.objectLayer);
@@ -70,9 +70,21 @@ export class Renderer {
       this.markers.rebuild(world.checkpoints.checkpoints);
     });
     world.events.on('SkillCast', (e) => {
-      // 對單一敵人的技能（近戰）播放前衝動作
       const attacker = world.targeting.getActor(e.actorId);
-      if (!attacker || e.targetId === null) return;
+      if (!attacker) return;
+      const skill = data.skills.get(e.skillId);
+      if (skill.telegraph) {
+        // 前搖提示：在地上畫出攻擊範圍，填滿時命中
+        const area = skill.effects.find((effect) => effect.type === 'area');
+        if (area?.type === 'area') {
+          const center = skill.targeting === 'ground' ? e.point : attacker.position;
+          const active = () => attacker.alive && attacker.cast?.skill.id === skill.id;
+          this.effects.spawnTelegraph(center, area.radius, e.direction, area.angleDeg ?? 360, e.impactIn, active);
+        }
+        return;
+      }
+      // 對單一敵人的技能（近戰）播放前衝動作
+      if (e.targetId === null) return;
       const dir = sub(projection.toScreen(e.point), projection.toScreen(attacker.position));
       this.actorViews.get(e.actorId)?.lunge(dir);
     });

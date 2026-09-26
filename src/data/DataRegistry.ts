@@ -104,6 +104,9 @@ export class DataRegistry {
       }
     }
     for (const floor of floors.all) {
+      if (!floor.monsterPool.some((m) => m.minFloor <= floor.floors[0])) {
+        problems.push(`floor '${floor.id}' 在第 ${floor.floors[0]} 層沒有任何可生成的怪物（檢查 minFloor）`);
+      }
       for (const { enemyId } of floor.monsterPool) {
         if (!enemies.has(enemyId)) problems.push(`floor '${floor.id}' 引用不存在的 enemy '${enemyId}'`);
       }

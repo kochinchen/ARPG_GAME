@@ -1,3 +1,5 @@
+import type { DataTable } from '../../data/DataRegistry';
+import type { SkillDef } from '../../data/schema/skill';
 import type { Actor } from '../entities/Actor';
 import type { NavGrid } from '../movement/NavGrid';
 import type { Pathfinder } from '../movement/Pathfinder';
@@ -11,6 +13,7 @@ export interface AiContext {
   targeting: TargetingService;
   nav: NavGrid;
   pathfinder: Pathfinder;
+  skills: DataTable<SkillDef>;
 }
 
 /**

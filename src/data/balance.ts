@@ -44,12 +44,14 @@ export const balance: z.input<typeof BalanceSchema> = {
   attributes: {
     pointsPerLevel: 3,
     list: [
-      // 近戰要貼身承受傷害，攻擊點數對近戰技能稍高（遠程 / 魔法 +1%，近戰另外 +0.5%，兩者相乘約 +1.5%）
+      // 基礎攻擊：武器傷害（最小與最大值）與法術強度各 +0.3；近戰要貼身承受傷害，另外 +0.5% 近戰傷害
       {
         id: 'attack',
         name: '攻擊',
         effects: [
-          { stat: 'damageBonus', perPoint: 0.01, label: '傷害', percent: true },
+          { stat: 'damageMin', perPoint: 0.3, label: '基礎攻擊（武器 / 法術）' },
+          { stat: 'damageMax', perPoint: 0.3, label: '基礎攻擊（武器 / 法術）' },
+          { stat: 'spellPower', perPoint: 0.3, label: '基礎攻擊（武器 / 法術）' },
           { stat: 'meleeDamageBonus', perPoint: 0.005, label: '近戰傷害', percent: true },
         ],
       },

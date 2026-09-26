@@ -16,10 +16,38 @@ export interface AiBrain {
   targetId: ActorId | null;
   /** 最近一次被誰打；閒置時會對其反擊 */
   provokedBy: ActorId | null;
-  /** 追擊時使用的技能 */
+  /** 主要攻擊（追擊時使用） */
   skillId: string;
+  /** 特殊技能：冷卻結束且目標在範圍內時優先使用（依順序） */
+  specialSkills: readonly string[];
+  /** 目標比這個距離近時後退（0 = 不後退，近戰怪） */
+  keepDistance: number;
+  /** 正在後退拉開距離 */
+  retreating: boolean;
+  /** 上次後退時的施放次數：至少出手一次才會再後退（避免被追時一直逃、從不攻擊） */
+  castsAtRetreat: number;
 }
 
-export function createBrain(home: Vec2, detectRange: number, leashRange: number, skillId: string): AiBrain {
-  return { state: 'idle', home, detectRange, leashRange, targetId: null, provokedBy: null, skillId };
+export interface BrainOptions {
+  detectRange: number;
+  leashRange: number;
+  skills: readonly string[];
+  keepDistance?: number;
+}
+
+export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
+  const [primary, ...special] = options.skills;
+  return {
+    state: 'idle',
+    home,
+    detectRange: options.detectRange,
+    leashRange: options.leashRange,
+    targetId: null,
+    provokedBy: null,
+    skillId: primary!,
+    specialSkills: special,
+    keepDistance: options.keepDistance ?? 0,
+    retreating: false,
+    castsAtRetreat: -1,
+  };
 }

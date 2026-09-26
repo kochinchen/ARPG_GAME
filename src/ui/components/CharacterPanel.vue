@@ -36,6 +36,14 @@ function add(e: MouseEvent, attribute: string) {
       <p class="hint">每升一級得到 {{ view.pointsPerLevel }} 點。分配後無法退回。Shift + 點擊一次加 5 點。</p>
     </section>
 
+    <section class="attack">
+      <h4>攻擊力（每擊，技能倍率 100%，已含所有加成）</h4>
+      <div v-for="s in view.attack" :key="s.label" class="stat">
+        <span>{{ s.label }}</span>
+        <span class="value big">{{ s.value }}</span>
+      </div>
+    </section>
+
     <section class="stats">
       <div v-for="s in view.stats" :key="s.label" class="stat">
         <span>{{ s.label }}</span>
@@ -128,6 +136,19 @@ header {
   margin: 8px 0 0;
   font-size: 11px;
   color: #8a7c68;
+}
+.attack {
+  padding: 8px 12px;
+  border-top: 1px solid #3d342c;
+}
+h4 {
+  margin: 0 0 4px;
+  font: 11px/1.4 sans-serif;
+  color: #8a7c68;
+}
+.value.big {
+  font-size: 14px;
+  color: #ffd27a;
 }
 .stats {
   padding: 8px 12px 12px;
