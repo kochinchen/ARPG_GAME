@@ -3,6 +3,18 @@ import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { Actor } from '../../game/entities/Actor';
 import { ENEMY_ACCENTS, ENEMY_COLORS, PALETTE, STATUS_TINTS } from '../palette';
+import { HEROINE } from '../figure/Heroine';
+import { PolyFigure, type ActionKind } from '../figure/PolyFigure';
+
+/** 通用人形（怪物）的可動部位：兩條腿、後方的手、前方（拿武器）的手 */
+interface Rig {
+  root: Container;
+  legs: [Graphics, Graphics];
+  armBack: Graphics;
+  armFront: Graphics;
+  /** 攻擊時拿武器的手：舉起的角度 → 揮下的角度（弧度） */
+  swing: { raise: number; strike: number };
+}
 
 const BODY_HEIGHT = 40;
 const HEAD_Y = -50;
@@ -14,6 +26,9 @@ const LEG_LENGTH = 17;
 /** 走路時手腳擺動的幅度（弧度）與速度 */
 const SWING_ANGLE = 0.55;
 const SWING_SPEED = 11;
+/** 攻擊：前搖舉起手 → STRIKE_TIME 秒內揮下 → RECOVER_TIME 秒回到原位 */
+const STRIKE_TIME = 0.12;
+const RECOVER_TIME = 0.18;
 const BAR_WIDTH = 40;
 const BAR_Y = -66;
 /** 揮擊時往目標方向前衝的距離（px）與時間（秒） */
@@ -36,9 +51,13 @@ export class ActorView {
   private readonly isPlayer: boolean;
   private readonly isElite: boolean;
   private readonly aura = new Graphics();
-  /** 四肢：[左腳, 右腳, 左手, 右手]，以髖 / 肩為軸旋轉 */
-  private readonly limbs: Graphics[] = [];
+  /** 主角：多面體模型（八方向、各種樣態）；怪物：通用人形 */
+  private readonly figure: PolyFigure | null = null;
+  private readonly rig: Rig | null = null;
   private walkPhase = 0;
+  /** 攻擊動畫：已經過的時間與前搖長度；null = 沒有在攻擊 */
+  private attackTime: number | null = null;
+  private attackWindup = 0;
   private swing = 0;
   private lastScreen: Vec2 | null = null;
   private lungeTime = 0;
@@ -59,32 +78,14 @@ export class ActorView {
     const px = actor.radius * projection.tileWidth;
 
     const shadow = new Graphics().ellipse(0, 0, px, px / 2).fill({ color: PALETTE.shadow, alpha: 0.45 });
-    const torso = new Graphics()
-      .roundRect(-px * 0.55, SHOULDER_Y - 3, px * 1.1, HIP_Y - SHOULDER_Y + 5, 6)
-      .fill({ color })
-      .stroke({ color: dark, width: 2 });
-    const head = new Graphics().circle(0, HEAD_Y, 8).fill({ color }).stroke({ color: dark, width: 2 });
     this.facingMark.circle(0, 0, 3).fill({ color: PALETTE.marker });
-    const legX = px * 0.28;
-    const armX = px * 0.55 + 3;
-    const legL = limb(-legX, HIP_Y, LEG_LENGTH, 6, color, dark, 'foot');
-    const legR = limb(legX, HIP_Y, LEG_LENGTH, 6, color, dark, 'foot');
-    const armL = limb(-armX, SHOULDER_Y, ARM_LENGTH, 5, color, dark, 'hand');
-    const armR = limb(armX, SHOULDER_Y, ARM_LENGTH, 5, color, dark, 'hand');
-    // 玩家右手拿劍
     if (this.isPlayer) {
-      armR
-        .rect(-1.5, ARM_LENGTH - 2, 3, 16)
-        .fill({ color: 0xd8dce4 })
-        .stroke({ color: 0x5a606a, width: 1 })
-        .rect(-5, ARM_LENGTH - 3, 10, 3)
-        .fill({ color: 0x8a6a2a });
+      this.figure = new PolyFigure(HEROINE);
+      this.body.addChild(this.figure.graphics);
+    } else {
+      this.rig = humanoid(px, color, dark, this.isEnemy ? ENEMY_ACCENTS[actor.defId ?? ''] : undefined);
+      this.body.addChild(this.rig.root);
     }
-    this.limbs.push(legL, legR, armL, armR);
-    // 後方的手腳先畫，身體蓋在上面
-    this.body.addChild(legL, legR, armL, torso, armR, head);
-    const accent = this.isEnemy ? ENEMY_ACCENTS[actor.defId ?? ''] : undefined;
-    if (accent) this.body.addChild(drawAccent(accent, px, dark));
 
     this.nameLabel = new Text({
       text: actor.name,
@@ -104,6 +105,24 @@ export class ActorView {
       this.aura.ellipse(0, 0, px * 1.35, px * 0.68).stroke({ color: actor.isBoss ? PALETTE.bossName : PALETTE.eliteName, width: 2 });
     }
     this.container.addChild(shadow, this.aura, this.facingMark, this.body, this.hpBar, this.nameLabel);
+  }
+
+  /**
+   * 攻擊動畫（敵我共用）：前搖期間把手舉起，出手瞬間揮下，再收回。
+   * windup = 距離命中的秒數（SkillCast.impactIn）。
+   */
+  attack(windup: number, kind: ActionKind = 'attack'): void {
+    if (this.figure) {
+      this.figure.act(kind, windup);
+      return;
+    }
+    this.attackTime = 0;
+    this.attackWindup = Math.max(0.06, windup);
+  }
+
+  /** 受到傷害（主角有受傷姿勢） */
+  hit(): void {
+    this.figure?.hit();
   }
 
   /** 揮擊動畫：往 direction（畫面座標）前衝一下 */
@@ -130,8 +149,8 @@ export class ActorView {
     this.body.alpha = this.hovered ? 0.85 : 1;
     // 冰凍、暈眩、燃燒、緩速等狀態以顏色表示
     this.body.tint = STATUS_TINTS.find(([kind]) => actor.statuses.some((s) => s.kind === kind))?.[1] ?? 0xffffff;
-    // 倒地：身體側躺、變淡
-    this.body.rotation = actor.alive ? 0 : -Math.PI / 2.4;
+    // 倒地：身體側躺、變淡（主角有自己的倒地姿勢）
+    this.body.rotation = actor.alive || this.figure ? 0 : -Math.PI / 2.4;
     this.container.alpha = actor.alive ? 1 : 0.55;
     this.facingMark.visible = actor.alive;
 
@@ -141,19 +160,37 @@ export class ActorView {
     this.drawHpBar(actor);
   }
 
-  /** 移動時手腳前後擺動（左右腳相反、手與同側腳相反）；停下來時慢慢回正 */
+  /** 移動時手腳前後擺動（左右腳相反、手與同側腳相反）；攻擊時拿武器的手舉起再揮下 */
   private animateLimbs(actor: Actor, screen: Vec2, dt: number): void {
     const moved = this.lastScreen && dt > 0 ? Math.hypot(screen.x - this.lastScreen.x, screen.y - this.lastScreen.y) / dt : 0;
     this.lastScreen = screen;
     const walking = actor.alive && moved > 8;
+    if (this.figure) {
+      this.figure.update(dt, { facing: actor.facing, moving: walking, alive: actor.alive });
+      return;
+    }
     if (walking) this.walkPhase += dt * SWING_SPEED;
     const target = walking ? Math.sin(this.walkPhase) * SWING_ANGLE : 0;
     this.swing += (target - this.swing) * Math.min(1, dt * 12);
-    const [legL, legR, armL, armR] = this.limbs;
-    legL!.rotation = this.swing;
-    legR!.rotation = -this.swing;
-    armL!.rotation = -this.swing * 0.8;
-    armR!.rotation = this.swing * 0.8;
+    const { legs, armBack, armFront } = this.rig!;
+    legs[0].rotation = this.swing;
+    legs[1].rotation = -this.swing;
+    armBack.rotation = -this.swing * 0.8;
+    armFront.rotation = this.swing * 0.8 + this.attackAngle(dt);
+  }
+
+  /** 攻擊中拿武器的手的角度（沒有攻擊時為 0） */
+  private attackAngle(dt: number): number {
+    if (this.attackTime === null) return 0;
+    this.attackTime += dt;
+    const t = this.attackTime;
+    const { raise, strike } = this.rig!.swing;
+    const w = this.attackWindup;
+    if (t < w) return raise * easeOut(t / w);
+    if (t < w + STRIKE_TIME) return raise + (strike - raise) * easeOut((t - w) / STRIKE_TIME);
+    if (t < w + STRIKE_TIME + RECOVER_TIME) return strike * (1 - (t - w - STRIKE_TIME) / RECOVER_TIME);
+    this.attackTime = null;
+    return 0;
   }
 
   private drawHpBar(actor: Actor): void {
@@ -208,4 +245,25 @@ function limb(x: number, y: number, length: number, width: number, color: number
   else g.ellipse(1.5, length, width * 0.8, 2.5).fill({ color: dark });
   g.position.set(x, y);
   return g;
+}
+
+const easeOut = (x: number) => 1 - (1 - x) * (1 - x);
+
+/** 怪物的通用人形：軀幹 + 頭 + 雙手雙腳，再加上辨識配件 */
+function humanoid(px: number, color: number, dark: number, accent: Parameters<typeof drawAccent>[0] | undefined): Rig {
+  const root = new Container();
+  const torso = new Graphics()
+    .roundRect(-px * 0.55, SHOULDER_Y - 3, px * 1.1, HIP_Y - SHOULDER_Y + 5, 6)
+    .fill({ color })
+    .stroke({ color: dark, width: 2 });
+  const head = new Graphics().circle(0, HEAD_Y, 8).fill({ color }).stroke({ color: dark, width: 2 });
+  const legX = px * 0.28;
+  const armX = px * 0.55 + 3;
+  const legL = limb(-legX, HIP_Y, LEG_LENGTH, 6, color, dark, 'foot');
+  const legR = limb(legX, HIP_Y, LEG_LENGTH, 6, color, dark, 'foot');
+  const armL = limb(-armX, SHOULDER_Y, ARM_LENGTH, 5, color, dark, 'hand');
+  const armR = limb(armX, SHOULDER_Y, ARM_LENGTH, 5, color, dark, 'hand');
+  root.addChild(legL, legR, armL, torso, armR, head);
+  if (accent) root.addChild(drawAccent(accent, px, dark));
+  return { root, legs: [legL, legR], armBack: armL, armFront: armR, swing: { raise: -2.3, strike: 0.8 } };
 }

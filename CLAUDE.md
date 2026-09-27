@@ -21,7 +21,7 @@
 
 ## 指令
 
-- `npm run dev`：開發伺服器（http://localhost:5173）
+- `npm run dev`：開發伺服器（http://localhost:5173）；角色樣態預覽 http://localhost:5173/viewer.html
 - `npm test`：單元測試
 - `npm run lint`：型別檢查（含無 DOM 的 `tsconfig.logic.json`）+ 依賴方向檢查
 - `npm run build`：正式版建置

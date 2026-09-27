@@ -61,6 +61,7 @@ export class Renderer {
 
     world.events.on('ActorDamaged', (e) => {
       this.floatingText.spawn(projection.toScreen(e.position), e.amount, e.isCrit);
+      this.actorViews.get(e.targetId)?.hit();
     });
     // 換樓層：重建地圖與地面標記（角色、物品依 ID 同步，會自動清掉）
     world.events.on('FloorEntered', () => {
@@ -76,6 +77,7 @@ export class Renderer {
       if (skill.telegraph) {
         // 前搖提示：在地上畫出攻擊範圍，填滿時命中
         const area = skill.effects.find((effect) => effect.type === 'area');
+        this.actorViews.get(e.actorId)?.attack(e.impactIn, skill.tags.includes('spell') ? 'cast' : 'attack');
         if (area?.type === 'area') {
           const center = skill.targeting === 'ground' ? e.point : attacker.position;
           const active = () => attacker.alive && attacker.cast?.skill.id === skill.id;
@@ -83,7 +85,8 @@ export class Renderer {
         }
         return;
       }
-      // 對單一敵人的技能（近戰）播放前衝動作
+      // 所有出手都揮動手臂（前搖期間舉起、命中時揮下）；法術播放施法動作；對單一敵人的技能（近戰）再加上前衝
+      this.actorViews.get(e.actorId)?.attack(e.impactIn, skill.tags.includes('spell') ? 'cast' : 'attack');
       if (e.targetId === null) return;
       const dir = sub(projection.toScreen(e.point), projection.toScreen(attacker.position));
       this.actorViews.get(e.actorId)?.lunge(dir);
