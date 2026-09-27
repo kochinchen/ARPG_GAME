@@ -1,6 +1,7 @@
 import type { Rng } from '../../core/Rng';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { AFFIX_COUNT, RARITIES, STRONG_COUNT, type AffixDef, type EquipSlot, type ItemBaseDef, type Rarity } from '../../data/schema/item';
+import type { LegendaryDef } from '../../data/schema/legendary';
 import type { LootTableDef } from '../../data/schema/loot';
 import type { ItemInstance } from './ItemInstance';
 import { epicTheme } from './ItemNamer';
@@ -16,7 +17,7 @@ export class ItemGenerator {
   private counter = 0;
 
   constructor(
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'balance'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'balance' | 'legendaries'>,
     private readonly rng: Rng,
   ) {}
 
@@ -59,6 +60,15 @@ export class ItemGenerator {
   }
 
   create(base: ItemBaseDef, rarity: Rarity, itemLevel: number): ItemInstance {
+    // 傳奇 / 神話：固定設計（同部位優先；該部位沒有時從全部挑）
+    if (rarity === 'legendary' || rarity === 'mythic') {
+      const all = this.data.legendaries.all.filter((d) => d.rarity === rarity && d.minItemLevel <= itemLevel);
+      const sameKind = all.filter((d) => kindMatches(d, base));
+      const pool = sameKind.length > 0 ? sameKind : all;
+      if (pool.length > 0) return this.createLegendary(this.rng.weighted(pool), itemLevel);
+      // 這個等級還沒有可掉落的設計（例如神話要第 10 層以上）：降一級
+      return this.create(base, rarity === 'mythic' ? 'legendary' : 'epic', itemLevel);
+    }
     const uid = this.nextUid();
     const eligible = (a: AffixDef) => !a.slots || a.slots.includes(base.slot);
     // 稀有度倍率：同一件物品的所有詞綴共用（紫 120%～150%、紅最高 300%）
@@ -97,6 +107,24 @@ export class ItemGenerator {
     return { uid, baseId: base.id, rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes };
   }
 
+  /** 產生一件指定的傳奇 / 神話裝備：基底 = 該種類中目前等級能用的最高階；固定屬性在小範圍內擲骰並隨階級成長 */
+  createLegendary(def: LegendaryDef, itemLevel: number): ItemInstance {
+    const candidates = this.data.items.all.filter((b) => kindMatches(def, b));
+    const eligible = candidates.filter((b) => b.levelReq <= itemLevel);
+    const base = (eligible.length > 0 ? eligible : candidates).reduce((best, b) => (b.levelReq > best.levelReq ? b : best));
+    const uid = this.nextUid();
+    const tier = affixTier(itemLevel, this.data.balance);
+    const legendaryRolls = def.lines
+      .filter((l) => l.type === 'stat')
+      .map((l) => {
+        const [min, max] = l.value;
+        const raw = min === max ? min : this.rng.range(min, max);
+        return Math.round(raw * (1 + l.growth * (tier - 1)) * 10000) / 10000;
+      });
+    const quality = def.main ? Math.round(this.rng.range(def.main[0], def.main[1]) * 100) / 100 : 0;
+    return { uid, baseId: base.id, rarity: def.rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes: [], legendaryId: def.id, legendaryRolls };
+  }
+
   /** 擲一條詞綴的數值：基礎範圍 × 階級成長 × 稀有度倍率 */
   private rollValue(affix: AffixDef, tier: number, power: number): number {
     const [min, max] = affix.value;
@@ -115,4 +143,9 @@ export class ItemGenerator {
 export function affixTier(itemLevel: number, balance: Pick<DataRegistry, 'balance'>['balance']): number {
   const { levelsPerTier, maxTier } = balance.affixPower;
   return Math.min(maxTier, 1 + Math.floor(itemLevel / levelsPerTier));
+}
+
+/** 傳奇設計的種類是否對應這個基底（武器看武器種類，其他看部位） */
+function kindMatches(def: LegendaryDef, base: ItemBaseDef): boolean {
+  return base.slot === 'weapon' ? base.weaponType === def.kind : base.slot === def.kind;
 }

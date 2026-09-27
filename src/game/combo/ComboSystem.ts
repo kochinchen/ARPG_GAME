@@ -4,7 +4,7 @@ import type { Actor, ActorId } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { ComboResolution, ComboResolver } from './ComboResolver';
-import { NO_MODS } from './StepMods';
+import { NO_MODS, type ComboCastInfo } from './StepMods';
 
 /** 整組連段期間免疫擊退的狀態上限時間（連段結束時移除） */
 const UNSTOPPABLE_MAX = 30;
@@ -17,6 +17,8 @@ interface ComboRun {
   point: Vec2;
   /** 原地施放（按住 Shift） */
   stationary: boolean;
+  /** Q / W / E（0～2） */
+  slot: number | null;
   /** 已送出意圖、等待施放開始時記錄的施放次數；null = 可以送出下一步 */
   awaiting: number | null;
 }
@@ -52,10 +54,11 @@ export class ComboSystem {
     targetId: ActorId | null,
     point: Vec2,
     stationary = false,
+    slot: number | null = null,
   ): ComboResolution | null {
     if (sequence.length === 0 || this.runs.has(actor.id)) return null;
     const resolution = this.resolver.resolve(sequence, (id) => actor.skillRanks.get(id) ?? 1);
-    this.runs.set(actor.id, { resolution, next: 0, targetId, point, stationary, awaiting: null });
+    this.runs.set(actor.id, { resolution, next: 0, targetId, point, stationary, slot, awaiting: null });
     if (resolution.status === 'combo' && resolution.modifiers.knockbackResist) {
       this.statuses.apply(actor, 'unstoppable', UNSTOPPABLE_MAX, 0, actor);
     }
@@ -101,6 +104,7 @@ export class ComboSystem {
       }
 
       const skillId = steps[run.next]!;
+      const r = run.resolution;
       const target = run.targetId === null ? null : this.targeting.getValidTarget(actor, run.targetId);
       if (target) run.point = target.position;
       actor.intent = {
@@ -108,7 +112,7 @@ export class ComboSystem {
         targetId: target?.id ?? null,
         point: run.point,
         hold: false,
-        mods: run.resolution.status === 'combo' ? run.resolution.modifiers.steps[run.next]! : NO_MODS,
+        mods: { ...(r.status === 'combo' ? r.modifiers.steps[run.next]! : NO_MODS), combo: comboInfo(run, run.next + 1) },
         stationary: run.stationary,
       };
       actor.repathCooldown = 0;
@@ -126,6 +130,8 @@ export class ComboSystem {
       name: r.displayName,
       skills: [r.steps[0]!, r.steps[1]!, r.steps[2]!],
       description: r.description,
+      slot: run.slot,
+      ruleTier: r.rule.tier,
     });
   }
 
@@ -136,4 +142,17 @@ export class ComboSystem {
       this.statuses.remove(actor, 'unstoppable');
     }
   }
+}
+
+/** 這一步在連段中的位置（傳奇 / 神話裝備的條件） */
+function comboInfo(run: ComboRun, step: number): ComboCastInfo {
+  const r = run.resolution;
+  return {
+    step,
+    skills: r.steps,
+    success: r.status === 'combo',
+    comboId: r.status === 'combo' ? r.comboId : null,
+    ruleTier: r.status === 'combo' ? r.rule.tier : null,
+    slot: run.slot,
+  };
 }

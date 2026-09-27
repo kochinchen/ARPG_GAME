@@ -185,7 +185,8 @@ const STEPS = [0, 1, 2] as const;
           <div v-if="selected.next">
             <h4>下一級</h4>
             <ul class="next">
-              <li v-for="l in selected.next" :key="l">{{ l }}</li>
+              <!-- 只有數值改變的行以亮色顯示，一眼看出升級差異 -->
+              <li v-for="l in selected.next" :key="l" :class="{ same: selected.now.includes(l) }">{{ l }}</li>
             </ul>
           </div>
         </div>
@@ -471,6 +472,9 @@ ul {
 }
 .next {
   color: #8aa2ff;
+}
+.next .same {
+  color: #5e5648;
 }
 .actions {
   display: flex;

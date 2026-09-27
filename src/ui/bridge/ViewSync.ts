@@ -58,11 +58,16 @@ export class ViewSync {
     hud.xp.value = world.progress.xp;
     hud.xp.next = world.experience.xpForNextLevel;
     hud.skillPoints = world.progress.skillPoints;
+    const buffs = world.itemEffects.activeBuffs;
+    if (buffs.length !== hud.buffs.length || buffs.some((b, i) => b.stacks !== hud.buffs[i]?.stacks || Math.ceil(b.remaining) !== Math.ceil(hud.buffs[i]?.remaining ?? 0))) {
+      hud.buffs = buffs;
+    }
     if (world.progress.version !== this.bestiaryVersion) {
       this.bestiaryVersion = world.progress.version;
       if (Object.keys(gameView.bestiary).length !== world.progress.bestiary.size || [...world.progress.bestiary].some(([id, n]) => gameView.bestiary[id] !== n)) {
         gameView.bestiary = Object.fromEntries(world.progress.bestiary);
       }
+      if (gameView.collection.length !== world.progress.collection.size) gameView.collection = [...world.progress.collection];
     }
     hud.attributePoints = world.progress.attributePoints;
     hud.potions = world.potions.count;

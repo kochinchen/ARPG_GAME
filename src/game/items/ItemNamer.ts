@@ -15,7 +15,8 @@ export function nameItem(item: ItemInstance, base: ItemBaseDef, affixes: readonl
   const pick = <T>(list: readonly T[], salt: number): T => list[hash(item.uid, salt) % list.length]!;
   switch (item.rarity) {
     case 'normal':
-      return `${pick(COMMON_WORDS[kind], 1)}${base.name}`;
+      // 第 2 階以上的基底名稱已經有材質（鐵製、騎士、符文…），只有最初級的加品質詞
+      return (base.tier ?? 1) > 1 ? base.name : `${pick(COMMON_WORDS[kind], 1)}${base.name}`;
     case 'magic':
       return affixes[0] ? `${affixes[0].name}${base.name}` : base.name;
     case 'rare': {

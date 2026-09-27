@@ -33,7 +33,7 @@ export class DamageEffect implements IEffect<'damage'> {
     let multiplier = rankValue(def.multiplier, ctx.rank);
     let extraCritChance = mods.crit;
     if (def.bonus && conditionMet(def.bonus.when, target)) {
-      multiplier *= 1 + def.bonus.damagePct;
+      multiplier *= 1 + rankValue(def.bonus.damagePct, ctx.rank);
       extraCritChance += def.bonus.critChance;
     }
     // Combo：傷害加成（含「對某狀態目標」的條件加成）
@@ -43,6 +43,8 @@ export class DamageEffect implements IEffect<'damage'> {
       if (c.type === 'damage') comboDamage += c.value;
       if (c.type === 'crit') extraCritChance += c.value;
     }
+    // 傳奇裝備：對低血量目標加傷
+    for (const low of mods.vsLowHp) if (target.maxHp > 0 && target.hp / target.maxHp < low.below) comboDamage += low.damage;
     multiplier *= 1 + comboDamage;
     // 近戰技能額外加成（屬性點「攻擊」對近戰效果較高）
     const category = combatCategory(ctx.skill);
@@ -65,6 +67,17 @@ export class DamageEffect implements IEffect<'damage'> {
         armorPenetration: mods.armorPenetration,
         lifeStealMultiplier,
       });
+      if (result && result.amount > 0) {
+        ctx.services.events.emit('SkillHit', {
+          casterId: ctx.caster.id,
+          targetId: target.id,
+          skillId: ctx.skill.id,
+          amount: result.amount,
+          isCrit: result.isCrit,
+          killed: result.killed,
+          combo: mods.combo,
+        });
+      }
       // 裝備：元素附加傷害（每次命中額外造成該次傷害一定比例的元素傷害）
       for (const [element, stat] of ELEMENT_DAMAGE) {
         const pct = ctx.caster.stats.get(stat);

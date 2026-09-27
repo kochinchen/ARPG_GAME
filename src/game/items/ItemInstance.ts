@@ -14,7 +14,10 @@ export interface ItemInstance {
    */
   quality?: number;
   affixes: { id: string; rolls: number[] }[];
+  /** 傳奇 / 神話：對應的 LegendaryDef */
   legendaryId?: string;
+  /** 傳奇 / 神話：固定屬性行的擲骰結果（依 LegendaryDef 中 stat 行的順序，已含階級成長） */
+  legendaryRolls?: number[];
 }
 
 export type EquipmentSlot = 'weapon' | 'helmet' | 'armor' | 'gloves' | 'boots' | 'ring1' | 'ring2' | 'amulet';

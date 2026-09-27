@@ -5,7 +5,7 @@ import { systemBridge } from '../bridge/SystemBridge';
 import Dialog from './Dialog.vue';
 
 defineProps<{ save: GameView['save']; devAvailable: boolean; devEnabled: boolean }>();
-const emit = defineEmits<{ close: []; toggleDev: []; bestiary: [] }>();
+const emit = defineEmits<{ close: []; toggleDev: []; bestiary: []; items: [] }>();
 
 const page = ref<'main' | 'controls'>('main');
 const importInput = ref<HTMLInputElement | null>(null);
@@ -30,10 +30,12 @@ const CONTROLS: [string, string][] = [
   ['Space', '喝藥水（同時回復 HP 與 MP）'],
   ['C', '角色（屬性點）'],
   ['K', '怪物圖鑑（擊敗過的怪物與各樓層數值）'],
+  ['O', '裝備圖鑑（白色基底、橘・傳奇、紅・神話）'],
   ['T', '技能樹、連段與 Support 設定'],
   ['I', '背包與裝備（「整理」依類別、等級排列）'],
   ['Tab', '小地圖 / 全地圖（走過的地方才會顯示）'],
   ['Ctrl + 點擊', '商店開啟時：把背包物品賣給商人'],
+  ['拆解區', '背包中：拿著裝備點拆解區的格子放進去，按「拆掉」換成精華（飛昇用）'],
   ['Esc', '關閉面板 / 選單（暫停）'],
 ];
 </script>
@@ -44,6 +46,7 @@ const CONTROLS: [string, string][] = [
       <div class="stack">
         <button type="button" class="primary" @click="emit('close')">繼續遊戲</button>
         <button type="button" @click="emit('bestiary')">怪物圖鑑</button>
+        <button type="button" @click="emit('items')">裝備圖鑑</button>
         <button type="button" @click="page = 'controls'">操作說明</button>
       </div>
 
@@ -66,7 +69,7 @@ const CONTROLS: [string, string][] = [
       <template v-if="devAvailable">
         <h3>開發</h3>
         <label class="check"><input type="checkbox" :checked="devEnabled" @change="emit('toggleDev')" /> 顯示除錯資訊（F3）</label>
-        <p class="hint">B 重置 · N 升一級 · M 生成寶箱 · J 下一層 · L 各稀有度裝備</p>
+        <p class="hint">B 重置 · N 升一級 · M 生成寶箱 · J 下一層 · L 各稀有度裝備 · Shift+L 橘紅裝</p>
       </template>
     </template>
 

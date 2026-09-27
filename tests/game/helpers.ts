@@ -68,6 +68,13 @@ export function createWorldWithMap(
 export function makeInvulnerable(actor: Actor): void {
   actor.stats.setBase('maxHp', 1e9);
   actor.hp = 1e9;
+  noBaseRegen(actor);
+}
+
+/** 關掉基礎生命 / 魔力回復（測試需要精確的回復量時使用） */
+export function noBaseRegen(actor: Actor): void {
+  actor.stats.setBase('hpRegenPct', 0);
+  actor.stats.setBase('manaRegenPct', 0);
 }
 
 export const enemiesOf = (world: GameWorld) => world.actors.filter((a) => a.faction === 'enemy');

@@ -17,6 +17,8 @@ export class PlayerProgress {
   readonly t4Unlocked = new Set<SkillCategory>();
   /** 怪物圖鑑：已擊敗過的怪物（EnemyDef ID → 擊敗次數） */
   readonly bestiary = new Map<string, number>();
+  /** 裝備圖鑑：拿到過的裝備（'base:<基底 ID>'、'legendary:<傳奇 / 神話 ID>'） */
+  readonly collection = new Set<string>();
   /** 目前所在樓層與到過的最高樓層（測試地圖模式為 0） */
   currentFloor = 0;
   highestFloor = 0;

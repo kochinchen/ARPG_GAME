@@ -27,10 +27,10 @@ export const comboRules: Rule[] = [
   {
     id: 'combo.frozen_impact',
     name: '冰霜重擊',
-    description: '冰球減速後衝撞，接毀滅重擊。',
+    description: '冰球減速後突進，接毀滅重擊。',
     tier: 1,
     order: 2,
-    match: { kind: 'exact', skills: ['magic.ice_orb', 'melee.shield_bash', 'melee.devastator'] },
+    match: { kind: 'exact', skills: ['magic.ice_orb', 'melee.dash_slash', 'melee.devastator'] },
     modifiers: [
       { type: 'damage', value: 0.3 },
       { type: 'knockback', value: 0.8 },
@@ -117,6 +117,18 @@ export const comboRules: Rule[] = [
     ],
   },
   {
+    id: 'combo.dual_element_weapon',
+    name: '雙元素附刃',
+    description: '兩種不同元素的技能之後接物理攻擊，第三招同時追加兩種元素傷害。',
+    tier: 3,
+    order: 5,
+    match: { kind: 'pattern', steps: [{ hasElement: true }, { hasElement: true }, { anyTags: ['Physical'] }], distinctElements: true },
+    modifiers: [
+      { type: 'elementDamage', value: 0.2, target: 'step3', element: 'fromStep1' },
+      { type: 'elementDamage', value: 0.2, target: 'step3', element: 'fromStep2' },
+    ],
+  },
+  {
     id: 'combo.marked_execution',
     name: '標記處決',
     tier: 3,
@@ -128,15 +140,14 @@ export const comboRules: Rule[] = [
     ],
   },
   {
-    id: 'combo.guard_counterattack',
-    name: '守勢反擊',
+    id: 'combo.launch_pursuit',
+    name: '浮空追擊',
     tier: 3,
     order: 15,
-    match: { kind: 'pattern', steps: [{ anyTags: ['Guard', 'Shield'] }, { anyTags: ['Counter', 'Impact'] }, { anyTags: ['Heavy'] }] },
+    match: { kind: 'pattern', steps: [{ anyTags: ['Launch'] }, { anyTags: ['Physical'] }, { anyTags: ['Heavy', 'Execute'] }] },
     modifiers: [
       { type: 'damage', value: 0.25 },
-      { type: 'stagger', value: 0.2 },
-      { type: 'knockbackResist', value: 1, target: 'self' },
+      { type: 'crit', value: 0.15 },
     ],
   },
   {
@@ -150,7 +161,7 @@ export const comboRules: Rule[] = [
     },
     modifiers: [
       { type: 'damage', value: 0.2 },
-      { type: 'crit', value: 0.2, when: { targetHasStatus: ['slow', 'freeze', 'weakPoint'] } },
+      { type: 'crit', value: 0.2, when: { targetHasStatus: ['slow', 'freeze', 'weakPoint', 'marked'] } },
     ],
   },
 

@@ -169,8 +169,6 @@ export class GearAuraView {
       const f = i / this.tips.length;
       g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ color: this.color, width: width * f, alpha: 0.75 * f, cap: 'round' });
     }
-    // 橘以上：武器尖端有一點光
-    if (atLeast(this.rarity, 'legendary')) g.circle(tip.x, tip.y, 2.4 + Math.sin(this.time * 6)).fill({ color: this.color, alpha: 0.6 });
   }
 
   /** 神話：間歇的能量脈動（從腳下擴散的光環） */

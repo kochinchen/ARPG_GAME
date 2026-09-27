@@ -103,6 +103,10 @@ export class PlayerController {
       case 'ShopSellHeld':
       case 'ShopSellNormals':
       case 'ShopGamble':
+      case 'ShopAscendSlotClick':
+      case 'ShopAscend':
+      case 'SalvageClick':
+      case 'SalvageAll':
         // 由 GameWorld 處理
         break;
     }
@@ -192,7 +196,7 @@ export class PlayerController {
     this.player.intent = null;
     // Shift：原地施放整組連段（目標不在範圍內時朝游標方向出手）
     if (stationary) this.player.path = [];
-    this.combos.start(this.player, steps, target?.id ?? null, point, stationary);
+    this.combos.start(this.player, steps, target?.id ?? null, point, stationary, this.loadout.activeCombo);
   }
 
   private resolveTarget(worldPos: Vec2, targetId: number | null): Actor | null {

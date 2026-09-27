@@ -174,16 +174,14 @@ describe('Combo 加成實際作用在技能上', () => {
     expect(chains.at(-1)).toBe(5); // 原本 1 + 3 跳；加成後 1 + 4 跳
   });
 
-  it('守勢反擊：整組連段期間免疫擊退，結束後移除', () => {
-    const { world, commands } = setup();
-    setQ(world, 'melee.guard_stance', 'melee.shield_bash', 'melee.heavy_slash');
+  it('浮空追擊：挑空斬 → 快斬 → 處決斬，第三招加成', () => {
+    const { world, commands, events } = setup();
+    setQ(world, 'melee.launch_slash', 'melee.quick_slash', 'melee.execution_slash');
+    const onCompleted = vi.fn();
+    events.on('ComboCompleted', onCompleted);
     commands.push(castAt(enemiesOf(world)[0]!));
-    let seen = false;
-    run(world, 4, () => {
-      if (world.player.hasStatus('unstoppable')) seen = true;
-    });
-    expect(seen).toBe(true);
-    expect(world.player.hasStatus('unstoppable')).toBe(false);
+    run(world, 4);
+    expect(onCompleted).toHaveBeenCalledWith(expect.objectContaining({ ruleId: 'combo.launch_pursuit' }));
   });
 
   it('不合理排列與三連同招照常施放，只是沒有 Combo', () => {

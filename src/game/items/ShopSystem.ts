@@ -1,9 +1,10 @@
 import { distance, type Vec2 } from '../../core/math/Vec2';
 import type { Rng } from '../../core/Rng';
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { EquipSlot } from '../../data/schema/item';
+import type { EquipSlot, ItemBaseDef, MaterialId } from '../../data/schema/item';
+import type { Materials } from '../player/Materials';
 import type { Actor } from '../entities/Actor';
-import type { GameEventBus } from '../GameEvents';
+import type { GameEventBus, GameEvents } from '../GameEvents';
 import type { Wallet } from '../player/Wallet';
 import type { Inventory, InventoryEntry } from './Inventory';
 import type { ItemCursor } from './ItemCursor';
@@ -11,7 +12,7 @@ import { ItemGenerator } from './ItemGenerator';
 import type { ItemInstance } from './ItemInstance';
 import { buyPrice, gamblePrice, sellPrice } from './Pricing';
 
-type ShopData = Pick<DataRegistry, 'balance' | 'items' | 'affixes' | 'potions'>;
+type ShopData = Pick<DataRegistry, 'balance' | 'items' | 'affixes' | 'legendaries' | 'potions'>;
 
 export interface ShopContext {
   player: Actor;
@@ -21,6 +22,17 @@ export interface ShopContext {
   /** 賭博用（與掉落共用流水號，uid 不重複） */
   generator: ItemGenerator;
   potionId: string;
+  /** 材料（飛昇消耗精華與碎片） */
+  materials: Materials;
+}
+
+/** 飛昇的預覽：下一階基底與價格；不能飛昇時 next 為 null 並附上原因 */
+export interface AscendInfo {
+  next: ItemBaseDef | null;
+  price: number;
+  /** 需要的材料（精華、碎片） */
+  materials: Partial<Record<MaterialId, number>>;
+  reason: 'jewelry' | 'maxTier' | null;
 }
 
 /**
@@ -30,6 +42,8 @@ export interface ShopContext {
 export class ShopSystem {
   /** 本層貨架；買走的位置為 null */
   stock: (ItemInstance | null)[] = [];
+  /** 飛昇格：要飛昇的裝備（飛昇後留在原位，點一下拿回來） */
+  ascendSlot: ItemInstance | null = null;
   private _position: Vec2 | null = null;
   private floor = 0;
   private _version = 0;
@@ -96,6 +110,10 @@ export class ShopSystem {
 
   buyPotions(count: number): boolean {
     if (count <= 0 || !this.canTrade()) return false;
+    if (this.ctx.inventory.potionRoom(this.ctx.potionId) === 0) {
+      this.fail('potionCap');
+      return false;
+    }
     const price = this.potionPrice * count;
     if (!this.pay(price)) return false;
     const added = this.ctx.inventory.addPotions(this.ctx.potionId, count);
@@ -136,6 +154,56 @@ export class ShopSystem {
     if (gold === 0) return false;
     this.ctx.wallet.add(gold);
     this.events.emit('ShopTransaction', { kind: 'sell', gold });
+    return true;
+  }
+
+  /** 飛昇預覽：同種類（武器種類或部位）的下一階基底 */
+  ascendInfo(item: ItemInstance): AscendInfo {
+    const base = this.data.items.get(item.baseId);
+    if (base.tier === undefined) return { next: null, price: 0, materials: {}, reason: 'jewelry' };
+    const next = this.data.items.all.find((b) => b.tier === base.tier! + 1 && b.slot === base.slot && b.weaponType === base.weaponType) ?? null;
+    if (!next) return { next: null, price: 0, materials: {}, reason: 'maxTier' };
+    const a = this.data.balance.shop.ascend;
+    const tier = next.tier!;
+    const price = Math.round((a.base + a.perTier * tier) * a.rarity[item.rarity]);
+    // 精華：武器用武器精華、防具用防具精華；第 shardFromTier 階起另外需要飛昇碎片
+    const materials: Partial<Record<MaterialId, number>> = {
+      [base.slot === 'weapon' ? 'weaponEssence' : 'armorEssence']: Math.round((a.essenceBase + a.essencePerTier * tier) * a.essenceRarity[item.rarity]),
+    };
+    if (tier >= a.shardFromTier) materials.ascensionShard = tier - a.shardFromTier + 1;
+    return { next, price, materials, reason: null };
+  }
+
+  /** 飛昇格：拿著裝備點 → 放進去（有東西則互換）；空手點 → 拿回來。格子裡的裝備會存檔 */
+  clickAscendSlot(): void {
+    const held = this.ctx.cursor.entry;
+    if (held && held.kind !== 'item') return;
+    const current = this.ascendSlot;
+    this.ascendSlot = held?.kind === 'item' ? held.item : null;
+    this.ctx.cursor.set(current ? { kind: 'item', item: current } : null);
+    this._version++;
+  }
+
+  /** 飛昇飛昇格裡的裝備：付金幣與材料，基底換成下一階（其他內容保留），結果留在飛昇格 */
+  ascend(): boolean {
+    if (!this.canTrade()) return false;
+    const current = this.ascendSlot;
+    if (!current) return false;
+    const info = this.ascendInfo(current);
+    if (!info.next || info.reason) {
+      this.fail('cannotAscend');
+      return false;
+    }
+    if (!this.ctx.materials.has(info.materials)) {
+      this.fail('materials');
+      return false;
+    }
+    if (!this.pay(info.price)) return false;
+    this.ctx.materials.spend(info.materials);
+    const item: ItemInstance = { ...current, baseId: info.next.id, itemLevel: Math.max(current.itemLevel, info.next.levelReq) };
+    this.ascendSlot = item;
+    this._version++;
+    this.events.emit('ShopTransaction', { kind: 'ascend', gold: -info.price, rarity: item.rarity });
     return true;
   }
 
@@ -180,7 +248,7 @@ export class ShopSystem {
     this.events.emit('ShopTransaction', { kind: 'sell', gold });
   }
 
-  private fail(reason: 'gold' | 'inventoryFull' | 'far'): void {
+  private fail(reason: GameEvents['ShopFailed']['reason']): void {
     this.events.emit('ShopFailed', { reason });
   }
 }

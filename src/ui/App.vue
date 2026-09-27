@@ -5,6 +5,7 @@ import { resolveHover, type HoverTarget } from './bridge/InventoryView';
 import { systemBridge } from './bridge/SystemBridge';
 import BestiaryPanel from './components/BestiaryPanel.vue';
 import BossBar from './components/BossBar.vue';
+import ItemCodexPanel from './components/ItemCodexPanel.vue';
 import CharacterPanel from './components/CharacterPanel.vue';
 import DevOverlay from './components/DevOverlay.vue';
 import FloorHud from './components/FloorHud.vue';
@@ -63,6 +64,13 @@ function toggleDev() {
   }
 }
 
+/** 裝備圖鑑（與怪物圖鑑可以互相切換） */
+const itemCodexOpen = ref(false);
+function openCodex(which: 'monsters' | 'items') {
+  open.bestiary = which === 'monsters';
+  itemCodexOpen.value = which === 'items';
+}
+
 /** 開關面板。角色與技能樹都在左側，一次只開一個；選單與圖鑑開啟時遊戲暫停 */
 function toggle(panel: PanelName, value = !open[panel]) {
   if (panel === 'bestiary') {
@@ -79,7 +87,7 @@ function toggle(panel: PanelName, value = !open[panel]) {
   if (!open.inventory) hoverTarget.value = null;
 }
 watch(
-  () => open.menu || open.bestiary,
+  () => open.menu || open.bestiary || itemCodexOpen.value,
   (paused) => systemBridge.setPaused(paused),
 );
 
@@ -103,6 +111,11 @@ function onKeyDown(e: KeyboardEvent) {
       break;
     case 'KeyK':
       toggle('bestiary');
+      itemCodexOpen.value = false;
+      break;
+    case 'KeyO':
+      itemCodexOpen.value = !itemCodexOpen.value;
+      open.bestiary = false;
       break;
     case 'F3':
       e.preventDefault();
@@ -112,6 +125,7 @@ function onKeyDown(e: KeyboardEvent) {
       // 依序：確認對話框 → 選單 → 面板 → 開啟選單
       if (gameView.leavePrompt) gameView.leavePrompt = null;
       else if (open.bestiary) open.bestiary = false;
+      else if (itemCodexOpen.value) itemCodexOpen.value = false;
       else if (open.menu) open.menu = false;
       else if (open.character || open.skills || open.inventory || shopOpen.value) closeAll();
       else open.menu = true;
@@ -188,9 +202,17 @@ onBeforeUnmount(() => {
     :dev-enabled="gameView.dev.enabled"
     @close="open.menu = false"
     @toggle-dev="toggleDev"
-    @bestiary="open.bestiary = true"
+    @bestiary="openCodex('monsters')"
+    @items="openCodex('items')"
   />
-  <BestiaryPanel v-if="open.bestiary" :kills="gameView.bestiary" :dev-available="devAvailable" @close="open.bestiary = false" />
+  <BestiaryPanel v-if="open.bestiary" :kills="gameView.bestiary" :dev-available="devAvailable" @close="open.bestiary = false" @items="openCodex('items')" />
+  <ItemCodexPanel
+    v-if="itemCodexOpen"
+    :collection="gameView.collection"
+    :dev-available="devAvailable"
+    @close="itemCodexOpen = false"
+    @monsters="openCodex('monsters')"
+  />
 </template>
 
 <style scoped>

@@ -42,6 +42,7 @@ export function buildCharacterView(world: GameWorld, data: DataRegistry): Charac
   const stats = world.player.stats;
   const format = (value: number, percent: boolean) => (percent ? pct(value) : num(value));
   const mitigation = defenseMitigation(stats.get('defense'), data.balance.combat.defenseConstant);
+  const outOfCombat = data.balance.player.outOfCombatRegen;
   const weaponMin = stats.get('damageMin');
   const weaponMax = stats.get('damageMax');
   const spell = stats.get('spellPower');
@@ -79,6 +80,14 @@ export function buildCharacterView(world: GameWorld, data: DataRegistry): Charac
     stats: [
       { label: '生命', value: `${Math.round(world.player.maxHp)}` },
       { label: '魔力', value: `${Math.round(world.player.maxMana)}` },
+      {
+        label: '生命回復',
+        value: `${(world.player.maxHp * stats.get('hpRegenPct')).toFixed(1)} / 秒；脫戰 ${(world.player.maxHp * stats.get('hpRegenPct') * outOfCombat.multiplier).toFixed(1)} / 秒`,
+      },
+      {
+        label: '魔力回復',
+        value: `${(stats.get('manaRegen') + world.player.maxMana * stats.get('manaRegenPct')).toFixed(1)} / 秒`,
+      },
       { label: '武器傷害（合計）', value: `${num(weaponMin)} – ${num(weaponMax)}` },
       ...weaponBreakdown(world, data, weaponMin, weaponMax),
       { label: '基礎法術強度', value: num(spell) },

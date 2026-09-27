@@ -58,6 +58,11 @@ export const BalanceSchema = z.strictObject({
     baseHp: z.number().positive(),
     baseMana: z.number().positive(),
     manaRegenPerSec: z.number().nonnegative(),
+    /** 基礎每秒回復：最大生命 / 最大魔力的比例（隨上限成長，與裝備、技能的回復相加） */
+    hpRegenPctPerSec: z.number().nonnegative(),
+    manaRegenPctPerSec: z.number().nonnegative(),
+    /** 脫戰回復：delay 秒沒有受到傷害後，生命回復 × multiplier */
+    outOfCombatRegen: z.strictObject({ delay: z.number().nonnegative(), multiplier: z.number().min(1) }),
     /** Tile / 秒 */
     moveSpeed: z.number().positive(),
     /** 碰撞半徑（Tile） */
@@ -142,6 +147,11 @@ export const BalanceSchema = z.strictObject({
     base: z.record(RaritySchema, z.tuple([z.number().nonnegative(), z.number().nonnegative()])),
     jewelry: z.record(RaritySchema, z.tuple([z.number().nonnegative(), z.number().nonnegative()])),
   }),
+  /** 拆解：拆解區的格數與各稀有度拆出的精華數量 */
+  salvage: z.strictObject({
+    slots: z.int().positive(),
+    yields: z.record(RaritySchema, z.tuple([z.int().nonnegative(), z.int().nonnegative()])),
+  }),
   /**
    * 裝備光芒：每件裝備依稀有度給分（weights），總分達到 thresholds 的第 N 個門檻 = 光芒等級 N（0～4）。
    */
@@ -172,6 +182,21 @@ export const BalanceSchema = z.strictObject({
       base: z.int().positive(),
       perFloor: z.int().nonnegative(),
       rarityWeights: RarityWeightsSchema,
+    }),
+    /**
+     * 飛昇：把裝備的基底換成同種類的下一階（名稱、詞綴、主倍率、傳奇效果都保留）。
+     * 價格 = (base + perTier × 目標階級) × 稀有度倍率；目標階級的等級需求不可超過到過的最深樓層。
+     */
+    ascend: z.strictObject({
+      base: z.int().nonnegative(),
+      perTier: z.int().nonnegative(),
+      rarity: z.record(RaritySchema, z.number().positive()),
+      /** 精華（武器用武器精華、防具用防具精華）= (essenceBase + essencePerTier × 目標階級) × essenceRarity */
+      essenceBase: z.int().nonnegative(),
+      essencePerTier: z.int().nonnegative(),
+      essenceRarity: z.record(RaritySchema, z.number().positive()),
+      /** 目標階級 ≥ shardFromTier 時需要飛昇碎片：目標階級 − shardFromTier + 1 片 */
+      shardFromTier: z.int().positive(),
     }),
     /** 離商人多遠內可以交易（Tile） */
     range: z.number().positive(),

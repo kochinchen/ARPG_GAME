@@ -1,4 +1,5 @@
 import { add, distance, normalize, scale, sub, vec2, type Vec2 } from '../../../core/math/Vec2';
+import { rankValue } from '../../../data/schema/common';
 import type { ProjectileEffectDef } from '../../../data/schema/effects';
 import type { EffectContext, IEffect } from './IEffect';
 
@@ -8,10 +9,12 @@ export class ProjectileEffect implements IEffect<'projectile'> {
   apply(def: ProjectileEffectDef, ctx: EffectContext): void {
     const mods = ctx.mods;
     const base = def.aimAssistDeg > 0 ? this.assist(def, ctx) : ctx.direction;
-    const ring = def.spreadDeg >= 360;
-    const count = def.count + mods.projectileCount;
+    const baseCount = Math.round(rankValue(def.count, ctx.rank));
+    const baseSpread = rankValue(def.spreadDeg, ctx.rank);
+    const ring = baseSpread >= 360;
+    const count = baseCount + mods.projectileCount;
     // 單發時 Combo 增加的投射物以小角度散開
-    const spreadDeg = def.count === 1 && count > 1 ? 15 * (count - 1) : def.spreadDeg;
+    const spreadDeg = baseCount === 1 && count > 1 ? 15 * (count - 1) : baseSpread;
     const spread = (Math.min(spreadDeg, 360) * Math.PI) / 180;
     for (let i = 0; i < count; i++) {
       // 扇形：平均分布在 spread 內；環狀：360° 等分

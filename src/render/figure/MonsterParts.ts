@@ -21,9 +21,11 @@ export const boneLimb = (length: number, r: number, color = BONE): Mesh[] => [
   lowSphere(r * 1.35, BONE_DARK, [0, -length, 0], 8, 4),
 ];
 
-/** 骷髏頭：頭骨、顴骨、下顎與一排牙齒、兩個黑色眼窩、鼻孔 */
+/** 骷髏頭：頭骨（後腦較寬）、眉骨、顴骨、下顎與一排牙齒、兩個黑色眼窩、鼻孔 */
 export const skull = (color = BONE): Mesh[] => [
   lowSphere(5.4, color, [0, 6, 0.2], 10, 5, [1, 1.08, 1.05]),
+  lowSphere(4.6, color, [0, 6.8, -1.6], 9, 5, [1.05, 1, 1]),
+  box(7.2, 1.1, 1.4, color, [0, 7.6, 4.4]),
   lowSphere(1.6, color, [3.4, 4.6, 3.4], 6, 4, [1, 0.8, 1]),
   lowSphere(1.6, color, [-3.4, 4.6, 3.4], 6, 4, [1, 0.8, 1]),
   box(6.4, 2.4, 4.4, color, [0, 1.6, 1.8]),
@@ -73,22 +75,19 @@ export interface HumanoidOptions {
   shoulderX?: number;
 }
 
+/** 骨盆：中央骶骨 + 左右兩片髂骨 */
+export const pelvis = (): Mesh[] => [
+  box(3, 3.4, 3, BONE_DARK, [0, 0.6, -0.6]),
+  placeMesh(prism(8, 0, 4, [2.6, 1], [3.2, 1.2], BONE), [0, 0, -0.5], [1.6, -0.6, 0]),
+  placeMesh(prism(8, 0, 4, [2.6, 1], [3.2, 1.2], BONE), [0, 0, 0.5], [-1.6, -0.6, 0]),
+];
+
 /** 人形骨架（尺寸與女主角相同），各部位掛上指定零件 */
 export function humanoid(o: HumanoidOptions): PartDef[] {
   const sx = o.shoulderX ?? 7;
   const fist = (): Mesh[] => [lowSphere(1.6, BONE_DARK, [0, -1.4, 0], 8, 4)];
   return [
-    // 預設為骨盆：中央骶骨 + 左右兩片髂骨
-    {
-      joint: 'root',
-      parent: null,
-      offset: [0, 0, 0],
-      meshes: o.root ?? [
-        box(3, 3.4, 3, BONE_DARK, [0, 0.6, -0.6]),
-        placeMesh(prism(8, 0, 4, [2.6, 1], [3.2, 1.2], BONE), [0, 0, -0.5], [1.6, -0.6, 0]),
-        placeMesh(prism(8, 0, 4, [2.6, 1], [3.2, 1.2], BONE), [0, 0, 0.5], [-1.6, -0.6, 0]),
-      ],
-    },
+    { joint: 'root', parent: null, offset: [0, 0, 0], meshes: o.root ?? pelvis() },
     { joint: 'torso', parent: 'root', offset: [0, 2.5, 0], meshes: o.torso },
     { joint: 'neck', parent: 'torso', offset: [0, 15.5, -0.8], meshes: o.neck ?? [prism(8, 0, 3, [1.2, 1.2], [1.2, 1.2], BONE_DARK)] },
     { joint: 'head', parent: 'neck', offset: [0, 2.5, 0.6], meshes: o.head },

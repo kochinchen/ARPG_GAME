@@ -1,5 +1,5 @@
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { Rarity } from '../../data/schema/item';
+import { MATERIAL_IDS, MATERIAL_LABELS, type MaterialId, type Rarity } from '../../data/schema/item';
 import type { GameWorld } from '../../game/GameWorld';
 import { slotsForBase } from '../../game/items/Equipment';
 import type { InventoryEntry } from '../../game/items/Inventory';
@@ -22,6 +22,8 @@ export interface EntryView {
   mainLine: string | null;
   /** 強屬性 */
   strongLines: string[];
+  /** 傳奇 / 神話：定位、固定行、介紹 */
+  legendary: { role: string; lore: string; lines: { text: string; kind: 'normal' | 'strong' | 'unique' }[] } | null;
   affixLines: string[];
   /** 物品可以穿在哪些裝備欄（比較用） */
   equipSlots: EquipmentSlot[];
@@ -42,6 +44,12 @@ export interface InventoryView {
   /** 滑鼠上拿著的物品 */
   held: EntryView | null;
   stats: { label: string; value: string }[];
+  /** 拆解區的格子 */
+  salvage: (EntryView | null)[];
+  /** 拆掉後預計得到的精華，例如「武器精華 5～9、防具精華 2～4」（空的為空字串） */
+  salvagePreview: string;
+  /** 持有的材料 */
+  materials: { id: MaterialId; label: string; count: number }[];
 }
 
 export const EQUIPMENT_LABELS: Record<EquipmentSlot, string> = {
@@ -70,13 +78,17 @@ const GLYPHS: Record<string, string> = {
 };
 
 /** 滑鼠所在的位置（而非當下的內容），快照更新後 Tooltip 會跟著更新 */
-export type HoverTarget = { kind: 'cell'; cell: number } | { kind: 'slot'; slot: EquipmentSlot };
+export type HoverTarget = { kind: 'cell'; cell: number } | { kind: 'slot'; slot: EquipmentSlot } | { kind: 'salvage'; slot: number };
 
 /** 依目前快照解析 Tooltip 內容：背包物品附帶比較對象；裝備欄只顯示自己 */
 export function resolveHover(view: InventoryView, target: HoverTarget | null): { entry: EntryView; compare: EntryView[] } | null {
   if (!target) return null;
   if (target.kind === 'slot') {
     const entry = view.equipment.find((e) => e.slot === target.slot)?.item;
+    return entry ? { entry, compare: [] } : null;
+  }
+  if (target.kind === 'salvage') {
+    const entry = view.salvage[target.slot];
     return entry ? { entry, compare: [] } : null;
   }
   const entry = view.cells[target.cell];
@@ -92,7 +104,7 @@ export function comparisonFor(view: InventoryView, entry: EntryView): EntryView[
 }
 
 export function emptyInventoryView(): InventoryView {
-  return { cols: 0, rows: 0, cells: [], equipment: [], held: null, stats: [] };
+  return { cols: 0, rows: 0, cells: [], equipment: [], held: null, stats: [], salvage: [], salvagePreview: '', materials: [] };
 }
 
 /** 單一物品的顯示資料（背包、商人貨架共用） */
@@ -108,6 +120,7 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       baseLines: d.baseLines,
       mainLine: d.mainLine,
       strongLines: d.strongLines,
+      legendary: d.legendary,
       affixLines: d.affixLines,
       equipSlots: slotsForBase(d.slot),
       count: 1,
@@ -137,6 +150,7 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
       ],
       mainLine: null,
       strongLines: [],
+      legendary: null,
       affixLines: [],
       equipSlots: [],
       count: entry.count,
@@ -165,5 +179,10 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
       { label: STAT_LABELS.critChance, value: formatValue('critChance', 'flat', stats.get('critChance'), false) },
       { label: STAT_LABELS.moveSpeed, value: stats.get('moveSpeed').toFixed(2) },
     ],
+    salvage: world.salvage.slots.map((item) => (item ? itemView(item) : null)),
+    salvagePreview: (Object.entries(world.salvage.preview()) as [MaterialId, [number, number]][])
+      .map(([id, [min, max]]) => `${MATERIAL_LABELS[id]} ${min === max ? min : `${min}～${max}`}`)
+      .join('、'),
+    materials: MATERIAL_IDS.map((id) => ({ id, label: MATERIAL_LABELS[id], count: world.materials.get(id) })),
   };
 }

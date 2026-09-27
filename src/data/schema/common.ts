@@ -40,6 +40,8 @@ export const StatIdSchema = z.enum([
   'coldResist',
   'lightningResist',
   'poisonResist',
+  /** 物理減傷：受到的物理傷害降低（防禦之後計算；精英 / Boss 的樓層減傷使用） */
+  'physicalResist',
   /** 閃避：完全躲開一次攻擊的機率（持續傷害不能閃避） */
   'dodgeChance',
   /** 荊棘：被近身攻擊時，對攻擊者造成的固定物理傷害 */
@@ -66,6 +68,8 @@ export const StatIdSchema = z.enum([
   'manaOnHit',
   /** 每秒回復最大生命的比例 */
   'hpRegenPct',
+  /** 每秒回復最大魔力的比例（與固定值 manaRegen 相加） */
+  'manaRegenPct',
 ]);
 export type StatId = z.infer<typeof StatIdSchema>;
 

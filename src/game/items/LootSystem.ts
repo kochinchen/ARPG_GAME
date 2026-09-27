@@ -52,6 +52,10 @@ export class LootSystem {
           break;
       }
     }
+    // 魔王：飛昇碎片
+    if (table.shards && this.rng.chance(table.shards.chance)) {
+      drops.push({ kind: 'material', materialId: 'ascensionShard', count: this.rng.int(table.shards.count[0], table.shards.count[1]) });
+    }
     return drops;
   }
 

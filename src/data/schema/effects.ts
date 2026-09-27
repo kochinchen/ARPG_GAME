@@ -25,8 +25,16 @@ export const StatusKindSchema = z.enum([
   'counter',
   /** 受到傷害降低 magnitude，並免疫擊退 */
   'ironWill',
-  /** 只免疫擊退（Combo「守勢反擊」整組連段期間） */
+  /** 只免疫擊退（Combo 的 knockbackResist 加成：整組連段期間） */
   'unstoppable',
+  /** 浮空：無法行動（與暈眩相同），外觀被挑起 */
+  'airborne',
+  /** 標記：受到的傷害提高 magnitude */
+  'marked',
+  /** 下一個近戰技能傷害 +magnitude，施放時消耗 */
+  'meleeEmpower',
+  /** 下一個遠程技能傷害 +magnitude，施放時消耗 */
+  'rangedEmpower',
 ]);
 export type StatusKind = z.infer<typeof StatusKindSchema>;
 
@@ -49,7 +57,7 @@ export const DamageEffectSchema = z
           z.strictObject({ status: StatusKindSchema }),
           z.strictObject({ hpBelow: z.number().min(0).max(1) }),
         ]),
-        damagePct: z.number().nonnegative().default(0),
+        damagePct: RankNumberSchema.default(0),
         critChance: z.number().nonnegative().default(0),
       })
       .optional(),
@@ -70,7 +78,7 @@ export const StatusEffectSchema = z.strictObject({
 /** 把目標往遠離效果中心的方向推開 */
 export const KnockbackEffectSchema = z.strictObject({
   type: z.literal('knockback'),
-  distance: z.number().positive(),
+  distance: RankNumberSchema,
 });
 
 /** 施放者位移；之後的效果從新位置發出 */
@@ -79,6 +87,10 @@ export const DashEffectSchema = z.strictObject({
   distance: z.number().positive(),
   /** forward：朝施放方向（對敵技能會停在目標前）；backward：反方向 */
   direction: z.enum(['forward', 'backward']),
+  /** 對位移路徑上的每個敵人執行（突進斬） */
+  get onPath() {
+    return z.array(EffectDefSchema).default([]);
+  },
 });
 
 /** 朝施放方向發射投射物，擊中敵人或牆壁時觸發 onHit */
@@ -89,9 +101,10 @@ export const ProjectileEffectSchema = z.strictObject({
   radius: z.number().positive(),
   /** 最大飛行距離（Tile） */
   range: z.number().positive(),
-  count: z.int().positive().default(1),
-  /** 多發時的總散射角度；≥ 360 為環狀平均分布 */
-  spreadDeg: z.number().nonnegative().default(0),
+  /** 發數（可依等級成長） */
+  count: RankNumberSchema.default(1),
+  /** 多發時的總散射角度；≥ 360 為環狀平均分布（可依等級成長） */
+  spreadDeg: RankNumberSchema.default(0),
   /** 可穿透的敵人數 */
   pierce: z.int().nonnegative().default(0),
   /** 自動修正方向：此角度內有敵人時改朝最近的敵人發射 */
@@ -104,7 +117,7 @@ export const ProjectileEffectSchema = z.strictObject({
 /** 以 ctx.origin 為中心，對範圍內每個敵人執行 effects */
 export const AreaEffectSchema = z.strictObject({
   type: z.literal('area'),
-  radius: z.number().positive(),
+  radius: RankNumberSchema,
   /** 中心點：origin = 效果發生位置（預設）；target = 目前目標所在位置 */
   at: z.enum(['origin', 'target']).default('origin'),
   /** 扇形角度（朝施放方向）；省略 = 360° */

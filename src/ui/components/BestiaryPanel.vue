@@ -7,7 +7,7 @@ import { bestiaryBridge, FAMILY_LABELS, type BestiaryEntry } from '../bridge/Bes
  * 開發版可以切換「顯示全部」。右側顯示介紹、技能、階段與各樓層的數值。
  */
 const props = defineProps<{ kills: Record<string, number>; devAvailable: boolean }>();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; items: [] }>();
 
 const entries = bestiaryBridge.entries;
 const showAll = ref(props.devAvailable);
@@ -44,6 +44,7 @@ const portrait = (id: string) => bestiaryBridge.portrait(id);
     <section class="bestiary" role="dialog" aria-label="怪物圖鑑">
       <header>
         <span class="title">怪物圖鑑</span>
+        <button type="button" class="book" @click="emit('items')">裝備圖鑑</button>
         <span class="progress">已擊敗 {{ collected }} / {{ entries.length }} 種</span>
         <span class="spacer" />
         <label v-if="devAvailable" class="dev"><input v-model="showAll" type="checkbox" /> 顯示全部（開發）</label>
@@ -168,6 +169,14 @@ header {
   font: 17px/1.4 serif;
   letter-spacing: 0.12em;
   color: #e8c47a;
+}
+.book {
+  padding: 3px 10px;
+  font: inherit;
+  color: #b8ab94;
+  cursor: pointer;
+  background: #1f1a15;
+  border: 1px solid #3d342c;
 }
 .progress {
   color: #9a8c76;

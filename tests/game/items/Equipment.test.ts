@@ -47,8 +47,8 @@ describe('背包 / 裝備操作（M5，Diablo 式拿起與放下）', () => {
     send({ type: 'InventoryClick', cell }, { type: 'EquipmentClick', slot: 'weapon' });
     expect(world.equipment.get('weapon')?.uid).toBe('sword');
     expect(world.cursor.entry).toBeNull();
-    expect(stats.get('damageMin')).toBe(before.min + 2);
-    expect(stats.get('damageMax')).toBe(before.max + 5);
+    expect(stats.get('damageMin')).toBe(before.min + 3);
+    expect(stats.get('damageMax')).toBe(before.max + 7);
     expect(stats.get('maxHp')).toBe(before.hp + 10);
 
     send({ type: 'EquipmentClick', slot: 'weapon' });

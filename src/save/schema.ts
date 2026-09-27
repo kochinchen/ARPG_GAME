@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RaritySchema } from '../data/schema/item';
+import { MaterialIdSchema, RaritySchema } from '../data/schema/item';
 import { SkillCategorySchema } from '../data/schema/skill';
 
 /**
@@ -8,10 +8,13 @@ import { SkillCategorySchema } from '../data/schema/skill';
  * v3：加入商人貨架已買走的位置（floor.shopBought）。
  * v4：加入怪物圖鑑（bestiary）。
  * v5：裝備加入主倍率（quality）。
+ * v6：傳奇 / 神話裝備的固定屬性擲骰（legendaryRolls）。
+ * v7：裝備圖鑑（collection）。
+ * v8：材料（materials）與拆解區（salvage）；地上的材料（飛昇碎片）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 8;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -26,6 +29,8 @@ export const ItemInstanceSchema = z.object({
   quality: finite.min(0).optional(),
   affixes: z.array(z.object({ id: z.string(), rolls: z.array(finite) })),
   legendaryId: z.string().optional(),
+  /** 傳奇 / 神話固定屬性的擲骰（v6） */
+  legendaryRolls: z.array(finite).optional(),
 });
 
 export const SavedEntrySchema = z.discriminatedUnion('kind', [
@@ -36,6 +41,7 @@ export const SavedEntrySchema = z.discriminatedUnion('kind', [
 const GroundContentSchema = z.discriminatedUnion('kind', [
   ...SavedEntrySchema.options,
   z.object({ kind: z.literal('gold'), amount: int.min(1) }),
+  z.object({ kind: z.literal('material'), materialId: MaterialIdSchema, count: int.min(1) }),
 ]);
 
 const skillSlot = z.string().nullable();
@@ -103,6 +109,14 @@ export const SaveDataSchema = z.object({
   }),
   /** 怪物圖鑑：EnemyDef ID → 擊敗次數 */
   bestiary: z.record(z.string(), nonNegInt),
+  /** 裝備圖鑑：拿到過的 'base:<基底 ID>' 與 'legendary:<ID>'（v7） */
+  collection: z.array(z.string()),
+  /** 材料：武器精華、防具精華、飛昇碎片（v8） */
+  materials: z.partialRecord(MaterialIdSchema, nonNegInt),
+  /** 拆解區的裝備（v8；空格為 null） */
+  salvage: z.array(ItemInstanceSchema.nullable()),
+  /** 商人飛昇格裡的裝備（v8，選填） */
+  ascendSlot: ItemInstanceSchema.nullable().optional(),
   counters: z.object({
     /** ItemGenerator 最後使用的流水號；讀檔後從下一號接續 */
     itemUidCounter: nonNegInt,

@@ -165,9 +165,9 @@ export class Actor {
     return this.statuses.some((s) => s.kind === kind);
   }
 
-  /** 冰凍或暈眩：不能移動、施放、思考 */
+  /** 冰凍、暈眩或浮空：不能移動、施放、思考 */
   get isDisabled(): boolean {
-    return this.hasStatus('freeze') || this.hasStatus('stun');
+    return this.hasStatus('freeze') || this.hasStatus('stun') || this.hasStatus('airborne');
   }
 
   /** 目前意圖的目標（沒有則 null） */

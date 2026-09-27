@@ -14,13 +14,26 @@ defineProps<{
   <div class="tooltip" :class="[{ equipped: caption }, `t-${entry.rarity}`]">
     <div v-if="caption" class="caption">{{ caption }}</div>
     <div class="name" :class="`r-${entry.rarity}`">{{ entry.name }}</div>
+    <div v-if="entry.legendary" class="role" :class="`r-${entry.rarity}`">{{ entry.legendary.role }}</div>
     <div class="slot">{{ entry.slotLabel }}<template v-if="entry.itemLevel > 0"> · 物品等級 {{ entry.itemLevel }} · T{{ entry.tier }}</template></div>
     <ul>
       <li v-for="line in entry.baseLines" :key="`b-${line}`" class="base">{{ line }}</li>
       <li v-if="entry.mainLine" class="main" :class="`r-${entry.rarity}`">{{ entry.mainLine }}</li>
-      <li v-for="line in entry.strongLines" :key="`s-${line}`" class="strong" :class="`r-${entry.rarity}`">◆ {{ line }}</li>
-      <li v-for="line in entry.affixLines" :key="`a-${line}`" class="affix">{{ line }}</li>
+      <template v-if="entry.legendary">
+        <li
+          v-for="(l, i) in entry.legendary.lines"
+          :key="`l-${i}`"
+          :class="[l.kind === 'normal' ? 'affix' : l.kind, l.kind === 'normal' ? '' : `r-${entry.rarity}`]"
+        >
+          {{ l.kind === 'unique' ? '✦ ' : l.kind === 'strong' ? '◆ ' : '' }}{{ l.text }}
+        </li>
+      </template>
+      <template v-else>
+        <li v-for="line in entry.strongLines" :key="`s-${line}`" class="strong" :class="`r-${entry.rarity}`">◆ {{ line }}</li>
+        <li v-for="line in entry.affixLines" :key="`a-${line}`" class="affix">{{ line }}</li>
+      </template>
     </ul>
+    <div v-if="entry.legendary" class="lore">「{{ entry.legendary.lore }}」</div>
     <div class="price">賣出 {{ entry.sellPrice }} 金幣<template v-if="price !== undefined"> · 購買 {{ price }} 金幣</template></div>
   </div>
 </template>
@@ -28,7 +41,7 @@ defineProps<{
 <style scoped>
 .tooltip {
   min-width: 170px;
-  max-width: 230px;
+  max-width: 290px;
   padding: 8px 10px;
   font: 12px/1.5 sans-serif;
   color: #d8cbb4;
@@ -76,6 +89,21 @@ ul {
 }
 .strong {
   font-weight: bold;
+}
+.unique {
+  margin: 3px 0;
+  text-align: left;
+  line-height: 1.45;
+}
+.role {
+  font-size: 11px;
+  opacity: 0.85;
+}
+.lore {
+  margin-top: 6px;
+  font-size: 11px;
+  font-style: italic;
+  color: #8a7c68;
 }
 .r-normal {
   color: #e8e2d4;

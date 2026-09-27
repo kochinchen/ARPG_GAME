@@ -1,14 +1,20 @@
+import { rankValue } from '../data/schema/common';
+import type { AttackVariant } from './figure/FigureModel';
+import type { ActionKind } from './figure/PolyFigure';
 import { Container, Graphics, type Application } from 'pixi.js';
 import type { IsoProjection } from '../core/math/IsoProjection';
 import { lerp, sub, type Vec2 } from '../core/math/Vec2';
 import type { DataRegistry } from '../data/DataRegistry';
-import type { ActorId } from '../game/entities/Actor';
+import { MATERIAL_LABELS, type MaterialId } from '../data/schema/item';
+import type { Actor, ActorId } from '../game/entities/Actor';
 import type { GameWorld } from '../game/GameWorld';
 import { equippedItems, gearAura } from '../game/items/GearAura';
+import { weaponLookFor } from './figure/weapons/WeaponLooks';
 import type { Camera } from './Camera';
 import { ELEMENT_COLORS, PALETTE } from './palette';
 import { ActorView, HIT_BOX, sizeOf } from './views/ActorView';
 import { EffectLayer } from './views/EffectLayer';
+import type { ImpactKind } from './views/fx/ImpactFx';
 import { FloatingTextLayer } from './views/FloatingTextLayer';
 import { InteractableLayer } from './views/InteractableLayer';
 import { FloorMarkersView } from './views/FloorMarkersView';
@@ -40,7 +46,7 @@ export class Renderer {
     private readonly projection: IsoProjection,
     private readonly world: GameWorld,
     private readonly camera: Camera,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'potions' | 'skills' | 'balance'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'skills' | 'balance'>,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme);
     this.effects = new EffectLayer(projection, this.objectLayer);
@@ -89,24 +95,37 @@ export class Renderer {
       if (skill.telegraph) {
         // 前搖提示：在地上畫出攻擊範圍，填滿時命中
         const area = skill.effects.find((effect) => effect.type === 'area');
-        this.actorViews.get(e.actorId)?.attack(e.impactIn, skill.tags.includes('spell') ? 'cast' : 'attack');
+        const motion = this.motionFor(attacker, skill.tags);
+        this.actorViews.get(e.actorId)?.attack(e.impactIn, motion.kind, motion.variant);
         if (area?.type === 'area') {
           const center = skill.targeting === 'ground' ? e.point : attacker.position;
           const active = () => attacker.alive && attacker.cast?.skill.id === skill.id;
-          this.effects.spawnTelegraph(center, area.radius, e.direction, area.angleDeg ?? 360, e.impactIn, active);
+          this.effects.spawnTelegraph(center, rankValue(area.radius, attacker.cast?.rank ?? 1), e.direction, area.angleDeg ?? 360, e.impactIn, active);
         }
         return;
       }
       // 所有出手都揮動手臂（前搖期間舉起、命中時揮下）；法術播放施法動作；對單一敵人的技能（近戰）再加上前衝
-      this.actorViews.get(e.actorId)?.attack(e.impactIn, skill.tags.includes('spell') ? 'cast' : 'attack');
-      if (e.targetId === null) return;
+      const motion = this.motionFor(attacker, skill.tags);
+      this.actorViews.get(e.actorId)?.attack(e.impactIn, motion.kind, motion.variant);
+      // 射箭、法杖施法站定出手，不前衝
+      if (e.targetId === null || motion.variant === 'shoot' || motion.variant === 'staff') return;
       const dir = sub(projection.toScreen(e.point), projection.toScreen(attacker.position));
       this.actorViews.get(e.actorId)?.lunge(dir);
     });
     world.events.on('AreaTriggered', (e) => {
-      this.effects.spawnRing(e.position, e.radius, ELEMENT_COLORS[e.element ?? 'physical'] ?? 0xffffff, e.direction, e.angleDeg);
+      const skill = data.skills.has(e.skillId) ? data.skills.get(e.skillId) : null;
+      this.effects.spawnImpact({
+        kind: impactKind(e.skillId, skill?.tags ?? [], e.element, e.angleDeg, e.radius),
+        position: e.position,
+        radius: e.radius,
+        color: ELEMENT_COLORS[e.element ?? 'physical'] ?? 0xffffff,
+        direction: e.direction,
+        angleDeg: e.angleDeg,
+        big: BIG_IMPACTS.has(e.skillId) || e.radius >= 3,
+        special: e.special,
+      });
     });
-    world.events.on('ChainTriggered', (e) => this.effects.spawnChain(e.points, ELEMENT_COLORS[e.element] ?? 0xffffff));
+    world.events.on('ChainTriggered', (e) => this.effects.spawnChain(e.points, ELEMENT_COLORS[e.element] ?? 0xffffff, e.special));
     world.events.on('SkillFailed', (e) => {
       const actor = world.targeting.getActor(e.actorId);
       if (actor === world.player) this.floatingText.spawnText(projection.toScreen(actor.position), '魔力不足', PALETTE.manaText);
@@ -115,7 +134,7 @@ export class Renderer {
       this.floatingText.spawnText(projection.toScreen(position), text, color);
     world.events.on('GoldPickedUp', (e) => say(e.position, `+${e.amount} 金幣`, PALETTE.marker));
     world.events.on('PotionPickedUp', (e) => say(e.position, `+${e.count} 藥水`, PALETTE.healText));
-    world.events.on('PickupFailed', () => say(world.player.position, '背包已滿', PALETTE.manaText));
+    world.events.on('PickupFailed', (e) => say(world.player.position, e.reason === 'potionCap' ? '藥水已達上限' : '背包已滿', PALETTE.manaText));
     world.events.on('EquipFailed', (e) =>
       say(world.player.position, e.reason === 'level' ? '等級不足' : '無法裝備在這裡', PALETTE.manaText),
     );
@@ -123,14 +142,26 @@ export class Renderer {
       this.floatingText.spawnText(projection.toScreen(world.player.position), `升級！Lv ${e.level}`, PALETTE.marker, 20);
     });
     world.events.on('ShopTransaction', (e) => {
-      const text = e.kind === 'sell' ? `+${e.gold} 金幣` : `${e.gold} 金幣`;
+      const text = e.kind === 'sell' ? `+${e.gold} 金幣` : e.kind === 'ascend' ? `飛昇！${e.gold} 金幣` : `${e.gold} 金幣`;
       say(world.player.position, text, PALETTE.marker);
     });
     world.events.on('ShopFailed', (e) => {
-      const text = { gold: '金幣不足', inventoryFull: '背包已滿', far: '離商人太遠' }[e.reason];
+      const text = {
+        gold: '金幣不足',
+        inventoryFull: '背包已滿',
+        potionCap: '藥水已達上限',
+        far: '離商人太遠',
+        cannotAscend: '無法飛昇',
+        materials: '材料不足',
+      }[e.reason];
       say(world.player.position, text, PALETTE.manaText);
     });
     world.events.on('AttackDodged', (e) => say(e.position, '閃避', PALETTE.hoverName));
+    world.events.on('MaterialPickedUp', (e) => say(e.position, `+${e.count} ${MATERIAL_LABELS[e.materialId]}`, 0x7ad8ff));
+    world.events.on('ItemsSalvaged', (e) => {
+      const text = (Object.entries(e.gained) as [MaterialId, number][]).map(([id, n]) => `+${n} ${MATERIAL_LABELS[id]}`).join('  ');
+      say(world.player.position, text, 0x7ad8ff);
+    });
     world.events.on('BossPhaseChanged', (e) => {
       const boss = world.targeting.getActor(e.actorId);
       if (boss) this.floatingText.spawnText(projection.toScreen(boss.position), `${e.name}：${e.label}！`, PALETTE.critText, 22);
@@ -206,7 +237,9 @@ export class Renderer {
     const playerPos = lerp(player.prevPosition, player.position, alpha);
 
     this.camera.follow(playerPos);
-    this.worldLayer.position.set(this.camera.offset.x, this.camera.offset.y);
+    // 爆炸、重擊的畫面震動
+    const shake = this.effects.shake;
+    this.worldLayer.position.set(this.camera.offset.x + shake.x, this.camera.offset.y + shake.y);
 
     this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos, dt);
@@ -263,6 +296,9 @@ export class Renderer {
       if (actor === this.world.player) {
         const aura = gearAura(equippedItems((slot) => this.world.equipment.get(slot)), this.data.balance.gearAura);
         view.setAura(aura.level, aura.rarity);
+        // 手上的武器造型與武器微光
+        const weapon = weaponLookFor(this.world.equipment.get('weapon'), this.data);
+        view.setWeapon(weapon?.look ?? null, weapon?.rarity ?? 'normal');
       }
       const position = lerp(actor.prevPosition, actor.position, alpha);
       view.update(actor, position, dt, onScreen(position));
@@ -272,6 +308,17 @@ export class Renderer {
       view.container.destroy({ children: true });
       this.actorViews.delete(id);
     }
+  }
+
+  /** 出手動作：主角拿弓射遠程技能 → 拉弓；拿法杖施法 → 舉杖施法；其他依技能標籤 */
+  private motionFor(actor: Actor, tags: readonly string[]): { kind: ActionKind; variant: AttackVariant | undefined } {
+    const spell = tags.includes('spell');
+    if (actor === this.world.player) {
+      const weapon = weaponLookFor(this.world.equipment.get('weapon'), this.data)?.look.kind;
+      if (weapon === 'bow' && tags.includes('ranged')) return { kind: 'attack', variant: 'shoot' };
+      if (weapon === 'staff' && spell) return { kind: 'attack', variant: 'staff' };
+    }
+    return { kind: spell ? 'cast' : 'attack', variant: attackVariant(tags) };
   }
 
   private updateMarker(destination: Vec2 | undefined): void {
@@ -284,3 +331,24 @@ export class Renderer {
   }
 }
 
+/** 依技能標籤選擇攻擊招式（只影響動畫）：重擊 → 上劈、範圍 → 橫斬、其他 → 橫斬與突刺交替 */
+/** 大招：更大、更久、震動更強 */
+const BIG_IMPACTS = new Set(['magic.meteor', 'magic.absolute_zero', 'melee.devastator', 'melee.earth_break', 'magic.storm_core']);
+
+/** 範圍效果的外觀：依技能與元素選擇爆炸、冰刺、落雷、震波、斬擊… */
+function impactKind(skillId: string, tags: readonly string[], element: string | null, angleDeg: number, radius: number): ImpactKind {
+  if (skillId === 'ranged.rain_of_arrows') return 'arrowRain';
+  if (skillId === 'melee.blade_dance') return 'whirl';
+  if (element === 'fire') return 'fire';
+  if (element === 'cold') return 'frost';
+  if (element === 'lightning') return 'lightning';
+  if (element === 'poison') return 'poison';
+  if (tags.includes('heavy') || radius >= 1.6) return 'shockwave';
+  return angleDeg < 360 ? 'slash' : 'burst';
+}
+
+function attackVariant(tags: readonly string[]): AttackVariant | undefined {
+  if (tags.includes('heavy')) return 'overhead';
+  if (tags.includes('area')) return 'slash';
+  return undefined;
+}

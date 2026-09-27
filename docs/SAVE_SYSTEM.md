@@ -14,6 +14,9 @@
 - **v3（商人）**：`floor.shopBought`（本層貨架已買走的位置）。
 - **v4（怪物圖鑑）**：`bestiary`（EnemyDef ID → 擊敗次數）。Migration v3 → v4 給空的圖鑑；讀檔時移除已刪除的怪物。
 - **v5（主倍率）**：裝備的 `quality`（+X% 武器傷害 / 防禦 / 飾品詞綴）。Migration v4 → v5 給舊裝備該稀有度區間的中間值。
+- **v6（傳奇 / 神話）**：裝備的 `legendaryRolls`（固定屬性擲骰，選填）。Migration v5 → v6 不需轉換（之前沒有真正的傳奇 / 神話裝備）。
+- **v7（裝備圖鑑）**：`collection`（拿到過的 `base:<ID>` 與 `legendary:<ID>`）。Migration v6 → v7 給空的清單，讀檔後依背包與裝備自動補上。
+- **v8（材料與拆解區）**：`materials`（武器精華、防具精華、飛昇碎片）、`salvage`（拆解區的裝備）、選填的 `ascendSlot`（商人飛昇格的裝備），地上可以有 `material`（飛昇碎片）。Migration v7 → v8 從零開始；樓層佈局改變時，地上的碎片直接加進材料。
 - 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---

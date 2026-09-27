@@ -19,12 +19,12 @@ export const skillComboTags: Record<string, ComboInfo> = {
   'melee.double_slash': { range: 'Near', action: ['Fast', 'MultiHit'], damage: ['Physical'], role: 'Amplifier' },
   'melee.blade_dance': { range: 'Near', action: ['MultiHit', 'AoE'], damage: ['Physical'], role: 'Amplifier' },
   'melee.phantom_blades': { range: 'Near', action: ['Fast', 'MultiHit', 'Burst'], damage: ['Physical'], role: 'Finisher' },
-  // ── Melee · Guard ──
-  'melee.guard_stance': { range: 'Near', action: ['Guard'], control: ['Shield'], role: 'Defense' },
-  // 衝撞（Charge）：向前突進的 Bridge
-  'melee.shield_bash': { range: 'Mid', action: ['Impact'], damage: ['Physical'], movement: ['Advance'], control: ['Stun', 'Knockback'], role: 'Setup' },
-  'melee.counter': { range: 'Near', action: ['Counter', 'Burst'], damage: ['Physical'], role: 'Finisher' },
-  'melee.iron_will': { range: 'Near', action: ['Guard'], control: ['Shield'], role: 'Defense' },
+  // ── Melee · Blade 刃術 ──
+  // 突進斬：向前突進的 Bridge 型 Starter（取代舊的盾撞，是唯一的中距離 Advance）
+  'melee.dash_slash': { range: 'Mid', action: ['Fast'], damage: ['Physical'], movement: ['Advance'], role: 'Starter' },
+  'melee.quake_slash': { range: 'Near', action: ['AoE', 'Impact'], damage: ['Physical'], control: ['Knockback'], role: 'Setup' },
+  'melee.launch_slash': { range: 'Near', action: ['Impact'], damage: ['Physical'], control: ['Launch'], role: 'Bridge' },
+  'melee.execution_slash': { range: 'Near', action: ['Heavy', 'Execute'], damage: ['Physical'], role: 'Finisher' },
   // ── Ranged · Precision ──
   'ranged.quick_shot': { range: 'Far', action: ['Fast', 'Projectile'], damage: ['Physical'], role: 'Starter' },
   'ranged.charge_shot': { range: 'Far', action: ['Heavy', 'Projectile'], damage: ['Physical'], control: ['Knockback'], role: 'Finisher' },
@@ -36,11 +36,12 @@ export const skillComboTags: Record<string, ComboInfo> = {
   'ranged.rapid_fire': { range: 'Far', action: ['Fast', 'MultiHit', 'Projectile'], damage: ['Physical'], role: 'Amplifier' },
   // 以落點打擊實作、沒有實際投射物，因此不帶 Projectile（投射物類加成對它無效）
   'ranged.rain_of_arrows': { range: 'Far', action: ['AoE', 'MultiHit'], damage: ['Physical'], role: 'Finisher' },
-  // ── Ranged · Mobility ──
+  // ── Ranged · Archery 射術 ──
   'ranged.backstep_shot': { range: 'Mid', action: ['Projectile'], damage: ['Physical'], movement: ['Retreat'], role: 'Bridge' },
-  'ranged.roll_shot': { range: 'Mid', action: ['Projectile'], damage: ['Physical'], movement: ['Roll', 'Reposition'], role: 'Bridge' },
-  'ranged.spin_shot': { range: 'Mid', action: ['Projectile', 'AoE', 'MultiHit'], damage: ['Physical'], movement: ['Reposition'], role: 'Bridge' },
-  'ranged.phantom_shot': { range: 'Mid', action: ['Projectile', 'Burst'], damage: ['Physical'], movement: ['Reposition'], role: 'Finisher' },
+  'ranged.pinning_shot': { range: 'Far', action: ['Projectile'], damage: ['Physical'], control: ['Slow'], role: 'Setup' },
+  // 以落點爆炸實作、沒有實際投射物，因此不帶 Projectile
+  'ranged.explosive_arrow': { range: 'Far', action: ['AoE'], damage: ['Physical'], control: ['Knockback'], role: 'Amplifier' },
+  'ranged.mark_shot': { range: 'Far', action: ['Projectile'], damage: ['Physical'], control: ['Mark'], role: 'Starter' },
   // ── Magic · Fire ──
   'magic.fireball': { range: 'Far', action: ['Projectile', 'AoE'], damage: ['Fire'], element: ['Fire'], role: 'Finisher' },
   'magic.flame_burst': { range: 'Far', action: ['AoE', 'Burst'], damage: ['Fire'], element: ['Fire'], role: 'Amplifier' },

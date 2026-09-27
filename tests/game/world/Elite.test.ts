@@ -9,6 +9,7 @@ import type { GameCommand } from '../../../src/game/Commands';
 import type { GameEvents } from '../../../src/game/GameEvents';
 import { GameWorld } from '../../../src/game/GameWorld';
 import { EnemyFactory } from '../../../src/game/enemies/EnemyFactory';
+import { floorResistFor } from '../../../src/game/world/DifficultyScaler';
 import { NavGrid } from '../../../src/game/movement/NavGrid';
 import { SpawnSystem } from '../../../src/game/world/SpawnSystem';
 import { SaveMapper } from '../../../src/save/SaveMapper';
@@ -125,5 +126,44 @@ describe('精英怪的掉落與存檔', () => {
   it('資料驗證：精英掉落表不存在時報錯', () => {
     const balance = { ...(gameData.balance as object), elite: { ...config, lootTable: 'loot.missing' } };
     expect(() => DataRegistry.load({ ...gameData, balance })).toThrow(/loot\.missing/);
+  });
+});
+
+describe('精英 / Boss 的樓層減傷', () => {
+  const resist = config.floorResist;
+  const physical = (a: { stats: { get(s: 'physicalResist' | 'fireResist'): number } }) => a.stats.get('physicalResist');
+  const elemental = (a: { stats: { get(s: 'physicalResist' | 'fireResist'): number } }) => a.stats.get('fireResist');
+
+  it('第 10 層起才有，逐層增加，最高 40%；Boss 成長較快', () => {
+    expect(floorResistFor(9, false, resist)).toBe(0);
+    expect(floorResistFor(10, false, resist)).toBeCloseTo(0.015);
+    expect(floorResistFor(10, true, resist)).toBeCloseTo(0.02);
+    expect(floorResistFor(20, false, resist)).toBeCloseTo(0.165);
+    expect(floorResistFor(29, true, resist)).toBeCloseTo(0.4);
+    expect(floorResistFor(99, false, resist)).toBeCloseTo(0.4);
+  });
+
+  it('第 9 層的精英沒有減傷；第 12 層的精英隨機帶物理或屬性其一，一般怪沒有', () => {
+    for (const e of enemies(world(9, 3)).filter((a) => a.elite)) expect(physical(e) + elemental(e)).toBe(0);
+    const kinds = new Set<string>();
+    for (let seed = 1; seed <= 15; seed++) {
+      for (const e of enemies(world(12, seed))) {
+        if (!e.elite && !e.isBoss) {
+          expect(physical(e) + elemental(e)).toBe(0);
+          continue;
+        }
+        if (e.isBoss) continue;
+        const value = floorResistFor(12, false, resist);
+        expect([physical(e), elemental(e)].sort()).toEqual([0, value].sort());
+        kinds.add(physical(e) > 0 ? 'physical' : 'elemental');
+      }
+    }
+    expect(kinds).toEqual(new Set(['physical', 'elemental']));
+  });
+
+  it('Boss（第 15 層）物理與屬性減傷兩種都有', () => {
+    const boss = enemies(world(15)).find((a) => a.isBoss)!;
+    expect(physical(boss)).toBeCloseTo(floorResistFor(15, true, resist));
+    expect(elemental(boss)).toBeCloseTo(floorResistFor(15, true, resist));
   });
 });

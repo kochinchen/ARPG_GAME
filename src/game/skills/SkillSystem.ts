@@ -9,10 +9,18 @@ import type { TargetingService } from '../targeting/TargetingService';
 import type { SkillExecutor } from './SkillExecutor';
 import { NO_MODS, type StepMods } from '../combo/StepMods';
 import type { Balance } from '../../data/schema/balance';
-import { combatCategory } from './skillCategory';
+import { combatCategory, type CombatCategory } from './skillCategory';
+import type { StatusEffectSystem } from '../combat/StatusEffectSystem';
+import type { StatusKind } from '../../data/schema/effects';
 
 /** 追擊時重新尋路的間隔（秒） */
 const REPATH_INTERVAL = 0.25;
+
+/** 「下一個近戰 / 遠程技能傷害 +X%」：同類技能施放時消耗 */
+const EMPOWER: Partial<Record<CombatCategory, StatusKind>> = { melee: 'meleeEmpower', ranged: 'rangedEmpower' };
+
+/** 施放瞬間的額外加成（傳奇 / 神話裝備）：commit 在確定施放後呼叫 */
+export type ModsHook = (actor: Actor, skill: SkillDef, mods: Readonly<StepMods>) => { mods: Readonly<StepMods>; commit: () => void };
 
 /**
  * 執行 Actor 的技能意圖：
@@ -20,6 +28,9 @@ const REPATH_INTERVAL = 0.25;
  * 玩家（左右鍵）與怪物（AI）共用。
  */
 export class SkillSystem {
+  /** 傳奇 / 神話裝備的施放加成（GameWorld 設定） */
+  modsHook: ModsHook | null = null;
+
   constructor(
     private readonly skills: DataTable<SkillDef>,
     private readonly targeting: TargetingService,
@@ -28,6 +39,7 @@ export class SkillSystem {
     private readonly events: GameEventBus,
     /** 近戰 / 遠程 / 魔法的 MP 倍率 */
     private readonly categoryTraits: Balance['skillCategories'],
+    private readonly statuses: StatusEffectSystem,
   ) {}
 
   update(actors: readonly Actor[], dt: number): void {
@@ -110,13 +122,19 @@ export class SkillSystem {
 
     if ((actor.cooldowns.get(skill.id) ?? 0) > 0) return; // 保留意圖，冷卻結束後施放
 
-    const mods = intent.mods ?? NO_MODS;
+    const extra = this.modsHook?.(actor, skill, intent.mods ?? NO_MODS);
+    let mods = extra?.mods ?? intent.mods ?? NO_MODS;
     const cost = this.manaCost(skill, rank, actor, mods);
     if (actor.mana < cost) {
       this.events.emit('SkillFailed', { actorId: actor.id, skillId: skill.id, reason: 'mana' });
       actor.intent = null;
       return;
     }
+    extra?.commit();
+    const category = combatCategory(skill);
+    const empowerKind = category ? EMPOWER[category] : undefined;
+    const empower = empowerKind ? this.statuses.consume(actor, empowerKind) : null;
+    if (empower) mods = { ...mods, damage: mods.damage + empower.magnitude };
 
     actor.mana -= cost;
     if (skill.cooldown > 0) actor.cooldowns.set(skill.id, skill.cooldown);
@@ -145,6 +163,7 @@ export class SkillSystem {
       point,
       direction,
       impactIn: cast.duration * skill.impactAt,
+      combo: mods.combo,
     });
     // 瞬發技能當下就觸發
     this.advanceCast(actor, 0);

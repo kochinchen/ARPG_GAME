@@ -7,7 +7,7 @@ import { DataRegistry } from '../../../src/data/DataRegistry';
 import { DamagePipeline } from '../../../src/game/combat/DamagePipeline';
 import { StatusEffectSystem } from '../../../src/game/combat/StatusEffectSystem';
 import type { GameEvents } from '../../../src/game/GameEvents';
-import { createWorld, DT, makeActor, run } from '../helpers';
+import { createWorld, DT, makeActor, noBaseRegen, run } from '../helpers';
 
 /** 裝備詞綴的新屬性：元素抗性、閃避、荊棘 */
 const balance = DataRegistry.load(gameData).balance;
@@ -75,6 +75,7 @@ describe('裝備的攻擊與輔助屬性（整合）', () => {
     const { world, commands, data } = createWorld();
     const potion = data.potions.get(data.balance.player.potionId);
     world.player.stats.addModifier({ stat: 'potionEffect', kind: 'flat', value: 0.5, source: 'test' });
+    noBaseRegen(world.player);
     world.player.hp = 1;
     commands.push({ type: 'UsePotion' });
     world.update(DT);
@@ -83,13 +84,13 @@ describe('裝備的攻擊與輔助屬性（整合）', () => {
 });
 
 describe('主倍率算進角色的武器傷害', () => {
-  it('穿上長劍 +213%（基礎 3–7）：武器傷害增加 9–22', () => {
+  it('穿上鐵製長劍 +213%（基礎 6–13）：武器傷害增加 19–41', () => {
     const { world } = createWorld();
     world.equipment.unequip('weapon');
     const min = world.player.stats.get('damageMin');
     const max = world.player.stats.get('damageMax');
-    world.equipment.equip({ uid: 'ls', baseId: 'weapon.long_sword', rarity: 'legendary', itemLevel: 12, quality: 2.13, affixes: [] });
-    expect(world.player.stats.get('damageMin') - min).toBe(9);
-    expect(world.player.stats.get('damageMax') - max).toBe(22);
+    world.equipment.equip({ uid: 'ls', baseId: 'weapon.iron_longsword', rarity: 'legendary', itemLevel: 12, quality: 2.13, affixes: [] });
+    expect(world.player.stats.get('damageMin') - min).toBe(19);
+    expect(world.player.stats.get('damageMax') - max).toBe(41);
   });
 });

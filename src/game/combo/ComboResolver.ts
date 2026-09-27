@@ -75,6 +75,10 @@ export function matches(rule: ComboRuleDef, skills: readonly [ComboProfile, Comb
   if (m.kind === 'exact') return m.skills.every((id, i) => id === skills[i]!.id);
   if (!m.steps.every((matcher, i) => stepMatches(matcher, skills[i]!))) return false;
   if (m.distinctSkills && new Set(skills.map((s) => s.id)).size !== 3) return false;
+  if (m.distinctElements) {
+    const elements = skills.flatMap((s) => s.elementTags.slice(0, 1));
+    if (new Set(elements).size !== elements.length) return false;
+  }
   if (m.sameElement && !skills.every((s) => s.elementTags.includes(m.sameElement!))) return false;
   if (m.rangePattern && !m.rangePattern.every((r, i) => skills[i]!.range === r)) return false;
   return true;
@@ -96,5 +100,5 @@ export function specificity(rule: ComboRuleDef): number {
   if (m.kind === 'exact') return 100;
   const step = (s: StepMatcher) =>
     (s.anyTags ? 1 : 0) + (s.allTags?.length ?? 0) + (s.range ? 1 : 0) + (s.role ? 1 : 0) + (s.hasDamage ? 1 : 0) + (s.hasElement ? 1 : 0);
-  return m.steps.reduce((sum, s) => sum + step(s), 0) + (m.distinctSkills ? 1 : 0) + (m.sameElement ? 1 : 0) + (m.rangePattern ? 1 : 0);
+  return m.steps.reduce((sum, s) => sum + step(s), 0) + (m.distinctSkills ? 1 : 0) + (m.distinctElements ? 1 : 0) + (m.sameElement ? 1 : 0) + (m.rangePattern ? 1 : 0);
 }

@@ -63,3 +63,14 @@ describe('Inventory（格子背包）', () => {
     expect(inv.version).toBe(v0 + 2);
   });
 });
+
+describe('藥水攜帶上限', () => {
+  it('所有疊合計不超過上限；超過的部分不放入', () => {
+    const inv = new Inventory(3, 2, () => 5, () => 8);
+    expect(inv.addPotions('p', 6)).toBe(6);
+    expect(inv.addPotions('p', 6)).toBe(2);
+    expect(inv.potionCount('p')).toBe(8);
+    expect(inv.potionRoom('p')).toBe(0);
+    expect(inv.addPotions('p', 1)).toBe(0);
+  });
+});

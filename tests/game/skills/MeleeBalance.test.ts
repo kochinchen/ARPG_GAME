@@ -5,7 +5,7 @@ import { DataRegistry } from '../../../src/data/DataRegistry';
 import { ComboResolver } from '../../../src/game/combo/ComboResolver';
 import { ComboSkillIndex } from '../../../src/game/combo/ComboSkillIndex';
 import type { GameWorld } from '../../../src/game/GameWorld';
-import { createWorldWithMap, enemiesOf, makeInvulnerable, run } from '../helpers';
+import { createWorldWithMap, enemiesOf, makeInvulnerable, noBaseRegen, run } from '../helpers';
 
 /** M7.5 近戰平衡：扇形範圍、MP / 吸血倍率、「近 → 近 → 遠」回報 */
 
@@ -95,6 +95,7 @@ describe('技能類型倍率', () => {
       const { world, commands, events } = setup([dummy(7.5, 2.5)]);
       const player = world.player;
       player.stats.setBase('lifeSteal', 0.1);
+      noBaseRegen(player);
       player.hp = 10;
       let dealt = 0;
       events.on('ActorDamaged', (e) => {

@@ -127,6 +127,23 @@ describe('商人', () => {
     expect(sellPrice({ kind: 'potion', potionId: 'potion.rejuvenation', count: 4 }, data)).toBe(4 * data.balance.shop.potionSellPrice);
   });
 
+  it('藥水最多攜帶 20 瓶：買到上限為止（多的退錢），滿了不能買', () => {
+    const { world, send, approach, events } = setup(3);
+    approach();
+    const max = data.potions.get(data.balance.player.potionId).maxCarry;
+    expect(max).toBe(20);
+    world.inventory.addPotions(data.balance.player.potionId, max - 2 - world.potions.count);
+    world.wallet.gold = 1000;
+    send({ type: 'ShopBuyPotion', count: 5 });
+    expect(world.potions.count).toBe(max);
+    expect(world.wallet.gold).toBe(1000 - 2 * data.balance.shop.potionBuyPrice);
+    const failed = vi.fn();
+    events.on('ShopFailed', failed);
+    send({ type: 'ShopBuyPotion', count: 1 });
+    expect(failed).toHaveBeenCalledWith({ reason: 'potionCap' });
+    expect(world.potions.count).toBe(max);
+  });
+
   it('買藥水；賭博得到指定類別的物品（價格依樓層）', () => {
     const { world, send, approach } = setup(3);
     approach();
@@ -169,5 +186,149 @@ describe('商人', () => {
     SaveMapper.restore(fresh, repairSave(save, data));
     expect(fresh.shop.boughtIndices).toEqual([1, 4]);
     expect(fresh.shop.stock.map((i) => i?.baseId ?? null)).toEqual(world.shop.stock.map((i) => i?.baseId ?? null));
+  });
+});
+
+describe('飛昇（基底升一階）', () => {
+  const sword = (rarity: 'normal' | 'rare' | 'mythic' = 'rare') => ({
+    uid: 'asc',
+    baseId: 'weapon.iron_longsword',
+    rarity,
+    itemLevel: 6,
+    quality: 1,
+    affixes: [{ id: 'affix.vital', rolls: [9] }],
+  });
+
+  it('飛昇格：放進裝備、付錢後基底換成同種類的下一階，結果留在飛昇格，名稱、詞綴、主倍率保留', () => {
+    const { world, send, approach } = setup(1);
+    approach();
+    world.wallet.add(5000);
+    world.cursor.set({ kind: 'item', item: sword() });
+    send({ type: 'ShopAscendSlotClick' });
+    expect(world.cursor.entry).toBeNull();
+    expect(world.shop.ascendSlot!.uid).toBe('asc');
+    const info = world.shop.ascendInfo(sword());
+    expect(info.next!.id).toBe('weapon.knight_longsword');
+    // 第 3 階：只需要武器精華（第 5 階起才需要飛昇碎片）
+    expect(Object.keys(info.materials)).toEqual(['weaponEssence']);
+    // 材料不夠時不能飛昇
+    send({ type: 'ShopAscend' });
+    expect(world.shop.ascendSlot!.baseId).toBe('weapon.iron_longsword');
+    world.materials.add('weaponEssence', 100);
+    const gold = world.wallet.gold;
+    // 第 1 層也能飛昇（沒有樓層限制）
+    send({ type: 'ShopAscend' });
+    const item = world.shop.ascendSlot!;
+    expect(item.baseId).toBe('weapon.knight_longsword');
+    expect(item.quality).toBe(1);
+    expect(item.affixes).toEqual([{ id: 'affix.vital', rolls: [9] }]);
+    expect(item.itemLevel).toBe(12);
+    expect(world.wallet.gold).toBe(gold - info.price);
+    // 可以連續飛昇；空手點飛昇格拿回來
+    send({ type: 'ShopAscendSlotClick' });
+    expect(world.shop.ascendSlot).toBeNull();
+    expect((world.cursor.entry as { item: { baseId: string } }).item.baseId).toBe('weapon.knight_longsword');
+  });
+
+  it('飛昇格裡的裝備會存檔', () => {
+    const { world, send } = setup(2);
+    world.cursor.set({ kind: 'item', item: sword() });
+    send({ type: 'ShopAscendSlotClick' });
+    const save = SaveMapper.capture(world, 'T');
+    const fresh = new GameWorld({ data, floor: 1, commands: new CommandQueue(), events: new EventBus(), seed: save.meta.runSeed });
+    SaveMapper.restore(fresh, repairSave(save, data));
+    expect(fresh.shop.ascendSlot!.uid).toBe('asc');
+  });
+
+  it('價格依目標階級與稀有度；最高階與飾品不能飛昇', () => {
+    const { world } = setup(12);
+    const rare = world.shop.ascendInfo(sword('rare')).price;
+    const mythic = world.shop.ascendInfo(sword('mythic')).price;
+    expect(mythic).toBeGreaterThan(rare);
+    expect(world.shop.ascendInfo({ ...sword(), baseId: 'weapon.knight_longsword' }).reason).toBeNull();
+    expect(world.shop.ascendInfo({ ...sword(), baseId: 'weapon.abyss_soul_sword' }).reason).toBe('maxTier');
+    expect(world.shop.ascendInfo({ ...sword(), baseId: 'ring.plain' }).reason).toBe('jewelry');
+  });
+
+  it('每種武器與防具都有完整的 8 階，等級需求 1 / 6 / 12 / … / 42，數值逐階提高', () => {
+    for (const kind of ['sword', 'axe', 'bow', 'staff', 'helmet', 'armor', 'gloves', 'boots']) {
+      const tiers = data.items.all.filter((b) => (b.weaponType ?? b.slot) === kind).sort((a, b) => a.tier! - b.tier!);
+      expect(tiers.map((b) => b.levelReq), kind).toEqual([1, 6, 12, 18, 24, 30, 36, 42]);
+      // 法杖看法術強度，其他看最大傷害 / 防禦
+      const value = (b: (typeof tiers)[number]) => b.baseStats.spellPower ?? b.baseStats.damageMax ?? b.baseStats.defense ?? 0;
+      for (let i = 1; i < tiers.length; i++) expect(value(tiers[i]!), kind).toBeGreaterThan(value(tiers[i - 1]!) * 1.25);
+    }
+  });
+
+  it('舊存檔的基底 ID 讀檔時換成新的對應基底', () => {
+    const { world } = setup(2);
+    const save = SaveMapper.capture(world, 'T');
+    save.inventory.cells[0] = { kind: 'item', item: { uid: 'old', baseId: 'weapon.long_sword', rarity: 'magic', itemLevel: 4, affixes: [] } };
+    save.collection = ['base:weapon.long_sword', 'base:weapon.iron_longsword'];
+    const fixed = repairSave(save, data).data;
+    expect((fixed.inventory.cells[0] as { item: { baseId: string } }).item.baseId).toBe('weapon.iron_longsword');
+    expect(fixed.collection).toEqual(['base:weapon.iron_longsword']);
+  });
+});
+
+describe('拆解與材料', () => {
+  it('拆解區：放進裝備、按拆掉依稀有度得到精華（武器 → 武器精華、防具 → 防具精華）', () => {
+    const { world, send } = setup(2);
+    const put = (item: object, slot: number) => {
+      world.cursor.set({ kind: 'item', item: item as never });
+      send({ type: 'SalvageClick', slot });
+    };
+    put({ uid: 's1', baseId: 'weapon.short_sword', rarity: 'mythic', itemLevel: 1, affixes: [] }, 0);
+    put({ uid: 's2', baseId: 'armor.quilted', rarity: 'normal', itemLevel: 1, affixes: [] }, 1);
+    expect(world.cursor.entry).toBeNull();
+    expect(world.salvage.preview()).toEqual({ weaponEssence: [16, 20], armorEssence: [1, 2] });
+    send({ type: 'SalvageAll' });
+    expect(world.materials.get('weaponEssence')).toBeGreaterThanOrEqual(16);
+    expect(world.materials.get('weaponEssence')).toBeLessThanOrEqual(20);
+    expect(world.materials.get('armorEssence')).toBeGreaterThanOrEqual(1);
+    expect(world.salvage.slots.every((s) => s === null)).toBe(true);
+  });
+
+  it('拆解區的格子可以拿回；藥水不能放', () => {
+    const { world, send } = setup(2);
+    world.cursor.set({ kind: 'item', item: { uid: 'x', baseId: 'ring.plain', rarity: 'rare', itemLevel: 1, affixes: [] } });
+    send({ type: 'SalvageClick', slot: 3 });
+    send({ type: 'SalvageClick', slot: 3 });
+    expect((world.cursor.entry as { item: { uid: string } }).item.uid).toBe('x');
+    world.cursor.set({ kind: 'potion', potionId: 'potion.rejuvenation', count: 1 });
+    send({ type: 'SalvageClick', slot: 4 });
+    expect(world.salvage.slots[4]).toBeNull();
+  });
+
+  it('魔王的掉落表有機率掉飛昇碎片；走過去自動撿起', () => {
+    const { world } = setup(5);
+    expect(data.lootTables.get('loot.boss').shards).toEqual({ chance: 0.6, count: [1, 2] });
+    // 擊敗魔王：大約六成機率掉碎片
+    let dropped = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const w = setup(5, seed).world;
+      const boss = w.actors.find((a) => a.isBoss)!;
+      boss.lastDamagedBy = w.player.id;
+      boss.hp = 0;
+      run(w, 1 / 60);
+      if (w.groundItems.some((g) => g.content.kind === 'material')) dropped++;
+    }
+    expect(dropped).toBeGreaterThan(15);
+    expect(dropped).toBeLessThan(35);
+    world.spawnGroundItem(world.player.position, { kind: 'material', materialId: 'ascensionShard', count: 2 });
+    run(world, 0.2);
+    expect(world.materials.get('ascensionShard')).toBe(2);
+  });
+
+  it('材料與拆解區會存檔', () => {
+    const { world } = setup(2);
+    world.materials.add('armorEssence', 7);
+    world.cursor.set({ kind: 'item', item: { uid: 'keep', baseId: 'boots.leather', rarity: 'magic', itemLevel: 1, affixes: [] } });
+    world.salvage.click(2);
+    const save = SaveMapper.capture(world, 'T');
+    const fresh = setup(1, save.meta.runSeed).world;
+    SaveMapper.restore(fresh, repairSave(save, data));
+    expect(fresh.materials.get('armorEssence')).toBe(7);
+    expect(fresh.salvage.slots[2]?.uid).toBe('keep');
   });
 });

@@ -15,6 +15,7 @@ import { FloorDefSchema, type FloorDef } from './schema/floor';
 import { MapDefSchema, type MapDef } from './schema/map';
 import { ComboRuleSchema, isRangeSequenceValid, type ComboRuleDef } from './schema/combo';
 import { EliteAffixDefSchema, type EliteAffixDef } from './schema/elite';
+import { LegendaryDefSchema, type LegendaryDef, type SkillFilter } from './schema/legendary';
 import { checkComboTags, flattenEffects } from './skillAnalysis';
 import { findMarker, reachableTiles } from './mapAnalysis';
 import { MAP_TILES } from './schema/map';
@@ -33,6 +34,7 @@ export interface RawGameData {
   maps: readonly unknown[];
   comboRules: readonly unknown[];
   eliteAffixes: readonly unknown[];
+  legendaries: readonly unknown[];
 }
 
 export class DataValidationError extends Error {
@@ -81,6 +83,7 @@ export class DataRegistry {
     readonly maps: DataTable<MapDef>,
     readonly comboRules: DataTable<ComboRuleDef>,
     readonly eliteAffixes: DataTable<EliteAffixDef>,
+    readonly legendaries: DataTable<LegendaryDef>,
   ) {}
 
   static load(raw: RawGameData): DataRegistry {
@@ -97,6 +100,46 @@ export class DataRegistry {
     const maps = parseTable('map', MapDefSchema, raw.maps, problems);
     const comboRules = parseTable('comboRule', ComboRuleSchema, raw.comboRules, problems);
     const eliteAffixes = parseTable('eliteAffix', EliteAffixDefSchema, raw.eliteAffixes, problems);
+    const legendaries = parseTable('legendary', LegendaryDefSchema, raw.legendaries, problems);
+    // 基底的舊版 ID：不可與現有 ID 或其他別名重複；同種類的階級不可重複
+    const aliasSeen = new Set<string>();
+    const tierSeen = new Set<string>();
+    for (const base of items.all) {
+      for (const alias of base.aliases) {
+        if (items.has(alias) || aliasSeen.has(alias)) problems.push(`item '${base.id}' 的舊版 ID '${alias}' 重複`);
+        aliasSeen.add(alias);
+      }
+      if (base.tier !== undefined) {
+        const key = `${base.weaponType ?? base.slot}:${base.tier}`;
+        if (tierSeen.has(key)) problems.push(`item '${base.id}' 的階級 ${key} 重複`);
+        tierSeen.add(key);
+      }
+    }
+    // 傳奇 / 神話：條件引用的技能要存在；requireBuff 用到的增益要由同一件裝備產生
+    for (const def of legendaries.all) {
+      const buffs = new Set<string>();
+      const filters: SkillFilter[] = [];
+      const required: string[] = [];
+      for (const line of def.lines) {
+        if (line.type !== 'effect') continue;
+        for (const m of line.mechanics) {
+          if (m.type === 'mods') {
+            filters.push(m.when);
+            if (m.requireBuff) required.push(m.requireBuff.id);
+            if (m.scale?.by === 'buff') required.push(m.scale.id);
+          } else if (m.type === 'trigger') {
+            filters.push(m.when);
+            if (m.requireBuff) required.push(m.requireBuff.id);
+            for (const a of m.actions) {
+              if (a.type === 'buff') buffs.add(a.id);
+              if (a.type === 'arm') filters.push(a.when);
+            }
+          } else if (m.buff) required.push(m.buff.id);
+        }
+      }
+      for (const f of filters) for (const id of f.skills ?? []) if (!skills.has(id)) problems.push(`legendary '${def.id}' 引用不存在的 skill '${id}'`);
+      for (const id of required) if (!buffs.has(id)) problems.push(`legendary '${def.id}' 需要的增益 '${id}' 沒有由這件裝備產生`);
+    }
     if (balance && !lootTables.has(balance.elite.lootTable)) {
       problems.push(`balance.elite 引用不存在的 lootTable '${balance.elite.lootTable}'`);
     }
@@ -220,7 +263,7 @@ export class DataRegistry {
     }
 
     if (problems.length > 0 || !balance) throw new DataValidationError(problems);
-    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules, eliteAffixes);
+    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules, eliteAffixes, legendaries);
   }
 }
 

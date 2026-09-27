@@ -74,8 +74,8 @@ function progressedWorld() {
       for (const c of actives) {
         const r = world.comboResolver.resolve([a, b, c], () => 1);
         if (r.status !== 'combo') continue;
-        world.events.emit('ComboCompleted', { comboId: r.comboId, ruleId: r.rule.id, name: r.displayName, skills: [a, b, c], description: r.description });
-        world.events.emit('ComboCompleted', { comboId: r.comboId, ruleId: r.rule.id, name: r.displayName, skills: [a, b, c], description: r.description });
+        world.events.emit('ComboCompleted', { comboId: r.comboId, ruleId: r.rule.id, name: r.displayName, skills: [a, b, c], description: r.description, slot: null, ruleTier: r.rule.tier });
+        world.events.emit('ComboCompleted', { comboId: r.comboId, ruleId: r.rule.id, name: r.displayName, skills: [a, b, c], description: r.description, slot: null, ruleTier: r.rule.tier });
         break outer;
       }
   return { world, commands };

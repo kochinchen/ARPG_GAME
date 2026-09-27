@@ -33,6 +33,9 @@ function sample(gold: number): SaveData {
     codex: [],
     floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, exitOpen: false, killed: [], openedChests: {}, groundItems: [], shopBought: [] },
     bestiary: {},
+    collection: [],
+    materials: {},
+    salvage: [],
     counters: { itemUidCounter: 0 },
   };
 }

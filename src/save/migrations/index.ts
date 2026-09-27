@@ -116,8 +116,20 @@ const v4ToV5: Migration = (v4) => {
   };
 };
 
+/**
+ * v5 → v6：傳奇 / 神話裝備加入固定屬性的擲骰（legendaryRolls，選填）。
+ * 之前的版本沒有真正的傳奇 / 神話裝備（只有開發用的隨機預覽），不需要轉換內容。
+ */
+const v5ToV6: Migration = (v5) => v5;
+
+/** v6 → v7：加入裝備圖鑑（空的；讀檔後依背包與裝備補上已擁有的物品） */
+const v6ToV7: Migration = (v6) => ({ ...v6, collection: [] });
+
+/** v7 → v8：加入材料與拆解區（舊存檔從零開始） */
+const v7ToV8: Migration = (v7) => ({ ...v7, materials: {}, salvage: [] });
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8];
 
 export class MigrationError extends Error {}
 

@@ -24,6 +24,11 @@ function usePotion(e: MouseEvent) {
   </div>
 
   <div class="center">
+    <div v-if="hud.buffs.length" class="buffs">
+      <span v-for="b in hud.buffs" :key="b.id" class="buff" :title="`${b.label}：${b.stacks} 層，剩 ${Math.ceil(b.remaining)} 秒`">
+        {{ b.label }}<b v-if="b.stacks > 1">×{{ b.stacks }}</b><i>{{ Math.ceil(b.remaining) }}</i>
+      </span>
+    </div>
     <div class="xp-bar" :title="`經驗 ${hud.xp.value} / ${hud.xp.next}`">
       <div class="xp-fill" :style="{ width: `${xpPct}%` }" />
       <span class="xp-text">Lv {{ hud.xp.level }} · {{ hud.xp.value }} / {{ hud.xp.next }}</span>
@@ -48,6 +53,29 @@ function usePotion(e: MouseEvent) {
 </template>
 
 <style scoped>
+/* 傳奇 / 神話裝備的增益 */
+.buffs {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+.buff {
+  padding: 1px 6px;
+  font: 11px/1.5 sans-serif;
+  color: #ffd08a;
+  background: rgb(0 0 0 / 65%);
+  border: 1px solid #b0621e;
+}
+.buff b {
+  margin-left: 2px;
+  color: #fff;
+}
+.buff i {
+  margin-left: 4px;
+  font-style: normal;
+  color: #9a8c76;
+}
 .orb-slot {
   position: absolute;
   bottom: 12px;

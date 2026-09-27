@@ -8,6 +8,10 @@ import { PolyFigure } from '../figure/PolyFigure';
 import { describeItem } from '../../game/items/ItemDescriber';
 import { FLOOR_COLORS, LOOT_COLORS, PALETTE, RARITY_COLORS } from '../palette';
 import { LootBeam } from './LootBeam';
+import { MATERIAL_LABELS } from '../../data/schema/item';
+
+/** 材料（飛昇碎片）的顏色 */
+const MATERIAL_COLOR = 0x7ad8ff;
 
 /** 名稱標籤離地面的高度（px） */
 const LABEL_OFFSET = 18;
@@ -55,7 +59,7 @@ export class InteractableLayer {
   constructor(
     private readonly projection: IsoProjection,
     private readonly objectLayer: Container,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'potions'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions'>,
   ) {}
 
   setHovered(id: number | null): void {
@@ -182,6 +186,7 @@ export class InteractableLayer {
     const icon = new Graphics();
     if (g.content.kind === 'potion') icon.roundRect(-4, -12, 8, 12, 3).fill({ color: LOOT_COLORS.potion });
     else if (g.content.kind === 'gold') icon.ellipse(0, -2, 8, 4).fill({ color: LOOT_COLORS.gold });
+    else if (g.content.kind === 'material') icon.poly([0, -14, 5, -6, 0, 0, -5, -6]).fill({ color: MATERIAL_COLOR }).stroke({ color: 0xffffff, width: 1, alpha: 0.6 });
     else icon.poly([0, -8, 10, -3, 0, 2, -10, -3]).fill({ color }).stroke({ color: 0x000000, width: 1 });
     container.addChild(icon);
     this.ground.addChild(container);
@@ -360,6 +365,8 @@ export class InteractableLayer {
       }
       case 'gold':
         return { text: `${g.content.amount} 金幣`, color: LOOT_COLORS.gold };
+      case 'material':
+        return { text: `${MATERIAL_LABELS[g.content.materialId]} ×${g.content.count}`, color: MATERIAL_COLOR };
     }
   }
 }

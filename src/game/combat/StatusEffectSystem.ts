@@ -18,7 +18,7 @@ const STAT_EFFECTS: Partial<Record<StatusKind, (magnitude: number) => Omit<StatM
 };
 
 /**
- * Buff / Debuff：緩速、冰凍、暈眩、燃燒、破甲、弱點、防禦姿態、反擊、鋼鐵意志。
+ * Buff / Debuff：緩速、冰凍、暈眩、浮空、燃燒、破甲、弱點、標記、防禦姿態、反擊、鋼鐵意志、下一招強化。
  * 同種狀態重複施加時取較長的時間與較強的效果。
  */
 export class StatusEffectSystem {
@@ -41,8 +41,8 @@ export class StatusEffectSystem {
       target.statuses.push({ kind, remaining: duration, magnitude, source, dps, tickTimer: BURN_TICK });
     }
     this.syncModifier(target, kind);
-    // 冰凍 / 暈眩打斷施放
-    if (kind === 'freeze' || kind === 'stun') target.cast = null;
+    // 冰凍 / 暈眩 / 浮空打斷施放
+    if (kind === 'freeze' || kind === 'stun' || kind === 'airborne') target.cast = null;
     this.events.emit('StatusApplied', { actorId: target.id, kind });
   }
 
@@ -54,7 +54,7 @@ export class StatusEffectSystem {
     this.syncModifier(target, kind);
   }
 
-  /** 取出並移除某狀態（防禦姿態、反擊觸發時使用） */
+  /** 取出並移除某狀態（防禦姿態、反擊、下一招強化觸發時使用） */
   consume(target: Actor, kind: StatusKind): StatusInstance | null {
     const index = target.statuses.findIndex((s) => s.kind === kind);
     if (index < 0) return null;

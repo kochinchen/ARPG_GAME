@@ -77,6 +77,10 @@ export const SaveMapper = {
         shopBought: world.shop.boughtIndices,
       },
       bestiary: Object.fromEntries(progress.bestiary),
+      collection: [...progress.collection].sort(),
+      materials: world.materials.snapshot(),
+      salvage: world.salvage.slots.map((item) => (item ? clone(item) : null)),
+      ascendSlot: world.shop.ascendSlot ? clone(world.shop.ascendSlot) : null,
       counters: { itemUidCounter: world.itemGenerator.uidCounter },
     };
   },
@@ -105,6 +109,11 @@ export const SaveMapper = {
     for (const [id, points] of Object.entries(save.attributes.allocated)) progress.attributes.set(id, points);
     progress.bestiary.clear();
     for (const [id, kills] of Object.entries(save.bestiary)) progress.bestiary.set(id, kills);
+    progress.collection.clear();
+    for (const key of save.collection) progress.collection.add(key);
+    world.materials.restore(save.materials);
+    world.salvage.restore(save.salvage.map((item) => (item ? toItem(item) : null)));
+    world.shop.ascendSlot = save.ascendSlot ? toItem(save.ascendSlot) : null;
     world.attributes.apply();
 
     // 按鍵配置
@@ -235,8 +244,13 @@ function toGroundContent(entry: SavedGroundItem['entry']): GroundContent {
 
 /** Schema 的 optional 欄位可能是 undefined；ItemInstance 不允許，沒有值時省略 */
 function toItem(saved: SavedItem): ItemInstance {
-  const { legendaryId, quality, ...rest } = clone(saved);
-  return { ...rest, ...(quality === undefined ? {} : { quality }), ...(legendaryId === undefined ? {} : { legendaryId }) };
+  const { legendaryId, legendaryRolls, quality, ...rest } = clone(saved);
+  return {
+    ...rest,
+    ...(quality === undefined ? {} : { quality }),
+    ...(legendaryId === undefined ? {} : { legendaryId }),
+    ...(legendaryRolls === undefined ? {} : { legendaryRolls }),
+  };
 }
 
 function clone<T>(value: T): T {

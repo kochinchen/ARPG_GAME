@@ -1,3 +1,4 @@
+import { rankValue } from './schema/common';
 import type { EffectDef } from './schema/effects';
 import type { SkillDef } from './schema/skill';
 
@@ -14,10 +15,14 @@ export function countHits(effects: readonly EffectDef[]): number {
         hits += e.hits;
         break;
       case 'projectile':
-        hits += e.count * countHits(e.onHit);
+        // 依等級成長的發數以 Lv1 計算（Combo 判定用的是技能的基本特性）
+        hits += rankValue(e.count, 1) * countHits(e.onHit);
         break;
       case 'area':
         hits += countHits(e.effects);
+        break;
+      case 'dash':
+        hits += countHits(e.onPath);
         break;
       case 'chain':
         hits += (e.jumps + 1) * countHits(e.effects);
@@ -38,7 +43,7 @@ export function countHits(effects: readonly EffectDef[]): number {
 /** 攤平所有巢狀效果 */
 export function flattenEffects(effects: readonly EffectDef[]): EffectDef[] {
   return effects.flatMap((e) => {
-    const nested = e.type === 'projectile' ? e.onHit : 'effects' in e ? e.effects : [];
+    const nested = e.type === 'projectile' ? e.onHit : e.type === 'dash' ? e.onPath : 'effects' in e ? e.effects : [];
     return [e, ...flattenEffects(nested)];
   });
 }
@@ -67,7 +72,7 @@ export function checkComboTags(skill: SkillDef): string[] {
     if (tag === 'Pierce') need(projectiles.some((p) => p.pierce > 0), tag, '可穿透的投射物');
     if (tag === 'MultiHit') need(countHits(skill.effects) >= 2, tag, '至少 2 段命中');
     if (tag === 'AoE') {
-      need(all.some((e) => e.type === 'area' || e.type === 'zone' || e.type === 'chain') || projectiles.some((p) => p.count > 1), tag, '範圍、地面區域、連鎖或多發投射物');
+      need(all.some((e) => e.type === 'area' || e.type === 'zone' || e.type === 'chain') || projectiles.some((p) => rankValue(p.count, 1) > 1), tag, '範圍、地面區域、連鎖或多發投射物');
     }
     if (tag === 'Execute') need(damages.some((d) => d.bonus && 'hpBelow' in d.bonus.when), tag, '對低血量目標的加成');
     if (tag === 'Counter') need(statuses.has('counter'), tag, '反擊狀態');
@@ -76,7 +81,8 @@ export function checkComboTags(skill: SkillDef): string[] {
   for (const tag of info.control) {
     if (tag === 'Knockback') need(all.some((e) => e.type === 'knockback'), tag, '擊退效果');
     if (tag === 'Shield') need(statuses.has('guard') || statuses.has('ironWill'), tag, '防禦類狀態');
-    const status = { Slow: 'slow', Freeze: 'freeze', Stun: 'stun', ArmorBreak: 'armorBreak', Mark: 'weakPoint' }[tag as string];
+    if (tag === 'Mark') need(statuses.has('weakPoint') || statuses.has('marked'), tag, '弱點或標記狀態');
+    const status = { Slow: 'slow', Freeze: 'freeze', Stun: 'stun', ArmorBreak: 'armorBreak', Launch: 'airborne' }[tag as string];
     if (status) need(statuses.has(status as never), tag, `${status} 狀態`);
   }
   for (const tag of info.movement) {

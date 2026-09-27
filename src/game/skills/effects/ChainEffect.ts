@@ -24,6 +24,6 @@ export class ChainEffect implements IEffect<'chain'> {
           .filter((a) => !hit.has(a.id) && a.hp > 0)
           .sort((a, b) => distance(a.position, from.position) - distance(b.position, from.position))[0] ?? null;
     }
-    ctx.services.events.emit('ChainTriggered', { points, element: 'lightning' });
+    ctx.services.events.emit('ChainTriggered', { skillId: ctx.skill.id, points, element: 'lightning', special: ctx.mods.combo?.success ?? false });
   }
 }

@@ -3,7 +3,10 @@ import { distance, vec2 } from '../../../src/core/math/Vec2';
 import type { GameCommand } from '../../../src/game/Commands';
 import type { Actor } from '../../../src/game/entities/Actor';
 import type { GameWorld } from '../../../src/game/GameWorld';
-import { createWorldWithMap, DT, enemiesOf, makeInvulnerable, run } from '../helpers';
+import { gameData } from '../../../src/data';
+import { DataRegistry } from '../../../src/data/DataRegistry';
+import { describeSkill } from '../../../src/game/skills/SkillDescriber';
+import { createWorldWithMap, DT, enemiesOf, makeInvulnerable, noBaseRegen, run } from '../helpers';
 
 const ROOM = [
   '##################',
@@ -192,12 +195,15 @@ describe('Support 常駐被動（M6 技能大改）', () => {
   });
 
   it('再生：每秒回復最大生命的比例', () => {
-    const { world, send } = setupSupport();
+    const { world, send, data } = setupSupport();
     world.player.skillRanks.set('support.regeneration', 5);
     send({ type: 'SetSupportSlot', slot: 0, skillId: 'support.regeneration' });
+    noBaseRegen(world.player);
     world.player.hp = 10;
     run(world, 2);
-    expect(world.player.hp).toBeCloseTo(10 + world.player.maxHp * 0.015 * 2, 0);
+    // 沒有受到傷害 = 脫戰，回復 × 5
+    const { multiplier } = data.balance.player.outOfCombatRegen;
+    expect(world.player.hp).toBeCloseTo(10 + world.player.maxHp * 0.015 * multiplier * 2, 0);
   });
 });
 
@@ -348,17 +354,107 @@ describe('技能效果（M6 技能大改）', () => {
     expect(dummy.hp).toBeLessThan(dummy.maxHp);
   });
 
-  it('鋼鐵意志：減傷並免疫擊退；防禦姿態：下一次傷害降低', () => {
-    const ctx = setup([]);
+  it('突進斬：沿路徑斬擊，只打到路徑上的敵人；命中後下一個近戰技能消耗強化', () => {
+    const ctx = setup([dummyAt(3.5, 1.5), dummyAt(3.5, 4.5)]);
+    const [onPath, offPath] = enemiesOf(ctx.world);
     const player = ctx.world.player;
-    comboQ(ctx.world, 'melee.iron_will');
-    castQ(ctx, { x: 5, y: 3 }, 0.5);
-    expect(player.hasStatus('ironWill')).toBe(true);
-    expect(player.stats.get('damageReduction')).toBeCloseTo(0.35);
+    const start = player.position;
+    comboQ(ctx.world, 'melee.dash_slash');
+    castQ(ctx, { x: 12, y: 1.5 }, 1);
+    expect(player.position.x).toBeGreaterThan(start.x + 2.5);
+    expect(onPath!.hp).toBeLessThan(onPath!.maxHp);
+    expect(offPath!.hp).toBe(offPath!.maxHp);
+    expect(player.hasStatus('meleeEmpower')).toBe(true);
 
-    comboQ(ctx.world, 'melee.guard_stance');
-    castQ(ctx, { x: 5, y: 3 }, 0.5);
-    expect(player.hasStatus('guard')).toBe(true);
+    comboQ(ctx.world, 'melee.heavy_slash');
+    castQ(ctx, onPath!, 1);
+    expect(player.hasStatus('meleeEmpower')).toBe(false);
+  });
+
+  it('後跳射擊：後跳後下一個遠程技能消耗強化；近戰技能不會消耗', () => {
+    const ctx = setup([dummyAt(9.5, 1.5)]);
+    const player = ctx.world.player;
+    player.position = vec2(4.5, 1.5);
+    comboQ(ctx.world, 'ranged.backstep_shot');
+    // 施放時間 = 1 / 攻速；等後跳整段結束（強化持續 2 秒）
+    castQ(ctx, { x: 12, y: 1.5 }, 0.9);
+    expect(player.hasStatus('rangedEmpower')).toBe(true);
+
+    const casts = recordCasts(ctx);
+    comboQ(ctx.world, 'melee.dash_slash');
+    castQ(ctx, { x: 12, y: 1.5 }, 0.1);
+    expect(casts).toEqual(['melee.dash_slash']);
+    expect(player.hasStatus('rangedEmpower')).toBe(true);
+    run(ctx.world, 0.8);
+
+    comboQ(ctx.world, 'ranged.quick_shot');
+    castQ(ctx, { x: 12, y: 1.5 }, 0.1);
+    expect(player.hasStatus('rangedEmpower')).toBe(false);
+  });
+
+  it('挑空斬：目標浮空期間無法行動', () => {
+    const ctx = setup([skeletonAt(3, 1.5)]);
+    makeInvulnerable(ctx.world.player);
+    const target = enemiesOf(ctx.world)[0]!;
+    target.stats.setBase('maxHp', 9999);
+    target.hp = 9999;
+    comboQ(ctx.world, 'melee.launch_slash');
+    ctx.commands.push(castAt(target));
+    let airborne = false;
+    run(ctx.world, 1, () => {
+      if (target.hasStatus('airborne')) airborne ||= target.isDisabled;
+    });
+    expect(airborne).toBe(true);
+  });
+
+  it('標記射擊：被標記的目標受到的傷害提高', () => {
+    const ctx = setup([dummyAt(8.5, 1.5), dummyAt(8.5, 3.5)]);
+    const [marked, plain] = enemiesOf(ctx.world);
+    for (const d of [marked!, plain!]) {
+      d.stats.setBase('maxHp', 9999);
+      d.hp = 9999;
+    }
+    ctx.world.player.stats.setBase('damageMin', 20);
+    ctx.world.player.stats.setBase('damageMax', 20);
+    ctx.world.statuses.apply(marked!, 'marked', 10, 0.15, ctx.world.player);
+    const markedHits = hitsOn(ctx, marked!);
+    const plainHits = hitsOn(ctx, plain!);
+    comboQ(ctx.world, 'ranged.quick_shot');
+    castQ(ctx, marked!, 1);
+    castQ(ctx, plain!, 1);
+    expect(markedHits[0]! / plainHits[0]!).toBeCloseTo(1.15, 1);
+  });
+
+  it('散射：Lv1 25° / 5 支，每級 +5° / +1 支，Lv5 45° / 9 支', () => {
+    for (const [rank, count, spreadDeg] of [
+      [1, 5, 25],
+      [5, 9, 45],
+    ] as const) {
+      const ctx = setup([]);
+      comboQ(ctx.world, 'ranged.spread_shot');
+      ctx.world.player.skillRanks.set('ranged.spread_shot', rank);
+      ctx.commands.push(castAt({ x: 12, y: 1.5 }));
+      let arrows: { x: number; y: number }[] = [];
+      run(ctx.world, 1, () => {
+        if (arrows.length === 0 && ctx.world.projectiles.length > 0) arrows = ctx.world.projectiles.map((p) => p.direction);
+      });
+      expect(arrows).toHaveLength(count);
+      const angles = arrows.map((d) => (Math.atan2(d.y, d.x) * 180) / Math.PI);
+      expect(Math.max(...angles) - Math.min(...angles)).toBeCloseTo(spreadDeg, 0);
+    }
+  });
+
+  it('刃術 / 射術：擊退距離、處決加成、爆炸範圍依等級成長', () => {
+    const data = DataRegistry.load(gameData);
+    const lines = (id: string, rank: number) => describeSkill(data.skills.get(id), rank, 0);
+    expect(lines('melee.quake_slash', 1)).toContain('擊退 2 格');
+    expect(lines('melee.quake_slash', 2)).toContain('擊退 2.5 格');
+    expect(lines('melee.execution_slash', 1)).toContain('目標生命低於 30% 時，傷害 +50%');
+    expect(lines('melee.execution_slash', 2)).toContain('目標生命低於 30% 時，傷害 +60%');
+    expect(lines('ranged.explosive_arrow', 1)).toContain('範圍 2 格');
+    expect(lines('ranged.explosive_arrow', 2)).toContain('範圍 2.5 格');
+    expect(lines('ranged.spread_shot', 1)).toContain('5 發投射物，散射 25°');
+    expect(lines('ranged.spread_shot', 2)).toContain('6 發投射物，散射 30°');
   });
 
   it('新增技能只需加資料：每級倍率與魔力依陣列成長', () => {
@@ -378,6 +474,7 @@ describe('技能效果（M6 技能大改）', () => {
       ctx.world.player.skillRanks.set('magic.test_bolt', rank);
       // 測試技能不在技能樹中，直接指定連段
       ctx.world.loadout.combos[0] = ['magic.test_bolt', null, null];
+      noBaseRegen(ctx.world.player);
       castQ(ctx, dummy, 0.5);
       return { damage: dummy.maxHp - dummy.hp, mana: ctx.world.player.maxMana - ctx.world.player.mana };
     };
@@ -392,6 +489,7 @@ describe('藥水與魔力回復', () => {
     const potion = data.potions.get(data.balance.player.potionId);
     const onUsed = vi.fn();
     events.on('PotionUsed', onUsed);
+    noBaseRegen(world.player);
     world.player.hp = 10;
     world.player.mana = 0;
     const before = world.potions.count;
@@ -418,12 +516,39 @@ describe('藥水與魔力回復', () => {
     expect(world.player.hp).toBe(world.player.maxHp);
   });
 
-  it('魔力依 manaRegen 每秒回復', () => {
+  it('魔力每秒回復：固定 manaRegen + 最大魔力 × manaRegenPct', () => {
     const { world, data } = setup([]);
-    world.player.stats.setBase('manaRegen', data.balance.player.manaRegenPerSec);
+    const p = data.balance.player;
+    // setup 把固定回復關掉，這裡設回正式數值
+    world.player.stats.setBase('manaRegen', p.manaRegenPerSec);
     world.player.mana = 0;
     run(world, 2);
-    expect(world.player.mana).toBeCloseTo(2 * data.balance.player.manaRegenPerSec, 1);
+    expect(world.player.mana).toBeCloseTo(2 * (p.manaRegenPerSec + world.player.maxMana * p.manaRegenPctPerSec), 1);
+  });
+
+  it('基礎生命回復：戰鬥中每秒 hpRegenPctPerSec × 最大生命；脫戰 4 秒後 × 5；hp 歸零時不回復', () => {
+    const { world, data, events } = setup([]);
+    const p = data.balance.player;
+    const hurt = () => events.emit('ActorDamaged', { targetId: world.player.id, sourceId: null, amount: 1 } as never);
+    world.player.stats.setBase('maxHp', 1000);
+    // 戰鬥中：剛受到傷害，delay 秒內是一般速度
+    world.player.hp = 10;
+    hurt();
+    run(world, p.outOfCombatRegen.delay - 0.5);
+    expect(world.player.hp).toBeCloseTo(10 + 1000 * p.hpRegenPctPerSec * (p.outOfCombatRegen.delay - 0.5), 0);
+    // 脫戰：回復 × multiplier
+    run(world, 0.5);
+    const before = world.player.hp;
+    run(world, 2);
+    expect(world.player.hp).toBeCloseTo(before + 1000 * p.hpRegenPctPerSec * p.outOfCombatRegen.multiplier * 2, 0);
+    // 再受到傷害就回到一般速度
+    hurt();
+    const inCombat = world.player.hp;
+    run(world, 1);
+    expect(world.player.hp).toBeCloseTo(inCombat + 1000 * p.hpRegenPctPerSec, 0);
+    world.player.hp = 0;
+    run(world, 1 / 60);
+    expect(world.player.hp).toBe(0);
   });
 });
 

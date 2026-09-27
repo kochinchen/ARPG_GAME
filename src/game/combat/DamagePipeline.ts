@@ -27,7 +27,7 @@ const RESIST: Record<Exclude<Element, 'physical'>, StatId> = {
 
 /**
  * 所有傷害的唯一入口。
- *   閃避 → 基礎傷害 → 傷害加成 → 暴擊 → 防禦（物理）/ 抗性（元素）→ 減傷 → 防禦姿態 → 取整 → 扣血
+ *   閃避 → 基礎傷害 → 傷害加成 → 標記 → 暴擊 → 防禦 + 物理減傷（物理）/ 抗性（元素）→ 減傷 → 防禦姿態 → 取整 → 扣血
  *   → 吸血 / 吸魔 / 命中回魔 → 事件 → 反擊 / 荊棘
  * 死亡判定由 DeathSystem 在同一 Tick 稍後處理。
  */
@@ -53,6 +53,9 @@ export class DamagePipeline implements DamageDealer {
 
     let amount = this.rng.range(request.min, request.max);
     if (source) amount *= 1 + source.stats.get('damageBonus');
+    // 標記：目標受到的傷害提高
+    const mark = target.statuses.find((s) => s.kind === 'marked');
+    if (mark) amount *= 1 + mark.magnitude;
 
     const critChance =
       request.canCrit === false || isDot || !source ? 0 : source.stats.get('critChance') + (request.extraCritChance ?? 0);
@@ -62,6 +65,7 @@ export class DamagePipeline implements DamageDealer {
     if (request.element === 'physical') {
       const defense = target.stats.get('defense') * (1 - Math.min(1, Math.max(0, request.armorPenetration ?? 0)));
       amount *= 1 - defenseMitigation(defense, this.balance.combat.defenseConstant);
+      amount *= 1 - Math.min(this.balance.combat.maxResist, Math.max(0, target.stats.get('physicalResist')));
     } else {
       amount *= 1 - Math.min(this.balance.combat.maxResist, Math.max(0, target.stats.get(RESIST[request.element])));
     }

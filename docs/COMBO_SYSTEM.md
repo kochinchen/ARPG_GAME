@@ -2,6 +2,10 @@
 
 > 狀態：已實作（第二階段完成）。第 0 節的問題已全部依「暫定做法」定案；實作時另有 3 項調整，見第 0.1 節。
 > 本文件是 [ARCHITECTURE.md](ARCHITECTURE.md)「技能系統」一節的延伸，取代其中的 `replaceStep` 隱藏連段做法。
+>
+> **2026-09 改版**：近戰 C 路線「防禦」改為「刃術」（突進斬、震地斬、挑空斬、處決斬），遠程 C 路線「機動」改為「射術」（後跳射擊、牽制射擊、爆裂箭、標記射擊）。
+> 舊的盾撞（衝撞）由突進斬接手「唯一的中距離 Advance」角色；沒有 Guard / Shield / Counter 技能後，R15 守勢反擊改為 R15 浮空追擊（新增 ControlTag `Launch`）。
+> 下文第 0 節保留當時的決策紀錄，提到盾撞、翻滾射擊處請對照本段。
 
 ---
 
@@ -49,7 +53,7 @@
 | DamageTags | 實際造成的傷害類型；不造成傷害的技能為空 | Physical, Fire, Ice, Lightning |
 | ElementTags | 魔法元素（不含 Physical），供「元素技能」類規則判斷 | Fire, Ice, Lightning |
 | MovementTags | 施放者位移 | None, Advance, Retreat, Roll, Reposition, Dash |
-| ControlTags | 對目標 / 自身的控制效果 | None, Slow, Freeze, Stun, Knockback, ArmorBreak, Mark, Shield |
+| ControlTags | 對目標 / 自身的控制效果 | None, Slow, Freeze, Stun, Knockback, ArmorBreak, Mark, Shield, Launch（浮空） |
 | ComboRole | 在連段中的定位 | Starter, Setup, Bridge, Amplifier, Finisher, Defense |
 | Hits | 每次施放的總命中段數（Rule 14 使用；由效果資料推導，不手填，`data/skillAnalysis.ts`） | 整數 |
 
@@ -69,22 +73,22 @@
 | 6 | melee.double_slash | 雙重斬 | Combo | 2 | Near | Fast, MultiHit | Physical | — | None | None | Amplifier | 2 |
 | 7 | melee.blade_dance | 劍刃旋舞 | Combo | 3 | Near | MultiHit, AoE | Physical | — | None | None | Amplifier | 3 |
 | 8 | melee.phantom_blades | 幻影連斬 | Combo | 4 | Near | Fast, MultiHit, Burst | Physical | — | None | None | Finisher | 5 |
-| 9 | melee.guard_stance | 防禦姿態 | Guard | 1 | Near | Guard | — | — | None | Shield | Defense | 0 |
-| 10 | melee.shield_bash | 盾撞（衝撞） | Guard | 2 | **Mid\*** | Impact | Physical | — | **Advance\*** | Stun, Knockback | Setup | 1 |
-| 11 | melee.counter | 反擊 | Guard | 3 | Near | Counter, Burst | Physical | — | None | None | Finisher | 0（傷害在觸發時計算） |
-| 12 | melee.iron_will | 鋼鐵意志 | Guard | 4 | Near | Guard | — | — | None | Shield | Defense | 0 |
+| 9 | melee.dash_slash | 突進斬 | Blade | 1 | Mid | Fast | Physical | — | Advance | None | Starter | 1（路徑上每個敵人） |
+| 10 | melee.quake_slash | 震地斬 | Blade | 2 | Near | AoE, Impact | Physical | — | None | Knockback | Setup | 1 |
+| 11 | melee.launch_slash | 挑空斬 | Blade | 3 | Near | Impact | Physical | — | None | Launch | Bridge | 1 |
+| 12 | melee.execution_slash | 處決斬 | Blade | 4 | Near | Heavy, Execute | Physical | — | None | None | Finisher | 1 |
 | 13 | ranged.quick_shot | 快速射擊 | Precision | 1 | Far | Fast, Projectile | Physical | — | None | None | Starter | 1 |
 | 14 | ranged.charge_shot | 蓄力射擊 | Precision | 2 | Far | Heavy, Projectile | Physical | — | None | Knockback | Finisher | 1 |
 | 15 | ranged.weak_point | 弱點射擊 | Precision | 3 | Far | Projectile | Physical | — | None | Mark | Setup | 1 |
 | 16 | ranged.execution_shot | 狙殺 | Precision | 4 | Far | Heavy, Projectile, Execute | Physical | — | None | None | Finisher | 1 |
 | 17 | ranged.piercing_shot | 穿透箭 | Barrage | 1 | Far | Projectile, Pierce | Physical | — | None | None | Starter | 1 |
-| 18 | ranged.spread_shot | 散射 | Barrage | 2 | Far | Projectile, MultiHit, AoE | Physical | — | None | None | Amplifier | 5 |
+| 18 | ranged.spread_shot | 散射 | Barrage | 2 | Far | Projectile, MultiHit, AoE | Physical | — | None | None | Amplifier | 5（Lv1；每級 +1，Lv5 為 9） |
 | 19 | ranged.rapid_fire | 連射 | Barrage | 3 | Far | Fast, MultiHit, Projectile | Physical | — | None | None | Amplifier | 5 |
 | 20 | ranged.rain_of_arrows | 箭雨 | Barrage | 4 | Far | AoE, MultiHit（**無 Projectile**，見 0.1） | Physical | — | None | None | Finisher | 8 |
-| 21 | ranged.backstep_shot | 後跳射擊 | Mobility | 1 | Mid | Projectile | Physical | — | Retreat | None | Bridge | 1 |
-| 22 | ranged.roll_shot | 翻滾射擊 | Mobility | 2 | Mid | Projectile | Physical | — | Roll, Reposition | None | Bridge | 1 |
-| 23 | ranged.spin_shot | 迴旋射擊 | Mobility | 3 | Mid | Projectile, AoE, MultiHit | **Physical\*** | — | Reposition | None | Bridge | 8 |
-| 24 | ranged.phantom_shot | 幻影射擊 | Mobility | 4 | Mid | Projectile, Burst | **Physical\*** | — | Reposition | None | Finisher | 2 |
+| 21 | ranged.backstep_shot | 後跳射擊 | Archery | 1 | Mid | Projectile | Physical | — | Retreat | None | Bridge | 1 |
+| 22 | ranged.pinning_shot | 牽制射擊 | Archery | 2 | Far | Projectile | Physical | — | None | Slow | Setup | 1 |
+| 23 | ranged.explosive_arrow | 爆裂箭 | Archery | 3 | Far | AoE（**無 Projectile**：落點爆炸） | Physical | — | None | Knockback | Amplifier | 1 |
+| 24 | ranged.mark_shot | 標記射擊 | Archery | 4 | Far | Projectile | Physical | — | None | Mark | Starter | 1 |
 | 25 | magic.fireball | 火球 | Fire | 1 | Far | Projectile, AoE | Fire | Fire | None | None | Finisher | 1 |
 | 26 | magic.flame_burst | 火焰爆破 | Fire | 2 | Far | AoE, Burst | Fire | Fire | None | None | Amplifier | 1 |
 | 27 | magic.firewall | 火牆 | Fire | 3 | Far | AoE, Channel | Fire | Fire | None | None | Setup | 4 |
@@ -155,7 +159,7 @@ function validateRange(r1: Range, r2: Range, r3: Range): 'ok' | 'invalidRange' {
 |---|---|---|
 | 1 | Exact Secret Combo | S01、S02（另見 5.3 草案） |
 | 2 | Element Escalation | R11、R12、R13 |
-| 3 | Status / Setup / Execute | R03、R04、R05、R08、R15、R16 |
+| 3 | Status / Setup / Execute | R03、R04、R05、R05b、R08、R15、R16 |
 | 4 | Range Transition | R06、R07、R10 |
 | 5 | Generic Action | R01、R02、R09、R14 |
 
@@ -180,6 +184,7 @@ function validateRange(r1: Range, r2: Range, r3: Range): 'ok' | 'invalidRange' {
 | R03 | Armor Crusher 碎甲 | 3 | ArmorBreak | Physical Attack | Heavy | — | S3：ArmorPenetration +25%、Damage +20% |
 | R04 | Control Rush 控場突進 | 3 | Slow\|Freeze | Advance | Heavy\|Impact | — | S3：Damage +20%、Knockback +60%、Stagger +25%（Q5：暫不生效） |
 | R05 | Elemental Weapon 元素附刃 | 3 | Element | Physical Attack | Physical Attack | — | S2：ElementDamage +15%；S3：ElementDamage +25%（元素沿用第一招） |
+| R05b | Dual Element Weapon 雙元素附刃 | 3 | Element | Element（與第一招不同） | Physical | distinctElements | S3：追加第一招元素傷害 +20%、追加第二招元素傷害 +20% |
 | R06 | Tactical Retreat 戰術撤退 | 4 | Range:Near + 有傷害 | Retreat\|Roll | Projectile | Range = Near→Mid→Far | S3：Damage +20%、ProjectileSpeed +25%、AoERadius +15% |
 | R07 | Hunter Rush 獵手突襲 | 4 | Range:Far + Role:Setup | Advance | Range:Near + Role:Finisher | Range = Far→Mid→Near | S3：Damage +25%、Crit +10%；Step1 含 Mark 時 S3 再 Crit +15% |
 | R08 | Marked Execution 標記處決 | 3 | Mark | MultiHit\|Heavy | Execute | — | S3：Crit +25%、Damage +25%。「Mark 不在第二招後消失」：現行 Mark 本來就不會被命中消耗，不需額外 Modifier |
@@ -189,7 +194,7 @@ function validateRange(r1: Range, r2: Range, r3: Range): 'ok' | 'invalidRange' {
 | R12 | Deep Freeze 深度凍結 | 2 | Ice | Ice | Ice | 三個 SkillID 不同 | S3：Damage +20%、FreezeChance +20（百分點，Q6）、FreezeDuration +20% |
 | R13 | Storm Surge 雷湧 | 2 | Lightning | Lightning | Lightning | 三個 SkillID 不同 | S3：Damage +20%、ChainCount +1、StatusChance +15（百分點，Q5） |
 | R14 | Rapid Finisher 連擊終結 | 5 | MultiHit | MultiHit | Role:Finisher | — | S3：Damage +20%、Crit +15%；Step1 + Step2 Hits ≥ 6 時 S3 再 Damage +10% |
-| R15 | Guard Counterattack 守勢反擊 | 3 | Guard\|Shield | Counter\|Impact | Heavy | — | S3：Damage +25%、Stagger +20%（Q5：暫不生效）；Self（整組連段期間）：KnockbackResist |
+| R15 | Launch Pursuit 浮空追擊 | 3 | Launch | Physical Attack | Heavy\|Execute | — | S3：Damage +25%、Crit +15% |
 | R16 | Elemental Execution 元素處決 | 3 | Element + (Slow\|Freeze\|Stun) | Role:Setup | Execute | — | S3：Damage +20%；S3 對 Slowed / Frozen / Marked 目標 Crit +20% |
 
 所有規則都**不綁技能名稱**；新增技能只要標籤正確，就會自動適用。
@@ -305,7 +310,7 @@ interface ComboRuleDef {
 | ID | 名稱 | Skill 1 → 2 → 3 | Range | ComboModifier（S3） |
 |---|---|---|---|---|
 | S01 | Flame Finisher 烈焰終擊 | 重砍 → 重砍 → 火球 | Near→Near→Far | Damage +30%、AoERadius +40%、ProjectileSize +30%；顯示「Greater Fireball」 |
-| S02 | Frozen Impact 冰霜重擊 | 冰球 → 盾撞（衝撞）→ 毀滅重擊 | Far→Mid→Near | Damage +30%、Knockback +80%、對 Slowed 目標 Stagger +25%（Q5） |
+| S02 | Frozen Impact 冰霜重擊 | 冰球 → 突進斬 → 毀滅重擊 | Far→Mid→Near | Damage +30%、Knockback +80%、對 Slowed 目標 Stagger +25%（Q5） |
 
 Exact Combo 也必須通過 Range 檢查；資料載入時若 Exact Combo 本身排列不合理，直接報錯（設計錯誤）。
 
@@ -489,25 +494,26 @@ function stepMatches(m: StepMatcher, s: SkillComboInfo): boolean {
 | T05 | Near-Far-Near | 重砍 | 火球 | 重砍 | N→F→N | — | — | 無 | `invalidRange`；照常施放 |
 | T06 | Far-Near-Far | 火球 | 重砍 | 冰球 | F→N→F | — | — | 無 | `invalidRange`；照常施放 |
 | T07 | Near-Mid-Far | 重砍 | 後跳射擊 | 火球 | N→M→F | R06 | Tactical Retreat | S3：Damage +20%、ProjSpeed +25%、AoE +15% | 火球強化 |
-| T08 | Far-Mid-Near | 弱點射擊 | 盾撞 | 毀滅重擊 | F→M→N | R07（含 Mark 加成） | Hunter Rush | S3：Damage +25%、Crit +25%（10 + 15） | 需採用 Q1（盾撞 = Advance） |
+| T08 | Far-Mid-Near | 弱點射擊 | 突進斬 | 毀滅重擊 | F→M→N | R07（含 Mark 加成） | Hunter Rush | S3：Damage +25%、Crit +25%（10 + 15） | 突進斬是 Mid + Advance |
 | T09 | 同元素三連 | 火球 | 火焰爆破 | 隕星 | F→F→F | R11 | Inferno | S3：Damage +25%、Burn +25%、AoE +20% | 隕星強化 |
 | T10 | 同元素三連 | 冰球 | 冰槍 | 冰霜新星 | F→F→N | R12 | Deep Freeze | S3：Damage +20%、FreezeChance +20 百分點、FreezeDuration +20% | 冰霜新星冰凍機率 20% → 40% |
 | T11 | 同元素有重複 | 火球 | 火球 | 隕星 | F→F→F | — | — | 無 | R11 要求三個 SkillID 不同；A→A→B 合法但無規則命中 |
 | T12 | 同元素三連 | 電擊 | 雷擊 | 連鎖閃電 | F→F→F | R13 | Storm Surge | S3：Damage +20%、ChainCount +1（3 → 4 次跳躍）、StatusChance +15 | 連鎖閃電強化 |
-| T13 | 跨系 + Priority 衝突 | 冰球 | 盾撞 | 毀滅重擊 | F→M→N | S02（同時符合 R04、R07） | Frozen Impact | S3：Damage +30%、Knockback +80%、Stagger +25%（暫不生效） | Tier 1 蓋過 Tier 3（R04）與 Tier 4（R07）。毀滅重擊不再帶 Execute，R16 不成立 |
+| T13 | 跨系 + Priority 衝突 | 冰球 | 突進斬 | 毀滅重擊 | F→M→N | S02（同時符合 R04、R07） | Frozen Impact | S3：Damage +30%、Knockback +80%、Stagger +25%（暫不生效） | Tier 1 蓋過 Tier 3（R04）與 Tier 4（R07）。毀滅重擊不再帶 Execute，R16 不成立 |
 | T14 | 跨系 | 火球 | 快斬 | 雙重斬 | F→N→N | R05 | Elemental Weapon | S2：+15% 火焰追加傷害；S3：+25% 火焰追加傷害 | 需採用 Q2（F→N→N 合理） |
 | T15 | 兩同一異 + 同層衝突 | 雙重斬 | 雙重斬 | 重砍 | N→N→N | R02（R14 同為 Tier 5，Specificity 相同，編號較小者勝） | Fast Momentum | S3：Damage +20%、AnimationSpeed +15%、Crit +10% | 前兩招 Hits 2+2 = 4，即使 R14 勝出也不會有 +10% |
 | T16 | Priority 衝突（跨層） | 破甲斬 | 裂地擊 | 蓄力射擊 | N→N→F | R03（同時符合 R01） | Armor Crusher | S3：ArmorPen +25%、Damage +20% | Tier 3 蓋過 Tier 5 |
 | T17 | Priority 衝突（跨層） | 連鎖閃電 | 雷暴 | 雷擊 | F→F→F | R13（同時符合 R14） | Storm Surge | S3：Damage +20%、ChainCount +1（雷擊無連鎖，無效）、StatusChance +15 | Tier 2 蓋過 Tier 5；R14 的 Hits ≥ 6 加成不生效 |
 | T18 | Generic Tag | 穿透箭 | 散射 | 箭雨 | F→F→F | R09 | Piercing Barrage | S3：AoE +25%、HitCount +1（箭雨無投射物）、Damage +15% | 若日後採用草案 S03，改為 S03 |
-| T19 | Mid 開頭 | 翻滾射擊 | 重砍 | 毀滅重擊 | M→N→N | R10 | Momentum Strike | S3：Damage +20%、Knockback +30%（毀滅重擊無擊退，無效） | 毀滅重擊強化 |
-| T20 | 合理但無規則 | 防禦姿態 | 鋼鐵意志 | 防禦姿態 | N→N→N | — | — | 無 | `noRule`；UI 顯示「—」 |
+| T19 | Mid 開頭 | 突進斬 | 重砍 | 毀滅重擊 | M→N→N | R10 | Momentum Strike | S3：Damage +20%、Knockback +30%（毀滅重擊無擊退，無效） | 毀滅重擊強化 |
+| T20 | 合理但無規則 | 牽制射擊 | 牽制射擊 | 震地斬 | F→F→N | — | — | 無 | `noRule`；UI 顯示「—」 |
 | T21 | 未滿三格 | 重砍 | 火球 | （未解鎖） | — | — | — | 無 | `tooShort`；兩招照常施放 |
 | T22 | Hits 條件加成 | 散射 | 連射 | 狙殺 | F→F→F | R14 | Rapid Finisher | S3：Damage +30%（20 + 10）、Crit +15% | 前兩招 Hits 5+5 = 10 ≥ 6 |
 | T23 | LevelFactor | 破甲斬 | 裂地擊 | 火球（Lv5） | N→N→F | R01 | Greater Fireball | S3：Damage +35%、ProjSize +35%、AoE +42% | 25 / 25 / 30 × 1.4；第三招是火球，顯示名稱替換 |
 | T24 | 同元素但排列不合理 | 冰霜新星 | 冰球 | 絕對零度 | N→F→N | — | — | 無 | `invalidRange` 先於規則比對，即使三個冰系且不同也不給 |
 | T25 | Status Setup | 冰球 | 弱點射擊 | 狙殺 | F→F→F | R16 | Elemental Execution | S3：Damage +20%；對 Slowed / Frozen / Marked 目標 Crit +20% | 弱點射擊本身會 Mark，狙殺打到時條件成立 |
-| T26 | Guard 路線 | 防禦姿態 | 盾撞 | 重砍 | N→M→N | R15 | Guard Counterattack | S3：Damage +25%；整組連段期間免疫擊退 | 盾撞同時是 Impact 與 Advance；R10 因第一招無位移不成立 |
+| T26 | 刃術路線 | 挑空斬 | 快斬 | 處決斬 | N→N→N | R15 | Launch Pursuit | S3：Damage +25%、Crit +15% | 快斬不是 Heavy，R02 不成立 |
+| T27 | 射術路線 | 標記射擊 | 蓄力射擊 | 狙殺 | F→F→F | R08 | Marked Execution | S3：Damage +25%、Crit +25% | 標記射擊帶 Mark |
 
 另需的 Discovery 測試：
 

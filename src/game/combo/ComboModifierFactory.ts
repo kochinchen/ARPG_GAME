@@ -79,9 +79,11 @@ function conditionMet(mod: ComboModifierDef, profiles: readonly ComboProfile[]):
 }
 
 function resolveElement(mod: ComboModifierDef, profiles: readonly ComboProfile[]): Element | null {
-  if (mod.element && mod.element !== 'fromStep1') return mod.element === 'ice' ? 'cold' : mod.element;
-  const first = profiles[0]?.elementTags[0];
-  return first ? ELEMENT_OF[first] : null;
+  if (mod.element === 'fromStep1' || mod.element === 'fromStep2' || !mod.element) {
+    const tag = profiles[mod.element === 'fromStep2' ? 1 : 0]?.elementTags[0];
+    return tag ? ELEMENT_OF[tag] : null;
+  }
+  return mod.element === 'ice' ? 'cold' : mod.element;
 }
 
 // ───────────────────── 說明文字（Codex / UI） ─────────────────────
@@ -111,7 +113,7 @@ const LABELS: Record<Exclude<ComboModifierType, 'elementDamage' | 'knockbackResi
 };
 
 const ELEMENT_LABELS: Record<string, string> = { fire: '火焰', cold: '冰霜', lightning: '雷電', physical: '物理' };
-const STATUS_LABELS: Record<string, string> = { slow: '緩速', freeze: '冰凍', weakPoint: '標記', stun: '暈眩', burn: '燃燒' };
+const STATUS_LABELS: Record<string, string> = { slow: '緩速', freeze: '冰凍', weakPoint: '弱點', marked: '標記', stun: '暈眩', burn: '燃燒', airborne: '浮空' };
 
 const fmt = (v: number, unit: 'pct' | 'count' | 'points') =>
   unit === 'count' ? `+${v}` : `${v >= 0 ? '+' : ''}${Math.round(v * 1000) / 10}%`;

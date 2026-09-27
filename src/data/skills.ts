@@ -27,9 +27,10 @@ const special: SkillInput[] = [
 ];
 
 // ─────────────────────────────── Melee 近戰 ───────────────────────────────
-// A Heavy 重擊：高傷害、破甲、擊退 ｜ B Combo 連擊：快速、多段 ｜ C Guard 防禦：防守、反擊、控制
-// 近戰承擔貼身風險（M7.5）：同 Tier 傷害約為遠程的 1.25～1.35 倍（Heavy ×1.3、Fast ×1.2、Guard ×1.25），
+// A Heavy 重擊：高傷害、破甲、擊退 ｜ B Combo 連擊：快速、多段 ｜ C Blade 刃術：改變站位、控制節奏、創造下一招優勢
+// 近戰承擔貼身風險（M7.5）：同 Tier 傷害約為遠程的 1.25～1.35 倍（Heavy ×1.3、Fast ×1.2），
 // 揮砍自帶扇形範圍（Fast 80°、Heavy 110°），主要目標一定命中。
+// 刃術與射術是功能型技能：傷害較低，價值在位移、控場與「下一招」加成；魔力與同 Tier 技能相同。
 /** 揮砍的觸及半徑（從角色中心；再加上目標半徑） */
 const SWING_RADIUS = 1.3;
 type EffectInput = NonNullable<SkillInput['effects']>[number];
@@ -65,15 +66,25 @@ const melee: SkillInput[] = [
     effects: [swing(80, [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(96, 108, 120, 132, 144) }])],
   },
   {
-    id: 'melee.guard_stance',
-    name: '防禦姿態',
-    description: '下一次受到的傷害降低。',
+    id: 'melee.dash_slash',
+    name: '突進斬',
+    description: '向前突進並斬擊路徑上的敵人，快速貼近目標，適合作為 Starter 或追擊技。',
     tree: { category: 'melee', tier: 1, branch: 'C' },
-    targeting: 'self',
-    castTime: 0.2,
+    targeting: 'direction',
+    useAttackSpeed: true,
     cost: { mana: [2, 2, 3, 3, 4] },
-    tags: ['melee', 'guard', 'buff'],
-    effects: [{ type: 'status', status: 'guard', target: 'self', duration: 10, magnitude: pct(20, 24, 28, 32, 36) }],
+    tags: ['attack', 'melee', 'movement'],
+    effects: [
+      {
+        type: 'dash',
+        distance: 3,
+        direction: 'forward',
+        onPath: [
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(90, 105, 120, 135, 150) },
+          { type: 'status', status: 'meleeEmpower', target: 'self', duration: 2, magnitude: pct(10, 12, 14, 16, 18) },
+        ],
+      },
+    ],
   },
   {
     id: 'melee.armor_break',
@@ -103,20 +114,23 @@ const melee: SkillInput[] = [
     effects: [swing(80, [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 2, multiplier: pct(78, 86, 95, 103, 112) }])],
   },
   {
-    id: 'melee.shield_bash',
-    name: '盾撞',
-    description: '衝向敵人撞擊，擊退並短暫暈眩。',
+    id: 'melee.quake_slash',
+    name: '震地斬',
+    description: '重擊地面產生衝擊波，傷害並震退附近敵人，適合打亂包圍與重新整理戰場。',
     tree: { category: 'melee', tier: 2, branch: 'C' },
-    targeting: 'enemy',
-    range: 3,
+    targeting: 'ground',
     useAttackSpeed: true,
     cost: { mana: [4, 5, 5, 6, 7] },
-    tags: ['attack', 'melee', 'guard'],
+    tags: ['attack', 'melee', 'area'],
     effects: [
-      { type: 'dash', distance: 3, direction: 'forward' },
-      { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(113, 131, 150, 169, 188) },
-      { type: 'status', status: 'stun', duration: 1 },
-      { type: 'knockback', distance: 1 },
+      {
+        type: 'area',
+        radius: 2.5,
+        effects: [
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(85, 100, 115, 130, 145) },
+          { type: 'knockback', distance: [2, 2.5, 3, 3.5, 4] },
+        ],
+      },
     ],
   },
   {
@@ -154,15 +168,26 @@ const melee: SkillInput[] = [
     ],
   },
   {
-    id: 'melee.counter',
-    name: '反擊',
-    description: '下一次受到近戰攻擊時自動反擊。',
+    id: 'melee.launch_slash',
+    name: '挑空斬',
+    description: '由下往上揮出強力斬擊，使敵人短暫浮空，適合作為 Combo Linker。',
     tree: { category: 'melee', tier: 3, branch: 'C' },
-    targeting: 'self',
-    castTime: 0.2,
-    cost: { mana: [7, 8, 9, 10, 11] },
-    tags: ['melee', 'guard', 'buff'],
-    effects: [{ type: 'status', status: 'counter', target: 'self', duration: 8, magnitude: pct(180, 205, 230, 255, 280) }],
+    targeting: 'enemy',
+    useAttackSpeed: true,
+    cost: { mana: T3_MP },
+    tags: ['attack', 'melee'],
+    effects: [
+      {
+        type: 'area',
+        radius: 1.5,
+        angleDeg: 110,
+        includeTarget: true,
+        effects: [
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(110, 125, 140, 155, 170) },
+          { type: 'status', status: 'airborne', duration: [0.6, 0.7, 0.8, 0.9, 1] },
+        ],
+      },
+    ],
   },
   {
     id: 'melee.devastator',
@@ -202,20 +227,36 @@ const melee: SkillInput[] = [
     effects: [swing(80, [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 5, multiplier: pct(58, 65, 72, 79, 86) }])],
   },
   {
-    id: 'melee.iron_will',
-    name: '鋼鐵意志',
-    description: '接下來一段時間大幅提高減傷並免疫擊退。',
+    id: 'melee.execution_slash',
+    name: '處決斬',
+    description: '對前方目標施展重斬，敵人生命越低傷害越高，適合作為 Finisher。',
     tree: { category: 'melee', tier: 4, branch: 'C' },
-    targeting: 'self',
-    castTime: 0.2,
-    cost: { mana: [12, 14, 15, 17, 18] },
-    tags: ['melee', 'guard', 'buff'],
-    effects: [{ type: 'status', status: 'ironWill', target: 'self', duration: 6, magnitude: pct(35, 40, 45, 50, 55) }],
+    targeting: 'enemy',
+    useAttackSpeed: true,
+    cost: { mana: T4_MP },
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [
+      {
+        type: 'area',
+        radius: 1.5,
+        angleDeg: 110,
+        includeTarget: true,
+        effects: [
+          {
+            type: 'damage',
+            element: 'physical',
+            scaling: 'weapon',
+            multiplier: pct(170, 195, 220, 245, 270),
+            bonus: { when: { hpBelow: 0.3 }, damagePct: pct(50, 60, 70, 80, 90) },
+          },
+        ],
+      },
+    ],
   },
 ];
 
 // ─────────────────────────────── Ranged 遠程 ───────────────────────────────
-// A Precision 精準：單體、高暴擊、處決 ｜ B Barrage 彈幕：多箭、穿透 ｜ C Mobility 機動：射擊結合位移
+// A Precision 精準：單體、高暴擊、處決 ｜ B Barrage 彈幕：多箭、穿透 ｜ C Archery 射術：拉開距離、牽制、標記
 const arrow = (multiplier: R5, extra: Record<string, unknown> = {}, onHit: unknown[] = []) => ({
   type: 'projectile' as const,
   speed: 14,
@@ -251,13 +292,17 @@ const ranged: SkillInput[] = [
   {
     id: 'ranged.backstep_shot',
     name: '後跳射擊',
-    description: '後跳同時射擊。',
+    description: '向後跳躍並同時射擊前方目標，快速拉開距離，適合作為 Linker 或脫離近戰。',
     tree: { category: 'ranged', tier: 1, branch: 'C' },
     targeting: 'direction',
     useAttackSpeed: true,
-    cost: { mana: [2, 3, 3, 4, 5] },
+    cost: { mana: [2, 2, 3, 3, 4] },
     tags: ['attack', 'ranged', 'projectile', 'movement'],
-    effects: [{ type: 'dash', distance: 2.5, direction: 'backward' }, arrow(pct(75, 85, 95, 105, 115))] as SkillInput['effects'],
+    effects: [
+      { type: 'dash', distance: 2.5, direction: 'backward' },
+      { type: 'status', status: 'rangedEmpower', target: 'self', duration: 2, magnitude: pct(10, 12, 14, 16, 18) },
+      arrow(pct(105, 120, 135, 150, 165)),
+    ] as SkillInput['effects'],
   },
   {
     id: 'ranged.charge_shot',
@@ -273,24 +318,29 @@ const ranged: SkillInput[] = [
   {
     id: 'ranged.spread_shot',
     name: '散射',
-    description: '扇形射出 5 箭。',
+    description: '扇形射出多支箭，等級越高角度越廣、箭數越多。',
     tree: { category: 'ranged', tier: 2, branch: 'B' },
     targeting: 'direction',
     useAttackSpeed: true,
     cost: { mana: [5, 5, 6, 7, 8] },
     tags: ['attack', 'ranged', 'projectile'],
-    effects: [arrow(pct(38, 42, 46, 50, 54), { count: 5, spreadDeg: 50 })] as SkillInput['effects'],
+    effects: [arrow(pct(38, 42, 46, 50, 54), { count: [5, 6, 7, 8, 9], spreadDeg: [25, 30, 35, 40, 45] })] as SkillInput['effects'],
   },
   {
-    id: 'ranged.roll_shot',
-    name: '翻滾射擊',
-    description: '朝指定方向翻滾並攻擊。',
+    id: 'ranged.pinning_shot',
+    name: '牽制射擊',
+    description: '射出帶有牽制效果的箭矢，使敵人減速，方便拉開安全射擊距離。',
     tree: { category: 'ranged', tier: 2, branch: 'C' },
-    targeting: 'direction',
+    targeting: 'enemy',
+    range: 7,
     useAttackSpeed: true,
-    cost: { mana: [4, 5, 6, 7, 8] },
-    tags: ['attack', 'ranged', 'projectile', 'movement'],
-    effects: [{ type: 'dash', distance: 3, direction: 'forward' }, arrow(pct(90, 103, 116, 129, 142))] as SkillInput['effects'],
+    cost: { mana: [4, 5, 5, 6, 7] },
+    tags: ['attack', 'ranged', 'projectile'],
+    effects: [
+      arrow(pct(95, 110, 125, 140, 155), { range: 9 }, [
+        { type: 'status', status: 'slow', duration: [2, 2.2, 2.4, 2.6, 2.8], magnitude: pct(35, 40, 45, 50, 55) },
+      ]),
+    ] as SkillInput['effects'],
   },
   {
     id: 'ranged.weak_point',
@@ -317,15 +367,32 @@ const ranged: SkillInput[] = [
     effects: [{ type: 'delayed', delay: 0, repeat: 5, interval: 0.12, effects: [arrow(pct(40, 44, 48, 52, 56))] }] as SkillInput['effects'],
   },
   {
-    id: 'ranged.spin_shot',
-    name: '迴旋射擊',
-    description: '向周圍多方向射擊。',
+    // 箭矢飛到落點才爆炸：以延遲的範圍效果實作，沒有實際投射物（不帶 Projectile 標籤）
+    id: 'ranged.explosive_arrow',
+    name: '爆裂箭',
+    description: '箭矢命中後爆炸，對目標與附近敵人造成範圍傷害，適合處理群體敵人。',
     tree: { category: 'ranged', tier: 3, branch: 'C' },
-    targeting: 'self',
+    targeting: 'ground',
+    range: 8,
     useAttackSpeed: true,
     cost: { mana: T3_MP },
-    tags: ['attack', 'ranged', 'projectile'],
-    effects: [arrow(pct(75, 83, 91, 99, 107), { count: 8, spreadDeg: 360 })] as SkillInput['effects'],
+    tags: ['attack', 'ranged', 'area'],
+    effects: [
+      {
+        type: 'delayed',
+        delay: 0.25,
+        effects: [
+          {
+            type: 'area',
+            radius: [2, 2.5, 3, 3.5, 4],
+            effects: [
+              { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(60, 65, 70, 75, 80) },
+              { type: 'knockback', distance: 1 },
+            ],
+          },
+        ],
+      },
+    ],
   },
   {
     id: 'ranged.execution_shot',
@@ -376,18 +443,19 @@ const ranged: SkillInput[] = [
     ],
   },
   {
-    id: 'ranged.phantom_shot',
-    name: '幻影射擊',
-    description: '後撤位移並射擊，原地留下殘影再射一箭（40%）。殘影不是召喚物。',
+    id: 'ranged.mark_shot',
+    name: '標記射擊',
+    description: '射擊並標記敵人的弱點，使後續攻擊對該目標造成更高傷害，適合作為 Boss 戰 Starter。',
     tree: { category: 'ranged', tier: 4, branch: 'C' },
-    targeting: 'direction',
+    targeting: 'enemy',
+    range: 9,
     useAttackSpeed: true,
     cost: { mana: T4_MP },
-    tags: ['attack', 'ranged', 'projectile', 'movement'],
+    tags: ['attack', 'ranged', 'projectile'],
     effects: [
-      { type: 'delayed', delay: 0.3, effects: [arrow([0.4, 0.4, 0.4, 0.4, 0.4])] },
-      { type: 'dash', distance: 3, direction: 'backward' },
-      arrow(pct(120, 135, 150, 165, 180)),
+      arrow(pct(130, 150, 170, 190, 210), { range: 11 }, [
+        { type: 'status', status: 'marked', duration: [4, 4.5, 5, 5.5, 6], magnitude: pct(15, 18, 21, 24, 27) },
+      ]),
     ] as SkillInput['effects'],
   },
 ];

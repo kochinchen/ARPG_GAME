@@ -103,7 +103,11 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   });
 
   // ---- 物品 ----
-  const fixItem = (item: SavedItem): SavedItem | null => {
+  // 改版後的基底：舊 ID 換成宣告了這個別名的新基底
+  const aliasOf = new Map(data.items.all.flatMap((b) => b.aliases.map((a) => [a, b.id] as const)));
+  const fixItem = (input: SavedItem): SavedItem | null => {
+    const renamed = aliasOf.get(input.baseId);
+    const item = renamed && !data.items.has(input.baseId) ? { ...input, baseId: renamed } : input;
     if (!data.items.has(item.baseId)) {
       notes.push(`物品「${item.baseId}」已移除`);
       return null;
@@ -172,13 +176,18 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   save.floor.highest = Math.max(save.floor.highest, save.floor.current);
   const expectedMap = mapIdForFloor(data, save.floor.current);
   const ground = save.floor.groundItems.flatMap((g) => {
-    if (g.entry.kind === 'gold') return [g];
-    return fixEntry(g.entry).map((entry) => ({ ...g, entry }));
+    const e = g.entry;
+    if (e.kind === 'gold' || e.kind === 'material') return [g];
+    return fixEntry(e).map((entry) => ({ ...g, entry }));
   });
   if (save.floor.mapId !== expectedMap) {
     // 佈局改變：本層重新生成，地上的物品移到樓梯口
     notes.push('樓層佈局已更新，本層重新生成');
-    overflow.push(...ground.flatMap((g) => (g.entry.kind === 'gold' ? [] : [g.entry])));
+    for (const g of ground) {
+      const e = g.entry;
+      if (e.kind === 'material') save.materials[e.materialId] = (save.materials[e.materialId] ?? 0) + e.count;
+      else if (e.kind !== 'gold') overflow.push(e);
+    }
     save.floor = {
       ...save.floor,
       mapId: expectedMap,
@@ -196,8 +205,23 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   // ---- 物品流水號：不小於任何已存物品 ----
   save.counters.itemUidCounter = Math.max(save.counters.itemUidCounter, maxUidCounter(save, overflow));
 
+  // ---- 拆解區：修正物品（已刪除的基底移除） ----
+  save.salvage = save.salvage.map((item) => (item ? fixItem(item) : null));
+  if (save.ascendSlot) save.ascendSlot = fixItem(save.ascendSlot);
+
   // ---- 怪物圖鑑：移除已刪除的怪物 ----
   save.bestiary = Object.fromEntries(Object.entries(save.bestiary).filter(([id]) => data.enemies.has(id)));
+  // ---- 裝備圖鑑：移除已刪除的基底與傳奇 ----
+  save.collection = [
+    ...new Set(
+      save.collection
+        .map((key) => (key.startsWith('base:') && aliasOf.has(key.slice(5)) && !data.items.has(key.slice(5)) ? `base:${aliasOf.get(key.slice(5))}` : key))
+        .filter((key) => {
+          const [kind, id] = key.split(':') as [string, string];
+          return kind === 'base' ? data.items.has(id) : kind === 'legendary' ? data.legendaries.has(id) : false;
+        }),
+    ),
+  ];
 
   return { data: save, overflow, notes };
 }

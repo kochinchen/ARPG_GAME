@@ -120,8 +120,13 @@ describe('樓層模式（M7）', () => {
     const { world, commands, events } = floorWorld(1);
     const onEntered = vi.fn();
     events.on('FloorEntered', onEntered);
-    const floor1Hp = enemies(world)[0]!.maxHp;
-    const floor1Xp = enemies(world)[0]!.xpReward;
+    // 怪物有隨機體型（血量不同）：比較同一種、非精英怪的平均值
+    const average = (key: 'maxHp' | 'xpReward') => {
+      const list = enemies(world).filter((e) => e.defId === 'enemy.skeleton' && !e.elite);
+      return list.reduce((sum, e) => sum + e[key], 0) / list.length;
+    };
+    const floor1Hp = average('maxHp');
+    const floor1Xp = average('xpReward');
     world.inventory.addItem({ uid: 'keep', baseId: 'ring.plain', rarity: 'normal', itemLevel: 1, affixes: [] });
     world.spawnGroundItem(vec2(3.5, 4.5), { kind: 'gold', amount: 5 });
     world.progress.level = 4;
@@ -138,8 +143,8 @@ describe('樓層模式（M7）', () => {
     expect(world.inventory.items.map((i) => i.uid)).toContain('keep');
     expect(world.player.position).toEqual(world.spawnPoint);
     expect(world.exit?.open).toBe(false);
-    expect(enemies(world)[0]!.maxHp).toBeGreaterThan(floor1Hp);
-    expect(enemies(world)[0]!.xpReward).toBeGreaterThan(floor1Xp);
+    expect(average('maxHp')).toBeGreaterThan(floor1Hp);
+    expect(average('xpReward')).toBeGreaterThan(floor1Xp);
   });
 
   it('新地圖可以正常尋路移動', () => {

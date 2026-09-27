@@ -33,6 +33,23 @@ export function rollSize(def: EnemyDef, config: Balance['enemySize'], rng: Rng):
   return { scale, stat: 1 + (scale - 1) * c.statPerSize };
 }
 
+/** 屬性減傷作用的抗性 */
+const ELEMENTAL_RESISTS = ['fireResist', 'coldResist', 'lightningResist', 'poisonResist'] as const;
+
+/** 樓層減傷：物理 / 屬性各自的比例（0 = 沒有） */
+export interface FloorResist {
+  physical: number;
+  elemental: number;
+}
+
+/** 套用樓層減傷（在加入世界前呼叫，頭上的名稱會一併顯示） */
+export function applyFloorResist(actor: Actor, resist: FloorResist): void {
+  if (resist.physical > 0) actor.stats.addModifier({ stat: 'physicalResist', kind: 'flat', value: resist.physical, source: 'floorResist' });
+  if (resist.elemental > 0) {
+    for (const stat of ELEMENTAL_RESISTS) actor.stats.addModifier({ stat, kind: 'flat', value: resist.elemental, source: 'floorResist' });
+  }
+}
+
 /** 精英怪：共通強化 + 詞綴 */
 export interface EliteSpec {
   config: Balance['elite'];

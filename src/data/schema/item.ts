@@ -32,6 +32,15 @@ export const RarityWeightsSchema = z.strictObject({
   mythic: z.number().nonnegative().default(0),
 });
 
+/**
+ * 材料：拆解裝備得到精華（武器 → 武器精華；防具與飾品 → 防具精華），魔王可能掉落飛昇碎片。
+ * 用於商人的「飛昇」（基底升一階）。
+ */
+export const MaterialIdSchema = z.enum(['weaponEssence', 'armorEssence', 'ascensionShard']);
+export type MaterialId = z.infer<typeof MaterialIdSchema>;
+export const MATERIAL_IDS: readonly MaterialId[] = MaterialIdSchema.options;
+export const MATERIAL_LABELS: Record<MaterialId, string> = { weaponEssence: '武器精華', armorEssence: '防具精華', ascensionShard: '飛昇碎片' };
+
 /** 武器種類：決定名稱與對技能類別的加成（不限制可用的技能） */
 export const WeaponTypeSchema = z.enum(['sword', 'axe', 'bow', 'staff']);
 export type WeaponType = z.infer<typeof WeaponTypeSchema>;
@@ -43,6 +52,10 @@ export const ItemBaseDefSchema = z.strictObject({
   slot: EquipSlotSchema,
   /** 武器種類（只有武器） */
   weaponType: WeaponTypeSchema.optional(),
+  /** 同種類中的階級（1～8；飾品沒有）：商人「飛昇」把基底換成同種類的下一階 */
+  tier: z.int().min(1).max(8).optional(),
+  /** 舊版的基底 ID（改版後讀舊存檔時換成這個基底） */
+  aliases: z.array(IdSchema).default([]),
   levelReq: z.int().nonnegative(),
   /** 裝備時以 flat Modifier 加到角色屬性，例如 { damageMin: 2, damageMax: 5 } */
   baseStats: z.partialRecord(StatIdSchema, z.number()).default({}),
@@ -56,6 +69,8 @@ export const PotionDefSchema = z.strictObject({
   mpPct: z.number().min(0).max(1),
   /** 背包中每一格最多疊幾瓶 */
   maxStack: z.int().positive(),
+  /** 身上最多攜帶的數量（所有疊合計）；滿了就撿不起來、買不了 */
+  maxCarry: z.int().positive(),
   cooldown: z.number().nonnegative(),
 });
 

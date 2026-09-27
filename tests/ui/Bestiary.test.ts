@@ -9,6 +9,7 @@ import { GameWorld } from '../../src/game/GameWorld';
 import { SaveMapper } from '../../src/save/SaveMapper';
 import { repairSave } from '../../src/save/SaveRepair';
 import { buildBestiary, statsAtFloor } from '../../src/ui/bridge/BestiaryView';
+import { buildItemCodex } from '../../src/ui/bridge/ItemCodexView';
 import { run } from '../game/helpers';
 
 /** 怪物圖鑑：擊敗紀錄（存檔）與圖鑑內容 */
@@ -76,5 +77,33 @@ describe('圖鑑內容', () => {
     expect(f1.hp).toBe(e.base.hp);
     expect(f10.hp).toBeGreaterThan(f1.hp);
     expect(f10.damage[1]).toBeGreaterThan(f1.damage[1]);
+  });
+});
+
+describe('裝備圖鑑', () => {
+  it('拿到的基底與傳奇 / 神話會記錄，存檔讀檔後保留', () => {
+    const w = world();
+    w.inventory.addItem({ uid: 'a', baseId: 'weapon.iron_longsword', rarity: 'rare', itemLevel: 5, affixes: [] });
+    w.inventory.addItem(w.itemGenerator.createLegendary(data.legendaries.get('mythic.samsara'), 12));
+    run(w, 1 / 60);
+    expect(w.progress.collection.has('base:weapon.iron_longsword')).toBe(true);
+    expect(w.progress.collection.has('legendary:mythic.samsara')).toBe(true);
+    const save = SaveMapper.capture(w, 'T');
+    expect(save.collection).toContain('legendary:mythic.samsara');
+    const fresh = world(1, save.meta.runSeed);
+    SaveMapper.restore(fresh, repairSave(save, data));
+    expect(fresh.progress.collection.has('base:weapon.iron_longsword')).toBe(true);
+  });
+
+  it('圖鑑內容：所有白色基底、30 件橘、20 件紅，數值範圍與效果文字', () => {
+    const codex = buildItemCodex(data);
+    expect(codex.bases).toHaveLength(data.items.all.length);
+    expect(codex.uniques.filter((u) => u.rarity === 'legendary')).toHaveLength(30);
+    expect(codex.uniques.filter((u) => u.rarity === 'mythic')).toHaveLength(20);
+    const coldMoon = codex.uniques.find((u) => u.id === 'legendary.cold_moon')!;
+    expect(coldMoon.main).toBe('武器傷害 +235%～255%');
+    expect(coldMoon.lines[0]!.text).toBe('+14%～18% 攻擊速度');
+    expect(coldMoon.lines.at(-1)!.kind).toBe('unique');
+    expect(codex.bases.find((b) => b.id === 'weapon.iron_longsword')!.lines).toEqual(['傷害 6–13', '+8% 近戰傷害', '+2% 暴擊率']);
   });
 });

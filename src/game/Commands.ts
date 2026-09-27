@@ -61,6 +61,14 @@ export type GameCommand =
   | { type: 'ShopSellNormals' }
   /** 商人：賭博，指定裝備類別 */
   | { type: 'ShopGamble'; slot: EquipSlot }
+  /** 拆解區：點格子（放下 / 互換 / 拿起） */
+  | { type: 'SalvageClick'; slot: number }
+  /** 拆解區：拆掉所有格子裡的裝備 */
+  | { type: 'SalvageAll' }
+  /** 商人：點飛昇格（放進 / 互換 / 拿回） */
+  | { type: 'ShopAscendSlotClick' }
+  /** 商人：飛昇飛昇格裡的裝備（基底升一階，結果留在飛昇格） */
+  | { type: 'ShopAscend' }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 開發用：直接升一級（只有 dev 版的 Input 會送出） */
@@ -70,6 +78,6 @@ export type GameCommand =
   /** 開發用：不需清怪，直接前往下一層 */
   | { type: 'DebugNextFloor' }
   /** 開發用：在玩家周圍掉落每種稀有度各一件裝備（檢查光柱、名稱與光芒） */
-  | { type: 'DebugSpawnLoot' };
+  | { type: 'DebugSpawnLoot'; uniques?: boolean };
 
 export type GameCommandType = GameCommand['type'];

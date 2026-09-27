@@ -13,6 +13,21 @@ function clickCell(e: MouseEvent, cell: number) {
   else gameBridge.send({ type: 'InventoryClick', cell });
 }
 
+function salvageClick(e: MouseEvent, slot: number) {
+  (e.currentTarget as HTMLElement).blur();
+  gameBridge.send({ type: 'SalvageClick', slot });
+}
+function salvageAll(e: MouseEvent) {
+  (e.currentTarget as HTMLElement).blur();
+  const count = props.view.salvage.filter((s) => s !== null).length;
+  const rare = props.view.salvage.filter((s) => s && ['epic', 'legendary', 'mythic'].includes(s.rarity)).length;
+  const warning = rare > 0 ? `\n\n其中有 ${rare} 件紫色以上的裝備！` : '';
+  if (window.confirm(`拆掉拆解區的 ${count} 件裝備？\n預計得到：${props.view.salvagePreview}${warning}\n\n拆掉後無法復原。`)) {
+    gameBridge.send({ type: 'SalvageAll' });
+  }
+}
+const salvageCount = computed(() => props.view.salvage.filter((s) => s !== null).length);
+
 function sort(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
   gameBridge.send({ type: 'SortInventory' });
@@ -71,7 +86,33 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
         </template>
         <dt>金幣</dt>
         <dd class="gold">{{ gold }}</dd>
+        <template v-for="m in view.materials" :key="m.id">
+          <dt>{{ m.label }}</dt>
+          <dd class="material">{{ m.count }}</dd>
+        </template>
       </dl>
+    </section>
+
+    <!-- 拆解區：拿著裝備點格子放進去，按「拆掉」換成精華 -->
+    <section class="salvage">
+      <div class="salvage-head">
+        <span>拆解區</span>
+        <span class="salvage-preview">{{ view.salvagePreview ? `預計：${view.salvagePreview}` : '武器 → 武器精華；防具與飾品 → 防具精華' }}</span>
+        <button type="button" class="salvage-go" :disabled="salvageCount === 0" @click="salvageAll">拆掉</button>
+      </div>
+      <div class="salvage-grid">
+        <button
+          v-for="(entry, slot) in view.salvage"
+          :key="slot"
+          type="button"
+          class="cell"
+          @click="salvageClick($event, slot)"
+          @pointerenter="emit('hover', { kind: 'salvage', slot })"
+          @pointerleave="emit('hover', null)"
+        >
+          <ItemCell :entry="entry" />
+        </button>
+      </div>
     </section>
 
     <section>
@@ -199,6 +240,38 @@ dd {
 }
 .gold {
   color: #e8c47a;
+}
+.material {
+  color: #7ad8ff;
+}
+.salvage-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.salvage-preview {
+  flex: 1;
+  font-size: 11px;
+  color: #7ad8ff;
+}
+.salvage-go {
+  padding: 2px 12px;
+  font: inherit;
+  color: #ffb08a;
+  cursor: pointer;
+  background: #2a1a14;
+  border: 1px solid #8a3a2a;
+}
+.salvage-go:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.salvage-grid {
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
 }
 .grid {
   display: grid;

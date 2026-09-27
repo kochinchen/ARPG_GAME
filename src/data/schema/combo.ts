@@ -29,7 +29,7 @@ export const DamageTagSchema = z.enum(['Physical', 'Fire', 'Ice', 'Lightning']);
 /** 魔法元素（不含 Physical） */
 export const ElementTagSchema = z.enum(['Fire', 'Ice', 'Lightning']);
 export const MovementTagSchema = z.enum(['Advance', 'Retreat', 'Roll', 'Reposition', 'Dash']);
-export const ControlTagSchema = z.enum(['Slow', 'Freeze', 'Stun', 'Knockback', 'ArmorBreak', 'Mark', 'Shield']);
+export const ControlTagSchema = z.enum(['Slow', 'Freeze', 'Stun', 'Knockback', 'ArmorBreak', 'Mark', 'Shield', 'Launch']);
 export const ComboRoleSchema = z.enum(['Starter', 'Setup', 'Bridge', 'Amplifier', 'Finisher', 'Defense']);
 
 export const ComboTagSchema = z.union([ActionTagSchema, DamageTagSchema, MovementTagSchema, ControlTagSchema]);
@@ -111,8 +111,8 @@ export const ComboModifierSchema = z.strictObject({
   /** Lv1 基準值；百分比以比例表示（0.25 = +25%），數量類為整數 */
   value: z.number().default(0),
   target: z.enum(['step1', 'step2', 'step3', 'allSteps', 'self']).default('step3'),
-  /** elementDamage 的元素；fromStep1 = 沿用第一招的元素 */
-  element: z.enum(['fire', 'ice', 'lightning', 'fromStep1']).optional(),
+  /** elementDamage 的元素；fromStep1 / fromStep2 = 沿用第一 / 第二招的元素 */
+  element: z.enum(['fire', 'ice', 'lightning', 'fromStep1', 'fromStep2']).optional(),
   when: z
     .union([
       z.strictObject({ stepHasTag: z.strictObject({ step: StepIndexSchema, tag: ComboTagSchema }) }),
@@ -140,6 +140,8 @@ export const ComboRuleSchema = z
         kind: z.literal('pattern'),
         steps: z.tuple([StepMatcherSchema, StepMatcherSchema, StepMatcherSchema]),
         distinctSkills: z.boolean().default(false),
+        /** 帶元素的步驟之間元素互不相同（雙元素附刃） */
+        distinctElements: z.boolean().default(false),
         sameElement: ElementTagSchema.optional(),
         rangePattern: z.tuple([RangeTypeSchema, RangeTypeSchema, RangeTypeSchema]).optional(),
       }),

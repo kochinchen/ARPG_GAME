@@ -44,8 +44,8 @@ export const along = (z0: number, z1: number, r0: [number, number], r1: [number,
 /** 一對發光的眼睛（位於頭的前方） */
 export const eyes = (x: number, y: number, z: number, r: number, color: number): Mesh[] => [lowSphere(r, color, [x, y, z], 8, 4), lowSphere(r, color, [-x, y, z], 8, 4)];
 
-const pose = (rootY: number, angles: Angles): Pose => ({ rootY, angles });
-const plus = (base: Pose, extra: Angles, rootY = base.rootY): Pose => {
+export const pose = (rootY: number, angles: Angles): Pose => ({ rootY, angles });
+export const plus = (base: Pose, extra: Angles, rootY = base.rootY): Pose => {
   const angles: Angles = { ...base.angles };
   for (const [j, v] of Object.entries(extra) as [Joint, V3][]) {
     const b = angles[j] ?? [0, 0, 0];
@@ -172,7 +172,7 @@ function quadruped(o: QuadOptions): { parts: PartDef[]; hip: number } {
   return { parts, hip: o.hip };
 }
 
-function quadPoses(o: { splay?: number; heavy?: boolean }): PoseSet {
+export function quadPoses(o: { splay?: number; heavy?: boolean }): PoseSet {
   const sp = o.splay ?? 0;
   const ready = pose(0, {
     thighL: [-0.35, 0, sp],
@@ -449,148 +449,9 @@ function wormPoses(hip: number): PoseSet {
   };
 }
 
-// ═══════════════════════════ 掠界獸系 ═══════════════════════════
+// ═══════════════════════════ 掠界獸系與巨獸系（骨刺獵獸、血鱗獵蜥、暗影獵豹、角甲巨獸、震地獸）見 Beasts.ts ═══════════════════════════
 
-const HOUND = { hide: 0x6e5c4a, dark: 0x3e3228, bone: 0xe4dac4, boneDark: 0xb0a488, eye: 0xffc040, mouth: 0x3a1414 };
-/** 骨刺獵獸：背上一排骨刺、頭上覆著骨板的獵犬 */
-const BONE_HOUND = quadModel(
-  {
-    hip: 17,
-    length: 26,
-    width: 10,
-    height: 10,
-    skin: HOUND.hide,
-    dark: HOUND.dark,
-    belly: 0x8a7866,
-    legR: 1.3,
-    neckLength: 7,
-    neckUp: 0.5,
-    head: [
-      along(-1, 6, [3.4, 3.2], [2.6, 2.4], HOUND.hide),
-      along(5, 11, [2.2, 1.8], [1.6, 1.3], HOUND.hide, [0, -0.6, 0]),
-      along(5, 10.5, [1.8, 0.7], [1.3, 0.5], HOUND.mouth, [0, -2.2, 0]),
-      // 骨板、眼睛、兩根往後彎的骨角
-      along(-1, 8, [2.8, 1], [2, 0.6], HOUND.bone, [0, 2.6, 0]),
-      ...eyes(1.9, 1, 7, 0.7, HOUND.eye),
-      spike([1.8, 2.4, 1], [3.6, 5.5, -5], 0.9, HOUND.bone),
-      spike([-1.8, 2.4, 1], [-3.6, 5.5, -5], 0.9, HOUND.bone),
-      box(1.8, 0.8, 0.6, HOUND.bone, [0.9, -1.6, 10.6]),
-      box(1.8, 0.8, 0.6, HOUND.bone, [-0.9, -1.6, 10.6]),
-    ],
-    tailLength: 12,
-    tailR: 1.3,
-    tailDroop: 0.3,
-    tailExtras: [spike([0, 1, -4], [0, 3.5, -8], 0.8, HOUND.bone), spike([0, 0.5, -8], [0, 2.8, -11], 0.6, HOUND.bone)],
-    rearExtras: [-2, 4, 10].map((z, i) => spike([0, 4.5, z], [0, 9 - i * 0.5, z - 3], 1.3, i % 2 ? HOUND.boneDark : HOUND.bone)),
-    frontExtras: [2, 8, 13].map((z, i) => spike([0, 5, z], [0, 10 - i, z - 3], 1.4, i % 2 ? HOUND.boneDark : HOUND.bone)),
-    claw: HOUND.bone,
-  },
-  0.34,
-);
-
-const LIZARD = { scale: 0x8e2a26, dark: 0x4e1612, belly: 0xc8845a, crest: 0xd8b060, eye: 0xf0e040 };
-/** 血鱗獵蜥：低矮、腳往外張、長尾巴、背上一排鱗冠 */
-const BLOOD_LIZARD = quadModel(
-  {
-    hip: 10,
-    length: 26,
-    width: 10,
-    height: 7,
-    skin: LIZARD.scale,
-    dark: LIZARD.dark,
-    belly: LIZARD.belly,
-    legR: 1.3,
-    splay: 0.5,
-    neckLength: 4,
-    neckUp: 0.15,
-    head: [
-      along(-1, 7, [3.2, 2.4], [2.6, 1.8], LIZARD.scale),
-      along(6, 11, [2.3, 1.2], [1.2, 0.8], LIZARD.scale, [0, 0.3, 0]),
-      along(4, 10.5, [2.2, 0.8], [1.2, 0.5], LIZARD.belly, [0, -1.3, 0]),
-      ...eyes(2.3, 1.4, 5, 0.8, LIZARD.eye),
-      spike([0, 2, 0], [0, 4.5, -4], 1, LIZARD.crest),
-    ],
-    tailLength: 22,
-    tailR: 2.4,
-    tailDroop: 0.28,
-    tailExtras: [-5, -11, -16].map((z) => spike([0, -z * 0.28 + 1.5, z], [0, -z * 0.28 + 4, z - 2], 0.9, LIZARD.crest)),
-    rearExtras: [0, 5, 10].map((z) => spike([0, 3, z], [0, 6.5, z - 2], 1.2, LIZARD.crest)),
-    frontExtras: [3, 8, 13].map((z) => spike([0, 3.4, z], [0, 7, z - 2], 1.3, LIZARD.crest)),
-  },
-  0.32,
-);
-
-const PANTHER = { fur: 0x2c2638, dark: 0x16121e, stripe: 0x4a3a64, eye: 0xc080ff, fang: 0xe8e0f0 };
-/** 暗影獵豹：修長、低頭潛行、發紫光的眼睛、背上暗紋 */
-const SHADOW_PANTHER = quadModel(
-  {
-    hip: 17,
-    length: 30,
-    width: 9,
-    height: 9,
-    skin: PANTHER.fur,
-    dark: PANTHER.dark,
-    legR: 1.2,
-    neckLength: 6,
-    neckUp: 0.15,
-    head: [
-      lowSphere(3.6, PANTHER.fur, [0, 0, 2.5], 11, 6, [1, 0.85, 1.1]),
-      along(4, 8.5, [2, 1.6], [1.4, 1.1], PANTHER.fur, [0, -0.8, 0]),
-      ...eyes(1.7, 0.6, 5.4, 0.8, PANTHER.eye),
-      spike([2, 2.4, 1], [2.8, 5, 0], 0.9, PANTHER.fur),
-      spike([-2, 2.4, 1], [-2.8, 5, 0], 0.9, PANTHER.fur),
-      spike([0.9, -2.2, 7.6], [0.9, -4.4, 7.8], 0.35, PANTHER.fang),
-      spike([-0.9, -2.2, 7.6], [-0.9, -4.4, 7.8], 0.35, PANTHER.fang),
-    ],
-    tailLength: 18,
-    tailR: 1.1,
-    tailDroop: 0.55,
-    rearExtras: [0, 6].map((z) => along(z, z + 2, [4.8, 4.8], [4.8, 4.8], PANTHER.stripe, [0, 0.4, 0])),
-    frontExtras: [4, 10].map((z) => along(z, z + 2, [4.9, 4.9], [4.9, 4.9], PANTHER.stripe, [0, 0.4, 0])),
-  },
-  0.34,
-);
-
-// ═══════════════════════════ 巨獸系 ═══════════════════════════
-
-const HORNED = { hide: 0x6a6250, plate: 0x8c8672, plateDark: 0x5a5646, dark: 0x3a362c, horn: 0xdcd0b4, eye: 0xff5030 };
-/** 角甲巨獸：前高後低、背上一片片甲殼、頭上兩根大角 */
-const HORNED_BRUTE = quadModel(
-  {
-    hip: 24,
-    length: 34,
-    width: 18,
-    height: 16,
-    skin: HORNED.hide,
-    dark: HORNED.dark,
-    legR: 2.4,
-    frontLegR: 3,
-    shoulderRaise: 5,
-    neckLength: 5,
-    neckUp: -0.2,
-    head: [
-      along(-2, 9, [5, 4.6], [3.8, 3.4], HORNED.hide),
-      along(-1, 8, [4.6, 1.6], [3.4, 1.2], HORNED.plate, [0, 3.6, 0]),
-      ...eyes(3.4, 1.4, 6.4, 0.8, HORNED.eye),
-      spike([3.4, 2, 3], [9, 4, 9], 1.6, HORNED.horn),
-      spike([-3.4, 2, 3], [-9, 4, 9], 1.6, HORNED.horn),
-      spike([0, 3, 7], [0, 6.5, 12], 1.4, HORNED.horn),
-    ],
-    tailLength: 10,
-    tailR: 2.2,
-    tailDroop: 0.8,
-    // 背上的甲殼（一片片重疊）
-    rearExtras: [-4, 3, 10].map((z, i) => along(z, z + 8, [8.6, 3], [9, 3.4], i % 2 ? HORNED.plateDark : HORNED.plate, [0, 6.8, 0])),
-    frontExtras: [
-      ...[2, 9].map((z, i) => along(z, z + 9, [9.4, 3.4], [10, 3.8], i % 2 ? HORNED.plateDark : HORNED.plate, [0, 9 + i * 2, 0])),
-      spike([5, 11, 8], [7, 17, 4], 1.4, HORNED.horn),
-      spike([-5, 11, 8], [-7, 17, 4], 1.4, HORNED.horn),
-    ],
-    claw: HORNED.horn,
-  },
-  0.5,
-  true,
-);
+// ═══════════════════════════ 巨獸系：熔顎巨獸 ═══════════════════════════
 
 const MOLTEN = { rock: 0x3a2c26, dark: 0x201814, crack: 0xff7a20, glow: 0xffc040 };
 /** 熔顎巨獸：岩石般的外皮、裂縫透出熔岩光、下顎燒得通紅 */
@@ -633,46 +494,6 @@ const MOLTEN_BRUTE = quadModel(
     claw: MOLTEN.crack,
   },
   0.48,
-  true,
-);
-
-const QUAKE = { hide: 0x5c4c3c, dark: 0x362c22, rock: 0x7a6a58, rockDark: 0x544838, eye: 0x9aff60 };
-/** 震地獸：粗壯的前腿、背上長著岩塊、小小的頭 */
-const QUAKE_BEAST = quadModel(
-  {
-    hip: 22,
-    length: 30,
-    width: 20,
-    height: 17,
-    skin: QUAKE.hide,
-    dark: QUAKE.dark,
-    legR: 2.8,
-    frontLegR: 3.8,
-    shoulderRaise: 7,
-    neckLength: 3,
-    neckUp: -0.3,
-    head: [
-      along(-2, 6, [4.4, 3.8], [3.6, 3], QUAKE.hide),
-      along(4, 8, [3.2, 2.2], [2.6, 1.6], QUAKE.dark, [0, -1.2, 0]),
-      ...eyes(2.8, 1.2, 4.4, 0.7, QUAKE.eye),
-      box(6, 2.4, 5, QUAKE.rock, [0, 3.4, 1.5]),
-    ],
-    tailLength: 6,
-    tailR: 2.2,
-    tailDroop: 0.9,
-    rearExtras: [
-      box(7, 5, 7, QUAKE.rock, [2, 8.5, 2]),
-      box(5, 4, 6, QUAKE.rockDark, [-3, 8, -2]),
-      box(4, 6, 4, QUAKE.rock, [-1, 9.5, 9]),
-    ],
-    frontExtras: [
-      box(8, 7, 8, QUAKE.rockDark, [1, 14, 6]),
-      box(6, 9, 6, QUAKE.rock, [-3, 16, 11]),
-      box(5, 6, 5, QUAKE.rock, [4, 13.5, 13]),
-    ],
-    claw: QUAKE.rock,
-  },
-  0.5,
   true,
 );
 
@@ -1093,15 +914,10 @@ const BURROWER: FigureModel = {
 
 /** EnemyDef ID → 非人形模型 */
 export const CREATURE_MODELS: Record<string, FigureModel> = {
-  'enemy.bone_hound': BONE_HOUND,
-  'enemy.blood_lizard': BLOOD_LIZARD,
-  'enemy.shadow_panther': SHADOW_PANTHER,
   'enemy.acid_beetle': ACID_BEETLE,
   'enemy.hatchling_spider': HATCHLING,
   'enemy.hook_claw': HOOK_CLAW,
-  'enemy.horned_brute': HORNED_BRUTE,
   'enemy.molten_brute': MOLTEN_BRUTE,
-  'enemy.quake_beast': QUAKE_BEAST,
   'enemy.poison_spitter': POISON_SPITTER,
   'enemy.frost_sporeling': FROST_SPORELING,
   'enemy.fire_crawler': FIRE_CRAWLER,

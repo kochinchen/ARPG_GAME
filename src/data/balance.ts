@@ -14,6 +14,11 @@ export const balance: z.input<typeof BalanceSchema> = {
     baseHp: 100,
     baseMana: 50,
     manaRegenPerSec: 1.5,
+    // 基礎回復：生命每秒 0.3%、魔力每秒 0.2%（魔力另有固定 1.5 / 秒）
+    hpRegenPctPerSec: 0.003,
+    manaRegenPctPerSec: 0.002,
+    // 脫戰 4 秒（沒有受到傷害）後生命回復 5 倍：戰鬥難度不變，打完一波能較快回滿
+    outOfCombatRegen: { delay: 4, multiplier: 5 },
     moveSpeed: 4,
     radius: 0.3,
     baseDamage: [3, 6],
@@ -84,6 +89,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     xpMultiplier: 3,
     radiusMultiplier: 1.2,
     lootTable: 'loot.elite',
+    floorResist: { minFloor: 10, perFloor: { elite: 0.015, boss: 0.02 }, max: 0.4 },
   },
   affixPower: {
     levelsPerTier: 10,
@@ -96,6 +102,11 @@ export const balance: z.input<typeof BalanceSchema> = {
     base: { normal: [0, 0], magic: [0.2, 0.9], rare: [0.7, 1.5], epic: [1.3, 2.3], legendary: [2.1, 3.2], mythic: [2.9, 4] },
     // 飾品：所有詞綴 +X%
     jewelry: { normal: [0, 0], magic: [0.05, 0.25], rare: [0.2, 0.45], epic: [0.4, 0.65], legendary: [0.6, 0.85], mythic: [0.8, 1] },
+  },
+  salvage: {
+    slots: 10,
+    // 白 1～2、藍 2～4、黃 4～7、紫 7～11、橘 11～15、紅 16～20
+    yields: { normal: [1, 2], magic: [2, 4], rare: [4, 7], epic: [7, 11], legendary: [11, 15], mythic: [16, 20] },
   },
   gearAura: {
     weights: { normal: 0, magic: 1, rare: 2, epic: 4, legendary: 7, mythic: 12 },
@@ -116,7 +127,19 @@ export const balance: z.input<typeof BalanceSchema> = {
     potionBuyPrice: 12,
     potionSellPrice: 3,
     // 賭博：比直接買一件魔法物品便宜一點，但可能拿到普通或稀有
-    gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 57, rare: 25, epic: 3 } },
+    gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 56.5, rare: 25, epic: 3, legendary: 0.5 } },
+    // 飛昇：越高階、越稀有越貴（紅裝升到第 8 階約 1 萬金幣）
+    ascend: {
+      base: 60,
+      perTier: 120,
+      rarity: { normal: 1, magic: 1.5, rare: 2.5, epic: 4, legendary: 6, mythic: 10 },
+      // 精華：第 2 階 11 個 … 第 8 階 29 個（再乘稀有度，紅裝 ×2.5）
+      essenceBase: 5,
+      essencePerTier: 3,
+      essenceRarity: { normal: 1, magic: 1, rare: 1.2, epic: 1.5, legendary: 2, mythic: 2.5 },
+      // 第 5 階起需要飛昇碎片：第 5 階 1 片 … 第 8 階 4 片
+      shardFromTier: 5,
+    },
     range: 3,
   },
   skillCategories: {

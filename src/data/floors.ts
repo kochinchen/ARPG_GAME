@@ -48,7 +48,7 @@ const tier = (id: string, from: number, to: number, theme: FloorInput['theme'], 
   id,
   floors: [from, to],
   theme,
-  layout: { width: 120, height: 90, rooms: [20, 26] },
+  layout: { width: 180, height: 135, rooms: [26, 34], loops: 6 },
   monsterPool: humanoids(),
   density: 1.5,
   packSize: [3, 5],
@@ -57,7 +57,8 @@ const tier = (id: string, from: number, to: number, theme: FloorInput['theme'], 
   lootTier: 1,
   chests: [4, 6],
   chestLootTable: 'loot.chest',
-  clearRatio: 0.5,
+  // 地圖大、怪物多：擊敗 35% 就能開啟出口
+  clearRatio: 0.35,
   ...extra,
 });
 
@@ -67,7 +68,7 @@ export const floors: FloorInput[] = [
   // 古老墓穴：增加遠程怪、分支路徑、開始出現精英怪
   tier('floor.tomb', 5, 9, 'tomb', {
     boss: boss('enemy.crypt_guardian'),
-    layout: { width: 120, height: 90, rooms: [22, 28], loops: 6 },
+    layout: { width: 180, height: 135, rooms: [29, 36], loops: 9 },
     density: 1.6,
     eliteChance: 0.25,
     lootTier: 2,
@@ -76,7 +77,7 @@ export const floors: FloorInput[] = [
   tier('floor.sanctum', 10, 14, 'sanctum', {
     boss: boss('enemy.fallen_priest'),
     monsterPool: [...humanoids(), ...CREATURES],
-    layout: { width: 135, height: 100, rooms: [26, 32], loops: 6 },
+    layout: { width: 202, height: 150, rooms: [34, 42], loops: 9 },
     density: 1.7,
     packSize: [3, 6],
     eliteChance: 0.3,
@@ -88,7 +89,7 @@ export const floors: FloorInput[] = [
   tier('floor.lava', 15, 19, 'lava', {
     boss: boss('enemy.lava_behemoth'),
     monsterPool: [...humanoids(0.7), ...CREATURES],
-    layout: { width: 135, height: 100, rooms: [26, 32], loops: 7 },
+    layout: { width: 202, height: 150, rooms: [34, 42], loops: 10 },
     density: 1.8,
     packSize: [3, 6],
     eliteChance: 0.3,
@@ -100,7 +101,7 @@ export const floors: FloorInput[] = [
   tier('floor.fortress', 20, 24, 'fortress', {
     boss: boss('enemy.fallen_knight'),
     monsterPool: [...humanoids(0.5), ...CREATURES],
-    layout: { width: 140, height: 105, rooms: [30, 36], loops: 9 },
+    layout: { width: 210, height: 158, rooms: [39, 47], loops: 14 },
     density: 1.8,
     packSize: [4, 6],
     eliteChance: 0.35,
@@ -112,7 +113,7 @@ export const floors: FloorInput[] = [
   tier('floor.abyss', 25, 29, 'abyss', {
     boss: boss('enemy.spider_queen'),
     monsterPool: [...humanoids(0.3), ...CREATURES],
-    layout: { width: 145, height: 110, rooms: [24, 30], loops: 10 },
+    layout: { width: 218, height: 165, rooms: [31, 39], loops: 15 },
     density: 1.9,
     packSize: [4, 7],
     eliteChance: 0.4,
@@ -124,8 +125,8 @@ export const floors: FloorInput[] = [
   tier('floor.temple', 30, 999, 'temple', {
     boss: boss('enemy.abyss_lord'),
     monsterPool: [...humanoids(0.3), ...CREATURES],
-    layout: { width: 150, height: 115, rooms: [32, 40], loops: 10 },
-    density: 2,
+    layout: { width: 225, height: 172, rooms: [42, 52], loops: 15 },
+    density: 2.0,
     packSize: [4, 7],
     eliteChance: 0.45,
     affixCount: [2, 2],

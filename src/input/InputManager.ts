@@ -119,11 +119,11 @@ export class InputManager {
       e.preventDefault();
       this.commands.push({ type: 'UsePotion' });
     } else if (this.adapters.debugKeys) {
-      this.onDebugKey(e.code);
+      this.onDebugKey(e.code, e.shiftKey);
     }
   }
 
-  private onDebugKey(code: string): void {
+  private onDebugKey(code: string, shift = false): void {
     switch (code) {
       case 'KeyB':
         this.adapters.onDebugReset?.();
@@ -138,7 +138,8 @@ export class InputManager {
         this.commands.push({ type: 'DebugNextFloor' });
         break;
       case 'KeyL':
-        this.commands.push({ type: 'DebugSpawnLoot' });
+        // Shift + L：隨機 5 件傳奇 + 5 件神話
+        this.commands.push({ type: 'DebugSpawnLoot', uniques: shift });
         break;
     }
   }

@@ -16,6 +16,8 @@ export class Inventory {
     readonly rows: number,
     /** 每種藥水一疊的上限 */
     private readonly stackSize: (potionId: string) => number,
+    /** 每種藥水身上最多攜帶的數量（所有疊合計） */
+    private readonly carryLimit: (potionId: string) => number = () => Infinity,
   ) {
     this.cells = Array.from({ length: cols * rows }, () => null);
   }
@@ -57,7 +59,8 @@ export class Inventory {
   /** 先補滿既有的疊，再開新格；回傳實際放入的數量 */
   addPotions(potionId: string, count: number): number {
     const max = this.stackSize(potionId);
-    let remaining = count;
+    const accepted = Math.min(count, this.potionRoom(potionId));
+    let remaining = accepted;
     for (const entry of this.cells) {
       if (remaining === 0) break;
       if (entry?.kind !== 'potion' || entry.potionId !== potionId || entry.count >= max) continue;
@@ -72,8 +75,13 @@ export class Inventory {
       this.cells[cell] = { kind: 'potion', potionId, count: add };
       remaining -= add;
     }
-    if (remaining !== count) this.changed();
-    return count - remaining;
+    if (remaining !== accepted) this.changed();
+    return accepted - remaining;
+  }
+
+  /** 這種藥水還能再帶幾瓶（攜帶上限 − 身上數量） */
+  potionRoom(potionId: string): number {
+    return Math.max(0, this.carryLimit(potionId) - this.potionCount(potionId));
   }
 
   potionCount(potionId: string): number {

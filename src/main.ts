@@ -19,6 +19,7 @@ import { Renderer } from './render/Renderer';
 import { PALETTE } from './render/palette';
 import { InputManager } from './input/InputManager';
 import { bestiaryBridge } from './ui/bridge/BestiaryView';
+import { itemCodexBridge } from './ui/bridge/ItemCodexView';
 import { gameBridge } from './ui/bridge/GameBridge';
 import { gameView } from './ui/bridge/GameViewStore';
 import { systemBridge } from './ui/bridge/SystemBridge';
@@ -167,6 +168,7 @@ async function bootstrap(): Promise<void> {
   // 怪物圖鑑：內容由遊戲資料推導，頭像由 render 畫出
   const portraits = new Portraits(app);
   bestiaryBridge.init(data, (id) => portraits.get(id));
+  itemCodexBridge.init(data);
   if (saveNotices.length > 0) {
     gameView.saveNotices = saveNotices;
     window.setTimeout(() => (gameView.saveNotices = []), 8000);

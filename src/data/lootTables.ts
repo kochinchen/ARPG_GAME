@@ -1,7 +1,10 @@
 import type { z } from 'zod';
 import type { LootTableDefSchema } from './schema/loot';
 
-/** 稀有度權重：傳奇 / 神話（人工命名、特殊效果）要等第二批加入後才會掉落，目前為 0（省略） */
+/**
+ * 稀有度權重（相對值）。傳奇 / 神話為固定設計（data/legendaries.ts）：
+ * 一般怪物約 0.15% / 0.02%、精英 1% / 0.15%、魔王 5% / 1%、寶箱 0.5% / 0.06%；神話只在第 10 層以上出現。
+ */
 export const lootTables: z.input<typeof LootTableDefSchema>[] = [
   {
     id: 'loot.skeleton',
@@ -13,7 +16,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'gold', weight: 10 },
     ],
     gold: [3, 12],
-    rarityWeights: { normal: 70, magic: 25, rare: 5, epic: 0.6 },
+    rarityWeights: { normal: 70, magic: 25, rare: 5, epic: 0.6, legendary: 0.15, mythic: 0.02 },
   },
   {
     // 精英怪額外掉落（原本的掉落之外再擲這張）：至少一件物品、稀有度較高
@@ -25,7 +28,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'gold', weight: 15 },
     ],
     gold: [15, 40],
-    rarityWeights: { normal: 25, magic: 50, rare: 25, epic: 3 },
+    rarityWeights: { normal: 25, magic: 50, rare: 25, epic: 3, legendary: 1, mythic: 0.15 },
   },
   {
     // Boss：大量掉落、稀有機率高
@@ -37,7 +40,9 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'gold', weight: 15 },
     ],
     gold: [40, 90],
-    rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12 },
+    rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12, legendary: 5, mythic: 1 },
+    // 魔王：60% 機率掉 1～2 片飛昇碎片
+    shards: { chance: 0.6, count: [1, 2] },
   },
   {
     id: 'loot.chest',
@@ -49,6 +54,6 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'gold', weight: 15 },
     ],
     gold: [10, 30],
-    rarityWeights: { normal: 40, magic: 45, rare: 15, epic: 1.5 },
+    rarityWeights: { normal: 40, magic: 45, rare: 15, epic: 1.5, legendary: 0.5, mythic: 0.06 },
   },
 ];

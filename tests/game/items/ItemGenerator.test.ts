@@ -65,7 +65,7 @@ describe('describeItem', () => {
     expect(name.name).toBe('鋒利的短劍');
     expect(name.subtitle).toBe('魔法 劍 · 短劍');
     // 劍的內建加成：近戰 +8%、暴擊 +2%
-    expect(name.lines).toEqual(['傷害 2–5', '+8% 近戰傷害', '+2% 暴擊率', '+2 最小傷害']);
+    expect(name.lines).toEqual(['傷害 3–7', '+8% 近戰傷害', '+2% 暴擊率', '+2 最小傷害']);
   });
 
   it('百分比類詞綴以 % 顯示', () => {
@@ -83,9 +83,9 @@ describe('裝備命名', () => {
   const item = (uid: string, baseId: string, rarity: Rarity, affixes: { id: string; rolls: number[] }[] = []) => ({ uid, baseId, rarity, itemLevel: 10, affixes });
 
   it('同一件物品永遠同名；不同物品會挑到不同名稱', () => {
-    const a = describeItem(item('u1', 'weapon.long_sword', 'epic'), data).name;
-    expect(describeItem(item('u1', 'weapon.long_sword', 'epic'), data).name).toBe(a);
-    const names = new Set(Array.from({ length: 30 }, (_, i) => describeItem(item(`u${i}`, 'weapon.long_sword', 'epic'), data).name));
+    const a = describeItem(item('u1', 'weapon.iron_longsword', 'epic'), data).name;
+    expect(describeItem(item('u1', 'weapon.iron_longsword', 'epic'), data).name).toBe(a);
+    const names = new Set(Array.from({ length: 30 }, (_, i) => describeItem(item(`u${i}`, 'weapon.iron_longsword', 'epic'), data).name));
     expect(names.size).toBeGreaterThan(3);
   });
 
@@ -108,7 +108,7 @@ describe('掉落的基底', () => {
     const gen = new ItemGenerator(data, new Rng(3));
     const bases = new Set(Array.from({ length: 1500 }, () => gen.generate(30, WEIGHTS).baseId));
     expect(bases.has('weapon.short_sword')).toBe(false);
-    expect(bases.has('weapon.rift_blade')).toBe(true);
+    expect(bases.has('weapon.bloodmark_blade')).toBe(true);
     for (const slot of ['weapon', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet']) {
       expect([...bases].some((id) => data.items.get(id).slot === slot)).toBe(true);
     }
@@ -141,15 +141,12 @@ describe('詞綴強度', () => {
     expect(crit5).toBeLessThanOrEqual(0.05 * (1 + 0.15 * 4) + 1e-9);
   });
 
-  it('紫裝比黃裝高 20%～50%；紅裝最高 300%', () => {
+  it('紫裝的詞綴比黃裝高 20%～50%（橘 / 紅是固定設計，見 Legendary.test）', () => {
     const rare = rolls('rare', 5, 'affix.vital');
     const epic = rolls('epic', 5, 'affix.vital');
-    const mythic = rolls('mythic', 5, 'affix.vital');
     expect(Math.min(...epic)).toBeGreaterThanOrEqual(Math.round(5 * 1.2));
     expect(Math.max(...epic)).toBeLessThanOrEqual(Math.round(15 * 1.5));
     expect(Math.max(...epic)).toBeGreaterThan(Math.max(...rare));
-    expect(Math.max(...mythic)).toBeLessThanOrEqual(45);
-    expect(Math.max(...mythic)).toBeGreaterThan(Math.max(...epic));
   });
 
   it('紫裝一定帶有名稱決定的主題詞綴，名稱與屬性對得上', () => {
@@ -202,37 +199,34 @@ describe('主倍率與強屬性', () => {
     expect(many('normal', 'weapon', 50).every((i) => i.quality === undefined)).toBe(true);
   });
 
-  it('長劍（基礎 3–7）+213%：顯示最終傷害與基礎值', () => {
-    const d = describeItem({ uid: 'l', baseId: 'weapon.long_sword', rarity: 'legendary', itemLevel: 12, quality: 2.13, affixes: [] }, data);
-    // 3 × 3.13 = 9.39 → 9；7 × 3.13 = 21.91 → 22
-    expect(d.baseLines[0]).toBe('傷害 9–22（基礎 3–7）');
+  it('鐵製長劍（基礎 6–13）+213%：顯示最終傷害與基礎值', () => {
+    const d = describeItem({ uid: 'l', baseId: 'weapon.iron_longsword', rarity: 'legendary', itemLevel: 12, quality: 2.13, affixes: [] }, data);
+    // 6 × 3.13 = 18.78 → 19；13 × 3.13 = 40.69 → 41
+    expect(d.baseLines[0]).toBe('傷害 19–41（基礎 6–13）');
     expect(d.mainLine).toBe('武器傷害 +213%');
   });
 
   it('武器：主倍率乘在基礎傷害；法杖的法術強度不乘', () => {
     const staff = describeItem({ uid: 's', baseId: 'weapon.rune_staff', rarity: 'epic', itemLevel: 26, quality: 1.5, affixes: [] }, data);
-    expect(staff.baseLines).toContain('傷害 13–25（基礎 5–10）');
-    expect(staff.baseLines).toContain('法術強度 17');
+    expect(staff.baseLines).toContain('傷害 18–33（基礎 7–13）');
+    expect(staff.baseLines).toContain('法術強度 16');
     expect(staff.mainLine).toBe('武器傷害 +150%');
   });
 
   it('防具：主倍率乘在基礎防禦；飾品：乘在所有詞綴', () => {
     const armor = describeItem({ uid: 'a', baseId: 'armor.plate', rarity: 'rare', itemLevel: 20, quality: 1, affixes: [] }, data);
-    expect(armor.baseLines).toContain('防禦 60（基礎 30）');
+    expect(armor.baseLines).toContain('防禦 36（基礎 18）');
     expect(armor.mainLine).toBe('防禦 +100%');
     const ring = describeItem({ uid: 'r', baseId: 'ring.gold', rarity: 'rare', itemLevel: 20, quality: 0.5, affixes: [{ id: 'affix.vital', rolls: [20] }] }, data);
     expect(ring.affixLines).toContain('+30 生命上限');
     expect(ring.mainLine).toBe('所有詞綴 +50%');
   });
 
-  it('強屬性數量：紫 1、橘 2、紅 3，且都來自該部位的強屬性池', () => {
-    const counts: Record<string, number> = { epic: 1, legendary: 2, mythic: 3 };
-    for (const [rarity, count] of Object.entries(counts)) {
-      for (const item of many(rarity as Rarity, 'armor', 100)) {
-        const strong = item.affixes.map((a) => data.affixes.get(a.id)).filter((a) => a.kind === 'strong');
-        expect(strong).toHaveLength(count);
-        for (const a of strong) if (a.slots) expect(a.slots).toContain('armor');
-      }
+  it('紫裝的強屬性 1 條，且來自該部位的強屬性池；黃裝沒有強屬性', () => {
+    for (const item of many('epic', 'armor', 100)) {
+      const strong = item.affixes.map((a) => data.affixes.get(a.id)).filter((a) => a.kind === 'strong');
+      expect(strong).toHaveLength(1);
+      for (const a of strong) if (a.slots) expect(a.slots).toContain('armor');
     }
     for (const item of many('rare', 'armor', 100)) expect(item.affixes.every((a) => data.affixes.get(a.id).kind === 'item')).toBe(true);
   });

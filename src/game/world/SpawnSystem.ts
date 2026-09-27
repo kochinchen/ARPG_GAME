@@ -28,6 +28,8 @@ export interface EliteRoll {
 /** 同一群怪物之間、以及和其他群的最小距離 */
 const PACK_SPREAD = 1.3;
 const MIN_PACK_GAP = 4;
+/** 每群怪物的位置從幾個候選中挑（越多分布越平均） */
+const CANDIDATES = 12;
 
 /**
  * 依樓層設定決定怪物與寶箱的位置（不建立實體，只回傳 SpawnRequest）。
@@ -50,9 +52,19 @@ export class SpawnSystem {
     const requests: SpawnRequest[] = [];
     const packCenters: Vec2[] = [];
     let attempts = 0;
-    while (requests.length < target && tiles.length > 0 && attempts++ < 400) {
-      const center = this.nav.cellCenter(this.rng.pick(tiles));
-      if (packCenters.some((c) => distance(c, center) < MIN_PACK_GAP)) continue;
+    while (requests.length < target && tiles.length > 0 && attempts++ < 1500) {
+      // 「最佳候選」取樣：抽幾個位置，選離現有怪物群最遠的，讓怪物平均分布到每個房間與通道
+      let center = this.nav.cellCenter(this.rng.pick(tiles));
+      let best = nearestGap(center, packCenters);
+      for (let k = 1; k < CANDIDATES; k++) {
+        const c = this.nav.cellCenter(this.rng.pick(tiles));
+        const gap = nearestGap(c, packCenters);
+        if (gap > best) {
+          center = c;
+          best = gap;
+        }
+      }
+      if (best < MIN_PACK_GAP) continue;
       packCenters.push(center);
       const size = Math.min(this.rng.int(floor.packSize[0], floor.packSize[1]), target - requests.length);
       for (let i = 0; i < size; i++) {
@@ -113,5 +125,7 @@ function rollElite(elite: EliteRoll): string[] | null {
   }
   return picked;
 }
+
+const nearestGap = (p: Vec2, centers: readonly Vec2[]) => centers.reduce((m, c) => Math.min(m, distance(p, c)), Infinity);
 
 const outside = (p: Vec2, zones: readonly SafeZone[]) => zones.every((z) => distance(p, z.center) >= z.radius);

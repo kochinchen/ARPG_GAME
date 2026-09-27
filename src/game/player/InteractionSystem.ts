@@ -5,6 +5,7 @@ import type { GameEventBus } from '../GameEvents';
 import type { ChestSystem } from '../items/ChestSystem';
 import type { Inventory } from '../items/Inventory';
 import type { Pathfinder } from '../movement/Pathfinder';
+import type { Materials } from './Materials';
 import type { Wallet } from './Wallet';
 
 /** 走到這個距離內即可撿取 / 開啟（從角色中心算） */
@@ -40,6 +41,7 @@ export class InteractionSystem {
     private readonly chests: ChestSystem,
     private readonly pathfinder: Pathfinder,
     private readonly events: GameEventBus,
+    private readonly materials: Materials,
   ) {}
 
   get target(): number | null {
@@ -116,24 +118,44 @@ export class InteractionSystem {
           this.events.emit('PickupFailed', { reason: 'inventoryFull' });
           return;
         }
-        this.events.emit('ItemPickedUp', { uid: content.item.uid, position: ground.position });
+        this.events.emit('ItemPickedUp', {
+          uid: content.item.uid,
+          position: ground.position,
+        });
         break;
       case 'potion': {
         const added = this.inventory.addPotions(content.potionId, content.count);
         if (added > 0) {
-          this.events.emit('PotionPickedUp', { count: added, position: ground.position });
+          this.events.emit('PotionPickedUp', {
+            count: added,
+            position: ground.position,
+          });
         }
         if (added < content.count) {
           // 背包放不下的留在地上
           content.count -= added;
-          if (explicit) this.events.emit('PickupFailed', { reason: 'inventoryFull' });
+          if (explicit)
+            this.events.emit('PickupFailed', {
+              reason: this.inventory.potionRoom(content.potionId) === 0 ? 'potionCap' : 'inventoryFull',
+            });
           return;
         }
         break;
       }
       case 'gold':
         this.wallet.add(content.amount);
-        this.events.emit('GoldPickedUp', { amount: content.amount, position: ground.position });
+        this.events.emit('GoldPickedUp', {
+          amount: content.amount,
+          position: ground.position,
+        });
+        break;
+      case 'material':
+        this.materials.add(content.materialId, content.count);
+        this.events.emit('MaterialPickedUp', {
+          materialId: content.materialId,
+          count: content.count,
+          position: ground.position,
+        });
         break;
     }
     this.world.groundItems.splice(this.world.groundItems.indexOf(ground), 1);

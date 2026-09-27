@@ -15,7 +15,7 @@ export class Equipment {
 
   constructor(
     private readonly owner: Actor,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>,
     private readonly events: GameEventBus,
   ) {}
 

@@ -45,6 +45,15 @@ describe('DamagePipeline', () => {
     expect(pipeline.apply({ source: null, target, min: 20, max: 20, element: 'physical' })?.amount).toBe(10);
   });
 
+  it('物理減傷只降低物理傷害；標記提高受到的傷害', () => {
+    const { pipeline, statuses } = setup();
+    const target = makeActor({ faction: 'enemy', stats: { physicalResist: 0.4 } });
+    expect(pipeline.apply({ source: null, target, min: 20, max: 20, element: 'physical' })?.amount).toBe(12);
+    expect(pipeline.apply({ source: null, target, min: 20, max: 20, element: 'fire' })?.amount).toBe(20);
+    statuses.apply(target, 'marked', 5, 0.5, null);
+    expect(pipeline.apply({ source: null, target, min: 20, max: 20, element: 'fire' })?.amount).toBe(30);
+  });
+
   it('元素傷害不受防禦影響', () => {
     const { pipeline } = setup();
     const target = makeActor({ faction: 'enemy', stats: { defense: K } });

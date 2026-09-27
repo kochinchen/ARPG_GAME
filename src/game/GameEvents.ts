@@ -1,11 +1,12 @@
 import type { EventBus } from '../core/EventBus';
 import type { Vec2 } from '../core/math/Vec2';
+import type { ComboCastInfo } from './combo/StepMods';
 import type { Element } from '../data/schema/common';
 import type { ActorId, Faction } from './entities/Actor';
 import type { SkillCategory } from '../data/schema/skill';
 import type { StatusKind } from '../data/schema/effects';
 import type { EquipmentSlot } from './items/ItemInstance';
-import type { Rarity } from '../data/schema/item';
+import type { Rarity, MaterialId } from '../data/schema/item';
 
 /**
  * 遊戲事件清單。一件事發生、多個系統要反應時使用（見 ARCHITECTURE.md 第 G 節）。
@@ -20,6 +21,8 @@ export interface GameEvents {
     direction: Vec2;
     /** 距離效果觸發還有幾秒（前搖提示的顯示時間） */
     impactIn: number;
+    /** 這一招在連段中的位置（非連段為 null；傳奇裝備的「施放時」觸發用） */
+    combo?: ComboCastInfo | null;
   };
   /** 技能無法施放 */
   SkillFailed: { actorId: ActorId; skillId: string; reason: 'mana' };
@@ -31,14 +34,26 @@ export interface GameEvents {
     element: Element | null;
     direction: Vec2;
     angleDeg: number;
+    /** 成功組成 Combo 的招式（Render 換成特別的顏色） */
+    special: boolean;
   };
   /** 連鎖效果依序經過的位置（Render 畫閃電） */
-  ChainTriggered: { points: Vec2[]; element: Element };
+  ChainTriggered: { skillId: string; points: Vec2[]; element: Element; special: boolean };
   StatusApplied: { actorId: ActorId; kind: StatusKind };
   /** 防禦姿態 / 反擊觸發 */
   StatusTriggered: { actorId: ActorId; kind: StatusKind };
   /** 有 Combo 的連段第三招實際施放（Codex 記錄一次使用） */
-  ComboCompleted: { comboId: string; ruleId: string; name: string; skills: [string, string, string]; description: string[] };
+  ComboCompleted: {
+    comboId: string;
+    ruleId: string;
+    name: string;
+    skills: [string, string, string];
+    description: string[];
+    /** Q / W / E（0～2；測試或非玩家為 null） */
+    slot: number | null;
+    /** 規則層級（1 = 秘密 Combo） */
+    ruleTier: number;
+  };
   /** 第一次發現某個 Combo */
   ComboDiscovered: { comboId: string; name: string; description: string[] };
   /** 連段中斷（沒有目標、魔力不足…） */
@@ -66,6 +81,21 @@ export interface GameEvents {
     boss: boolean;
   };
   /** Boss HP 降到一半以下，進入狂暴 */
+  /** 技能（DamageEffect）造成傷害：傳奇 / 神話裝備的「命中時」觸發用 */
+  SkillHit: {
+    casterId: ActorId;
+    targetId: ActorId;
+    skillId: string;
+    amount: number;
+    isCrit: boolean;
+    killed: boolean;
+    /** 這一招在連段中的位置（非連段為 null） */
+    combo: ComboCastInfo | null;
+  };
+  /** 拆解裝備得到精華 */
+  ItemsSalvaged: { count: number; gained: Partial<Record<MaterialId, number>> };
+  /** 撿到材料（飛昇碎片） */
+  MaterialPickedUp: { materialId: MaterialId; count: number; position: Vec2 };
   /** 攻擊被閃避 */
   AttackDodged: { targetId: ActorId; position: Vec2 };
   /** Boss 進入下一個階段（phase 從 1 開始） */
@@ -86,7 +116,7 @@ export interface GameEvents {
   /** count：這次撿到幾瓶 */
   PotionPickedUp: { count: number; position: Vec2 };
   GoldPickedUp: { amount: number; position: Vec2 };
-  PickupFailed: { reason: 'inventoryFull' };
+  PickupFailed: { reason: 'inventoryFull' | 'potionCap' };
   ItemEquipped: { uid: string; slot: EquipmentSlot };
   ItemUnequipped: { uid: string; slot: EquipmentSlot };
   /** 手上的物品不能穿在這個欄位，或等級不足 */
@@ -102,8 +132,8 @@ export interface GameEvents {
   /** 點了商人（UI 開啟商店） */
   ShopOpened: Record<string, never>;
   /** 商店交易：gold 為金幣變化（買 / 賭博為負） */
-  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble'; gold: number; rarity?: Rarity };
-  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'far' };
+  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend'; gold: number; rarity?: Rarity };
+  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }

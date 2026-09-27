@@ -42,6 +42,8 @@ export const gameView = reactive({
     attributePoints: 0,
     potions: 0,
     gold: 0,
+    /** 傳奇 / 神話裝備的增益（層數、剩餘秒數） */
+    buffs: [] as { id: string; label: string; stacks: number; remaining: number }[],
   },
   skillBar: {
     left: null as SkillSlotView | null,
@@ -53,6 +55,8 @@ export const gameView = reactive({
   /** 交戰中的 Boss（畫面上方的大血條）；沒有時為 null */
   /** 怪物圖鑑：EnemyDef ID → 擊敗次數 */
   bestiary: {} as Record<string, number>,
+  /** 裝備圖鑑：拿到過的 'base:<ID>'、'legendary:<ID>' */
+  collection: [] as string[],
   /** 畫面上方的 Boss 血條；phase 0 = 初始階段 */
   boss: null as { name: string; hp: number; max: number; phase: number; phaseLabel: string | null } | null,
   /** 進入新樓層時顯示幾秒的橫幅 */

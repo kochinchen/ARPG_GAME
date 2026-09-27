@@ -10,7 +10,7 @@ import ItemTooltip from './ItemTooltip.vue';
 defineProps<{ view: ShopView }>();
 const emit = defineEmits<{ close: [] }>();
 
-const tab = ref<'buy' | 'gamble'>('buy');
+const tab = ref<'buy' | 'gamble' | 'ascend'>('buy');
 const hovered = ref<{ entry: EntryView; price: number; compare: EntryView[]; top: number } | null>(null);
 
 function blur(e: MouseEvent) {
@@ -27,6 +27,14 @@ function buyPotion(e: MouseEvent, count: number) {
 function gamble(e: MouseEvent, slot: EquipSlot) {
   blur(e);
   gameBridge.send({ type: 'ShopGamble', slot });
+}
+function ascend(e: MouseEvent) {
+  blur(e);
+  gameBridge.send({ type: 'ShopAscend' });
+}
+function ascendSlot(e: MouseEvent) {
+  blur(e);
+  gameBridge.send({ type: 'ShopAscendSlotClick' });
 }
 function sellHeld(e: MouseEvent) {
   blur(e);
@@ -67,14 +75,16 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
     <nav class="tabs">
       <button type="button" :class="{ on: tab === 'buy' }" @click="tab = 'buy'">購買</button>
       <button type="button" :class="{ on: tab === 'gamble' }" @click="tab = 'gamble'">賭博</button>
+      <button type="button" :class="{ on: tab === 'ascend' }" @click="tab = 'ascend'">飛昇</button>
     </nav>
 
     <section v-if="tab === 'buy'" class="list">
       <div class="row potion-row">
         <span class="name">回復藥水</span>
         <span class="price">{{ view.potionPrice }} / 瓶</span>
-        <button type="button" :disabled="view.gold < view.potionPrice" @click="buyPotion($event, 1)">買 1</button>
-        <button type="button" :disabled="view.gold < view.potionPrice * 5" @click="buyPotion($event, 5)">買 5</button>
+        <span class="carry" :class="{ full: view.potions.count >= view.potions.max }">{{ view.potions.count }} / {{ view.potions.max }}</span>
+        <button type="button" :disabled="view.gold < view.potionPrice || view.potions.count >= view.potions.max" @click="buyPotion($event, 1)">買 1</button>
+        <button type="button" :disabled="view.gold < view.potionPrice * 5 || view.potions.count >= view.potions.max" @click="buyPotion($event, 5)">買 5</button>
       </div>
       <p v-if="view.stock.length === 0" class="empty">貨架已經賣完了（下一層會補貨）</p>
       <div class="stock">
@@ -94,6 +104,46 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
         </button>
       </div>
       <p class="note">點擊購買 · 滑鼠移上可與目前裝備比較</p>
+    </section>
+
+    <section v-else-if="tab === 'ascend'" class="list">
+      <p class="note">把裝備的基底升到同種類的下一階（例如 鐵製長劍 → 騎士長劍）。名稱、詞綴、主倍率與傳奇效果都會保留。</p>
+      <div class="ascend-slot-row">
+        <button
+          type="button"
+          class="ascend-slot"
+          :class="{ filled: view.ascendSlot }"
+          title="拿著裝備點這裡放進去；空手點這裡拿回來"
+          @click="ascendSlot"
+          @pointerenter="view.ascendSlot && hover($event, view.ascendSlot, 0, [])"
+          @pointerleave="hovered = null"
+        >
+          <ItemCell v-if="view.ascendSlot" :entry="view.ascendSlot" size="slot" />
+          <span v-else>飛昇格</span>
+        </button>
+        <span class="slot-hint">{{ view.ascendSlot ? '點飛昇格拿回裝備' : '從背包拿起武器或防具，點飛昇格放進去' }}</span>
+      </div>
+      <template v-if="view.ascend">
+        <div class="ascend">
+          <div class="from">
+            <b>{{ view.ascend.from }}</b>
+            <span>{{ view.ascend.fromStat }}</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="to" :class="{ none: !view.ascend.to }">
+            <b>{{ view.ascend.to ?? '—' }}</b>
+            <span>{{ view.ascend.toStat ?? '' }}</span>
+          </div>
+        </div>
+        <p class="note">{{ view.ascend.note }}</p>
+        <ul v-if="view.ascend.to" class="costs">
+          <li :class="{ short: view.gold < view.ascend.price }">金幣 {{ view.ascend.price }}（持有 {{ view.gold }}）</li>
+          <li v-for="m in view.ascend.materials" :key="m.label" :class="{ short: m.have < m.need }">{{ m.label }} {{ m.need }}（持有 {{ m.have }}）</li>
+        </ul>
+        <button type="button" class="ascend-go" :disabled="!view.ascend.canAscend || !view.ascend.affordable" @click="ascend">飛昇</button>
+        <p v-if="view.ascend.canAscend && !view.ascend.affordable" class="odds">金幣或材料不足（精華：在背包的拆解區拆裝備；飛昇碎片：擊敗樓層魔王）</p>
+      </template>
+
     </section>
 
     <section v-else class="list">
@@ -189,6 +239,75 @@ button:disabled {
   border-color: #c8a25a;
   background: #3a2c18;
 }
+.ascend {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0 8px;
+}
+.ascend .from,
+.ascend .to {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: #1c1713;
+  border: 1px solid #3d342c;
+}
+.ascend .to {
+  border-color: #c8a25a;
+}
+.ascend .to.none {
+  border-color: #3d342c;
+  opacity: 0.5;
+}
+.ascend b {
+  color: #f0e2c0;
+}
+.arrow {
+  color: #e8c47a;
+}
+.ascend-slot-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 6px 0 8px;
+}
+.ascend-slot {
+  display: flex;
+  flex: 0 0 52px;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  font-size: 11px;
+  color: #8a7c68;
+  cursor: pointer;
+  background: #15120f;
+  border: 1px dashed #c8a25a;
+}
+.ascend-slot.filled {
+  border-style: solid;
+}
+.slot-hint {
+  font-size: 11px;
+  color: #8a7c68;
+}
+.costs {
+  margin: 0 0 8px;
+  padding: 0 0 0 16px;
+  font-size: 12px;
+  color: #7ad8ff;
+}
+.costs li.short {
+  color: #ff8a7a;
+}
+.ascend-go {
+  width: 100%;
+  padding: 8px;
+  color: #f2e2b8;
+  border-color: #c8a25a;
+}
 .sell-normals {
   display: block;
   width: calc(100% - 24px);
@@ -226,6 +345,13 @@ button:disabled {
 .potion-row {
   background: transparent;
   border: 0;
+}
+.carry {
+  font-size: 11px;
+  color: #8a7c68;
+}
+.carry.full {
+  color: #e8a05a;
 }
 .potion-row button {
   padding: 1px 8px;

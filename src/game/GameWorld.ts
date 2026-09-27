@@ -11,7 +11,11 @@ import { DamagePipeline } from './combat/DamagePipeline';
 import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { BossSystem } from './enemies/BossSystem';
-import { EnemyFactory, rollSize } from './enemies/EnemyFactory';
+import { applyFloorResist, EnemyFactory, rollSize, type FloorResist } from './enemies/EnemyFactory';
+import { ItemEffectSystem } from './items/ItemEffectSystem';
+import { SalvageSystem } from './items/SalvageSystem';
+import { Materials } from './player/Materials';
+import { EQUIPMENT_SLOTS, type ItemInstance } from './items/ItemInstance';
 import { Actor } from './entities/Actor';
 import type { Chest, ExitPortal, GroundContent, GroundItem, Merchant, StairsUp } from './entities/Interactable';
 import { ShopSystem } from './items/ShopSystem';
@@ -52,7 +56,7 @@ import { PlayerProgress } from './progression/PlayerProgress';
 import { RegenSystem } from './stats/RegenSystem';
 import { StatBlock } from './stats/StatBlock';
 import { CheckpointSystem } from './world/CheckpointSystem';
-import { scaleForFloor } from './world/DifficultyScaler';
+import { floorResistFor, scaleForFloor } from './world/DifficultyScaler';
 import { FloorManager, mapIdForFloor } from './world/FloorManager';
 import { generateMap, generatedMapId } from './world/MapGenerator';
 import { SpawnSystem } from './world/SpawnSystem';
@@ -103,9 +107,16 @@ export class GameWorld {
   readonly potions: PotionBelt;
   readonly inventory: Inventory;
   readonly equipment: Equipment;
+  /** 傳奇 / 神話裝備的特殊效果 */
+  readonly itemEffects: ItemEffectSystem;
+  private collectionVersion = -1;
   /** 滑鼠上拿著的物品 */
   readonly cursor = new ItemCursor();
   readonly wallet = new Wallet();
+  /** 材料：武器精華、防具精華、飛昇碎片 */
+  readonly materials = new Materials();
+  /** 背包裡的拆解區 */
+  readonly salvage: SalvageSystem;
   readonly interaction: InteractionSystem;
   readonly progress = new PlayerProgress();
   readonly skillTree: SkillTree;
@@ -135,7 +146,7 @@ export class GameWorld {
   private nextInteractableId = 1;
   private readonly commands: CommandQueue<GameCommand>;
   private readonly ai: AiSystem;
-  private readonly regen = new RegenSystem();
+  private readonly regen: RegenSystem;
   private readonly movement = new MovementSystem();
   private readonly separation: SeparationSystem;
   private readonly projectileSystem: ProjectileSystem;
@@ -154,6 +165,7 @@ export class GameWorld {
     this.seed = options.seed;
     this.commands = options.commands;
     this.events = options.events;
+    this.regen = new RegenSystem(this.events, data.balance.player.outOfCombatRegen);
     this.floors = new FloorManager(data, this.events);
     this.map = options.mapId !== undefined ? data.maps.get(options.mapId) : this.mapFor(options.floor ?? 1);
     this.nav = NavGrid.fromMap(this.map);
@@ -179,11 +191,12 @@ export class GameWorld {
         this.projectiles.push({ ...p, id: this.nextProjectileId++ });
       },
     });
-    this.comboResolver = new ComboResolver(data.comboRules, new ComboSkillIndex(data.skills), data.balance.combo.nearNearFarBonus);
+    const comboIndex = new ComboSkillIndex(data.skills);
+    this.comboResolver = new ComboResolver(data.comboRules, comboIndex, data.balance.combo.nearNearFarBonus);
     this.combos = new ComboSystem(this.comboResolver, this.targeting, this.statuses, this.events);
     new ComboDiscoverySystem(this.codex, this.events);
     this.comboSlotLevels = data.balance.player.comboSlotLevels;
-    this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories);
+    this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories, this.statuses);
     this.projectileSystem = new ProjectileSystem(this.nav, this.targeting, executor);
     // 閒置走動用獨立的亂數：不影響其他系統（掉寶、戰鬥）的亂數順序
     this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events, data.skills, new Rng(options.seed).fork('ai'));
@@ -211,6 +224,8 @@ export class GameWorld {
           maxHp: p.baseHp,
           maxMana: p.baseMana,
           manaRegen: p.manaRegenPerSec,
+          hpRegenPct: p.hpRegenPctPerSec,
+          manaRegenPct: p.manaRegenPctPerSec,
           moveSpeed: p.moveSpeed,
           damageMin: p.baseDamage[0],
           damageMax: p.baseDamage[1],
@@ -227,10 +242,28 @@ export class GameWorld {
     this.skillTree = new SkillTree(this.player, this.progress, data, this.events);
     this.experience = new ExperienceSystem(this.player, this.progress, this.skillTree, data, this.events, this.targeting);
     this.attributes = new AttributeSystem(this.player, this.progress, data, this.events);
-    this.inventory = new Inventory(p.inventoryCols, p.inventoryRows, (id) => data.potions.get(id).maxStack);
+    this.inventory = new Inventory(
+      p.inventoryCols,
+      p.inventoryRows,
+      (id) => data.potions.get(id).maxStack,
+      (id) => data.potions.get(id).maxCarry,
+    );
     this.inventory.addPotions(p.potionId, p.startingPotions);
     this.potions = new PotionBelt(this.player, data.potions.get(p.potionId), this.inventory, this.events);
     this.equipment = new Equipment(this.player, data, this.events);
+    // 傳奇 / 神話裝備的特殊效果（施放加成由 SkillSystem 在施放瞬間詢問）
+    this.itemEffects = new ItemEffectSystem(
+      this.player,
+      data,
+      (slot) => this.equipment.get(slot),
+      comboIndex,
+      this.codex,
+      executor,
+      this.targeting,
+      new Rng(options.seed).fork('legendary'),
+      this.events,
+    );
+    this.skills.modsHook = (actor, skill, mods) => this.itemEffects.modsFor(actor, skill, mods);
     this.interaction = new InteractionSystem(
       this.player,
       this,
@@ -239,7 +272,9 @@ export class GameWorld {
       new ChestSystem(this.events),
       pathfinder,
       this.events,
+      this.materials,
     );
+    this.salvage = new SalvageSystem(data, this.cursor, this.materials, new Rng(options.seed).fork('salvage'), this.events);
     this.playerController = new PlayerController(
       this.player,
       pathfinder,
@@ -277,6 +312,7 @@ export class GameWorld {
         wallet: this.wallet,
         generator: this.itemGenerator,
         potionId: p.potionId,
+        materials: this.materials,
       },
       data,
       this.events,
@@ -360,6 +396,12 @@ export class GameWorld {
     // 隨機體型用獨立亂數：每個生成索引都擲一次（包含已擊殺的），讀檔後體型不變
     const sizeRng = new Rng(this.seed).fork(`size-${floor}`);
     const sizes = plan.map((request) => rollSize(this.data.enemies.get(request.enemyId), this.data.balance.enemySize, sizeRng));
+    // 樓層減傷：精英隨機物理或屬性其一、Boss 兩種都有；同樣每個索引都擲一次，讀檔後不變
+    const resistRng = new Rng(this.seed).fork(`resist-${floor}`);
+    const eliteResist = floorResistFor(floor, false, eliteConfig.floorResist);
+    const resists = plan.map((): FloorResist =>
+      resistRng.chance(0.5) ? { physical: eliteResist, elemental: 0 } : { physical: 0, elemental: eliteResist },
+    );
     const spawnedIds: [number, number][] = [];
     plan.forEach((request, index) => {
       if (killed.has(index)) return;
@@ -367,14 +409,19 @@ export class GameWorld {
         ? { config: eliteConfig, affixes: request.eliteAffixes.map((id) => this.data.eliteAffixes.get(id)) }
         : undefined;
       const enemyDef = this.data.enemies.get(request.enemyId);
-      const actor = this.addActor(this.enemyFactory.create(enemyDef, this.nextActorId++, request.position, scaling, eliteSpec, null, sizes[index]));
+      const enemy = this.enemyFactory.create(enemyDef, this.nextActorId++, request.position, scaling, eliteSpec, null, sizes[index]);
+      if (eliteSpec) applyFloorResist(enemy, resists[index]!);
+      const actor = this.addActor(enemy);
       spawnedIds.push([actor.id, index]);
     });
     // Boss 層：Boss 放在出口前方，生成索引接在一般怪物之後（存檔的擊殺紀錄一併適用）
     const bossIndex = def.boss && floor % def.boss.every === 0 ? plan.length : undefined;
     if (bossIndex !== undefined && !killed.has(bossIndex)) {
       const bossDef = this.data.enemies.get(def.boss!.enemyId);
-      const boss = this.addActor(this.enemyFactory.create(bossDef, this.nextActorId++, this.bossSpot(Math.min(0.8, bossDef.radius * bossDef.size)), scaling));
+      const bossActor = this.enemyFactory.create(bossDef, this.nextActorId++, this.bossSpot(Math.min(0.8, bossDef.radius * bossDef.size)), scaling);
+      const bossResist = floorResistFor(floor, true, eliteConfig.floorResist);
+      applyFloorResist(bossActor, { physical: bossResist, elemental: bossResist });
+      const boss = this.addActor(bossActor);
       spawnedIds.push([boss.id, bossIndex]);
     }
     const monsterCount = plan.length + (bossIndex === undefined ? 0 : 1);
@@ -557,7 +604,8 @@ export class GameWorld {
         this.floors.forceDescend();
         return true;
       case 'DebugSpawnLoot':
-        this.spawnLootSamples();
+        if (command.uniques) this.spawnUniqueSamples();
+        else this.spawnLootSamples();
         return true;
       case 'SortInventory':
         sortInventory(this.inventory, this.data);
@@ -577,6 +625,18 @@ export class GameWorld {
       case 'ShopSellNormals':
         this.shop.sellNormals();
         return true;
+      case 'SalvageClick':
+        this.salvage.click(command.slot);
+        return true;
+      case 'SalvageAll':
+        this.salvage.salvageAll();
+        return true;
+      case 'ShopAscendSlotClick':
+        this.shop.clickAscendSlot();
+        return true;
+      case 'ShopAscend':
+        this.shop.ascend();
+        return true;
       case 'ShopGamble':
         this.shop.gamble(command.slot);
         return true;
@@ -593,12 +653,33 @@ export class GameWorld {
   private spawnLootSamples(): void {
     const level = Math.max(1, this.itemLevel);
     const bases = this.data.items.all.filter((b) => b.levelReq <= level);
+    // 開發用：每次按都不同（不影響遊戲的亂數）
+    const rng = new Rng(Date.now() % 1000003);
     RARITIES.forEach((rarity, i) => {
       const angle = (i / RARITIES.length) * Math.PI * 2;
       const at = vec2(this.player.position.x + Math.cos(angle) * 1.6, this.player.position.y + Math.sin(angle) * 1.6);
       const position = this.nav.isWalkableAt(at.x, at.y) ? at : this.player.position;
-      const item = this.itemGenerator.create(bases[(i * 7) % bases.length]!, rarity, level);
+      // 橘 / 紅：從全部設計中隨機挑（任何部位，不受出現樓層限制）；其他：隨機部位的基底
+      const designs = this.data.legendaries.all.filter((d) => d.rarity === rarity);
+      const item =
+        designs.length > 0 ? this.itemGenerator.createLegendary(rng.pick(designs), level) : this.itemGenerator.create(rng.pick(bases), rarity, level);
       this.spawnGroundItem(position, { kind: 'item', item });
+    });
+  }
+
+  /** 開發用：隨機 5 件傳奇 + 5 件神話（不受出現樓層限制） */
+  private spawnUniqueSamples(): void {
+    const level = Math.max(1, this.itemLevel);
+    const rng = new Rng(Date.now() % 100000);
+    const picks = (['legendary', 'mythic'] as const).flatMap((rarity) => {
+      const pool = [...this.data.legendaries.all.filter((d) => d.rarity === rarity)];
+      return Array.from({ length: Math.min(5, pool.length) }, () => pool.splice(rng.int(0, pool.length - 1), 1)[0]!);
+    });
+    picks.forEach((def, i) => {
+      const angle = (i / picks.length) * Math.PI * 2;
+      const at = vec2(this.player.position.x + Math.cos(angle) * 2, this.player.position.y + Math.sin(angle) * 2);
+      const position = this.nav.isWalkableAt(at.x, at.y) ? at : this.player.position;
+      this.spawnGroundItem(position, { kind: 'item', item: this.itemGenerator.createLegendary(def, level) });
     });
   }
 
@@ -622,9 +703,28 @@ export class GameWorld {
     return spawned;
   }
 
+  /** 裝備圖鑑：背包、裝備或手上的物品有變動時，記錄拿到過的基底與傳奇 / 神話 */
+  private recordCollection(): void {
+    const version = this.itemsVersion;
+    if (version === this.collectionVersion) return;
+    this.collectionVersion = version;
+    const items: ItemInstance[] = [];
+    for (const entry of [...this.inventory.cells, this.cursor.entry]) if (entry?.kind === 'item') items.push(entry.item);
+    for (const slot of EQUIPMENT_SLOTS) {
+      const item = this.equipment.get(slot);
+      if (item) items.push(item);
+    }
+    const before = this.progress.collection.size;
+    for (const item of items) {
+      this.progress.collection.add(`base:${item.baseId}`);
+      if (item.legendaryId) this.progress.collection.add(`legendary:${item.legendaryId}`);
+    }
+    if (this.progress.collection.size !== before) this.progress.changed();
+  }
+
   /** 背包 / 裝備 / 手上物品的變動版本號；UI 只在變動時重建快照 */
   get itemsVersion(): number {
-    return this.inventory.version + this.equipment.version + this.cursor.version;
+    return this.inventory.version + this.equipment.version + this.cursor.version + this.salvage.version + this.materials.version + this.shop.version;
   }
 
   spawnGroundItem(position: Vec2, content: GroundContent): GroundItem {
@@ -643,6 +743,7 @@ export class GameWorld {
     this.potions.update(dt);
     this.regen.update(this.actors, dt);
     this.statuses.update(this.actors, dt, this.pipeline);
+    this.itemEffects.update(dt);
     this.bosses.update(this.actors);
     this.ai.update(this.actors, dt);
     this.combos.update(this.actors);
@@ -656,6 +757,7 @@ export class GameWorld {
     this.deaths.update(this.actors);
     this.deathHandler.update(dt);
     this.removeDead();
+    this.recordCollection();
     if (this.exit) this.exit.open = this.floors.exitOpen;
     // 切換樓層放在 Tick 最後，避免在系統更新途中替換實體
     const next = this.floors.takePending();

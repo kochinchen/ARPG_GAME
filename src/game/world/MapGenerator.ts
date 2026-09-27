@@ -7,12 +7,12 @@ import type { LayoutDef } from '../../data/schema/floor';
  * 1. 放置不規則的房間（矩形大廳、圓形洞窟、十字形）
  * 2. 以最小生成樹 + 幾條額外通道，用彎曲的隧道連接房間
  * 3. 邊緣隨機侵蝕後平滑（細胞自動機），做出不規則的牆面
- * 4. 「開運算」：只保留能放進 3×3 空地的格子，保證通道至少 3 格寬（cellSize 0.5 時 = 1.5 Tile）
+ * 4. 「開運算」：只保留能放進 5×5 空地的格子，保證通道至少 5 格寬（cellSize 0.5 時 = 2.5 Tile）
  * 5. 只保留最大的連通區域，放置樓梯口（S）、中途存檔點（M）、出口（X）
  */
 
 /** 產生器版本：演算法改變時 + 1，讓舊存檔的樓層判定為佈局不符而重新生成 */
-export const GENERATOR_VERSION = 1;
+export const GENERATOR_VERSION = 2;
 
 export function generatedMapId(floor: number): string {
   return `map.generated.v${GENERATOR_VERSION}.f${floor}`;
@@ -27,6 +27,8 @@ interface Room {
   cy: number;
 }
 
+/** 房間之間的最小間隔（格） */
+const GAP = 5;
 const WALL = 1;
 const FLOOR = 0;
 
@@ -51,17 +53,29 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
   // ── 1. 房間 ──
   const rooms: Room[] = [];
   const target = rng.int(layout.rooms[0], layout.rooms[1]);
-  for (let tries = 0; tries < 900 && rooms.length < target; tries++) {
-    const w = rng.int(14, 36);
-    const h = rng.int(12, 28);
+  // 房間大（寬 22～54、高 18～42 格）、彼此間隔 5 格：地圖被房間填滿，不留大片空白
+  for (let tries = 0; tries < 4000 && rooms.length < target; tries++) {
+    const w = rng.int(22, 54);
+    const h = rng.int(18, 42);
     const x = rng.int(4, W - w - 5);
     const y = rng.int(4, H - h - 5);
-    if (rooms.some((r) => x < r.x + r.w + 6 && x + w + 6 > r.x && y < r.y + r.h + 6 && y + h + 6 > r.y)) continue;
+    if (rooms.some((r) => x < r.x + r.w + GAP && x + w + GAP > r.x && y < r.y + r.h + GAP && y + h + GAP > r.y)) continue;
     const room: Room = { x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) };
     rooms.push(room);
     carveRoom(room, rng, set);
   }
   if (rooms.length < 6) return null;
+  // 填空：大房間放完後，空白處還放得下的地方再放中型房間（避免地圖上留下大片沒用到的區域）
+  for (let tries = 0; tries < 3000; tries++) {
+    const w = rng.int(18, 30);
+    const h = rng.int(16, 26);
+    const x = rng.int(4, W - w - 5);
+    const y = rng.int(4, H - h - 5);
+    if (rooms.some((r) => x < r.x + r.w + GAP && x + w + GAP > r.x && y < r.y + r.h + GAP && y + h + GAP > r.y)) continue;
+    const room: Room = { x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) };
+    rooms.push(room);
+    carveRoom(room, rng, set);
+  }
 
   // ── 2. 通道：最小生成樹 + 額外通道 ──
   const dist = (a: Room, b: Room) => Math.abs(a.cx - b.cx) + Math.abs(a.cy - b.cy);
@@ -82,7 +96,7 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
   for (let k = 0; k < layout.loops; k++) {
     const i = rng.int(0, rooms.length - 1);
     const j = rng.int(0, rooms.length - 1);
-    if (i !== j && dist(rooms[i]!, rooms[j]!) < 90) edges.push([i, j]);
+    if (i !== j && dist(rooms[i]!, rooms[j]!) < 130) edges.push([i, j]);
   }
   for (const [i, j] of edges) carveTunnel(rooms[i]!, rooms[j]!, rng, set);
 
@@ -103,20 +117,21 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
     }
   }
 
-  // ── 4. 開運算：保證通道寬度 ≥ 3 格 ──
+  // ── 4. 開運算：保證通道寬度 ≥ 5 格 ──
+  const O = 2;
   const core = new Uint8Array(W * H);
-  for (let y = 1; y < H - 1; y++) {
-    for (let x = 1; x < W - 1; x++) {
+  for (let y = O; y < H - O; y++) {
+    for (let x = O; x < W - O; x++) {
       let open = true;
-      for (let dy = -1; dy <= 1 && open; dy++) for (let dx = -1; dx <= 1 && open; dx++) if (at(x + dx, y + dy) === WALL) open = false;
+      for (let dy = -O; dy <= O && open; dy++) for (let dx = -O; dx <= O && open; dx++) if (at(x + dx, y + dy) === WALL) open = false;
       if (open) core[y * W + x] = 1;
     }
   }
   const opened = new Uint8Array(W * H).fill(WALL);
-  for (let y = 1; y < H - 1; y++) {
-    for (let x = 1; x < W - 1; x++) {
+  for (let y = O; y < H - O; y++) {
+    for (let x = O; x < W - O; x++) {
       if (!core[y * W + x]) continue;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) opened[(y + dy) * W + (x + dx)] = FLOOR;
+      for (let dy = -O; dy <= O; dy++) for (let dx = -O; dx <= O; dx++) opened[(y + dy) * W + (x + dx)] = FLOOR;
     }
   }
   grid.set(opened);
@@ -128,9 +143,9 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
 
   // 大房間放柱子（2×2，間距夠寬，不會擋住通道）
   for (const r of rooms) {
-    if (r.w < 26 || r.h < 20 || !rng.chance(0.55)) continue;
-    for (let y = r.y + 5; y < r.y + r.h - 6; y += 8) {
-      for (let x = r.x + 5; x < r.x + r.w - 6; x += 8) {
+    if (r.w < 36 || r.h < 28 || !rng.chance(0.55)) continue;
+    for (let y = r.y + 7; y < r.y + r.h - 8; y += 11) {
+      for (let x = r.x + 7; x < r.x + r.w - 8; x += 11) {
         let clear = true;
         for (let dy = -3; dy <= 4 && clear; dy++) for (let dx = -3; dx <= 4 && clear; dx++) if (at(x + dx, y + dy) === WALL) clear = false;
         if (clear) for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) grid[(y + dy) * W + (x + dx)] = WALL;
@@ -154,7 +169,7 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
     if (c === null || d[c]! < 0) continue;
     if (far === null || d[c]! > d[far]!) far = c;
   }
-  if (far === null || d[far]! < 80) return null;
+  if (far === null || d[far]! < 120) return null;
   const path: number[] = [];
   for (let c: number = far; c !== s; c = prev[c]!) path.push(c);
   const half = path[Math.floor(path.length / 2)]!;
@@ -194,11 +209,11 @@ function carveRoom(r: Room, rng: Rng, set: (x: number, y: number, v: number) => 
   }
 }
 
-/** 彎曲的隧道：往目標前進時隨機偏移，寬度 5～7 格（邊緣侵蝕後仍然夠寬） */
+/** 彎曲的隧道：往目標前進時隨機偏移，寬度 11～15 格（約 5.5～7.5 Tile，邊緣侵蝕後仍然夠寬） */
 function carveTunnel(a: Room, b: Room, rng: Rng, set: (x: number, y: number, v: number) => void): void {
   let x = a.cx;
   let y = a.cy;
-  const r = rng.int(3, 4);
+  const r = rng.int(6, 8);
   for (let steps = 0; steps < 2000 && (x !== b.cx || y !== b.cy); steps++) {
     for (let dy = -r + 1; dy < r; dy++) for (let dx = -r + 1; dx < r; dx++) if (dx * dx + dy * dy < r * r) set(x + dx, y + dy, FLOOR);
     const towardX = rng.chance(Math.abs(b.cx - x) / (Math.abs(b.cx - x) + Math.abs(b.cy - y) + 0.001));
@@ -260,7 +275,7 @@ function bfs(grid: Uint8Array, W: number, H: number, start: number): { dist: Int
 
 /** 離 (x, y) 最近的地板格（房間中心可能剛好是柱子） */
 function nearestFloor(grid: Uint8Array, W: number, H: number, x: number, y: number): number | null {
-  for (let r = 0; r < 12; r++) {
+  for (let r = 0; r < 20; r++) {
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;

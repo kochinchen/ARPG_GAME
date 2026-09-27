@@ -22,6 +22,8 @@ export interface ItemDescription {
   strongLines: string[];
   /** 普通詞綴 */
   affixLines: string[];
+  /** 傳奇 / 神話：定位、固定屬性與效果（依設計順序）、介紹；其他稀有度為 null */
+  legendary: { role: string; lore: string; lines: { text: string; kind: 'normal' | 'strong' | 'unique' }[] } | null;
   /** baseLines + affixLines */
   lines: string[];
 }
@@ -47,6 +49,7 @@ export const STAT_LABELS: Record<StatId, string> = {
   coldResist: '冰寒抗性',
   lightningResist: '閃電抗性',
   poisonResist: '毒素抗性',
+  physicalResist: '物理減傷',
   dodgeChance: '閃避',
   thorns: '荊棘傷害',
   potionEffect: '藥水效果',
@@ -62,6 +65,7 @@ export const STAT_LABELS: Record<StatId, string> = {
   manaSteal: '魔力吸取',
   manaOnHit: '命中回復魔力',
   hpRegenPct: '每秒回復生命',
+  manaRegenPct: '每秒回復魔力',
 };
 
 /** 以百分比顯示的屬性 */
@@ -76,6 +80,7 @@ const PERCENT_STATS: ReadonlySet<StatId> = new Set([
   'coldResist',
   'lightningResist',
   'poisonResist',
+  'physicalResist',
   'dodgeChance',
   'potionEffect',
   'fireDamagePct',
@@ -89,6 +94,7 @@ const PERCENT_STATS: ReadonlySet<StatId> = new Set([
   'lifeSteal',
   'manaSteal',
   'hpRegenPct',
+  'manaRegenPct',
 ]);
 
 export const SLOT_LABELS: Record<EquipSlot, string> = {
@@ -104,12 +110,13 @@ export const SLOT_LABELS: Record<EquipSlot, string> = {
 /**
  * 由 ItemInstance（ID + 擲骰值）推導顯示用的名稱與屬性說明。
  */
-export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes'>): ItemDescription {
+export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): ItemDescription {
   const stats = itemStats(item, data);
   const base = stats.base;
   const affixes = stats.affixes;
 
-  const name = nameItem(item, base, affixes.map((a) => a.def));
+  const def = item.legendaryId !== undefined && data.legendaries.has(item.legendaryId) ? data.legendaries.get(item.legendaryId) : null;
+  const name = def?.name ?? nameItem(item, base, affixes.map((a) => a.def));
   const type = base.weaponType ? `${WEAPON_TYPE_LABELS[base.weaponType]} · ${base.name}` : `${SLOT_LABELS[base.slot]} · ${base.name}`;
   const subtitle = `${RARITY_LABELS[item.rarity]} ${type}`;
 
@@ -133,6 +140,19 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
   const strongLines = affixes.filter((a) => a.def.kind === 'strong').map(line);
   const affixLines = affixes.filter((a) => a.def.kind !== 'strong').map(line);
   const mainLine = stats.quality > 0 ? `${MAIN_LABELS[stats.mainTarget]} +${Math.round(stats.quality * 100)}%` : null;
+  // 傳奇 / 神話：固定屬性（已擲骰）與效果文字依設計順序排列
+  let legendary: ItemDescription['legendary'] = null;
+  if (def) {
+    let n = 0;
+    const lines = def.lines.map((l) => {
+      if (l.type === 'stat') {
+        const a = affixes[n++]!;
+        return { text: line(a), kind: l.strong ? ('strong' as const) : ('normal' as const) };
+      }
+      return { text: l.text, kind: l.unique ? ('unique' as const) : l.strong ? ('strong' as const) : ('normal' as const) };
+    });
+    legendary = { role: def.role, lore: def.lore, lines };
+  }
   return {
     name,
     subtitle,
@@ -142,7 +162,8 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
     mainLine,
     strongLines,
     affixLines,
-    lines: [...baseLines, ...(mainLine ? [mainLine] : []), ...strongLines, ...affixLines],
+    legendary,
+    lines: [...baseLines, ...(mainLine ? [mainLine] : []), ...(legendary ? legendary.lines.map((l) => l.text) : [...strongLines, ...affixLines])],
   };
 }
 

@@ -9,6 +9,7 @@ import { floors } from './floors';
 import { affixes } from './affixes';
 import { lootTables } from './lootTables';
 import { eliteAffixes } from './eliteAffixes';
+import { legendaries } from './legendaries';
 
 /**
  * 所有遊戲資料的集合，交給 DataRegistry.load() 驗證。
@@ -25,4 +26,5 @@ export const gameData: RawGameData = {
   maps,
   comboRules,
   eliteAffixes,
+  legendaries,
 };
