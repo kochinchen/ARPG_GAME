@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import { IdSchema, RangeSchema, StatIdSchema } from './common';
-import { BossConfigSchema, EliteConfigSchema } from './elite';
+import { EliteConfigSchema } from './elite';
+
+const SizeRollSchema = z.strictObject({
+  mean: z.number().positive(),
+  sd: z.number().nonnegative(),
+  min: z.number().positive(),
+  max: z.number().positive(),
+  /** 體型每大 100%，HP 與傷害提高多少（0.5 = 體型 200% 時 150%） */
+  statPerSize: z.number().nonnegative(),
+});
 
 /** 屬性的一項效果：每點給 stat 一個 flat 加成 */
 export const AttributeEffectSchema = z.strictObject({
@@ -101,6 +110,8 @@ export const BalanceSchema = z.strictObject({
     maxDensityMultiplier: z.number().min(1),
   }),
   floor: z.strictObject({
+    /** 樓梯口與出口的安全範圍（Tile）：大於所有怪物的偵測距離 */
+    stairsSafeRadius: z.number().positive(),
     /** 存檔點與出口附近多少格內不放怪物（避免重生後立刻被圍） */
     safeRadius: z.number().nonnegative(),
     /** 走到中途存檔點多近時啟動 */
@@ -108,7 +119,14 @@ export const BalanceSchema = z.strictObject({
   }),
   /** 精英怪（每群隊長）的共通強化 */
   elite: EliteConfigSchema,
-  boss: BossConfigSchema,
+  /**
+   * 怪物的隨機體型（常態分佈，限制在 min～max）：近戰（物理）怪體型差異大，HP 與傷害跟著提高；
+   * 遠程 / 法術怪差異小、數值不變。倍率 = 1 + (體型 − 1) × statPerSize。Boss 與訓練木樁不套用。
+   */
+  enemySize: z.strictObject({
+    melee: SizeRollSchema,
+    ranged: SizeRollSchema,
+  }),
   /** 出口旁的商人：買、賣、賭博 */
   shop: z.strictObject({
     /** 物品價值 = (base + perItemLevel × 物品等級) × 稀有度倍率；賣出拿到價值，購買付 buyMultiplier 倍 */

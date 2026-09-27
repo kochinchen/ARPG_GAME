@@ -9,10 +9,10 @@ const pct = computed(() => Math.max(0, Math.min(100, (props.boss.hp / props.boss
 <template>
   <div class="boss-bar" role="status">
     <div class="name">
-      {{ boss.name }}<span v-if="boss.enraged" class="enraged">狂暴</span>
+      {{ boss.name }}<span v-if="boss.phaseLabel" class="enraged">第 {{ boss.phase + 1 }} 階段 · {{ boss.phaseLabel }}</span>
     </div>
     <div class="bar">
-      <div class="fill" :class="{ enraged: boss.enraged }" :style="{ width: `${pct}%` }" />
+      <div class="fill" :class="{ enraged: boss.phase > 0 }" :style="{ width: `${pct}%` }" />
       <span class="text">{{ Math.ceil(boss.hp) }} / {{ Math.round(boss.max) }}</span>
     </div>
   </div>

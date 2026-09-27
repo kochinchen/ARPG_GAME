@@ -14,9 +14,11 @@ import type { GameCommand } from './game/Commands';
 import type { GameEvents } from './game/GameEvents';
 import { GameWorld } from './game/GameWorld';
 import { Camera } from './render/Camera';
+import { Portraits } from './render/Portraits';
 import { Renderer } from './render/Renderer';
 import { PALETTE } from './render/palette';
 import { InputManager } from './input/InputManager';
+import { bestiaryBridge } from './ui/bridge/BestiaryView';
 import { gameBridge } from './ui/bridge/GameBridge';
 import { gameView } from './ui/bridge/GameViewStore';
 import { systemBridge } from './ui/bridge/SystemBridge';
@@ -162,11 +164,21 @@ async function bootstrap(): Promise<void> {
     newCharacter,
   });
   viewSync = new ViewSync(world, data);
+  // 怪物圖鑑：內容由遊戲資料推導，頭像由 render 畫出
+  const portraits = new Portraits(app);
+  bestiaryBridge.init(data, (id) => portraits.get(id));
   if (saveNotices.length > 0) {
     gameView.saveNotices = saveNotices;
     window.setTimeout(() => (gameView.saveNotices = []), 8000);
   }
   createApp(App, { devAvailable: import.meta.env.DEV }).mount('#ui');
+
+  // Tab：小地圖 / 全地圖（畫面顯示，不是遊戲操作）
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Tab' || e.repeat) return;
+    e.preventDefault();
+    renderer.toggleMap();
+  });
 
   // 8. Input（最後才開始接受輸入）
   input = new InputManager(app.canvas, commands, {

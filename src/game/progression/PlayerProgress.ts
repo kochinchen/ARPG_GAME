@@ -15,6 +15,8 @@ export class PlayerProgress {
   /** 已分配的屬性點（屬性 ID → 點數） */
   readonly attributes = new Map<string, number>();
   readonly t4Unlocked = new Set<SkillCategory>();
+  /** 怪物圖鑑：已擊敗過的怪物（EnemyDef ID → 擊敗次數） */
+  readonly bestiary = new Map<string, number>();
   /** 目前所在樓層與到過的最高樓層（測試地圖模式為 0） */
   currentFloor = 0;
   highestFloor = 0;

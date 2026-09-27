@@ -11,7 +11,7 @@ defineProps<{ view: ShopView }>();
 const emit = defineEmits<{ close: [] }>();
 
 const tab = ref<'buy' | 'gamble'>('buy');
-const hovered = ref<{ entry: EntryView; price: number; top: number } | null>(null);
+const hovered = ref<{ entry: EntryView; price: number; compare: EntryView[]; top: number } | null>(null);
 
 function blur(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
@@ -36,8 +36,9 @@ function sellNormals(e: MouseEvent, count: number, gold: number) {
   blur(e);
   if (window.confirm(`賣出背包裡 ${count} 件普通（白色）裝備，得到 ${gold} 金幣？`)) gameBridge.send({ type: 'ShopSellNormals' });
 }
-function hover(e: PointerEvent, entry: EntryView, price: number) {
-  hovered.value = { entry, price, top: (e.currentTarget as HTMLElement).getBoundingClientRect().top };
+function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryView[]) {
+  const top = Math.min((e.currentTarget as HTMLElement).getBoundingClientRect().top, window.innerHeight - 300);
+  hovered.value = { entry, price, compare, top };
 }
 </script>
 
@@ -76,20 +77,23 @@ function hover(e: PointerEvent, entry: EntryView, price: number) {
         <button type="button" :disabled="view.gold < view.potionPrice * 5" @click="buyPotion($event, 5)">買 5</button>
       </div>
       <p v-if="view.stock.length === 0" class="empty">貨架已經賣完了（下一層會補貨）</p>
-      <button
-        v-for="s in view.stock"
-        :key="s.index"
-        type="button"
-        class="row item-row"
-        :class="{ poor: !s.affordable }"
-        @click="buy($event, s.index)"
-        @pointerenter="hover($event, s.entry, s.price)"
-        @pointerleave="hovered = null"
-      >
-        <span class="icon"><ItemCell :entry="s.entry" /></span>
-        <span class="name" :class="`r-${s.entry.rarity}`">{{ s.entry.name }}</span>
-        <span class="price">{{ s.price }}</span>
-      </button>
+      <div class="stock">
+        <button
+          v-for="s in view.stock"
+          :key="s.index"
+          type="button"
+          class="card"
+          :class="[`r-${s.entry.rarity}`, { poor: !s.affordable }]"
+          @click="buy($event, s.index)"
+          @pointerenter="hover($event, s.entry, s.price, s.compare)"
+          @pointerleave="hovered = null"
+        >
+          <span class="icon"><ItemCell :entry="s.entry" size="slot" /></span>
+          <span class="card-name" :class="`t-${s.entry.rarity}`">{{ s.entry.name }}</span>
+          <span class="card-price">● {{ s.price }}</span>
+        </button>
+      </div>
+      <p class="note">點擊購買 · 滑鼠移上可與目前裝備比較</p>
     </section>
 
     <section v-else class="list">
@@ -99,16 +103,20 @@ function hover(e: PointerEvent, entry: EntryView, price: number) {
           v-for="g in view.gambleSlots"
           :key="g.slot"
           type="button"
+          class="gamble"
           :disabled="view.gold < view.gamblePrice"
           @click="gamble($event, g.slot)"
         >
-          {{ g.label }}
+          <span class="gamble-glyph">{{ g.glyph }}</span>
+          <span>{{ g.label }}</span>
         </button>
       </div>
+      <p class="odds">普通 15% · 魔法 60% · 稀有 25%</p>
     </section>
 
     <div v-if="hovered" class="tooltip-anchor" :style="{ top: `${hovered.top}px` }">
       <ItemTooltip :entry="hovered.entry" :price="hovered.price" />
+      <ItemTooltip v-for="(c, i) in hovered.compare" :key="i" :entry="c" caption="目前裝備" />
     </div>
   </aside>
 </template>
@@ -222,19 +230,12 @@ button:disabled {
 .potion-row button {
   padding: 1px 8px;
 }
-.icon {
-  flex: 0 0 28px;
-  height: 28px;
-}
 .name {
   flex: 1;
 }
 .price {
   font-family: ui-monospace, Menlo, monospace;
   color: #e8c47a;
-}
-.item-row.poor .price {
-  color: #8a5a4a;
 }
 .r-normal {
   color: #e8e2d4;
@@ -264,7 +265,77 @@ button:disabled {
 }
 .tooltip-anchor {
   position: fixed;
-  left: min(340px, calc(100vw - 240px));
+  left: min(340px, calc(100vw - 480px));
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
   pointer-events: none;
+}
+.stock {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 4px;
+  background: #1c1713;
+}
+.card .icon {
+  width: 38px;
+  height: 38px;
+}
+.card.r-magic {
+  border-color: #3e56b0;
+}
+.card.r-rare {
+  border-color: #a8902a;
+}
+.card.r-legendary {
+  border-color: #a8602a;
+}
+.card-name {
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+}
+.card-price {
+  font: 12px/1 ui-monospace, Menlo, monospace;
+  color: #e8c47a;
+}
+.card.poor .card-price {
+  color: #b85a4a;
+}
+.t-normal {
+  color: #e8e2d4;
+}
+.t-magic {
+  color: #8aa2ff;
+}
+.t-rare {
+  color: #f2d24b;
+}
+.t-legendary {
+  color: #d8843a;
+}
+.gamble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.gamble-glyph {
+  font: 20px/1.2 serif;
+  color: #c8a25a;
+}
+.odds {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #8a7c68;
+  text-align: center;
 }
 </style>

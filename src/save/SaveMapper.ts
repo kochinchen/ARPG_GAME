@@ -76,6 +76,7 @@ export const SaveMapper = {
         groundItems: captureGround(world),
         shopBought: world.shop.boughtIndices,
       },
+      bestiary: Object.fromEntries(progress.bestiary),
       counters: { itemUidCounter: world.itemGenerator.uidCounter },
     };
   },
@@ -102,6 +103,8 @@ export const SaveMapper = {
     progress.attributePoints = save.attributes.unspent;
     progress.attributes.clear();
     for (const [id, points] of Object.entries(save.attributes.allocated)) progress.attributes.set(id, points);
+    progress.bestiary.clear();
+    for (const [id, kills] of Object.entries(save.bestiary)) progress.bestiary.set(id, kills);
     world.attributes.apply();
 
     // 按鍵配置

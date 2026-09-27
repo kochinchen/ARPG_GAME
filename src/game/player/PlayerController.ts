@@ -93,6 +93,7 @@ export class PlayerController {
         break;
       case 'DebugLevelUp':
       case 'DebugSpawnChests':
+      case 'DebugNextFloor':
       case 'ConfirmLeaveFloor':
       case 'SortInventory':
       case 'ShopBuy':

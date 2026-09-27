@@ -80,22 +80,3 @@ export const STATUS_TINTS: [string, number][] = [
 ];
 
 /** 各怪物的暫用顏色 [主色, 外框]；未列出的用 PALETTE.enemy */
-export const ENEMY_COLORS: Record<string, readonly [number, number]> = {
-  'enemy.training_dummy': [0x8c5a3c, 0x5a3622],
-  'enemy.skeleton': [0xd8d0bc, 0x7d7462],
-  'enemy.ghoul': [0x8a9a78, 0x4a5a3a],
-  'enemy.skeleton_archer': [0xcfc4a4, 0x6d5a3a],
-  'enemy.armored_skeleton': [0x7a808a, 0x3a3f48],
-  'enemy.skeleton_mage': [0xb8a8d8, 0x5a4a82],
-  'enemy.skeleton_king': [0xe8dcc0, 0x6a1a12],
-};
-
-/** 怪物的辨識配件：弓、法師帽、頭盔、駝背（暫用外觀） */
-export type EnemyAccent = 'bow' | 'hat' | 'helmet' | 'hunch' | 'crown';
-export const ENEMY_ACCENTS: Record<string, EnemyAccent> = {
-  'enemy.ghoul': 'hunch',
-  'enemy.skeleton_archer': 'bow',
-  'enemy.armored_skeleton': 'helmet',
-  'enemy.skeleton_mage': 'hat',
-  'enemy.skeleton_king': 'crown',
-};

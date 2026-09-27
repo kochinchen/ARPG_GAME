@@ -196,6 +196,9 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   // ---- 物品流水號：不小於任何已存物品 ----
   save.counters.itemUidCounter = Math.max(save.counters.itemUidCounter, maxUidCounter(save, overflow));
 
+  // ---- 怪物圖鑑：移除已刪除的怪物 ----
+  save.bestiary = Object.fromEntries(Object.entries(save.bestiary).filter(([id]) => data.enemies.has(id)));
+
   return { data: save, overflow, notes };
 }
 

@@ -1,6 +1,6 @@
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { FloorDef } from '../../data/schema/floor';
-import type { MapDef } from '../../data/schema/map';
+import { generatedMapId } from './MapGenerator';
 import type { ActorId } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
 
@@ -54,9 +54,7 @@ export class FloorManager {
     return floorDefFor(this.data, floor);
   }
 
-  mapFor(floor: number): MapDef {
-    return this.data.maps.get(mapIdForFloor(this.data, floor));
-  }
+
 
   /** 還需要擊敗幾隻出口才會開（Boss 層：Boss 還活著時為 1） */
   get remainingToOpen(): number {
@@ -110,6 +108,11 @@ export class FloorManager {
     return 0;
   }
 
+  /** 開發用：不需清怪，直接前往下一層 */
+  forceDescend(): void {
+    this.pendingFloor = this.floor + 1;
+  }
+
   /** 玩家點了往上的樓梯：第 1 層沒有上一層 */
   requestAscend(): boolean {
     if (this.floor <= 1) return false;
@@ -137,8 +140,10 @@ export function floorDefFor(data: FloorData, floor: number): FloorDef {
   return def;
 }
 
-/** 同一區間內依樓層輪替地圖 */
+/** 這一層的地圖 ID：隨機產生的樓層依產生器版本與樓層號；固定地圖在同一區間內輪替 */
 export function mapIdForFloor(data: FloorData, floor: number): string {
   const def = floorDefFor(data, floor);
-  return def.maps[(floor - def.floors[0]) % def.maps.length]!;
+  if (def.layout) return generatedMapId(floor);
+  const maps = def.maps!;
+  return maps[(floor - def.floors[0]) % maps.length]!;
 }

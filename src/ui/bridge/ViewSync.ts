@@ -19,6 +19,7 @@ export class ViewSync {
   private skillTreeSig = '';
   private characterSig = '';
   private shopSig = '';
+  private bestiaryVersion = -1;
   private bannerTimer = 0;
   private discoveryTimer = 0;
 
@@ -57,6 +58,12 @@ export class ViewSync {
     hud.xp.value = world.progress.xp;
     hud.xp.next = world.experience.xpForNextLevel;
     hud.skillPoints = world.progress.skillPoints;
+    if (world.progress.version !== this.bestiaryVersion) {
+      this.bestiaryVersion = world.progress.version;
+      if (Object.keys(gameView.bestiary).length !== world.progress.bestiary.size || [...world.progress.bestiary].some(([id, n]) => gameView.bestiary[id] !== n)) {
+        gameView.bestiary = Object.fromEntries(world.progress.bestiary);
+      }
+    }
     hud.attributePoints = world.progress.attributePoints;
     hud.potions = world.potions.count;
     hud.gold = world.wallet.gold;
@@ -149,11 +156,12 @@ export class ViewSync {
       gameView.boss = null;
       return;
     }
-    const view = gameView.boss ?? (gameView.boss = { name: '', hp: 0, max: 1, enraged: false });
+    const view = gameView.boss ?? (gameView.boss = { name: '', hp: 0, max: 1, phase: 0, phaseLabel: null });
     view.name = boss.name;
     view.hp = boss.hp;
     view.max = boss.maxHp;
-    view.enraged = world.bosses.isEnraged(boss);
+    view.phase = world.bosses.phaseOf(boss);
+    view.phaseLabel = world.bosses.phaseLabel(boss);
   }
 
   private showBanner(floor: number): void {

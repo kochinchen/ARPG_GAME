@@ -55,6 +55,8 @@ export interface FigureModel {
   parts: PartDef[];
   /** 骨盆（root）站直時的高度 */
   hipHeight: number;
+  /** 設計時對應的碰撞半徑：實際大小 = 角色半徑 ÷ referenceRadius（精英、Boss 較大） */
+  referenceRadius: number;
   poses: PoseSet;
 }
 

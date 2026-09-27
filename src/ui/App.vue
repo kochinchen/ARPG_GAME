@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { gameView } from './bridge/GameViewStore';
 import { resolveHover, type HoverTarget } from './bridge/InventoryView';
 import { systemBridge } from './bridge/SystemBridge';
+import BestiaryPanel from './components/BestiaryPanel.vue';
 import BossBar from './components/BossBar.vue';
 import CharacterPanel from './components/CharacterPanel.vue';
 import DevOverlay from './components/DevOverlay.vue';
@@ -21,7 +22,7 @@ import ShopPanel from './components/ShopPanel.vue';
 const props = defineProps<{ devAvailable: boolean }>();
 
 // 以下都是 UI 自己的狀態（面板開關、游標位置、hover），不經過遊戲
-const open = reactive<Record<PanelName, boolean>>({ character: false, skills: false, inventory: false, menu: false });
+const open = reactive<Record<PanelName, boolean>>({ character: false, skills: false, inventory: false, bestiary: false, menu: false });
 const pointer = ref({ x: 0, y: 0 });
 const hoverTarget = ref<HoverTarget | null>(null);
 /** 商店：點商人時開啟（同時打開背包），離開商人附近自動關閉 */
@@ -62,8 +63,13 @@ function toggleDev() {
   }
 }
 
-/** 開關面板。角色與技能樹都在左側，一次只開一個；選單開啟時遊戲暫停 */
+/** 開關面板。角色與技能樹都在左側，一次只開一個；選單與圖鑑開啟時遊戲暫停 */
 function toggle(panel: PanelName, value = !open[panel]) {
+  if (panel === 'bestiary') {
+    // 圖鑑可以從選單打開（蓋在選單上，關閉後回到選單）
+    open.bestiary = value;
+    return;
+  }
   if (open.menu && panel !== 'menu') return;
   open[panel] = value;
   if (value && panel === 'character') open.skills = false;
@@ -73,7 +79,7 @@ function toggle(panel: PanelName, value = !open[panel]) {
   if (!open.inventory) hoverTarget.value = null;
 }
 watch(
-  () => open.menu,
+  () => open.menu || open.bestiary,
   (paused) => systemBridge.setPaused(paused),
 );
 
@@ -95,6 +101,9 @@ function onKeyDown(e: KeyboardEvent) {
     case 'KeyC':
       toggle('character');
       break;
+    case 'KeyK':
+      toggle('bestiary');
+      break;
     case 'F3':
       e.preventDefault();
       toggleDev();
@@ -102,6 +111,7 @@ function onKeyDown(e: KeyboardEvent) {
     case 'Escape':
       // 依序：確認對話框 → 選單 → 面板 → 開啟選單
       if (gameView.leavePrompt) gameView.leavePrompt = null;
+      else if (open.bestiary) open.bestiary = false;
       else if (open.menu) open.menu = false;
       else if (open.character || open.skills || open.inventory || shopOpen.value) closeAll();
       else open.menu = true;
@@ -178,7 +188,9 @@ onBeforeUnmount(() => {
     :dev-enabled="gameView.dev.enabled"
     @close="open.menu = false"
     @toggle-dev="toggleDev"
+    @bestiary="open.bestiary = true"
   />
+  <BestiaryPanel v-if="open.bestiary" :kills="gameView.bestiary" :dev-available="devAvailable" @close="open.bestiary = false" />
 </template>
 
 <style scoped>

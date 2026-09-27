@@ -13,6 +13,8 @@ export const MapDefSchema = z
   .strictObject({
     id: IdSchema,
     rows: z.array(z.string().min(1)).min(1),
+    /** 每一格代表多少 World 單位（預設 1）。大地窖用 0.5：牆與房間的形狀更細緻，角色大小與速度不變 */
+    cellSize: z.number().positive().default(1),
     /** 固定擺放的怪物（例如訓練木樁）。一般怪物由 M7 SpawnSystem 依 FloorDef 產生 */
     spawns: z.array(z.strictObject({ enemyId: IdSchema, at: PointSchema })).default([]),
     /** 寶箱位置與掉落表 */
@@ -33,7 +35,7 @@ export const MapDefSchema = z
       }
     });
     const onFloor = (x: number, y: number) => {
-      const char = map.rows[Math.floor(y)]?.[Math.floor(x)];
+      const char = map.rows[Math.floor(y / map.cellSize)]?.[Math.floor(x / map.cellSize)];
       return char !== undefined && char !== MAP_TILES.wall;
     };
     map.spawns.forEach(({ at: [x, y] }, i) => {

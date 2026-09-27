@@ -26,6 +26,8 @@ export interface AiBrain {
   retreating: boolean;
   /** 上次後退時的施放次數：至少出手一次才會再後退（避免被追時一直逃、從不攻擊） */
   castsAtRetreat: number;
+  /** 閒置時在出生點附近走動：距離下次走動的秒數 */
+  wanderTimer: number;
 }
 
 export interface BrainOptions {
@@ -49,5 +51,6 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     keepDistance: options.keepDistance ?? 0,
     retreating: false,
     castsAtRetreat: -1,
+    wanderTimer: 0,
   };
 }

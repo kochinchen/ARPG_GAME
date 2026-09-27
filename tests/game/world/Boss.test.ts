@@ -12,7 +12,7 @@ import { SaveMapper } from '../../../src/save/SaveMapper';
 import { repairSave } from '../../../src/save/SaveRepair';
 import { makeInvulnerable, run } from '../helpers';
 
-/** Boss（怪物第三批）：每 5 層、出口前方、擊敗後出口才開、召喚、狂暴、大量掉落 */
+/** 樓層魔王：每 5 層（各區間不同魔王）、出口前方、擊敗後出口才開、召喚、階段變化、大量掉落 */
 const data = DataRegistry.load(gameData);
 
 function world(floor: number, seed = 1) {
@@ -34,12 +34,21 @@ const sleep = (boss: Actor) => {
 };
 
 describe('Boss 層', () => {
-  it('第 5、10 層有一隻骷髏王，位置在出口前方；第 4、6 層沒有', () => {
-    for (const floor of [5, 10]) {
+  it('每 5 層一隻魔王（依樓層區間不同），位置在出口前方；第 4、6 層沒有', () => {
+    const expected: [number, string][] = [
+      [5, 'enemy.crypt_guardian'],
+      [10, 'enemy.fallen_priest'],
+      [15, 'enemy.lava_behemoth'],
+      [20, 'enemy.fallen_knight'],
+      [25, 'enemy.spider_queen'],
+      [30, 'enemy.abyss_lord'],
+      [35, 'enemy.abyss_lord'],
+    ];
+    for (const [floor, id] of expected) {
       const w = world(floor).world;
       const bosses = w.actors.filter((a) => a.isBoss);
       expect(bosses).toHaveLength(1);
-      expect(bosses[0]!.defId).toBe('enemy.skeleton_king');
+      expect(bosses[0]!.defId).toBe(id);
       expect(distance(bosses[0]!.position, w.exit!.position)).toBeLessThan(6);
       expect(w.floors.bossFloor).toBe(true);
     }
@@ -97,7 +106,7 @@ describe('Boss 戰鬥', () => {
 
   it('第一招是召喚：召喚物最多同時 6 隻，會追擊玩家', () => {
     const { world: w, boss, casts } = fight(1.2);
-    expect(casts[0]).toBe('enemy.king_summon');
+    expect(casts[0]).toBe('enemy.guardian_summon');
     const minions = w.actors.filter((a) => a.summonedBy === boss.id);
     expect(minions.length).toBeGreaterThan(0);
     expect(minions.length).toBeLessThanOrEqual(6);
@@ -118,27 +127,53 @@ describe('Boss 戰鬥', () => {
 
   it('戰鬥中會使用旋風斬 / 王者橫掃（有前搖提示）', () => {
     const { casts } = fight(14);
-    expect(casts).toContain('enemy.king_whirlwind');
-    expect(casts.some((c) => c === 'enemy.king_cleave' || c === 'basic.attack')).toBe(true);
-    for (const id of ['enemy.king_whirlwind', 'enemy.king_cleave']) expect(data.skills.get(id).telegraph).toBe(true);
+    expect(casts.some((c) => c === 'enemy.guardian_charge' || c === 'enemy.guardian_slam')).toBe(true);
+    expect(data.skills.get('enemy.guardian_slam').telegraph).toBe(true);
   });
 
-  it('HP 一半以下狂暴一次：攻速、移速、傷害提高', () => {
+  it('階段變化：HP 60% 以下進入第 2 階段（攻速提高、多了震盪技能），30% 以下第 3 階段；每個階段只觸發一次', () => {
     const { world: w, events } = world(5);
     const boss = bossOf(w)!;
     sleep(boss);
-    const enraged = vi.fn();
-    events.on('BossEnraged', enraged);
+    const changed = vi.fn();
+    events.on('BossPhaseChanged', changed);
     const speed = boss.stats.get('attackSpeed');
-    boss.hp = boss.maxHp * 0.6;
+    boss.hp = boss.maxHp * 0.65;
     run(w, 1 / 60);
-    expect(enraged).not.toHaveBeenCalled();
-    boss.hp = boss.maxHp * 0.45;
+    expect(changed).not.toHaveBeenCalled();
+    boss.hp = boss.maxHp * 0.55;
     run(w, 0.5);
-    expect(enraged).toHaveBeenCalledTimes(1);
-    expect(w.bosses.isEnraged(boss)).toBe(true);
-    expect(boss.stats.get('attackSpeed')).toBeCloseTo(speed * 1.3);
-    expect(boss.stats.get('damageBonus')).toBeCloseTo(0.2);
+    expect(changed).toHaveBeenCalledTimes(1);
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ phase: 1, label: '墓穴之怒' }));
+    expect(w.bosses.phaseOf(boss)).toBe(1);
+    expect(boss.stats.get('attackSpeed')).toBeCloseTo(speed * 1.2);
+    expect(boss.ai!.specialSkills).toContain('enemy.guardian_quake');
+    expect(boss.skillRanks.has('enemy.guardian_quake')).toBe(true);
+    boss.hp = boss.maxHp * 0.1;
+    run(w, 0.5);
+    expect(changed).toHaveBeenCalledTimes(2);
+    expect(w.bosses.phaseLabel(boss)).toBe('亡者軍團');
+    expect(boss.ai!.specialSkills[0]).toBe('enemy.guardian_legion');
+  });
+
+  it('一次掉很多血時依序進入每個階段', () => {
+    const { world: w, events } = world(20);
+    const boss = bossOf(w)!;
+    sleep(boss);
+    const labels: string[] = [];
+    events.on('BossPhaseChanged', (e) => labels.push(e.label));
+    boss.hp = boss.maxHp * 0.1;
+    run(w, 1 / 60);
+    expect(labels).toEqual(['火焰附魔', '寒冰附魔', '雷霆附魔']);
+    // 最後一個階段的技能：主要攻擊換成雷霆斬
+    expect(boss.ai!.skillId).toBe('enemy.knight_thunder_strike');
+  });
+
+  it('魔王的外觀至少是主角的 2 倍大', () => {
+    for (const floor of [5, 10, 15, 20, 25, 30]) {
+      const boss = bossOf(world(floor).world)!;
+      expect(boss.visualRadius / 0.5).toBeGreaterThanOrEqual(2);
+    }
   });
 });
 

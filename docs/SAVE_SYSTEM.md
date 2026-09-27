@@ -11,6 +11,8 @@
 - **開發用 B 重置**：先停止自動存檔並等待進行中的寫入完成，再清除存檔，避免舊狀態被寫回去。
 - **匯出 / 匯入**：暫時放在左上 Debug 面板（M8 移到選單）。
 - **v2（屬性點）**：`attributes` 區塊。Migration v1 → v2 為舊角色補發過去每一級的點數（每級 3 點），全部未分配。修復規則同技能點：總數 = 每級點數 × (等級 − 1)，屬性被移除或超過上限時退點，已分配超過總數時全部重置。
+- **v3（商人）**：`floor.shopBought`（本層貨架已買走的位置）。
+- **v4（怪物圖鑑）**：`bestiary`（EnemyDef ID → 擊敗次數）。Migration v3 → v4 給空的圖鑑；讀檔時移除已刪除的怪物。
 - 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---
@@ -87,6 +89,7 @@ interface SaveDataV1 {
     groundItems: { entry: SavedEntry; x: number; y: number; droppedByPlayer: boolean }[];
   };
 
+  bestiary: Record<string, number>;   // v4 新增：怪物圖鑑（EnemyDef ID → 擊敗次數）
   counters: {
     itemUidCounter: number;     // ItemGenerator 最後使用的流水號，避免讀檔後 uid 重複
   };

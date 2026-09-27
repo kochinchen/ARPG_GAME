@@ -9,6 +9,7 @@ import { repairSave } from '../../src/save/SaveRepair';
 import { SAVE_VERSION, SaveDataSchema, type SaveData } from '../../src/save/schema';
 import { sha256 } from '../../src/save/sha256';
 import { MemoryStorage } from '../../src/save/storage/MemoryStorage';
+import { generatedMapId } from '../../src/game/world/MapGenerator';
 
 const data = DataRegistry.load(gameData);
 
@@ -31,6 +32,7 @@ function sample(gold: number): SaveData {
     equipment: {},
     codex: [],
     floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, exitOpen: false, killed: [], openedChests: {}, groundItems: [], shopBought: [] },
+    bestiary: {},
     counters: { itemUidCounter: 0 },
   };
 }
@@ -127,7 +129,7 @@ describe('Migration', () => {
     expect(v1.inventory.cells).toHaveLength(80);
 
     const { data: repaired } = repairSave(v1, data);
-    expect(repaired.floor.mapId).toBe('map.crypt_b');
+    expect(repaired.floor.mapId).toBe(generatedMapId(2));
     expect(repaired.counters.itemUidCounter).toBe(1);
     // v0 → v1 經由 Envelope 也能讀
     const payload = JSON.stringify(v0);
@@ -145,6 +147,15 @@ describe('Migration v1 → v2（屬性點）', () => {
     expect(v2.character.gold).toBe(5);
     // 修復：與目前規則一致（每級 3 點）時不做改動
     expect(repairSave({ ...v2, skills: { ...v2.skills, unspentPoints: 2 + 9 } }, data).data.attributes).toEqual({ unspent: 27, allocated: {} });
+  });
+});
+
+describe('Migration v3 → v4（怪物圖鑑）', () => {
+  it('舊存檔從空的圖鑑開始', () => {
+    const { bestiary: _drop, ...v3 } = sample(7);
+    const v4 = SaveDataSchema.parse(migrate(v3, 3));
+    expect(v4.bestiary).toEqual({});
+    expect(v4.character.gold).toBe(7);
   });
 });
 

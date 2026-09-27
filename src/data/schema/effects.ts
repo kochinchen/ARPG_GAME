@@ -145,6 +145,8 @@ export const DelayedEffectSchema = z.strictObject({
   interval: z.number().nonnegative().default(0.3),
   /** 每次落點在中心點附近隨機偏移的半徑 */
   scatter: z.number().nonnegative().default(0),
+  /** 每重複一次，施放方向旋轉的角度（旋轉光束） */
+  spinDeg: z.number().default(0),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },

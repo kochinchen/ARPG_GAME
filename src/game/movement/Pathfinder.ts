@@ -1,6 +1,6 @@
 import { BinaryHeap } from '../../core/BinaryHeap';
 import { vec2, type Vec2 } from '../../core/math/Vec2';
-import { tileCenter, tileOf, type NavGrid } from './NavGrid';
+import type { NavGrid } from './NavGrid';
 
 const SQRT2 = Math.SQRT2;
 const NEIGHBORS: readonly [number, number, number][] = [
@@ -18,7 +18,7 @@ const NEAREST_WALKABLE_RADIUS = 8;
 export class Pathfinder {
   constructor(
     private readonly nav: NavGrid,
-    private readonly maxExpandedNodes = 6000,
+    private readonly maxExpandedNodes = 24000,
   ) {}
 
   /**
@@ -27,10 +27,10 @@ export class Pathfinder {
    */
   findPath(from: Vec2, to: Vec2, radius: number): Vec2[] {
     const nav = this.nav;
-    const startTile = tileOf(from);
+    const startTile = nav.cellOf(from);
     if (!nav.isWalkable(startTile.x, startTile.y)) return [];
 
-    let goalTile = tileOf(to);
+    let goalTile = nav.cellOf(to);
     let goalPoint: Vec2;
     if (nav.isWalkable(goalTile.x, goalTile.y)) {
       goalPoint = nav.clampInside(to, radius);
@@ -38,7 +38,7 @@ export class Pathfinder {
       const nearest = nav.nearestWalkable(goalTile, NEAREST_WALKABLE_RADIUS, from);
       if (!nearest) return [];
       goalTile = nearest;
-      goalPoint = tileCenter(nearest);
+      goalPoint = nav.cellCenter(nearest);
     }
 
     // 直線可達就不跑 A*
@@ -48,7 +48,7 @@ export class Pathfinder {
     if (tiles.length === 0) return [];
 
     const reachedGoal = tiles[tiles.length - 1]!.x === goalTile.x && tiles[tiles.length - 1]!.y === goalTile.y;
-    const points = tiles.map(tileCenter);
+    const points = tiles.map((t) => nav.cellCenter(t));
     if (reachedGoal) points[points.length - 1] = goalPoint;
 
     return this.smooth(from, points, radius);

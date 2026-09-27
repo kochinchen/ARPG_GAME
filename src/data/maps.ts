@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { MapDefSchema } from './schema/map';
 
+/** 固定地圖：測試用地圖與 40 × 30 小地窖（單元測試使用）。遊戲樓層改為隨機產生（floors.ts 的 layout） */
 export const maps: z.input<typeof MapDefSchema>[] = [
   {
     // 測試地圖：房間、長牆缺口、U 型死路、柱列、訓練木樁

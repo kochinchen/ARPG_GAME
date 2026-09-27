@@ -66,6 +66,8 @@ export type GameCommand =
   /** 開發用：直接升一級（只有 dev 版的 Input 會送出） */
   | { type: 'DebugLevelUp' }
   /** 開發用：在玩家周圍生成寶箱 */
-  | { type: 'DebugSpawnChests'; count: number };
+  | { type: 'DebugSpawnChests'; count: number }
+  /** 開發用：不需清怪，直接前往下一層 */
+  | { type: 'DebugNextFloor' };
 
 export type GameCommandType = GameCommand['type'];

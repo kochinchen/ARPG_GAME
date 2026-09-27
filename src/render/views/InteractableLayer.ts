@@ -3,6 +3,8 @@ import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp } from '../../game/entities/Interactable';
+import { MERCHANT } from '../figure/Merchant';
+import { PolyFigure } from '../figure/PolyFigure';
 import { describeItem } from '../../game/items/ItemDescriber';
 import { FLOOR_COLORS, LOOT_COLORS, PALETTE, RARITY_COLORS } from '../palette';
 
@@ -44,6 +46,8 @@ export class InteractableLayer {
   readonly labels = new Container();
   private readonly views = new Map<number, View>();
   private hoveredId: number | null = null;
+  /** 本層商人的多面體模型（待機動畫每幀更新） */
+  private merchantFigure: PolyFigure | null = null;
 
   constructor(
     private readonly projection: IsoProjection,
@@ -76,6 +80,7 @@ export class InteractableLayer {
     nextFloor = 0,
     stairsUp: StairsUp | null = null,
     merchant: Merchant | null = null,
+    dt = 1 / 60,
   ): void {
     const seen = new Set<number>();
     let changed = false;
@@ -99,6 +104,8 @@ export class InteractableLayer {
       seen.add(merchant.id);
       const view = this.views.get(merchant.id) ?? this.createMerchantView(merchant);
       this.highlight(view, merchant.id);
+      // 商人面向鏡頭（畫面下方）
+      this.merchantFigure?.update(dt, { facing: { x: 1, y: 1 }, moving: false, alive: true });
     }
     if (stairsUp) {
       seen.add(stairsUp.id);
@@ -233,28 +240,19 @@ export class InteractableLayer {
     return view;
   }
 
-  /** 商人：出口旁的小攤（帳篷 + 商人），標籤「商人」 */
+  /** 商人：多面體的商人與小攤（面向鏡頭），標籤「商人」 */
   private createMerchantView(merchant: Merchant): View {
     const s = this.projection.toScreen(merchant.position);
     const container = new Container();
     container.position.set(s.x, s.y);
     container.zIndex = this.projection.depth(merchant.position);
-    const g = new Graphics();
-    g.ellipse(0, 0, 24, 12).fill({ color: 0x000000, alpha: 0.45 });
-    // 攤位桌子
-    g.rect(-20, -16, 40, 12).fill({ color: 0x6a4a2a }).stroke({ color: 0x3a2814, width: 2 });
-    // 商人
-    g.roundRect(-7, -40, 14, 24, 5).fill({ color: 0x3a6a4a }).stroke({ color: 0x1a3a24, width: 2 });
-    g.circle(0, -46, 6).fill({ color: 0xd8b890 }).stroke({ color: 0x6a4a2a, width: 1.5 });
-    // 布篷
-    g.poly([-26, -44, 26, -44, 18, -58, -18, -58]).fill({ color: 0xb03a2a }).stroke({ color: 0x6a1a12, width: 2 });
-    g.rect(-24, -44, 3, 30).fill({ color: 0x4a3218 });
-    g.rect(21, -44, 3, 30).fill({ color: 0x4a3218 });
-    container.addChild(g);
+    const shadow = new Graphics().ellipse(0, 4, 26, 13).fill({ color: 0x000000, alpha: 0.4 });
+    this.merchantFigure = new PolyFigure(MERCHANT);
+    container.addChild(shadow, this.merchantFigure.graphics);
     this.objectLayer.addChild(container);
     const label = new Text({ text: '商人', style: { fontFamily: 'sans-serif', fontSize: 12, fill: 0xe8c47a } });
     label.anchor.set(0.5, 1);
-    label.position.set(s.x, s.y - 62);
+    label.position.set(s.x, s.y - 70);
     const labelBack = new Graphics();
     labelBack.position.copyFrom(label.position);
     const pad = LABEL_PAD;
@@ -262,7 +260,7 @@ export class InteractableLayer {
       .rect(-label.width / 2 - pad, -label.height - pad / 2, label.width + pad * 2, label.height + pad)
       .fill({ color: LOOT_COLORS.labelBack, alpha: 0.55 });
     this.labels.addChild(labelBack, label);
-    const view: View = { container, label, labelBack, labelShift: 0, chest: null, hit: [{ x: -28, y: -78, width: 56, height: 90 }] };
+    const view: View = { container, label, labelBack, labelShift: 0, chest: null, hit: [{ x: -30, y: -86, width: 60, height: 100 }] };
     this.views.set(merchant.id, view);
     return view;
   }

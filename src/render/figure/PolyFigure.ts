@@ -45,7 +45,11 @@ export class PolyFigure {
   private action: Action | null = null;
   private hitTime = 0;
 
-  constructor(private readonly model: FigureModel) {
+  constructor(
+    private readonly model: FigureModel,
+    /** 整體縮放（角色半徑 ÷ 模型設計半徑） */
+    private readonly scale = 1,
+  ) {
     this.current = model.poses.ready(0);
   }
 
@@ -129,7 +133,8 @@ export class PolyFigure {
           for (const i of face.idx) {
             const v = verts[i]!;
             depth += dot(v, VIEW);
-            points.push((v[0] - v[2]) * 0.707 * SCALE, ((v[0] + v[2]) * 0.354 - v[1] * 0.94) * SCALE);
+            const k = SCALE * this.scale;
+            points.push((v[0] - v[2]) * 0.707 * k, ((v[0] + v[2]) * 0.354 - v[1] * 0.94) * k);
           }
           const light = AMBIENT + DIFFUSE * Math.max(0, dot(n, LIGHT));
           faces.push({ depth: depth / face.idx.length, color: shade(face.color, light), points });

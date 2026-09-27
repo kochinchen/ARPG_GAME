@@ -1,3 +1,4 @@
+import type { Rng } from '../../core/Rng';
 import type { DataTable } from '../../data/DataRegistry';
 import type { SkillDef } from '../../data/schema/skill';
 import type { Actor } from '../entities/Actor';
@@ -27,6 +28,7 @@ export class AiSystem {
     private readonly pathfinder: Pathfinder,
     events: GameEventBus,
     private readonly skills: DataTable<SkillDef>,
+    private readonly rng: Rng,
   ) {
     // 被攻擊時記錄仇恨來源
     events.on('ActorDamaged', (e) => {
@@ -35,7 +37,7 @@ export class AiSystem {
     });
   }
 
-  update(actors: readonly Actor[]): void {
+  update(actors: readonly Actor[], dt: number): void {
     for (const self of actors) {
       const brain = self.ai;
       if (!brain || !self.alive || self.isDisabled) continue;
@@ -47,6 +49,8 @@ export class AiSystem {
         nav: this.nav,
         pathfinder: this.pathfinder,
         skills: this.skills,
+        rng: this.rng,
+        dt,
       };
       const next = this.states[brain.state].update(ctx);
       if (next !== null && next !== brain.state) {

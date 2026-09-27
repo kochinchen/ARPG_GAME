@@ -146,3 +146,15 @@ export function lowSphere(r: number, color: number, c: V3 = [0, 0, 0], lon = 8, 
   }
   return mesh;
 }
+
+/** 旋轉（先 X 再 Z）並平移一個網格：用來擺放傾斜的零件（弓臂、斧頭、王冠的尖刺） */
+export function placeMesh(mesh: Mesh, rotation: V3, offset: V3): Mesh {
+  const m = jointRotation(rotation);
+  return {
+    verts: mesh.verts.map((v) => {
+      const r = apply(m, v);
+      return [r[0] + offset[0], r[1] + offset[1], r[2] + offset[2]] as V3;
+    }),
+    faces: mesh.faces.map((f) => ({ idx: [...f.idx], color: f.color })),
+  };
+}

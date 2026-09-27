@@ -66,7 +66,8 @@ export interface GameEvents {
     boss: boolean;
   };
   /** Boss HP 降到一半以下，進入狂暴 */
-  BossEnraged: { actorId: ActorId; name: string };
+  /** Boss 進入下一個階段（phase 從 1 開始） */
+  BossPhaseChanged: { actorId: ActorId; name: string; phase: number; label: string };
   /** 進入某一層（含第一次進入遊戲） */
   FloorEntered: { floor: number; mapId: string };
   CheckpointActivated: { kind: 'stairs' | 'midway'; position: Vec2 };

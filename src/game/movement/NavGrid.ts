@@ -2,17 +2,19 @@ import { vec2, type Vec2 } from '../../core/math/Vec2';
 import { MAP_TILES, type MapDef } from '../../data/schema/map';
 
 /**
- * 可行走網格。Tile (x, y) 佔 World 範圍 [x, x+1) × [y, y+1)。
+ * 可行走網格。格子 (x, y) 佔 World 範圍 [x·c, (x+1)·c) × [y·c, (y+1)·c)，c = cellSize（預設 1）。
+ * 大地窖的 cellSize = 0.5：地圖形狀更細緻，但角色的大小、速度、距離都仍以 World 單位計算。
  * 換樓層時以 load() 就地替換地圖，持有此物件的系統不需要重建。
  */
 export class NavGrid {
   private _width = 0;
   private _height = 0;
   private walkable = new Uint8Array(0);
+  private _cell = 1;
 
   private constructor() {}
 
-  static fromMap(map: Pick<MapDef, 'rows'>): NavGrid {
+  static fromMap(map: Pick<MapDef, 'rows'> & { cellSize?: number }): NavGrid {
     const nav = new NavGrid();
     nav.load(map);
     return nav;
@@ -26,7 +28,13 @@ export class NavGrid {
     return this._height;
   }
 
-  load(map: Pick<MapDef, 'rows'>): void {
+  /** 每一格的 World 大小 */
+  get cell(): number {
+    return this._cell;
+  }
+
+  load(map: Pick<MapDef, 'rows'> & { cellSize?: number }): void {
+    this._cell = map.cellSize ?? 1;
     this._height = map.rows.length;
     this._width = map.rows[0]?.length ?? 0;
     this.walkable = new Uint8Array(this._width * this._height);
@@ -37,7 +45,24 @@ export class NavGrid {
     });
   }
 
-  /** 所有可走的 Tile */
+  /** 可走區域的面積（World 單位²；怪物密度以此計算） */
+  get walkableArea(): number {
+    let n = 0;
+    for (const w of this.walkable) n += w;
+    return n * this._cell * this._cell;
+  }
+
+  /** World 座標所在的格子 */
+  cellOf(p: Vec2): Vec2 {
+    return vec2(Math.floor(p.x / this._cell), Math.floor(p.y / this._cell));
+  }
+
+  /** 格子中心的 World 座標 */
+  cellCenter(cell: Vec2): Vec2 {
+    return vec2((cell.x + 0.5) * this._cell, (cell.y + 0.5) * this._cell);
+  }
+
+  /** 所有可走的格子 */
   walkableTiles(): Vec2[] {
     const tiles: Vec2[] = [];
     for (let y = 0; y < this._height; y++) {
@@ -55,9 +80,9 @@ export class NavGrid {
     return this.inBounds(tx, ty) && this.walkable[ty * this.width + tx] === 1;
   }
 
-  /** World 座標所在的 Tile 是否可走 */
+  /** World 座標所在的格子是否可走 */
   isWalkableAt(x: number, y: number): boolean {
-    return this.isWalkable(Math.floor(x), Math.floor(y));
+    return this.isWalkable(Math.floor(x / this._cell), Math.floor(y / this._cell));
   }
 
   /** 半徑為 radius 的圓（以方形近似）放在 p 是否不碰牆 */
@@ -84,13 +109,14 @@ export class NavGrid {
 
   /** 把點推離相鄰的牆，確保半徑 radius 的角色站得下 */
   clampInside(p: Vec2, radius: number): Vec2 {
-    const tx = Math.floor(p.x);
-    const ty = Math.floor(p.y);
+    const c = this._cell;
+    const tx = Math.floor(p.x / c);
+    const ty = Math.floor(p.y / c);
     let { x, y } = p;
-    if (!this.isWalkable(tx - 1, ty)) x = Math.max(x, tx + radius);
-    if (!this.isWalkable(tx + 1, ty)) x = Math.min(x, tx + 1 - radius);
-    if (!this.isWalkable(tx, ty - 1)) y = Math.max(y, ty + radius);
-    if (!this.isWalkable(tx, ty + 1)) y = Math.min(y, ty + 1 - radius);
+    if (!this.isWalkable(tx - 1, ty)) x = Math.max(x, tx * c + radius);
+    if (!this.isWalkable(tx + 1, ty)) x = Math.min(x, (tx + 1) * c - radius);
+    if (!this.isWalkable(tx, ty - 1)) y = Math.max(y, ty * c + radius);
+    if (!this.isWalkable(tx, ty + 1)) y = Math.min(y, (ty + 1) * c - radius);
     return vec2(x, y);
   }
 
@@ -110,7 +136,7 @@ export class NavGrid {
           const ty = tile.y + dy;
           if (!this.isWalkable(tx, ty)) continue;
           const toTarget = Math.hypot(dx, dy);
-          const toPrefer = Math.hypot(tx + 0.5 - prefer.x, ty + 0.5 - prefer.y);
+          const toPrefer = Math.hypot((tx + 0.5) * this._cell - prefer.x, (ty + 0.5) * this._cell - prefer.y);
           const score = toTarget * 1000 + toPrefer;
           if (score < bestScore) {
             bestScore = score;
@@ -124,5 +150,3 @@ export class NavGrid {
   }
 }
 
-export const tileOf = (p: Vec2): Vec2 => vec2(Math.floor(p.x), Math.floor(p.y));
-export const tileCenter = (tile: Vec2): Vec2 => vec2(tile.x + 0.5, tile.y + 0.5);

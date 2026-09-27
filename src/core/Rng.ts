@@ -28,6 +28,13 @@ export class Rng {
     return min + Math.floor(this.next() * (max - min + 1));
   }
 
+  /** 常態分佈（Box-Muller）：平均 mean、標準差 sd */
+  normal(mean: number, sd: number): number {
+    const u = 1 - this.next();
+    const v = this.next();
+    return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
   chance(probability: number): boolean {
     return this.next() < probability;
   }

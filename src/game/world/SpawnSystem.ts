@@ -2,7 +2,12 @@ import type { Rng } from '../../core/Rng';
 import { distance, vec2, type Vec2 } from '../../core/math/Vec2';
 import type { FloorDef } from '../../data/schema/floor';
 import type { NavGrid } from '../movement/NavGrid';
-import { tileCenter } from '../movement/NavGrid';
+
+/** 不生成怪物的安全範圍（樓梯口、出口、存檔點） */
+export interface SafeZone {
+  center: Vec2;
+  radius: number;
+}
 
 export interface SpawnRequest {
   enemyId: string;
@@ -26,7 +31,7 @@ const MIN_PACK_GAP = 4;
 
 /**
  * 依樓層設定決定怪物與寶箱的位置（不建立實體，只回傳 SpawnRequest）。
- * 同一個 Rng 狀態一定得到相同結果；存檔點與出口附近 safeRadius 內不放怪。
+ * 同一個 Rng 狀態一定得到相同結果；安全範圍（樓梯口、出口、存檔點）內不放怪。
  */
 export class SpawnSystem {
   constructor(
@@ -37,22 +42,21 @@ export class SpawnSystem {
   planMonsters(
     floor: FloorDef,
     densityMultiplier: number,
-    avoid: readonly Vec2[],
-    safeRadius: number,
+    zones: readonly SafeZone[],
     elite?: EliteRoll,
   ): SpawnRequest[] {
-    const tiles = this.candidates(avoid, safeRadius);
-    const target = Math.round((this.nav.walkableTiles().length / 100) * floor.density * densityMultiplier);
+    const tiles = this.candidates(zones);
+    const target = Math.round((this.nav.walkableArea / 100) * floor.density * densityMultiplier);
     const requests: SpawnRequest[] = [];
     const packCenters: Vec2[] = [];
     let attempts = 0;
     while (requests.length < target && tiles.length > 0 && attempts++ < 400) {
-      const center = tileCenter(this.rng.pick(tiles));
+      const center = this.nav.cellCenter(this.rng.pick(tiles));
       if (packCenters.some((c) => distance(c, center) < MIN_PACK_GAP)) continue;
       packCenters.push(center);
       const size = Math.min(this.rng.int(floor.packSize[0], floor.packSize[1]), target - requests.length);
       for (let i = 0; i < size; i++) {
-        const position = i === 0 ? center : this.near(center, avoid, safeRadius);
+        const position = i === 0 ? center : this.near(center, zones);
         if (!position) continue;
         const request: SpawnRequest = { enemyId: this.rng.weighted(floor.monsterPool).enemyId, position };
         if (i === 0 && elite) {
@@ -66,28 +70,31 @@ export class SpawnSystem {
   }
 
   planChests(count: number, avoid: readonly Vec2[]): Vec2[] {
-    const tiles = this.candidates(avoid, 3);
+    const tiles = this.candidates(avoid.map((center) => ({ center, radius: 3 })));
     const chests: Vec2[] = [];
     for (let attempts = 0; chests.length < count && tiles.length > 0 && attempts < 200; attempts++) {
-      const p = tileCenter(this.rng.pick(tiles));
+      const p = this.nav.cellCenter(this.rng.pick(tiles));
       if (chests.some((c) => distance(c, p) < 5) || !this.nav.isClearAt(p, 0.45)) continue;
       chests.push(p);
     }
     return chests;
   }
 
-  private candidates(avoid: readonly Vec2[], safeRadius: number): Vec2[] {
+  private candidates(zones: readonly SafeZone[]): Vec2[] {
     return this.nav
       .walkableTiles()
-      .filter((t) => avoid.every((a) => distance(tileCenter(t), a) >= safeRadius) && this.nav.isClearAt(tileCenter(t), 0.35));
+      .filter((t) => {
+        const c = this.nav.cellCenter(t);
+        return outside(c, zones) && this.nav.isClearAt(c, 0.35);
+      });
   }
 
   /** 群組中心附近的空位 */
-  private near(center: Vec2, avoid: readonly Vec2[], safeRadius: number): Vec2 | null {
+  private near(center: Vec2, zones: readonly SafeZone[]): Vec2 | null {
     for (let attempt = 0; attempt < 8; attempt++) {
       const angle = this.rng.range(0, Math.PI * 2);
       const p = vec2(center.x + Math.cos(angle) * PACK_SPREAD, center.y + Math.sin(angle) * PACK_SPREAD);
-      if (this.nav.isClearAt(p, 0.35) && avoid.every((a) => distance(p, a) >= safeRadius)) return p;
+      if (this.nav.isClearAt(p, 0.35) && outside(p, zones)) return p;
     }
     return null;
   }
@@ -106,3 +113,5 @@ function rollElite(elite: EliteRoll): string[] | null {
   }
   return picked;
 }
+
+const outside = (p: Vec2, zones: readonly SafeZone[]) => zones.every((z) => distance(p, z.center) >= z.radius);

@@ -1,5 +1,6 @@
 import type { DataTable } from '../../data/DataRegistry';
 import type { SkillDef } from '../../data/schema/skill';
+import type { Rng } from '../../core/Rng';
 import type { Actor } from '../entities/Actor';
 import type { NavGrid } from '../movement/NavGrid';
 import type { Pathfinder } from '../movement/Pathfinder';
@@ -14,6 +15,9 @@ export interface AiContext {
   nav: NavGrid;
   pathfinder: Pathfinder;
   skills: DataTable<SkillDef>;
+  /** 閒置走動用的亂數（Seeded） */
+  rng: Rng;
+  dt: number;
 }
 
 /**

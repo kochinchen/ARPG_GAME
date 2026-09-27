@@ -41,8 +41,8 @@ describe('精英怪出現規則', () => {
     const map = data.maps.get('map.crypt_a');
     const floorDef = data.floors.get('floor.crypt_1');
     const avoid = [vec2(3.5, 3.5)];
-    const plain = new SpawnSystem(NavGrid.fromMap(map), new Rng(9)).planMonsters(floorDef, 1, avoid, 7);
-    const withElites = new SpawnSystem(NavGrid.fromMap(map), new Rng(9)).planMonsters(floorDef, 1, avoid, 7, {
+    const plain = new SpawnSystem(NavGrid.fromMap(map), new Rng(9)).planMonsters(floorDef, 1, avoid.map((center) => ({ center, radius: 7 })));
+    const withElites = new SpawnSystem(NavGrid.fromMap(map), new Rng(9)).planMonsters(floorDef, 1, avoid.map((center) => ({ center, radius: 7 })), {
       chance: 1,
       count: [1, 2],
       pool: data.eliteAffixes.all,

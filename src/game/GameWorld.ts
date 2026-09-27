@@ -10,7 +10,7 @@ import { DamagePipeline } from './combat/DamagePipeline';
 import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { BossSystem } from './enemies/BossSystem';
-import { EnemyFactory } from './enemies/EnemyFactory';
+import { EnemyFactory, rollSize } from './enemies/EnemyFactory';
 import { Actor } from './entities/Actor';
 import type { Chest, ExitPortal, GroundContent, GroundItem, Merchant, StairsUp } from './entities/Interactable';
 import { ShopSystem } from './items/ShopSystem';
@@ -23,7 +23,7 @@ import { ItemCursor } from './items/ItemCursor';
 import { ItemGenerator } from './items/ItemGenerator';
 import { LootSystem } from './items/LootSystem';
 import { MovementSystem } from './movement/MovementSystem';
-import { NavGrid, tileCenter } from './movement/NavGrid';
+import { NavGrid } from './movement/NavGrid';
 import { Pathfinder } from './movement/Pathfinder';
 import { SeparationSystem } from './movement/SeparationSystem';
 import { DeathHandler } from './player/DeathHandler';
@@ -52,7 +52,8 @@ import { RegenSystem } from './stats/RegenSystem';
 import { StatBlock } from './stats/StatBlock';
 import { CheckpointSystem } from './world/CheckpointSystem';
 import { scaleForFloor } from './world/DifficultyScaler';
-import { FloorManager } from './world/FloorManager';
+import { FloorManager, mapIdForFloor } from './world/FloorManager';
+import { generateMap, generatedMapId } from './world/MapGenerator';
 import { SpawnSystem } from './world/SpawnSystem';
 import { findMarker, reachableTiles } from '../data/mapAnalysis';
 import { TargetingService } from './targeting/TargetingService';
@@ -143,6 +144,7 @@ export class GameWorld {
   private readonly support: SupportSystem;
   private readonly data: DataRegistry;
   private readonly seed: number;
+  private generated: { floor: number; map: MapDef } | null = null;
   private readonly enemyFactory = new EnemyFactory();
 
   constructor(options: GameWorldOptions) {
@@ -152,7 +154,7 @@ export class GameWorld {
     this.commands = options.commands;
     this.events = options.events;
     this.floors = new FloorManager(data, this.events);
-    this.map = options.mapId !== undefined ? data.maps.get(options.mapId) : this.floors.mapFor(options.floor ?? 1);
+    this.map = options.mapId !== undefined ? data.maps.get(options.mapId) : this.mapFor(options.floor ?? 1);
     this.nav = NavGrid.fromMap(this.map);
     this.checkpoints = new CheckpointSystem(this.events, data.balance.floor.checkpointRadius);
 
@@ -182,10 +184,11 @@ export class GameWorld {
     this.comboSlotLevels = data.balance.player.comboSlotLevels;
     this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories);
     this.projectileSystem = new ProjectileSystem(this.nav, this.targeting, executor);
-    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events, data.skills);
+    // 閒置走動用獨立的亂數：不影響其他系統（掉寶、戰鬥）的亂數順序
+    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events, data.skills, new Rng(options.seed).fork('ai'));
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
-    this.bosses = new BossSystem(data.balance.boss, this.events);
+    this.bosses = new BossSystem(data, this.events);
 
     const p = data.balance.player;
     const start = markerPoint(this.map, MAP_TILES.spawn)!;
@@ -279,6 +282,12 @@ export class GameWorld {
     );
     this.deathHandler = new DeathHandler(this.player, this.events, () => this.checkpoints.respawn.position, p.respawnDelay);
     // 寶箱只能開一次：記錄每層已開啟的寶箱（開發用生成的寶箱沒有索引，不記錄）
+    // 怪物圖鑑：記錄擊敗過的怪物（召喚物也算）
+    this.events.on('ActorDied', (e) => {
+      if (e.faction !== 'enemy' || e.defId === null) return;
+      this.progress.bestiary.set(e.defId, (this.progress.bestiary.get(e.defId) ?? 0) + 1);
+      this.progress.changed();
+    });
     this.events.on('ChestOpened', (e) => {
       const chest = this.chests.find((c) => c.id === e.chestId);
       if (chest?.spawnIndex !== undefined) this.floors.markChestOpened(this.floors.floor, chest.spawnIndex);
@@ -286,6 +295,17 @@ export class GameWorld {
 
     if (options.mapId !== undefined) this.loadFixedMap();
     else this.enterFloor(options.floor ?? 1);
+  }
+
+  /** 這一層的地圖：隨機產生（世界種子 + 樓層，固定不變）或資料中的固定地圖 */
+  private mapFor(floor: number): MapDef {
+    const def = this.floors.defFor(floor);
+    if (!def.layout) return this.data.maps.get(mapIdForFloor(this.data, floor));
+    // 產生一次就記住（開場與讀檔時會連續要求同一層）
+    if (this.generated?.floor !== floor) {
+      this.generated = { floor, map: generateMap(generatedMapId(floor), new Rng(this.seed).fork(`map-${floor}`), def.layout) };
+    }
+    return this.generated.map;
   }
 
   /** 樓梯口位置 */
@@ -306,7 +326,7 @@ export class GameWorld {
    */
   enterFloor(floor: number, restore?: FloorRestore): void {
     const def = this.floors.defFor(floor);
-    this.resetLevel(this.floors.mapFor(floor));
+    this.resetLevel(this.mapFor(floor));
     this.itemLevel = floor;
     this.progress.currentFloor = floor;
     this.progress.highestFloor = Math.max(this.progress.highestFloor, floor);
@@ -314,8 +334,14 @@ export class GameWorld {
     const rng = new Rng(this.seed).fork(`floor-${floor}`);
     const spawner = new SpawnSystem(this.nav, rng);
     const scaling = scaleForFloor(floor, this.data.balance.difficulty);
-    const safe = [this.spawnPoint, ...this.checkpoints.checkpoints.slice(1).map((c) => c.position)];
-    if (this.exit) safe.push(this.exit.position);
+    // 樓梯口與出口（上下樓的地方）的安全範圍大於怪物的偵測距離，換層時不會馬上被圍
+    const { safeRadius, stairsSafeRadius } = this.data.balance.floor;
+    const zones = [
+      { center: this.spawnPoint, radius: stairsSafeRadius },
+      ...this.checkpoints.checkpoints.slice(1).map((c) => ({ center: c.position, radius: safeRadius })),
+      ...(this.exit ? [{ center: this.exit.position, radius: stairsSafeRadius }] : []),
+    ];
+    const safe = zones.map((z) => z.center);
     const killed = new Set(restore?.killed ?? []);
     // 只生成這一層已經開放的怪物（minFloor）
     const pool = { ...def, monsterPool: def.monsterPool.filter((m) => m.minFloor <= floor) };
@@ -329,7 +355,10 @@ export class GameWorld {
             rng: new Rng(this.seed).fork(`elite-${floor}`),
           }
         : undefined;
-    const plan = spawner.planMonsters(pool, scaling.density, safe, this.data.balance.floor.safeRadius, elite);
+    const plan = spawner.planMonsters(pool, scaling.density, zones, elite);
+    // 隨機體型用獨立亂數：每個生成索引都擲一次（包含已擊殺的），讀檔後體型不變
+    const sizeRng = new Rng(this.seed).fork(`size-${floor}`);
+    const sizes = plan.map((request) => rollSize(this.data.enemies.get(request.enemyId), this.data.balance.enemySize, sizeRng));
     const spawnedIds: [number, number][] = [];
     plan.forEach((request, index) => {
       if (killed.has(index)) return;
@@ -337,14 +366,14 @@ export class GameWorld {
         ? { config: eliteConfig, affixes: request.eliteAffixes.map((id) => this.data.eliteAffixes.get(id)) }
         : undefined;
       const enemyDef = this.data.enemies.get(request.enemyId);
-      const actor = this.addActor(this.enemyFactory.create(enemyDef, this.nextActorId++, request.position, scaling, eliteSpec));
+      const actor = this.addActor(this.enemyFactory.create(enemyDef, this.nextActorId++, request.position, scaling, eliteSpec, null, sizes[index]));
       spawnedIds.push([actor.id, index]);
     });
     // Boss 層：Boss 放在出口前方，生成索引接在一般怪物之後（存檔的擊殺紀錄一併適用）
     const bossIndex = def.boss && floor % def.boss.every === 0 ? plan.length : undefined;
     if (bossIndex !== undefined && !killed.has(bossIndex)) {
       const bossDef = this.data.enemies.get(def.boss!.enemyId);
-      const boss = this.addActor(this.enemyFactory.create(bossDef, this.nextActorId++, this.bossSpot(bossDef.radius), scaling));
+      const boss = this.addActor(this.enemyFactory.create(bossDef, this.nextActorId++, this.bossSpot(Math.min(0.8, bossDef.radius * bossDef.size)), scaling));
       spawnedIds.push([boss.id, bossIndex]);
     }
     const monsterCount = plan.length + (bossIndex === undefined ? 0 : 1);
@@ -384,7 +413,7 @@ export class GameWorld {
     let bestScore = Infinity;
     for (const key of reachableTiles(this.map, stairs)) {
       const [x, y] = key.split(',').map(Number) as [number, number];
-      const p = tileCenter(vec2(x, y));
+      const p = this.nav.cellCenter(vec2(x, y));
       if (!this.nav.isClearAt(p, radius)) continue;
       const score = Math.abs(Math.hypot(p.x - exit.x, p.y - exit.y) - distance);
       if (score < bestScore) {
@@ -523,6 +552,9 @@ export class GameWorld {
       case 'DebugSpawnChests':
         this.spawnChestsNear(this.player.position, command.count);
         return true;
+      case 'DebugNextFloor':
+        this.floors.forceDescend();
+        return true;
       case 'SortInventory':
         sortInventory(this.inventory, this.data);
         return true;
@@ -595,7 +627,7 @@ export class GameWorld {
     this.regen.update(this.actors, dt);
     this.statuses.update(this.actors, dt, this.pipeline);
     this.bosses.update(this.actors);
-    this.ai.update(this.actors);
+    this.ai.update(this.actors, dt);
     this.combos.update(this.actors);
     this.skills.update(this.actors, dt);
     this.movement.update(this.actors, dt);
@@ -630,5 +662,5 @@ export class GameWorld {
 /** 地圖記號（S / M / X）所在 Tile 的中心點 */
 function markerPoint(map: MapDef, marker: string): Vec2 | null {
   const tile = findMarker(map, marker);
-  return tile ? tileCenter(vec2(tile.x, tile.y)) : null;
+  return tile ? vec2((tile.x + 0.5) * map.cellSize, (tile.y + 0.5) * map.cellSize) : null;
 }

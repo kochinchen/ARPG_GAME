@@ -110,7 +110,7 @@ export class DataRegistry {
       }
     }
     for (const enemy of enemies.all) {
-      for (const skillId of enemy.skills) {
+      for (const skillId of [...enemy.skills, ...enemy.phases.flatMap((p) => p.skills ?? [])]) {
         if (!skills.has(skillId)) problems.push(`enemy '${enemy.id}' 引用不存在的 skill '${skillId}'`);
       }
       if (enemy.lootTable !== undefined && !lootTables.has(enemy.lootTable)) {
@@ -130,7 +130,7 @@ export class DataRegistry {
         if (!enemies.has(enemyId)) problems.push(`floor '${floor.id}' 引用不存在的 enemy '${enemyId}'`);
       }
       if (!lootTables.has(floor.chestLootTable)) problems.push(`floor '${floor.id}' 引用不存在的 lootTable '${floor.chestLootTable}'`);
-      for (const mapId of floor.maps) {
+      for (const mapId of floor.maps ?? []) {
         if (!maps.has(mapId)) {
           problems.push(`floor '${floor.id}' 引用不存在的 map '${mapId}'`);
           continue;

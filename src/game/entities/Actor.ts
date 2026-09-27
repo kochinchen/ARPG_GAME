@@ -16,6 +16,8 @@ export interface ActorInit {
   defId: string | null;
   position: Vec2;
   radius: number;
+  /** 外觀大小（碰撞半徑有上限，外觀可以更大：隨機體型、Boss）；省略 = radius */
+  visualRadius?: number;
   stats: StatBlock;
   ai?: AiBrain | null;
   /** 會的技能與等級 */
@@ -86,6 +88,8 @@ export class Actor {
   readonly summonedBy: ActorId | null;
   readonly xpReward: number;
   radius: number;
+  /** 外觀大小（Render 依此縮放模型） */
+  readonly visualRadius: number;
 
   position: Vec2;
   /** 上一個 Tick 的位置，Render 用來插值 */
@@ -124,6 +128,7 @@ export class Actor {
     this.position = init.position;
     this.prevPosition = init.position;
     this.radius = init.radius;
+    this.visualRadius = init.visualRadius ?? init.radius;
     this.stats = init.stats;
     this.ai = init.ai ?? null;
     this.isBoss = init.isBoss ?? false;

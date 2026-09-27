@@ -67,11 +67,13 @@ export const balance: z.input<typeof BalanceSchema> = {
     damagePerFloor: 0.12,
     defensePerFloor: 0.1,
     xpPerFloor: 0.15,
-    densityPerFloor: 0.05,
-    maxDensityMultiplier: 2,
+    densityPerFloor: 0.03,
+    maxDensityMultiplier: 1.4,
   },
   floor: {
-    // 與骷髏的偵測距離相同：站在存檔點上不會被發現
+    // 樓梯口與出口：大於最遠的偵測距離（骷髏王 9），上下樓時附近一定沒有怪物
+    stairsSafeRadius: 12,
+    // 中途存檔點：與骷髏的偵測距離相同
     safeRadius: 7,
     checkpointRadius: 1.2,
   },
@@ -83,14 +85,11 @@ export const balance: z.input<typeof BalanceSchema> = {
     radiusMultiplier: 1.2,
     lootTable: 'loot.elite',
   },
-  boss: {
-    // HP 一半以下狂暴：攻速、移速、傷害提高
-    enrageThreshold: 0.5,
-    enrage: [
-      { stat: 'attackSpeed', kind: 'increased', value: 0.3 },
-      { stat: 'moveSpeed', kind: 'increased', value: 0.2 },
-      { stat: 'damageBonus', value: 0.2 },
-    ],
+  enemySize: {
+    // 近戰：多數在 100%～140%，少數巨大個體接近 200%（HP / 傷害最多 150%）
+    melee: { mean: 1.2, sd: 0.22, min: 1, max: 2, statPerSize: 0.5 },
+    // 遠程 / 法術：100%～130%，數值不變
+    ranged: { mean: 1.08, sd: 0.1, min: 1, max: 1.3, statPerSize: 0 },
   },
   shop: {
     value: { base: 4, perItemLevel: 2, rarity: { normal: 1, magic: 2.5, rare: 6, legendary: 15 } },

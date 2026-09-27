@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export type PanelName = 'character' | 'skills' | 'inventory' | 'menu';
+export type PanelName = 'character' | 'skills' | 'inventory' | 'bestiary' | 'menu';
 
 defineProps<{ open: Record<PanelName, boolean>; skillPoints: number; attributePoints: number }>();
 const emit = defineEmits<{ toggle: [panel: PanelName] }>();
@@ -19,6 +19,7 @@ function click(e: MouseEvent, panel: PanelName) {
       技能<span v-if="skillPoints > 0" class="badge">{{ skillPoints }}</span>
     </button>
     <button type="button" :class="{ on: open.inventory }" title="背包（I）" @click="click($event, 'inventory')">背包</button>
+    <button type="button" :class="{ on: open.bestiary }" title="怪物圖鑑（K）" @click="click($event, 'bestiary')">圖鑑</button>
     <button type="button" :class="{ on: open.menu }" title="選單（Esc）" @click="click($event, 'menu')">選單</button>
   </nav>
 </template>

@@ -62,9 +62,13 @@ export class EffectScheduler implements EffectSchedulerPort {
     // 連射這類「從施放者發射的投射物」跟著施放者；落點類固定在地面
     const followCaster = def.scatter === 0 && def.effects.every((e) => e.type === 'projectile') && def.delay === 0;
     for (let i = 0; i < def.repeat; i++) {
+      const spin = (def.spinDeg * i * Math.PI) / 180;
+      const c = Math.cos(spin);
+      const s = Math.sin(spin);
+      const direction = spin === 0 ? ctx.direction : vec2(ctx.direction.x * c - ctx.direction.y * s, ctx.direction.x * s + ctx.direction.y * c);
       this.pending.push({
         id: this.nextId++,
-        ctx: { ...ctx },
+        ctx: { ...ctx, direction },
         position: this.scatter(ctx.origin, def.scatter),
         remaining: def.delay + i * def.interval,
         followCaster,

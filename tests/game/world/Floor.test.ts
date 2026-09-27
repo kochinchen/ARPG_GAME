@@ -11,6 +11,7 @@ import { GameWorld } from '../../../src/game/GameWorld';
 import { NavGrid } from '../../../src/game/movement/NavGrid';
 import { scaleForFloor } from '../../../src/game/world/DifficultyScaler';
 import { SpawnSystem } from '../../../src/game/world/SpawnSystem';
+import { generatedMapId } from '../../../src/game/world/MapGenerator';
 import { run } from '../helpers';
 
 const data = DataRegistry.load(gameData);
@@ -55,7 +56,7 @@ describe('SpawnSystem', () => {
   const avoid = [vec2(3.5, 3.5), vec2(20.5, 16.5)];
 
   it('同一個 seed 產生相同的配置；怪物不會出現在安全範圍內，且都在地板上', () => {
-    const plan = (seed: number) => new SpawnSystem(NavGrid.fromMap(map), new Rng(seed)).planMonsters(floorDef, 1, avoid, 7);
+    const plan = (seed: number) => new SpawnSystem(NavGrid.fromMap(map), new Rng(seed)).planMonsters(floorDef, 1, avoid.map((center) => ({ center, radius: 7 })));
     const a = plan(5);
     expect(a).toEqual(plan(5));
     expect(a.length).toBeGreaterThan(5);
@@ -67,7 +68,7 @@ describe('SpawnSystem', () => {
   });
 
   it('密度倍率越高怪物越多', () => {
-    const count = (mult: number) => new SpawnSystem(NavGrid.fromMap(map), new Rng(3)).planMonsters(floorDef, mult, avoid, 7).length;
+    const count = (mult: number) => new SpawnSystem(NavGrid.fromMap(map), new Rng(3)).planMonsters(floorDef, mult, avoid.map((center) => ({ center, radius: 7 }))).length;
     expect(count(2)).toBeGreaterThan(count(1));
   });
 });
@@ -85,6 +86,12 @@ describe('樓層模式（M7）', () => {
     expect(world.chests.length).toBeLessThanOrEqual(def.chests[1]);
     const safe = world.checkpoints.checkpoints.map((c) => c.position);
     for (const e of enemies(world)) for (const p of safe) expect(distance(e.position, p)).toBeGreaterThanOrEqual(data.balance.floor.safeRadius);
+    // 樓梯口與出口：更大的安全範圍（大於怪物的偵測距離）
+    for (const e of enemies(world)) {
+      expect(distance(e.position, world.spawnPoint)).toBeGreaterThanOrEqual(data.balance.floor.stairsSafeRadius);
+      expect(distance(e.position, world.exit!.position)).toBeGreaterThanOrEqual(data.balance.floor.stairsSafeRadius);
+    }
+    expect(data.balance.floor.stairsSafeRadius).toBeGreaterThan(Math.max(...data.enemies.all.map((e) => e.detectRange)));
     expect(world.exit?.open).toBe(false);
   });
 
@@ -120,9 +127,9 @@ describe('樓層模式（M7）', () => {
     kill(world, world.floors.total);
     useExit(world, commands);
 
-    expect(onEntered).toHaveBeenCalledWith({ floor: 2, mapId: 'map.crypt_b' });
+    expect(onEntered).toHaveBeenCalledWith({ floor: 2, mapId: generatedMapId(2) });
     expect(world.floors.floor).toBe(2);
-    expect(world.map.id).toBe('map.crypt_b');
+    expect(world.map.id).toBe(generatedMapId(2));
     expect(world.progress).toMatchObject({ currentFloor: 2, highestFloor: 2, level: 4 });
     expect(world.itemLevel).toBe(2);
     expect(world.groundItems).toHaveLength(0);

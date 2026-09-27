@@ -6,10 +6,11 @@ import { SkillCategorySchema } from '../data/schema/skill';
  * 存檔格式（目前 v2；規格見 docs/SAVE_SYSTEM.md 第 2 節）。
  * v2：加入屬性點（attributes）。
  * v3：加入商人貨架已買走的位置（floor.shopBought）。
+ * v4：加入怪物圖鑑（bestiary）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -97,6 +98,8 @@ export const SaveDataSchema = z.object({
     /** 本層商人貨架已買走的位置（重新整理不會補貨） */
     shopBought: z.array(nonNegInt),
   }),
+  /** 怪物圖鑑：EnemyDef ID → 擊敗次數 */
+  bestiary: z.record(z.string(), nonNegInt),
   counters: z.object({
     /** ItemGenerator 最後使用的流水號；讀檔後從下一號接續 */
     itemUidCounter: nonNegInt,

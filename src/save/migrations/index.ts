@@ -87,8 +87,11 @@ const v1ToV2: Migration = (v1) => {
 /** v2 → v3：加入商人貨架紀錄（舊存檔視為都還沒買） */
 const v2ToV3: Migration = (v2) => ({ ...v2, floor: { ...(v2.floor as object), shopBought: [] } });
 
+/** v3 → v4：加入怪物圖鑑（舊存檔從空的圖鑑開始） */
+const v3ToV4: Migration = (v3) => ({ ...v3, bestiary: {} });
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4];
 
 export class MigrationError extends Error {}
 

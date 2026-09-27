@@ -1,3 +1,4 @@
+import type { Rng } from '../../core/Rng';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { EnemyDef } from '../../data/schema/enemy';
 import type { EliteAffixDef } from '../../data/schema/elite';
@@ -8,6 +9,29 @@ import { StatBlock } from '../stats/StatBlock';
 import type { FloorScaling } from '../world/DifficultyScaler';
 
 const NO_SCALING: FloorScaling = { hp: 1, damage: 1, defense: 1, xp: 1, density: 1 };
+/** 碰撞半徑上限（外觀可以更大）：一般怪物不超過 0.5，Boss 0.8 */
+const MAX_RADIUS = 0.5;
+const MAX_BOSS_RADIUS = 0.8;
+
+/** 隨機體型：scale = 外觀倍率，stat = HP 與傷害倍率 */
+export interface SizeRoll {
+  scale: number;
+  stat: number;
+}
+
+export const NORMAL_SIZE: SizeRoll = { scale: 1, stat: 1 };
+
+/**
+ * 擲一次隨機體型（常態分佈）：近戰怪（物理）差異大且 HP / 傷害跟著提高；遠程 / 法術怪差異小、數值不變。
+ * Boss 與不會行動的怪（訓練木樁）固定 100%。
+ */
+export function rollSize(def: EnemyDef, config: Balance['enemySize'], rng: Rng): SizeRoll {
+  const roll = rng.normal(0, 1);
+  if (def.boss || def.ai === 'none') return NORMAL_SIZE;
+  const c = def.ai === 'melee' ? config.melee : config.ranged;
+  const scale = Math.min(c.max, Math.max(c.min, c.mean + roll * c.sd));
+  return { scale, stat: 1 + (scale - 1) * c.statPerSize };
+}
 
 /** 精英怪：共通強化 + 詞綴 */
 export interface EliteSpec {
@@ -27,13 +51,16 @@ export class EnemyFactory {
     elite?: EliteSpec,
     /** 召喚者（Boss 召喚物）：不給經驗、不掉寶 */
     summonedBy: ActorId | null = null,
+    size: SizeRoll = NORMAL_SIZE,
   ): Actor {
     const e = elite?.config;
+    const hpMult = scaling.hp * (e?.hpMultiplier ?? 1) * size.stat;
+    const damageMult = scaling.damage * (e?.damageMultiplier ?? 1) * size.stat;
     const stats = new StatBlock({
-      maxHp: def.hp * scaling.hp * (e?.hpMultiplier ?? 1),
+      maxHp: def.hp * hpMult,
       moveSpeed: def.moveSpeed,
-      damageMin: def.damage[0] * scaling.damage * (e?.damageMultiplier ?? 1),
-      damageMax: def.damage[1] * scaling.damage * (e?.damageMultiplier ?? 1),
+      damageMin: def.damage[0] * damageMult,
+      damageMax: def.damage[1] * damageMult,
       attackSpeed: def.attackSpeed,
       attackRange: def.attackRange,
       defense: def.defense * scaling.defense,
@@ -47,7 +74,8 @@ export class EnemyFactory {
       name: elite ? `${elite.affixes.map((a) => a.name).join(' ')} ${def.name}` : def.name,
       defId: def.id,
       position,
-      radius: Math.min(0.5, def.radius * (e?.radiusMultiplier ?? 1)),
+      radius: Math.min(def.boss ? MAX_BOSS_RADIUS : MAX_RADIUS, def.radius * def.size * size.scale * (e?.radiusMultiplier ?? 1)),
+      visualRadius: def.radius * def.size * size.scale * (e?.radiusMultiplier ?? 1),
       stats,
       elite: elite !== undefined,
       summonedBy,

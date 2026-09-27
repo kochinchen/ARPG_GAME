@@ -13,12 +13,19 @@ const CORRIDOR = [
 const skeletonAt = (x: number, y: number) => ({ enemyId: 'enemy.skeleton', at: [x, y] as [number, number] });
 
 describe('怪物 AI（M3）', () => {
-  it('玩家在偵測範圍外時保持閒置', () => {
+  it('玩家在偵測範圍外時保持閒置：只在出生點附近小範圍走動', () => {
     const { world } = createWorldWithMap(CORRIDOR, [skeletonAt(20.5, 2.5)]);
-    run(world, 1);
     const [skeleton] = enemiesOf(world);
+    let moved = false;
+    let farthest = 0;
+    run(world, 20, () => {
+      const d = distance(skeleton!.position, vec2(20.5, 2.5));
+      farthest = Math.max(farthest, d);
+      if (d > 0.3) moved = true;
+    });
     expect(skeleton!.ai!.state).toBe('idle');
-    expect(skeleton!.position).toEqual(vec2(20.5, 2.5));
+    expect(moved).toBe(true);
+    expect(farthest).toBeLessThanOrEqual(2.5 + 0.2);
   });
 
   it('玩家進入偵測範圍後追擊並攻擊', () => {
@@ -80,7 +87,8 @@ describe('怪物 AI（M3）', () => {
 
     expect(sawReturn).toBe(true);
     expect(skeleton.ai!.state).toBe('idle');
-    expect(distance(skeleton.position, vec2(6.5, 2.5))).toBeLessThan(0.05);
+    // 回到家附近（回到閒置後會在出生點附近小範圍走動）
+    expect(distance(skeleton.position, vec2(6.5, 2.5))).toBeLessThan(2.7);
   });
 
   it('5 隻同時追擊時不會疊成一點', () => {
