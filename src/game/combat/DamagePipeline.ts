@@ -1,6 +1,7 @@
 import type { Rng } from '../../core/Rng';
 import { distance } from '../../core/math/Vec2';
 import type { Balance } from '../../data/schema/balance';
+import type { Element, StatId } from '../../data/schema/common';
 import type { Actor } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
 import type { DamageDealer, DamageRequest, DamageResult } from './DamageRequest';
@@ -16,11 +17,18 @@ export function defenseMitigation(defense: number, constant: number): number {
 /** 反擊的觸發距離：攻擊者在近戰範圍內（雙方邊緣距離） */
 const COUNTER_REACH = 1.2;
 const MAX_DAMAGE_REDUCTION = 0.9;
+/** 元素 → 抗性屬性 */
+const RESIST: Record<Exclude<Element, 'physical'>, StatId> = {
+  fire: 'fireResist',
+  cold: 'coldResist',
+  lightning: 'lightningResist',
+  poison: 'poisonResist',
+};
 
 /**
  * 所有傷害的唯一入口。
- *   基礎傷害 → 傷害加成 → 暴擊 → 防禦（物理）→ 減傷 → 防禦姿態 → 取整 → 扣血
- *   → 吸血 / 吸魔 / 命中回魔 → 事件 → 反擊
+ *   閃避 → 基礎傷害 → 傷害加成 → 暴擊 → 防禦（物理）/ 抗性（元素）→ 減傷 → 防禦姿態 → 取整 → 扣血
+ *   → 吸血 / 吸魔 / 命中回魔 → 事件 → 反擊 / 荊棘
  * 死亡判定由 DeathSystem 在同一 Tick 稍後處理。
  */
 export class DamagePipeline implements DamageDealer {
@@ -36,17 +44,26 @@ export class DamagePipeline implements DamageDealer {
     if (!target.alive || target.hp <= 0) return null;
     const isDot = request.isDot === true;
 
+    // 閃避：完全躲開（持續傷害、反擊與荊棘不能閃避）
+    const dodge = Math.min(this.balance.combat.maxDodge, target.stats.get('dodgeChance'));
+    if (!isDot && !request.noCounter && dodge > 0 && this.rng.chance(dodge)) {
+      this.events.emit('AttackDodged', { targetId: target.id, position: target.position });
+      return { amount: 0, isCrit: false, killed: false };
+    }
+
     let amount = this.rng.range(request.min, request.max);
     if (source) amount *= 1 + source.stats.get('damageBonus');
 
     const critChance =
       request.canCrit === false || isDot || !source ? 0 : source.stats.get('critChance') + (request.extraCritChance ?? 0);
     const isCrit = this.rng.chance(critChance);
-    if (isCrit) amount *= this.balance.combat.critMultiplier + target.stats.get('critDamageTaken');
+    if (isCrit) amount *= this.balance.combat.critMultiplier + target.stats.get('critDamageTaken') + (source?.stats.get('critDamageBonus') ?? 0);
 
     if (request.element === 'physical') {
       const defense = target.stats.get('defense') * (1 - Math.min(1, Math.max(0, request.armorPenetration ?? 0)));
       amount *= 1 - defenseMitigation(defense, this.balance.combat.defenseConstant);
+    } else {
+      amount *= 1 - Math.min(this.balance.combat.maxResist, Math.max(0, target.stats.get(RESIST[request.element])));
     }
     amount *= 1 - Math.min(MAX_DAMAGE_REDUCTION, Math.max(0, target.stats.get('damageReduction')));
     if (!isDot) {
@@ -76,8 +93,19 @@ export class DamagePipeline implements DamageDealer {
       position: target.position,
     });
 
-    if (source && !isDot && !request.noCounter) this.tryCounter(source, target);
+    if (source && !isDot && !request.noCounter) {
+      this.tryCounter(source, target);
+      this.tryThorns(source, target);
+    }
     return { amount, isCrit, killed: target.hp === 0 };
+  }
+
+  /** 荊棘：被近身攻擊（攻擊者在近戰範圍內）時，對攻擊者造成固定物理傷害 */
+  private tryThorns(attacker: Actor, defender: Actor): void {
+    const thorns = defender.stats.get('thorns');
+    if (thorns <= 0 || !attacker.alive || !defender.alive) return;
+    if (distance(attacker.position, defender.position) > attacker.radius + defender.radius + COUNTER_REACH) return;
+    this.apply({ source: defender, target: attacker, min: thorns, max: thorns, element: 'physical', canCrit: false, noCounter: true });
   }
 
   /** 目標身上有「反擊」且攻擊者在近戰範圍內：以目標的武器傷害 × 倍率反擊 */

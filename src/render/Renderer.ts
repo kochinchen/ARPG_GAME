@@ -4,6 +4,7 @@ import { lerp, sub, type Vec2 } from '../core/math/Vec2';
 import type { DataRegistry } from '../data/DataRegistry';
 import type { ActorId } from '../game/entities/Actor';
 import type { GameWorld } from '../game/GameWorld';
+import { equippedItems, gearAura } from '../game/items/GearAura';
 import type { Camera } from './Camera';
 import { ELEMENT_COLORS, PALETTE } from './palette';
 import { ActorView, HIT_BOX, sizeOf } from './views/ActorView';
@@ -39,7 +40,7 @@ export class Renderer {
     private readonly projection: IsoProjection,
     private readonly world: GameWorld,
     private readonly camera: Camera,
-    data: Pick<DataRegistry, 'items' | 'affixes' | 'potions' | 'skills'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'potions' | 'skills' | 'balance'>,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme);
     this.effects = new EffectLayer(projection, this.objectLayer);
@@ -129,6 +130,7 @@ export class Renderer {
       const text = { gold: '金幣不足', inventoryFull: '背包已滿', far: '離商人太遠' }[e.reason];
       say(world.player.position, text, PALETTE.manaText);
     });
+    world.events.on('AttackDodged', (e) => say(e.position, '閃避', PALETTE.hoverName));
     world.events.on('BossPhaseChanged', (e) => {
       const boss = world.targeting.getActor(e.actorId);
       if (boss) this.floatingText.spawnText(projection.toScreen(boss.position), `${e.name}：${e.label}！`, PALETTE.critText, 22);
@@ -257,6 +259,11 @@ export class Renderer {
         this.objectLayer.addChild(view.container);
       }
       view.hovered = actor.id === this.hoveredId;
+      // 裝備光芒：依身上裝備的稀有度分數
+      if (actor === this.world.player) {
+        const aura = gearAura(equippedItems((slot) => this.world.equipment.get(slot)), this.data.balance.gearAura);
+        view.setAura(aura.level, aura.rarity);
+      }
       const position = lerp(actor.prevPosition, actor.position, alpha);
       view.update(actor, position, dt, onScreen(position));
     }

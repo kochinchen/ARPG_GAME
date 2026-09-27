@@ -1,6 +1,7 @@
 import type { CommandQueue } from '../core/CommandQueue';
 import { Rng } from '../core/Rng';
 import { vec2, type Vec2 } from '../core/math/Vec2';
+import { RARITIES } from '../data/schema/item';
 import type { DataRegistry } from '../data/DataRegistry';
 import { MAP_TILES, type MapDef } from '../data/schema/map';
 import type { GameCommand } from './Commands';
@@ -513,7 +514,7 @@ export class GameWorld {
 
   /** 地上稀有以上的物品數量（離開樓層前提醒） */
   get valuableGroundItems(): number {
-    return this.groundItems.filter((g) => g.content.kind === 'item' && (g.content.item.rarity === 'rare' || g.content.item.rarity === 'legendary')).length;
+    return this.groundItems.filter((g) => g.content.kind === 'item' && RARITIES.indexOf(g.content.item.rarity) >= RARITIES.indexOf('rare')).length;
   }
 
   private askBeforeLeaving(direction: 'down' | 'up'): boolean {
@@ -555,6 +556,9 @@ export class GameWorld {
       case 'DebugNextFloor':
         this.floors.forceDescend();
         return true;
+      case 'DebugSpawnLoot':
+        this.spawnLootSamples();
+        return true;
       case 'SortInventory':
         sortInventory(this.inventory, this.data);
         return true;
@@ -585,6 +589,19 @@ export class GameWorld {
   }
 
   /** 在某點周圍的地板上生成寶箱（避開牆壁、角色與其他寶箱） */
+  /** 開發用：玩家周圍一圈，每種稀有度各一件（物品等級 = 目前樓層） */
+  private spawnLootSamples(): void {
+    const level = Math.max(1, this.itemLevel);
+    const bases = this.data.items.all.filter((b) => b.levelReq <= level);
+    RARITIES.forEach((rarity, i) => {
+      const angle = (i / RARITIES.length) * Math.PI * 2;
+      const at = vec2(this.player.position.x + Math.cos(angle) * 1.6, this.player.position.y + Math.sin(angle) * 1.6);
+      const position = this.nav.isWalkableAt(at.x, at.y) ? at : this.player.position;
+      const item = this.itemGenerator.create(bases[(i * 7) % bases.length]!, rarity, level);
+      this.spawnGroundItem(position, { kind: 'item', item });
+    });
+  }
+
   spawnChestsNear(center: Vec2, count: number, lootTable = 'loot.chest'): Chest[] {
     const spawned: Chest[] = [];
     const occupied = (p: Vec2) =>

@@ -90,8 +90,34 @@ const v2ToV3: Migration = (v2) => ({ ...v2, floor: { ...(v2.floor as object), sh
 /** v3 → v4：加入怪物圖鑑（舊存檔從空的圖鑑開始） */
 const v3ToV4: Migration = (v3) => ({ ...v3, bestiary: {} });
 
+/**
+ * v4 → v5：裝備加入主倍率（quality）。舊裝備補上該稀有度區間的中間值（寫死 v5 推出時的數值）：
+ * 武器 / 防具乘在基礎攻防，戒指 / 護身符乘在所有詞綴。
+ */
+const V5_MID_BASE: Record<string, number> = { normal: 0, magic: 0.55, rare: 1.1, epic: 1.8, legendary: 2.65, mythic: 3.45 };
+const V5_MID_JEWELRY: Record<string, number> = { normal: 0, magic: 0.15, rare: 0.325, epic: 0.525, legendary: 0.725, mythic: 0.9 };
+const v4ToV5: Migration = (v4) => {
+  const withQuality = (item: unknown): unknown => {
+    if (typeof item !== 'object' || item === null) return item;
+    const it = item as { baseId?: string; rarity?: string; quality?: number };
+    if (it.quality !== undefined) return item;
+    const jewelry = typeof it.baseId === 'string' && /^(ring|amulet)\./.test(it.baseId);
+    return { ...it, quality: (jewelry ? V5_MID_JEWELRY : V5_MID_BASE)[it.rarity ?? 'normal'] ?? 0 };
+  };
+  const entry = (e: unknown): unknown =>
+    typeof e === 'object' && e !== null && (e as { kind?: string }).kind === 'item' ? { ...e, item: withQuality((e as { item: unknown }).item) } : e;
+  const inv = (v4.inventory ?? {}) as { cells?: unknown[]; cursor?: unknown };
+  const floor = (v4.floor ?? {}) as { groundItems?: { entry: unknown }[] };
+  return {
+    ...v4,
+    inventory: { ...inv, cells: (inv.cells ?? []).map(entry), cursor: entry(inv.cursor ?? null) },
+    equipment: Object.fromEntries(Object.entries((v4.equipment ?? {}) as Record<string, unknown>).map(([slot, item]) => [slot, withQuality(item)])),
+    floor: { ...floor, groundItems: (floor.groundItems ?? []).map((g) => ({ ...g, entry: entry(g.entry) })) },
+  };
+};
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5];
 
 export class MigrationError extends Error {}
 

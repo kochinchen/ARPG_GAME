@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IdSchema, RangeSchema, StatIdSchema } from './common';
 import { EliteConfigSchema } from './elite';
+import { RaritySchema, RarityWeightsSchema } from './item';
 
 const SizeRollSchema = z.strictObject({
   mean: z.number().positive(),
@@ -123,6 +124,31 @@ export const BalanceSchema = z.strictObject({
    * 怪物的隨機體型（常態分佈，限制在 min～max）：近戰（物理）怪體型差異大，HP 與傷害跟著提高；
    * 遠程 / 法術怪差異小、數值不變。倍率 = 1 + (體型 − 1) × statPerSize。Boss 與訓練木樁不套用。
    */
+  /**
+   * 詞綴強度：
+   * - 階級：物品等級每 levelsPerTier 提高一階（T1～maxTier），數值 × (1 + 詞綴 growth × (階級 − 1))
+   * - 稀有度倍率：紫 / 橘 / 紅的詞綴數值再乘上擲骰的倍率（例如紫 120%～150%、紅最高 300%）
+   */
+  affixPower: z.strictObject({
+    levelsPerTier: z.int().positive(),
+    maxTier: z.int().positive(),
+    rarity: z.record(RaritySchema, z.tuple([z.number().positive(), z.number().positive()])),
+  }),
+  /**
+   * 主倍率（每件裝備擲一次，存在物品上）：武器乘在基礎傷害、防具乘在基礎防禦（base）；
+   * 戒指與護身符沒有基礎攻防，改為該件所有詞綴數值提高（jewelry）。相鄰稀有度的區間互相重疊。
+   */
+  mainRoll: z.strictObject({
+    base: z.record(RaritySchema, z.tuple([z.number().nonnegative(), z.number().nonnegative()])),
+    jewelry: z.record(RaritySchema, z.tuple([z.number().nonnegative(), z.number().nonnegative()])),
+  }),
+  /**
+   * 裝備光芒：每件裝備依稀有度給分（weights），總分達到 thresholds 的第 N 個門檻 = 光芒等級 N（0～4）。
+   */
+  gearAura: z.strictObject({
+    weights: z.record(RaritySchema, z.number().nonnegative()),
+    thresholds: z.array(z.number().positive()).length(4),
+  }),
   enemySize: z.strictObject({
     melee: SizeRollSchema,
     ranged: SizeRollSchema,
@@ -133,19 +159,19 @@ export const BalanceSchema = z.strictObject({
     value: z.strictObject({
       base: z.number().nonnegative(),
       perItemLevel: z.number().nonnegative(),
-      rarity: z.strictObject({ normal: z.number(), magic: z.number(), rare: z.number(), legendary: z.number() }),
+      rarity: z.record(RaritySchema, z.number()),
     }),
     buyMultiplier: z.number().min(1),
     /** 每層商人販賣的物品數量與稀有度（物品等級 = 樓層） */
     stockSize: z.int().nonnegative(),
-    stockRarityWeights: z.strictObject({ normal: z.number(), magic: z.number(), rare: z.number(), legendary: z.number() }),
+    stockRarityWeights: RarityWeightsSchema,
     potionBuyPrice: z.int().positive(),
     potionSellPrice: z.int().nonnegative(),
     /** 賭博：價格 = base + perFloor × 樓層；結果的稀有度權重 */
     gamble: z.strictObject({
       base: z.int().positive(),
       perFloor: z.int().nonnegative(),
-      rarityWeights: z.strictObject({ normal: z.number(), magic: z.number(), rare: z.number(), legendary: z.number() }),
+      rarityWeights: RarityWeightsSchema,
     }),
     /** 離商人多遠內可以交易（Tile） */
     range: z.number().positive(),
@@ -160,6 +186,10 @@ export const BalanceSchema = z.strictObject({
     critMultiplier: z.number().min(1),
     /** 減傷 = defense / (defense + defenseConstant) */
     defenseConstant: z.number().positive(),
+    /** 元素抗性上限 */
+    maxResist: z.number().min(0).max(1),
+    /** 閃避上限 */
+    maxDodge: z.number().min(0).max(1),
   }),
 });
 

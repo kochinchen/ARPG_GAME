@@ -11,12 +11,14 @@ defineProps<{
 </script>
 
 <template>
-  <div class="tooltip" :class="{ equipped: caption }">
+  <div class="tooltip" :class="[{ equipped: caption }, `t-${entry.rarity}`]">
     <div v-if="caption" class="caption">{{ caption }}</div>
     <div class="name" :class="`r-${entry.rarity}`">{{ entry.name }}</div>
-    <div class="slot">{{ entry.slotLabel }}<template v-if="entry.itemLevel > 0"> · 物品等級 {{ entry.itemLevel }}</template></div>
+    <div class="slot">{{ entry.slotLabel }}<template v-if="entry.itemLevel > 0"> · 物品等級 {{ entry.itemLevel }} · T{{ entry.tier }}</template></div>
     <ul>
       <li v-for="line in entry.baseLines" :key="`b-${line}`" class="base">{{ line }}</li>
+      <li v-if="entry.mainLine" class="main" :class="`r-${entry.rarity}`">{{ entry.mainLine }}</li>
+      <li v-for="line in entry.strongLines" :key="`s-${line}`" class="strong" :class="`r-${entry.rarity}`">◆ {{ line }}</li>
       <li v-for="line in entry.affixLines" :key="`a-${line}`" class="affix">{{ line }}</li>
     </ul>
     <div class="price">賣出 {{ entry.sellPrice }} 金幣<template v-if="price !== undefined"> · 購買 {{ price }} 金幣</template></div>
@@ -68,6 +70,13 @@ ul {
 .affix {
   color: #8aa2ff;
 }
+.main {
+  margin: 2px 0;
+  font-weight: bold;
+}
+.strong {
+  font-weight: bold;
+}
 .r-normal {
   color: #e8e2d4;
 }
@@ -77,7 +86,28 @@ ul {
 .r-rare {
   color: #f2d24b;
 }
+.r-epic {
+  color: #b98cff;
+}
 .r-legendary {
-  color: #d8843a;
+  color: #ff9a3c;
+}
+.r-mythic {
+  color: #ff4d4d;
+}
+/* 史詩以上：外框跟著稀有度 */
+.tooltip.t-epic {
+  border-color: #6a3cb0;
+}
+.tooltip.t-legendary {
+  border-color: #b0621e;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 70%), 0 0 12px rgb(240 138 42 / 25%);
+}
+.tooltip.t-mythic {
+  border-color: #b02a2a;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 70%), 0 0 14px rgb(232 58 58 / 35%);
+}
+.name {
+  letter-spacing: 0.04em;
 }
 </style>

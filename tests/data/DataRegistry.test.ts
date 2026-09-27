@@ -268,7 +268,7 @@ describe('物品與寶箱資料驗證（M5）', () => {
     const badItem = { id: 'weapon.bad', name: 'x', slot: 'weapon', levelReq: 1, baseStats: { luck: 5 } };
     const badAffix = { id: 'affix.bad', name: 'x', kind: 'item', stat: 'luck', value: [1, 2], minItemLevel: 1, weight: 1 };
     const problems = expectProblems(withData({ items: [...gameData.items, badItem], affixes: [...gameData.affixes, badAffix] }));
-    expect(problems.some((p) => p.includes("item[8] 'weapon.bad'.baseStats"))).toBe(true);
+    expect(problems.some((p) => p.includes(`item[${gameData.items.length}] 'weapon.bad'.baseStats`))).toBe(true);
     expect(problems.some((p) => p.includes("'affix.bad'.stat"))).toBe(true);
   });
 });

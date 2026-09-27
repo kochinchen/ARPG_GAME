@@ -4,6 +4,7 @@ import type { Actor } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
 import type { EquipSlot } from '../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from './ItemInstance';
+import { itemStats } from './ItemStats';
 
 /**
  * 裝備欄位。穿上時把基底屬性與詞綴轉成 StatModifier 加到角色身上，脫下時整批移除。
@@ -73,13 +74,12 @@ export class Equipment {
 
   private applyModifiers(item: ItemInstance): void {
     const source = sourceOf(item);
-    const base = this.data.items.get(item.baseId);
-    for (const [stat, value] of Object.entries(base.baseStats) as [StatId, number][]) {
+    const stats = itemStats(item, this.data);
+    for (const [stat, value] of Object.entries(stats.baseStats) as [StatId, number][]) {
       this.owner.stats.addModifier({ stat, kind: 'flat', value, source });
     }
-    for (const affix of item.affixes) {
-      const def = this.data.affixes.get(affix.id);
-      this.owner.stats.addModifier({ stat: def.stat, kind: def.modifier, value: affix.rolls[0] ?? 0, source });
+    for (const { def, value } of stats.affixes) {
+      this.owner.stats.addModifier({ stat: def.stat, kind: def.modifier, value, source });
     }
   }
 

@@ -7,6 +7,7 @@ import { MERCHANT } from '../figure/Merchant';
 import { PolyFigure } from '../figure/PolyFigure';
 import { describeItem } from '../../game/items/ItemDescriber';
 import { FLOOR_COLORS, LOOT_COLORS, PALETTE, RARITY_COLORS } from '../palette';
+import { LootBeam } from './LootBeam';
 
 /** 名稱標籤離地面的高度（px） */
 const LABEL_OFFSET = 18;
@@ -33,6 +34,8 @@ interface View {
   /** 點選範圍（相對 container，px）：標籤與圖示各一塊，避免上疊的標籤蓋住下面的標籤 */
   hit: Rect[];
   chest: { lid: Graphics; opened: boolean } | null;
+  /** 地上裝備的稀有度光柱 */
+  beam?: LootBeam;
   exit?: { portal: Graphics; open: boolean };
 }
 
@@ -91,6 +94,7 @@ export class InteractableLayer {
         view = this.createGroundView(g);
         changed = true;
       }
+      view.beam?.update(dt);
       this.highlight(view, g.id);
     }
     if (exit) {
@@ -169,6 +173,12 @@ export class InteractableLayer {
     const s = this.projection.toScreen(g.position);
     const container = new Container();
     container.position.set(s.x, s.y);
+    // 裝備：稀有度光柱（畫在圖示後面）
+    let beam: LootBeam | undefined;
+    if (g.content.kind === 'item') {
+      beam = new LootBeam(g.content.item.rarity);
+      container.addChild(beam.container);
+    }
     const icon = new Graphics();
     if (g.content.kind === 'potion') icon.roundRect(-4, -12, 8, 12, 3).fill({ color: LOOT_COLORS.potion });
     else if (g.content.kind === 'gold') icon.ellipse(0, -2, 8, 4).fill({ color: LOOT_COLORS.gold });
@@ -194,6 +204,7 @@ export class InteractableLayer {
       chest: null,
       // 標籤與圖示都可以點（位置由 layoutLabels 決定）
       hit: [ICON_HIT],
+      ...(beam ? { beam } : {}),
     };
     this.views.set(g.id, view);
     return view;

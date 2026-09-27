@@ -8,6 +8,11 @@ export interface ItemInstance {
   baseId: string;
   rarity: Rarity;
   itemLevel: number;
+  /**
+   * 主倍率（例如 1.8 = +180%）：武器乘在基礎傷害、防具乘在基礎防禦、飾品乘在所有詞綴。
+   * 省略 = 0（普通裝備、測試用物品）。
+   */
+  quality?: number;
   affixes: { id: string; rolls: number[] }[];
   legendaryId?: string;
 }

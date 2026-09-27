@@ -6,6 +6,7 @@ import type { InventoryEntry } from '../../game/items/Inventory';
 import { describeItem, formatValue, SLOT_LABELS, STAT_LABELS } from '../../game/items/ItemDescriber';
 import { EQUIPMENT_SLOTS, type EquipmentSlot, type ItemInstance } from '../../game/items/ItemInstance';
 import { itemValue, sellPrice } from '../../game/items/Pricing';
+import { affixTier } from '../../game/items/ItemGenerator';
 
 export type { EquipmentSlot };
 
@@ -17,12 +18,18 @@ export interface EntryView {
   glyph: string;
   slotLabel: string;
   baseLines: string[];
+  /** 主倍率（例如「武器傷害 +180%」） */
+  mainLine: string | null;
+  /** 強屬性 */
+  strongLines: string[];
   affixLines: string[];
   /** 物品可以穿在哪些裝備欄（比較用） */
   equipSlots: EquipmentSlot[];
   count: number;
   /** 物品等級（藥水為 0） */
   itemLevel: number;
+  /** 詞綴階級（T1～T5；藥水為 0） */
+  tier: number;
   /** 賣給商人的價格 */
   sellPrice: number;
 }
@@ -50,6 +57,10 @@ export const EQUIPMENT_LABELS: Record<EquipmentSlot, string> = {
 
 const GLYPHS: Record<string, string> = {
   weapon: '劍',
+  sword: '劍',
+  axe: '斧',
+  bow: '弓',
+  staff: '杖',
   helmet: '盔',
   armor: '甲',
   gloves: '手',
@@ -91,13 +102,17 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       kind: 'item',
       name: d.name,
       rarity: d.rarity,
-      glyph: GLYPHS[d.slot] ?? '?',
-      slotLabel: SLOT_LABELS[d.slot],
+      glyph: GLYPHS[data.items.get(item.baseId).weaponType ?? d.slot] ?? '?',
+      // 例如「史詩 劍 · 短劍」
+      slotLabel: d.subtitle,
       baseLines: d.baseLines,
+      mainLine: d.mainLine,
+      strongLines: d.strongLines,
       affixLines: d.affixLines,
       equipSlots: slotsForBase(d.slot),
       count: 1,
       itemLevel: item.itemLevel,
+      tier: affixTier(item.itemLevel, data.balance),
       sellPrice: itemValue(item, data),
     };
 }
@@ -120,10 +135,13 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
         `數量 ${entry.count} / ${potion.maxStack}`,
         'Space 使用',
       ],
+      mainLine: null,
+      strongLines: [],
       affixLines: [],
       equipSlots: [],
       count: entry.count,
       itemLevel: 0,
+      tier: 0,
       sellPrice: sellPrice(entry, data),
     };
   };
@@ -138,7 +156,8 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
     }),
     held: entryView(world.cursor.entry),
     stats: [
-      { label: '傷害', value: `${Math.round(stats.get('damageMin'))}–${Math.round(stats.get('damageMax'))}` },
+      // 武器傷害合計（角色基礎 + 武器含主倍率 + 攻擊屬性 + 詞綴；明細見角色面板）
+      { label: '武器傷害', value: `${Math.round(stats.get('damageMin'))}–${Math.round(stats.get('damageMax'))}` },
       { label: STAT_LABELS.defense, value: `${Math.round(stats.get('defense'))}` },
       { label: STAT_LABELS.maxHp, value: `${Math.round(stats.get('maxHp'))}` },
       { label: STAT_LABELS.maxMana, value: `${Math.round(stats.get('maxMana'))}` },

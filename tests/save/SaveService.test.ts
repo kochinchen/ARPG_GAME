@@ -159,6 +159,22 @@ describe('Migration v3 → v4（怪物圖鑑）', () => {
   });
 });
 
+describe('Migration v4 → v5（主倍率）', () => {
+  it('舊裝備補上稀有度區間的中間值；飾品用飾品的區間；已經有的不變', () => {
+    const v4 = structuredClone(sample(3)) as unknown as Record<string, unknown> & SaveData;
+    v4.inventory.cells[1] = { kind: 'item', item: { uid: 'a', baseId: 'weapon.short_sword', rarity: 'rare', itemLevel: 3, affixes: [] } };
+    v4.inventory.cells[2] = { kind: 'item', item: { uid: 'b', baseId: 'ring.plain', rarity: 'epic', itemLevel: 3, affixes: [] } };
+    v4.equipment = { armor: { uid: 'c', baseId: 'armor.quilted', rarity: 'normal', itemLevel: 1, affixes: [] } };
+    v4.inventory.cells[3] = { kind: 'item', item: { uid: 'd', baseId: 'boots.leather', rarity: 'magic', itemLevel: 1, affixes: [], quality: 0.3 } };
+    const v5 = SaveDataSchema.parse(migrate(v4, 4));
+    const item = (i: number) => (v5.inventory.cells[i] as { item: { quality?: number } }).item;
+    expect(item(1).quality).toBeCloseTo(1.1);
+    expect(item(2).quality).toBeCloseTo(0.525);
+    expect(item(3).quality).toBeCloseTo(0.3);
+    expect(v5.equipment.armor!.quality).toBe(0);
+  });
+});
+
 describe('SaveService', () => {
   it('沒有存檔：empty', async () => {
     expect((await setup().service.load()).status).toBe('empty');

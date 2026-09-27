@@ -68,6 +68,8 @@ export type GameCommand =
   /** 開發用：在玩家周圍生成寶箱 */
   | { type: 'DebugSpawnChests'; count: number }
   /** 開發用：不需清怪，直接前往下一層 */
-  | { type: 'DebugNextFloor' };
+  | { type: 'DebugNextFloor' }
+  /** 開發用：在玩家周圍掉落每種稀有度各一件裝備（檢查光柱、名稱與光芒） */
+  | { type: 'DebugSpawnLoot' };
 
 export type GameCommandType = GameCommand['type'];

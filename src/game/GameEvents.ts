@@ -66,6 +66,8 @@ export interface GameEvents {
     boss: boolean;
   };
   /** Boss HP 降到一半以下，進入狂暴 */
+  /** 攻擊被閃避 */
+  AttackDodged: { targetId: ActorId; position: Vec2 };
   /** Boss 進入下一個階段（phase 從 1 開始） */
   BossPhaseChanged: { actorId: ActorId; name: string; phase: number; label: string };
   /** 進入某一層（含第一次進入遊戲） */

@@ -7,10 +7,11 @@ import { SkillCategorySchema } from '../data/schema/skill';
  * v2：加入屬性點（attributes）。
  * v3：加入商人貨架已買走的位置（floor.shopBought）。
  * v4：加入怪物圖鑑（bestiary）。
+ * v5：裝備加入主倍率（quality）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -21,6 +22,8 @@ export const ItemInstanceSchema = z.object({
   baseId: z.string(),
   rarity: RaritySchema,
   itemLevel: int.min(1),
+  /** 主倍率（v5）：+X% 武器傷害 / 防禦 / 飾品詞綴 */
+  quality: finite.min(0).optional(),
   affixes: z.array(z.object({ id: z.string(), rolls: z.array(finite) })),
   legendaryId: z.string().optional(),
 });

@@ -44,6 +44,8 @@ export class PolyFigure {
   private current: Pose;
   private action: Action | null = null;
   private hitTime = 0;
+  /** 武器尖端的畫面座標（相對腳底，px；模型有 weaponTip 時才有） */
+  weaponTip: { x: number; y: number } | null = null;
 
   constructor(
     private readonly model: FigureModel,
@@ -120,6 +122,12 @@ export class PolyFigure {
         p = [parent.p[0] + o[0], parent.p[1] + o[1], parent.p[2] + o[2]];
       }
       world.set(part.joint, { m, p });
+      if (part.joint === 'handR' && this.model.weaponTip) {
+        const o = apply(m, this.model.weaponTip);
+        const v: V3 = [p[0] + o[0], p[1] + o[1], p[2] + o[2]];
+        const k = SCALE * this.scale;
+        this.weaponTip = { x: (v[0] - v[2]) * 0.707 * k, y: ((v[0] + v[2]) * 0.354 - v[1] * 0.94) * k };
+      }
       for (const mesh of part.meshes) {
         const verts = mesh.verts.map((v) => {
           const r = apply(m, v);

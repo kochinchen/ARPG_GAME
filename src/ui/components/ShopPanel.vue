@@ -246,8 +246,14 @@ button:disabled {
 .r-rare {
   color: #f2d24b;
 }
+.r-epic {
+  color: #b98cff;
+}
 .r-legendary {
-  color: #d8843a;
+  color: #ff9a3c;
+}
+.r-mythic {
+  color: #ff4d4d;
 }
 .note,
 .empty {
@@ -295,8 +301,14 @@ button:disabled {
 .card.r-rare {
   border-color: #a8902a;
 }
+.card.r-epic {
+  border-color: #6a3cb0;
+}
 .card.r-legendary {
-  border-color: #a8602a;
+  border-color: #b0621e;
+}
+.card.r-mythic {
+  border-color: #b02a2a;
 }
 .card-name {
   font-size: 11px;
@@ -319,8 +331,14 @@ button:disabled {
 .t-rare {
   color: #f2d24b;
 }
+.t-epic {
+  color: #b98cff;
+}
 .t-legendary {
-  color: #d8843a;
+  color: #ff9a3c;
+}
+.t-mythic {
+  color: #ff4d4d;
 }
 .gamble {
   display: flex;

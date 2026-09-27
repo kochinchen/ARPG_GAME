@@ -137,6 +137,9 @@ export class InputManager {
       case 'KeyJ':
         this.commands.push({ type: 'DebugNextFloor' });
         break;
+      case 'KeyL':
+        this.commands.push({ type: 'DebugSpawnLoot' });
+        break;
     }
   }
 

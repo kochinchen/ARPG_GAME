@@ -22,7 +22,7 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
   font: 14px/1 serif;
   background: rgb(255 255 255 / 4%);
 }
-/* 稀有度邊框：普通灰、魔法藍、稀有黃、傳奇橘 */
+/* 稀有度邊框：普通灰、魔法藍、稀有黃、史詩紫、傳奇橘、神話紅（脈動） */
 .glyph.r-normal {
   box-shadow: inset 0 0 0 1px #6a6258;
 }
@@ -32,8 +32,26 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
 .glyph.r-rare {
   box-shadow: inset 0 0 0 2px #e8c23a;
 }
+.glyph.r-epic {
+  box-shadow: inset 0 0 0 2px #9a5cff;
+}
 .glyph.r-legendary {
-  box-shadow: inset 0 0 0 2px #e0823a;
+  box-shadow:
+    inset 0 0 0 2px #f08a2a,
+    inset 0 0 8px rgb(240 138 42 / 45%);
+}
+.glyph.r-mythic {
+  box-shadow:
+    inset 0 0 0 2px #e83a3a,
+    inset 0 0 10px rgb(232 58 58 / 55%);
+  animation: mythic-pulse 1.6s ease-in-out infinite;
+}
+@keyframes mythic-pulse {
+  50% {
+    box-shadow:
+      inset 0 0 0 2px #ff6a5a,
+      inset 0 0 14px rgb(255 90 70 / 75%);
+  }
 }
 .glyph.potion {
   box-shadow: inset 0 0 0 1px #8a3a30;
@@ -63,9 +81,17 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
   color: #f2d24b;
   background: rgb(242 210 75 / 12%);
 }
+.r-epic {
+  color: #b98cff;
+  background: rgb(154 92 255 / 14%);
+}
 .r-legendary {
-  color: #d8843a;
-  background: rgb(216 132 58 / 14%);
+  color: #ff9a3c;
+  background: rgb(240 138 42 / 16%);
+}
+.r-mythic {
+  color: #ff4d4d;
+  background: rgb(232 58 58 / 18%);
 }
 .potion.r-normal {
   color: #e0574b;

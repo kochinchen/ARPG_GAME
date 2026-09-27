@@ -1,3 +1,5 @@
+import type { Rarity } from '../data/schema/item';
+
 /** 畫面配色（暫用色塊，確定好玩後再換美術資源） */
 export const PALETTE = {
   background: 0x0b0a09,
@@ -29,11 +31,13 @@ export const PALETTE = {
 } as const;
 
 /** 物品名稱顏色（依稀有度） */
-export const RARITY_COLORS: Record<string, number> = {
+export const RARITY_COLORS: Record<Rarity, number> = {
   normal: 0xe8e2d4,
   magic: 0x6f8dff,
   rare: 0xf2d24b,
-  legendary: 0xd8843a,
+  epic: 0xb07cff,
+  legendary: 0xff9a3c,
+  mythic: 0xff4040,
 };
 
 export const FLOOR_COLORS = {

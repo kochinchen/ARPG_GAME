@@ -66,7 +66,7 @@ const CONTROLS: [string, string][] = [
       <template v-if="devAvailable">
         <h3>開發</h3>
         <label class="check"><input type="checkbox" :checked="devEnabled" @change="emit('toggleDev')" /> 顯示除錯資訊（F3）</label>
-        <p class="hint">B 重置 · N 升一級 · M 生成寶箱 · J 下一層</p>
+        <p class="hint">B 重置 · N 升一級 · M 生成寶箱 · J 下一層 · L 各稀有度裝備</p>
       </template>
     </template>
 

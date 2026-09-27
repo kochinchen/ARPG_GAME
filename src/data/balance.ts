@@ -85,6 +85,23 @@ export const balance: z.input<typeof BalanceSchema> = {
     radiusMultiplier: 1.2,
     lootTable: 'loot.elite',
   },
+  affixPower: {
+    levelsPerTier: 10,
+    maxTier: 5,
+    // 紫比黃高 20%～50%，紅最高 300%
+    rarity: { normal: [1, 1], magic: [1, 1], rare: [1, 1], epic: [1.2, 1.5], legendary: [1.5, 2], mythic: [2, 3] },
+  },
+  mainRoll: {
+    // 武器傷害 / 防具防禦 +X%：藍 20～90、黃 70～150、紫 130～230、橘 210～320、紅 290～400（相鄰重疊 20～30%）
+    base: { normal: [0, 0], magic: [0.2, 0.9], rare: [0.7, 1.5], epic: [1.3, 2.3], legendary: [2.1, 3.2], mythic: [2.9, 4] },
+    // 飾品：所有詞綴 +X%
+    jewelry: { normal: [0, 0], magic: [0.05, 0.25], rare: [0.2, 0.45], epic: [0.4, 0.65], legendary: [0.6, 0.85], mythic: [0.8, 1] },
+  },
+  gearAura: {
+    weights: { normal: 0, magic: 1, rare: 2, epic: 4, legendary: 7, mythic: 12 },
+    // 0～5 無光、6～10 微弱、11～18 中等、19～30 強、31 以上高階
+    thresholds: [6, 11, 19, 31],
+  },
   enemySize: {
     // 近戰：多數在 100%～140%，少數巨大個體接近 200%（HP / 傷害最多 150%）
     melee: { mean: 1.2, sd: 0.22, min: 1, max: 2, statPerSize: 0.5 },
@@ -92,14 +109,14 @@ export const balance: z.input<typeof BalanceSchema> = {
     ranged: { mean: 1.08, sd: 0.1, min: 1, max: 1.3, statPerSize: 0 },
   },
   shop: {
-    value: { base: 4, perItemLevel: 2, rarity: { normal: 1, magic: 2.5, rare: 6, legendary: 15 } },
+    value: { base: 4, perItemLevel: 2, rarity: { normal: 1, magic: 2.5, rare: 6, epic: 12, legendary: 20, mythic: 35 } },
     buyMultiplier: 4,
     stockSize: 6,
-    stockRarityWeights: { normal: 30, magic: 60, rare: 10, legendary: 0 },
+    stockRarityWeights: { normal: 30, magic: 60, rare: 10 },
     potionBuyPrice: 12,
     potionSellPrice: 3,
     // 賭博：比直接買一件魔法物品便宜一點，但可能拿到普通或稀有
-    gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 60, rare: 25, legendary: 0 } },
+    gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 57, rare: 25, epic: 3 } },
     range: 3,
   },
   skillCategories: {
@@ -113,5 +130,7 @@ export const balance: z.input<typeof BalanceSchema> = {
   combat: {
     critMultiplier: 1.5,
     defenseConstant: 100,
+    maxResist: 0.75,
+    maxDodge: 0.5,
   },
 };

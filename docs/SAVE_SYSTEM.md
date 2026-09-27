@@ -13,6 +13,7 @@
 - **v2（屬性點）**：`attributes` 區塊。Migration v1 → v2 為舊角色補發過去每一級的點數（每級 3 點），全部未分配。修復規則同技能點：總數 = 每級點數 × (等級 − 1)，屬性被移除或超過上限時退點，已分配超過總數時全部重置。
 - **v3（商人）**：`floor.shopBought`（本層貨架已買走的位置）。
 - **v4（怪物圖鑑）**：`bestiary`（EnemyDef ID → 擊敗次數）。Migration v3 → v4 給空的圖鑑；讀檔時移除已刪除的怪物。
+- **v5（主倍率）**：裝備的 `quality`（+X% 武器傷害 / 防禦 / 飾品詞綴）。Migration v4 → v5 給舊裝備該稀有度區間的中間值。
 - 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---

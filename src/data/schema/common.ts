@@ -31,10 +31,32 @@ export const StatIdSchema = z.enum([
   'damageBonus',
   /** 近戰技能（tag: melee）額外傷害加成（比例），與 damageBonus 相乘 */
   'meleeDamageBonus',
+  /** 遠程技能額外傷害加成（弓） */
+  'rangedDamageBonus',
+  /** 魔法技能額外傷害加成（法杖） */
+  'spellDamageBonus',
+  /** 元素抗性：受到該元素的傷害降低（上限見 balance.combat） */
+  'fireResist',
+  'coldResist',
+  'lightningResist',
+  'poisonResist',
+  /** 閃避：完全躲開一次攻擊的機率（持續傷害不能閃避） */
+  'dodgeChance',
+  /** 荊棘：被近身攻擊時，對攻擊者造成的固定物理傷害 */
+  'thorns',
+  /** 藥水效果：藥水回復量提高（比例） */
+  'potionEffect',
+  /** 元素附加傷害：每次命中額外造成「該次傷害 × 比例」的元素傷害 */
+  'fireDamagePct',
+  'coldDamagePct',
+  'lightningDamagePct',
+  'poisonDamagePct',
   /** 受到傷害減免（比例，上限 90%） */
   'damageReduction',
   /** 受到暴擊時額外的暴擊傷害（比例） */
   'critDamageTaken',
+  /** 自己的暴擊傷害提高（比例，加在暴擊倍率上） */
+  'critDamageBonus',
   /** 魔力消耗減免（比例） */
   'manaCostReduction',
   /** 造成傷害的一定比例回復生命 / 魔力 */

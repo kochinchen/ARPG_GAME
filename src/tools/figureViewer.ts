@@ -10,6 +10,8 @@ import { CREATURE_MODELS } from '../render/figure/Creatures';
 import { MERCHANT } from '../render/figure/Merchant';
 import { MONSTER_MODELS } from '../render/figure/Monsters';
 import { PolyFigure } from '../render/figure/PolyFigure';
+import { GearAuraView } from '../render/views/GearAuraView';
+import { RARITIES, type Rarity } from '../data/schema/item';
 
 /** 畫面上的八個方向（欄）與對應的 World 面向 */
 const DIRECTIONS: { label: string; facing: Vec2 }[] = [
@@ -76,6 +78,9 @@ const params = new URLSearchParams(location.search);
 const selected = MODELS.find((m) => m.key === params.get('model')) ?? MODELS[0]!;
 /** ?zoom=3：放大檢查細節（格子超出畫面時可捲動） */
 const USER_ZOOM = Math.max(1, Number(params.get('zoom')) || 1);
+/** ?aura=mythic&level=4：主角加上裝備光芒（檢查各稀有度的光芒效果） */
+const AURA = RARITIES.includes(params.get('aura') as Rarity) ? (params.get('aura') as Rarity) : null;
+const AURA_LEVEL = Math.min(4, Math.max(1, Number(params.get('level')) || 3));
 
 const P = selected.model.poses;
 const ROWS: Row[] = [
@@ -176,7 +181,7 @@ async function main(): Promise<void> {
     root.addChild(t);
   });
 
-  const cells: { figure: PolyFigure; row: Row; facing: Vec2 }[] = [];
+  const cells: { figure: PolyFigure; row: Row; facing: Vec2; aura: GearAuraView | null }[] = [];
   ROWS.forEach((row, r) => {
     const y = HEADER_H + 14 + r * CELL_H;
     const label = text(row.label, 13);
@@ -194,10 +199,15 @@ async function main(): Promise<void> {
         .ellipse(0, 0, 13, 6.5)
         .fill({ color: 0x000000, alpha: 0.4 });
       const figure = new PolyFigure(selected.model, selected.radius / selected.model.referenceRadius);
-      figure.graphics.scale.set(ZOOM);
-      cell.addChild(ground, figure.graphics);
+      // 模型（與光芒）一起縮放
+      const holder = new Container();
+      holder.scale.set(ZOOM);
+      const aura = AURA && selected.key === 'heroine' ? new GearAuraView(58) : null;
+      aura?.set(AURA_LEVEL, AURA!);
+      holder.addChild(...(aura ? [aura.back] : []), figure.graphics, ...(aura ? [aura.front] : []));
+      cell.addChild(ground, holder);
       root.addChild(cell);
-      cells.push({ figure, row, facing: d.facing });
+      cells.push({ figure, row, facing: d.facing, aura });
     });
   });
 
@@ -207,6 +217,7 @@ async function main(): Promise<void> {
       // 關鍵姿勢直接畫出；待機與跑步即時播放
       if (cell.row.pose) cell.figure.showPose(cell.row.pose, cell.facing);
       else cell.figure.update(dt, { facing: cell.facing, moving: cell.row.moving ?? false, alive: true });
+      cell.aura?.update(dt, cell.figure.weaponTip, true);
     }
   });
 }

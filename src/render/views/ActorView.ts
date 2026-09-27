@@ -5,6 +5,8 @@ import type { Actor } from '../../game/entities/Actor';
 import { HEROINE } from '../figure/Heroine';
 import { DEFAULT_MONSTER_MODEL, MONSTER_MODELS } from '../figure/Monsters';
 import { PolyFigure, type ActionKind } from '../figure/PolyFigure';
+import type { Rarity } from '../../data/schema/item';
+import { GearAuraView } from './GearAuraView';
 import { PALETTE, STATUS_TINTS } from '../palette';
 
 const BAR_WIDTH = 40;
@@ -36,6 +38,8 @@ export class ActorView {
   private readonly hpBar = new Graphics();
   private readonly aura = new Graphics();
   private readonly nameLabel: Text;
+  /** 裝備光芒（只有主角） */
+  private readonly gear: GearAuraView | null;
   private readonly isEnemy: boolean;
   private readonly isPlayer: boolean;
   private readonly isElite: boolean;
@@ -77,7 +81,9 @@ export class ActorView {
     if (this.isElite) {
       this.aura.ellipse(0, 0, px * 1.35, px * 0.68).stroke({ color: actor.isBoss ? PALETTE.bossName : PALETTE.eliteName, width: 2 });
     }
-    this.container.addChild(shadow, this.aura, this.facingMark, this.body, this.hpBar, this.nameLabel);
+    this.gear = this.isPlayer ? new GearAuraView(58) : null;
+    if (this.gear) this.body.addChild(this.gear.front);
+    this.container.addChild(shadow, ...(this.gear ? [this.gear.back] : []), this.aura, this.facingMark, this.body, this.hpBar, this.nameLabel);
   }
 
   /**
@@ -86,6 +92,11 @@ export class ActorView {
    */
   attack(windup: number, kind: ActionKind = 'attack'): void {
     this.figure.act(kind, windup);
+  }
+
+  /** 裝備光芒的等級（0 = 無光）與顏色（最高稀有度） */
+  setAura(level: number, rarity: Rarity): void {
+    this.gear?.set(level, rarity);
   }
 
   /** 受到傷害 */
@@ -118,6 +129,7 @@ export class ActorView {
     const speed = this.lastScreen && dt > 0 ? Math.hypot(s.x - this.lastScreen.x, s.y - this.lastScreen.y) / dt : 0;
     this.lastScreen = s;
     this.figure.update(dt, { facing: actor.facing, moving: actor.alive && speed > MOVING_SPEED, alive: actor.alive });
+    this.gear?.update(dt, this.figure.weaponTip, actor.alive);
 
     this.lungeTime = Math.max(0, this.lungeTime - dt);
     const k = Math.sin((this.lungeTime / LUNGE_DURATION) * Math.PI) * LUNGE_DISTANCE;

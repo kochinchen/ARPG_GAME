@@ -58,6 +58,8 @@ export interface FigureModel {
   /** 設計時對應的碰撞半徑：實際大小 = 角色半徑 ÷ referenceRadius（精英、Boss 較大） */
   referenceRadius: number;
   poses: PoseSet;
+  /** 武器尖端在右手（handR）座標中的位置：用來畫武器拖尾（裝備光芒） */
+  weaponTip?: V3;
 }
 
 export const JOINTS: readonly Joint[] = [

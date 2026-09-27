@@ -25,9 +25,11 @@ function floorWorld(floor = 1, seed = 1) {
 
 const enemies = (world: GameWorld) => world.actors.filter((a) => a.faction === 'enemy');
 /** 擊敗 n 隻怪物 */
+/** 擊殺 n 隻怪物；掉落物隨機，會影響「離開樓層前的確認」，所以一併清掉 */
 function kill(world: GameWorld, n: number) {
   for (const e of enemies(world).slice(0, n)) e.hp = 0;
   run(world, 1 / 60);
+  world.groundItems.length = 0;
 }
 function useExit(world: GameWorld, commands: CommandQueue<GameCommand>) {
   const exit = world.exit!;
@@ -266,9 +268,11 @@ describe('回到上一層（M9）', () => {
 });
 
 describe('離開樓層前的確認（M8）', () => {
+  /** 擊敗所有怪物讓出口開啟；怪物的隨機掉落清掉，只留下測試放的物品 */
   function openExit(world: GameWorld) {
     for (const e of enemies(world)) e.hp = 0;
     run(world, 1 / 60);
+    world.groundItems.length = 0;
   }
   const rareItem = (world: GameWorld) => world.itemGenerator.create(data.items.all[0]!, 'rare', 1);
 

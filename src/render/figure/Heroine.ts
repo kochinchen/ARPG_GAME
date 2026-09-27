@@ -245,6 +245,7 @@ export const HEROINE: FigureModel = {
   parts: PARTS,
   hipHeight: 30,
   referenceRadius: 0.3,
+  weaponTip: [0, -23, 0],
   poses: {
     /** 待機：戒備姿勢 + 輕微呼吸、劍尖微微晃動 */
     ready: (t) => {

@@ -45,7 +45,7 @@ function add(e: MouseEvent, attribute: string) {
     </section>
 
     <section class="stats">
-      <div v-for="s in view.stats" :key="s.label" class="stat">
+      <div v-for="s in view.stats" :key="s.label" class="stat" :class="{ sub: s.sub }">
         <span>{{ s.label }}</span>
         <span class="value">{{ s.value }}</span>
       </div>
@@ -158,6 +158,14 @@ h4 {
   display: flex;
   justify-content: space-between;
   padding: 2px 0;
+}
+.stat.sub {
+  padding-left: 12px;
+  font-size: 11px;
+  color: #9a8c76;
+}
+.stat.sub .value {
+  color: #c8b89a;
 }
 .value {
   color: #f2e2b8;

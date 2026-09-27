@@ -39,8 +39,10 @@ export class PotionBelt {
     if (!this.inventory.takePotion(this.potion.id)) return false;
     const hpBefore = player.hp;
     const mpBefore = player.mana;
-    player.hp = Math.min(player.maxHp, player.hp + player.maxHp * this.potion.hpPct);
-    player.mana = Math.min(player.maxMana, player.mana + player.maxMana * this.potion.mpPct);
+    // 藥水效果（裝備詞綴）提高回復量
+    const effect = 1 + player.stats.get('potionEffect');
+    player.hp = Math.min(player.maxHp, player.hp + player.maxHp * this.potion.hpPct * effect);
+    player.mana = Math.min(player.maxMana, player.mana + player.maxMana * this.potion.mpPct * effect);
     this.cooldown = this.potion.cooldown;
     this.events.emit('PotionUsed', {
       hpRestored: player.hp - hpBefore,
