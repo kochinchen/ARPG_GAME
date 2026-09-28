@@ -70,6 +70,7 @@ export const HEROINE: FigureModel = {
   weaponTip: SWORD_TIP,
   dynamicShadow: true,
   rimLight: 0.2,
+  softLight: true,
   secondary: {
     // 馬尾：越往尾端越慢（延遲越大）；前兩段不可往前穿過頭、後兩段不可往前穿過身體
     ponytail: { rate: 28, gravity: 0.25, clampTo: 'head', maxZ: -0.55 },

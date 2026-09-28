@@ -43,7 +43,9 @@ export type Joint =
   /** 武器握點（掛在 handR 上） */
   | 'weapon'
   /** 左手的武器握點（弓） */
-  | 'weaponL';
+  | 'weaponL'
+  /** 模型自訂的額外關節（手指、腳趾、披風、翅膀、尾巴、多隻腳…），名稱以 ex_ 開頭 */
+  | `ex_${string}`;
 
 export interface PartDef {
   joint: Joint;
@@ -85,6 +87,9 @@ export interface PoseSet {
   attackChain?: { windup: Pose[]; strike: Pose[] };
 }
 
+/** 待機怒吼第一次開始的時間（秒）；之後每 period 秒一次 */
+export const IDLE_ROAR_OFFSET = 3;
+
 export interface FigureModel {
   /** 依父子順序排列（父關節在前） */
   parts: PartDef[];
@@ -92,7 +97,11 @@ export interface FigureModel {
   hipHeight: number;
   /** 設計時對應的碰撞半徑：實際大小 = 角色半徑 ÷ referenceRadius（精英、Boss 較大） */
   referenceRadius: number;
+  /** 外觀倍率（只放大畫面上的模型、影子與血條位置，不影響碰撞與遊戲數值；預設 1） */
+  visualScale?: number;
   poses: PoseSet;
+  /** 待機時不定期仰天怒吼的節奏（與 bossPoses 的 idleRoar 相同；用來同步吼聲） */
+  idleRoar?: { period: number; duration: number };
   /** 武器尖端在右手（handR）座標中的位置：用來畫武器拖尾（裝備光芒） */
   weaponTip?: V3;
   /** 腳下影子隨站姿（兩腳距離）改變寬度、隨重心前後偏移 */
@@ -106,6 +115,14 @@ export interface FigureModel {
   secondary?: Partial<Record<Joint, { rate: number; gravity?: number; clampTo?: Joint; maxZ?: number }>>;
   /** 背光面的暖色輪廓光強度（0～1） */
   rimLight?: number;
+  /** 走路 / 跑步的步頻倍率（沉重的魔王 < 1） */
+  gaitRate?: number;
+  /** 柔和光線（wrap lighting）：背光面不會一下子變很暗，明暗沿著表面漸變 */
+  softLight?: boolean;
+  /** 魔王階段變化時不再畫的關節（index = 階段；例如第 2 階段盾牌碎裂、第 3 階段巨劍落地） */
+  phaseHidden?: readonly (readonly Joint[])[];
+  /** 魔王階段變化時掉在地上、留在場上的物件（index = 階段；模型與相對魔王的位置） */
+  phaseDrops?: readonly ({ model: FigureModel; offset: [number, number] } | null)[];
 }
 
 /** 招式：劍 / 斧的橫斬、突刺、上劈；弓的拉弓射擊；法杖的舉杖施法 */
@@ -150,6 +167,15 @@ export function lerpPose(a: Pose, b: Pose, k: number): Pose {
     const x = a.angles[j] ?? [0, 0, 0];
     const y = b.angles[j] ?? [0, 0, 0];
     angles[j] = [x[0] + (y[0] - x[0]) * k, x[1] + (y[1] - x[1]) * k, x[2] + (y[2] - x[2]) * k];
+  }
+  // 額外關節（ex_…）：兩個姿勢任一有的都插值
+  for (const src of [a.angles, b.angles]) {
+    for (const j of Object.keys(src) as Joint[]) {
+      if (!j.startsWith('ex_') || angles[j]) continue;
+      const x = a.angles[j] ?? [0, 0, 0];
+      const y = b.angles[j] ?? [0, 0, 0];
+      angles[j] = [x[0] + (y[0] - x[0]) * k, x[1] + (y[1] - x[1]) * k, x[2] + (y[2] - x[2]) * k];
+    }
   }
   const az = a.rootZ ?? 0;
   const bz = b.rootZ ?? 0;
@@ -205,3 +231,6 @@ export function grounded(parts: readonly PartDef[], hipHeight: number, pose: Pos
   }
   return { ...pose, rootY: Number.isFinite(low) ? -low : pose.rootY };
 }
+
+/** 模型在畫面上的縮放：角色半徑 ÷ 設計半徑 × 外觀倍率 */
+export const figureScale = (model: FigureModel, radius: number): number => (radius / model.referenceRadius) * (model.visualScale ?? 1);

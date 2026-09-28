@@ -46,14 +46,16 @@ export const FLOOR_COLORS = {
   stairs: 0xc8a25a,
   exitClosed: 0x4a4458,
   exitOpen: 0xb07cff,
+  /** 魔王門前的存檔點 */
+  bossGateIdle: 0x6a4a4a,
+  bossGateActive: 0xff7a5a,
+  /** 傳送口（樓梯口 ⇄ 中途） */
+  waypoint: 0x5ee0ff,
 } as const;
 
 export const LOOT_COLORS = {
   potion: 0xd0453a,
   gold: 0xe8c47a,
-  chest: 0x7a5230,
-  chestDark: 0x4a3018,
-  chestTrim: 0xc8a25a,
   labelBack: 0x000000,
 } as const;
 

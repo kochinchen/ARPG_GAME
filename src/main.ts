@@ -3,7 +3,7 @@
  * 初始化順序見 docs/ARCHITECTURE.md 第 J 節。
  */
 import { Application } from 'pixi.js';
-import { createApp } from 'vue';
+import { createApp, reactive } from 'vue';
 import { DataRegistry } from './data/DataRegistry';
 import { gameData } from './data';
 import { CommandQueue } from './core/CommandQueue';
@@ -13,6 +13,8 @@ import { IsoProjection } from './core/math/IsoProjection';
 import type { GameCommand } from './game/Commands';
 import type { GameEvents } from './game/GameEvents';
 import { GameWorld } from './game/GameWorld';
+import { selectableFloors } from './game/world/Endgame';
+import type { Balance } from './data/schema/balance';
 import { Camera } from './render/Camera';
 import { Portraits } from './render/Portraits';
 import { Renderer } from './render/Renderer';
@@ -25,13 +27,20 @@ import { gameView } from './ui/bridge/GameViewStore';
 import { systemBridge } from './ui/bridge/SystemBridge';
 import { ViewSync } from './ui/bridge/ViewSync';
 import App from './ui/App.vue';
+import TitleScreen from './ui/components/TitleScreen.vue';
+import type { SlotSummary, TitleState } from './ui/bridge/TitleView';
 import { AutoSaver } from './save/AutoSaver';
 import { decodeSave, encodeSave } from './save/Envelope';
 import { acquireSaveLock } from './save/SaveLock';
 import { SaveMapper, saveSignature } from './save/SaveMapper';
 import { repairSave } from './save/SaveRepair';
-import { SaveService, type SyncStore } from './save/SaveService';
+import { SAVE_SLOTS, SaveService, type SyncStore } from './save/SaveService';
 import { IndexedDbStorage } from './save/storage/IndexedDbStorage';
+import { LocalStorageStorage } from './save/storage/LocalStorageStorage';
+import type { ISaveStorage } from './save/storage/ISaveStorage';
+import { AudioEngine } from './audio/AudioEngine';
+import { AudioDirector } from './audio/AudioDirector';
+import { audioBridge } from './ui/bridge/AudioBridge';
 
 async function bootstrap(): Promise<void> {
   // 1. 資料驗證失敗就停止
@@ -47,7 +56,33 @@ async function bootstrap(): Promise<void> {
     return;
   }
   void navigator.storage?.persist?.().catch(() => false);
-  const saves = new SaveService(new IndexedDbStorage(), browserStorage());
+  const storage = await pickStorage();
+  const serviceFor = (slot: number) => new SaveService(storage, browserStorage(), undefined, slot);
+
+  // 音效與音樂：瀏覽器規定使用者操作之後才能出聲
+  const audio = new AudioEngine(browserStorage());
+  const unlockAudio = () => audio.unlock();
+  window.addEventListener('pointerdown', unlockAudio, true);
+  window.addEventListener('keydown', unlockAudio, true);
+  audioBridge.connect(
+    {
+      set: (patch) => {
+        audio.setVolume(patch);
+        return audio.volume;
+      },
+      preview: () => void audio.play('equip'),
+    },
+    audio.volume,
+  );
+  audio.playMusic('title');
+  document.addEventListener('visibilitychange', () => (document.visibilityState === 'hidden' ? audio.suspend() : audio.unlock()));
+
+  // 標題畫面：繼續 / 新遊戲 / 讀取存檔 / 離開
+  const { slot, mode, floor: chosenFloor } = await showTitle(serviceFor, data.balance.endgame, audio);
+  const saves = serviceFor(slot);
+  if (mode === 'new') await saves.clear();
+  rememberSlot(slot);
+  gameView.save.slot = slot;
   const loaded = await saves.load();
   if (loaded.status === 'corrupt') {
     // 讀不進來時絕不自動開新角色覆蓋存檔：讓玩家決定
@@ -66,6 +101,8 @@ async function bootstrap(): Promise<void> {
     if (loaded.fellBack) saveNotices.push(`最新的存檔已損毀，已從備份還原（${formatTime(loaded.savedAt)}）`);
     const repaired = repairSave(loaded.data, data);
     saveNotices.push(...repaired.notes, ...SaveMapper.restore(world, repaired));
+    // 讀檔時選擇的樓層：從該層的樓梯口開始（不在可選範圍內就照存檔位置）
+    if (chosenFloor !== null && world.startAtFloor(chosenFloor)) saveNotices.push(`從第 ${chosenFloor} 層的樓梯口開始`);
   }
 
   // 6. Render
@@ -84,6 +121,9 @@ async function bootstrap(): Promise<void> {
   const projection = new IsoProjection();
   const camera = new Camera(projection);
   const renderer = new Renderer(app, projection, world, camera, data);
+  // 讀檔（含換層）之後才開始監聽，背景音樂依目前樓層
+  const sound = new AudioDirector(audio, world, data, events);
+  sound.playFloorMusic();
 
   // 自動存檔：倒地中不存（關閉分頁時例外，存成已重生的狀態）
   const autoSaver = new AutoSaver(
@@ -120,13 +160,18 @@ async function bootstrap(): Promise<void> {
   const now = () => performance.now() / 1000;
   let viewSync: ViewSync | null = null;
   let input: InputManager | null = null;
+  let lastFrame = now();
   const loop = new GameLoop({
     update: (dt) => world.update(dt),
     render: (alpha) => {
+      const frameTime = now();
+      const frameDt = Math.min(0.1, frameTime - lastFrame);
+      lastFrame = frameTime;
       const pointer = input!.pointerScreen;
       const hoveredInteractable = renderer.pickInteractableAt(pointer);
       renderer.setHovered(hoveredInteractable === null ? renderer.pickActorAt(pointer) : null, hoveredInteractable);
       renderer.render(alpha);
+      sound.update(frameDt, renderer.consumeRoars());
       input!.poll(now());
       viewSync!.update({ tick: loop.tick, fps: Math.round(app.ticker.FPS), hoveredActor: renderer.hovered });
       // 存檔在 Tick 完整結束後判斷，不會拿到換層到一半的狀態
@@ -163,6 +208,21 @@ async function bootstrap(): Promise<void> {
       });
     },
     newCharacter,
+    saveNow: async () => (await autoSaver.saveNow()) !== null,
+    returnToTitle: () => {
+      loop.paused = true;
+      void autoSaver
+        .saveNow(true)
+        .then(() => autoSaver.disable())
+        .then(() => window.location.reload());
+    },
+    quitGame: () => {
+      loop.paused = true;
+      void autoSaver
+        .saveNow(true)
+        .then(() => autoSaver.disable())
+        .then(() => quit());
+    },
   });
   viewSync = new ViewSync(world, data);
   // 怪物圖鑑：內容由遊戲資料推導，頭像由 render 畫出
@@ -197,6 +257,118 @@ async function bootstrap(): Promise<void> {
   });
 
   loop.start({ now }, (cb) => requestAnimationFrame(cb));
+}
+
+/** 顯示在標題畫面右下角 */
+const VERSION = 'v0.1.0';
+const LAST_SLOT_KEY = 'arpg-last-slot';
+
+function rememberSlot(slot: number): void {
+  try {
+    window.localStorage.setItem(LAST_SLOT_KEY, String(slot));
+  } catch {
+    // 無法使用 localStorage：只是少了「繼續遊戲」的預設欄位
+  }
+}
+
+function lastSlot(): number | null {
+  try {
+    const n = Number(window.localStorage.getItem(LAST_SLOT_KEY));
+    return Number.isInteger(n) && n >= 1 && n <= SAVE_SLOTS ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 各存檔欄位的摘要（等級、樓層、存檔時間） */
+type EndgameConfig = Balance['endgame'];
+
+async function slotSummaries(serviceFor: (slot: number) => SaveService, endgame: EndgameConfig): Promise<SlotSummary[]> {
+  const list: SlotSummary[] = [];
+  for (let slot = 1; slot <= SAVE_SLOTS; slot++) {
+    const r = await serviceFor(slot).load();
+    if (r.status === 'ok') {
+      const { cleared, completedHidden } = r.data.endgame;
+      const floors = selectableFloors({ cleared, completedHidden, highestFloor: r.data.floor.highest }, endgame);
+      list.push({
+        slot,
+        status: 'ok',
+        level: r.data.character.level,
+        floor: Math.min(r.data.floor.current, endgame.lastFloor),
+        highestFloor: Math.min(r.data.floor.highest, endgame.lastFloor),
+        cleared,
+        completedHidden,
+        floors,
+        savedAt: formatTime(r.savedAt),
+      });
+    } else list.push({ slot, status: r.status });
+  }
+  return list;
+}
+
+/** 標題畫面：回傳玩家選的欄位與模式（新遊戲 / 讀取） */
+async function showTitle(
+  serviceFor: (slot: number) => SaveService,
+  endgame: EndgameConfig,
+  audio: AudioEngine,
+): Promise<{ slot: number; mode: 'new' | 'load'; floor: number | null }> {
+  const summaries = () => slotSummaries(serviceFor, endgame);
+  const state = reactive<TitleState>({ slots: await summaries(), lastSlot: lastSlot(), version: VERSION, soundLocked: audio.ctx?.state === 'suspended' });
+  audio.ctx?.addEventListener('statechange', () => (state.soundLocked = audio.ctx?.state === 'suspended'));
+  return new Promise((resolve) => {
+    const app = createApp(TitleScreen, {
+      state,
+      onStart: (slot: number, mode: 'new' | 'load', floor: number | null = null) => {
+        app.unmount();
+        resolve({ slot, mode, floor });
+      },
+      onDelete: (slot: number) => {
+        void serviceFor(slot)
+          .clear()
+          .then(() => summaries())
+          .then((slots) => (state.slots = slots));
+      },
+      onImport: (slot: number, file: File) => {
+        void file.text().then(async (text) => {
+          const decoded = decodeSave(text);
+          if (!decoded.ok) {
+            window.alert(`無法匯入：這不是有效的存檔檔案（${decoded.reason}）。`);
+            return;
+          }
+          const service = serviceFor(slot);
+          await service.clear();
+          await service.write(decoded.data);
+          state.slots = await summaries();
+          window.alert(`已匯入到欄位 ${slot}：Lv ${decoded.data.character.level}・第 ${decoded.data.floor.current} 層`);
+        });
+      },
+      onQuit: () => quit(),
+    });
+    app.mount('#ui');
+  });
+}
+
+/** 離開遊戲：瀏覽器只允許關閉由程式開啟的視窗；關不掉時顯示可以直接關閉的提示 */
+function quit(): void {
+  window.close();
+  window.setTimeout(() => {
+    const box = showMessage('遊戲已存檔', '可以直接關閉這個視窗了。重新整理頁面會回到標題畫面。');
+    box.style.zIndex = '1000';
+  }, 150);
+}
+
+/** 存檔位置：IndexedDB；瀏覽器不允許時（部分瀏覽器以 file:// 開啟可攜版）改用 localStorage */
+async function pickStorage(): Promise<ISaveStorage> {
+  const idb = new IndexedDbStorage();
+  try {
+    await idb.keys();
+    return idb;
+  } catch (error) {
+    const local = browserStorage();
+    if (!local) throw error;
+    console.warn('IndexedDB 無法使用，改用 localStorage 存檔', error);
+    return new LocalStorageStorage(window.localStorage);
+  }
 }
 
 /** localStorage（緊急副本）；隱私模式等無法使用時回傳 null */

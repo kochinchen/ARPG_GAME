@@ -31,6 +31,8 @@ export class FloorManager {
   readonly killedSpawns: number[] = [];
   /** 樓層 → 已開啟寶箱的生成索引（跨層永久保留：寶箱只能開一次） */
   readonly openedChests = new Map<number, Set<number>>();
+  /** 到過中途存檔點的樓層（跨層永久保留：重新進入時中途點維持啟動、樓梯口與中途有傳送口） */
+  readonly midwayFloors = new Set<number>();
   private readonly spawnIndexOf = new Map<ActorId, number>();
   /** Boss 層的 Boss 生成索引；一般樓層為 null */
   private bossIndex: number | null = null;

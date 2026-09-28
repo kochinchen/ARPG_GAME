@@ -67,10 +67,20 @@ export class EffectLayer {
   }
 
   /** 怪物重擊 / 法術的前搖提示：duration 秒後命中 */
-  spawnTelegraph(center: Vec2, radius: number, direction: Vec2, angleDeg: number, duration: number, active: () => boolean): void {
+  spawnTelegraph(
+    center: Vec2,
+    radius: number,
+    direction: Vec2,
+    angleDeg: number,
+    duration: number,
+    active: () => boolean,
+    /** 直線範圍（長方形）：從 center 沿 direction 延伸 */
+    line?: { length: number; width: number },
+  ): void {
     const graphics = new Graphics();
     this.ground.addChild(graphics);
-    this.telegraphs.push({ graphics, age: 0, duration, outline: sector(center, radius, direction, angleDeg), center, active });
+    const outline = line ? rectangle(center, direction, line.length, line.width) : sector(center, radius, direction, angleDeg);
+    this.telegraphs.push({ graphics, age: 0, duration, outline, center, active });
   }
 
   /** 連鎖閃電：多股分岔、抖動的電弧 */
@@ -222,6 +232,13 @@ export class EffectLayer {
 }
 
 /** World 座標的圓（angleDeg = 360）或朝 direction 的扇形外框 */
+/** 從 start 沿 direction 延伸 length、寬 width 的長方形 */
+function rectangle(start: Vec2, direction: Vec2, length: number, width: number): Vec2[] {
+  const n = vec2(-direction.y * (width / 2), direction.x * (width / 2));
+  const end = vec2(start.x + direction.x * length, start.y + direction.y * length);
+  return [vec2(start.x + n.x, start.y + n.y), vec2(end.x + n.x, end.y + n.y), vec2(end.x - n.x, end.y - n.y), vec2(start.x - n.x, start.y - n.y)];
+}
+
 function sector(center: Vec2, radius: number, direction: Vec2, angleDeg: number): Vec2[] {
   const full = angleDeg >= 360;
   const base = Math.atan2(direction.y, direction.x);

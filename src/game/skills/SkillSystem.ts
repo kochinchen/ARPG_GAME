@@ -52,6 +52,9 @@ export class SkillSystem {
       if (actor.cast) {
         this.advanceCast(actor, dt);
         if (actor.cast) continue;
+        // 怪物：出招結束的這一幀先不接下一招，讓 AI（在技能之前更新）有機會改用冷卻好的特殊技能；
+        // 否則按住的主要攻擊會一招接一招，貼身時永遠用不出特殊技能
+        if (actor.ai) continue;
       }
       if (actor.intent) this.tryStart(actor, actor.intent);
     }

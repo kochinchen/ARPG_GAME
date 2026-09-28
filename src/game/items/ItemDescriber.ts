@@ -66,6 +66,9 @@ export const STAT_LABELS: Record<StatId, string> = {
   manaOnHit: '命中回復魔力',
   hpRegenPct: '每秒回復生命',
   manaRegenPct: '每秒回復魔力',
+  slowResist: '緩速抗性',
+  knockbackResist: '擊退抗性',
+  stunResist: '暈眩時間減少',
 };
 
 /** 以百分比顯示的屬性 */
@@ -82,6 +85,9 @@ const PERCENT_STATS: ReadonlySet<StatId> = new Set([
   'poisonResist',
   'physicalResist',
   'dodgeChance',
+  'slowResist',
+  'knockbackResist',
+  'stunResist',
   'potionEffect',
   'fireDamagePct',
   'coldDamagePct',

@@ -79,6 +79,8 @@ export interface GameEvents {
     /** 召喚物：不掉寶、不計入樓層擊殺 */
     summoned: boolean;
     boss: boolean;
+    /** 中途小王（掉落改用 balance.endgame.miniBoss.lootTable） */
+    miniBoss?: boolean;
   };
   /** Boss HP 降到一半以下，進入狂暴 */
   /** 技能（DamageEffect）造成傷害：傳奇 / 神話裝備的「命中時」觸發用 */
@@ -102,12 +104,19 @@ export interface GameEvents {
   BossPhaseChanged: { actorId: ActorId; name: string; phase: number; label: string };
   /** 進入某一層（含第一次進入遊戲） */
   FloorEntered: { floor: number; mapId: string };
-  CheckpointActivated: { kind: 'stairs' | 'midway'; position: Vec2 };
+  /** kind 與 CheckpointSystem 的 CheckpointKind 相同（不 import，避免循環依賴） */
+  CheckpointActivated: { kind: 'stairs' | 'midway' | 'boss'; position: Vec2 };
+  /** 使用傳送口（樓梯口 ⇄ 中途存檔點） */
+  WaypointUsed: { from: Vec2; to: Vec2 };
   ExitOpened: { floor: number };
   /** 點了尚未開啟的出口；boss = Boss 層（擊敗 Boss 才開） */
   ExitLocked: { remaining: number; boss: boolean };
   /** 要離開樓層，但地上還有稀有以上的物品：等待玩家確認（ConfirmLeaveFloor） */
   LeaveFloorConfirm: { direction: 'down' | 'up'; toFloor: number; valuableItems: number };
+  /** 一般模式最後一層的出口：詢問是否進入極限挑戰（進入後回不到 1～30 層；確認 = ConfirmEnterChallenge） */
+  ChallengeConfirm: { toFloor: number; valuableItems: number };
+  /** 已通關（normal：擊敗第 30 層的魔王）/ 已完成隱藏難關（hidden：擊敗第 35 層的魔王） */
+  GameCleared: { stage: 'normal' | 'hidden' };
   /** 玩家倒地後回到存檔點（玩家死亡本身為 ActorDied，faction = 'player'） */
   PlayerRespawned: { position: Vec2 };
   PotionUsed: { hpRestored: number; mpRestored: number; remaining: number };

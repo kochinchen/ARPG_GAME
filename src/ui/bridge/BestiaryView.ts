@@ -122,9 +122,17 @@ function appearance(enemy: EnemyDef, data: DataRegistry, summoners: readonly str
       const first = Math.ceil(f.floors[0] / f.boss.every) * f.boss.every;
       for (let n = first; n <= Math.min(f.floors[1], first + f.boss.every * 2); n += f.boss.every) list.push(n);
     }
-    if (list.length === 0) return { appears: '尚未出現', firstFloor: 1 };
     const open = floors.some((f) => f.boss?.enemyId === enemy.id && f.floors[1] > list[list.length - 1]! + (f.boss?.every ?? 5));
-    return { appears: `第 ${list.join('、')}${open ? '…' : ''} 層（魔王）`, firstFloor: list[0]! };
+    // 挑戰樓層的中途小王、王座廳的最終魔王（docs/ENDGAME.md）
+    const mini = floors.filter((f) => f.miniBosses?.includes(enemy.id)).flatMap((f) => [f.floors[0], f.floors[1]]);
+    const throne = floors.filter((f) => f.throne?.enemyId === enemy.id).map((f) => f.floors[0]);
+    const parts = [
+      ...(list.length ? [`第 ${list.join('、')}${open ? '…' : ''} 層（魔王）`] : []),
+      ...(mini.length ? [`第 ${Math.min(...mini)}～${Math.max(...mini)} 層（小王）`] : []),
+      ...throne.map((n) => `第 ${n} 層（最終魔王）`),
+    ];
+    if (parts.length === 0) return { appears: '尚未出現', firstFloor: 1 };
+    return { appears: parts.join('、'), firstFloor: Math.min(...list, ...mini, ...throne) };
   }
   let first = Infinity;
   for (const f of floors) {

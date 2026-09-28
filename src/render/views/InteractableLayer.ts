@@ -2,7 +2,8 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp } from '../../game/entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp, Waypoint } from '../../game/entities/Interactable';
+import { CHESTS, chestPose } from '../figure/Chest';
 import { MERCHANT } from '../figure/Merchant';
 import { PolyFigure } from '../figure/PolyFigure';
 import { describeItem } from '../../game/items/ItemDescriber';
@@ -29,6 +30,24 @@ interface Rect {
 /** 地上圖示的點選範圍 */
 const ICON_HIT: Rect = { x: -12, y: -14, width: 24, height: 18 };
 
+/** 寶箱：多面體模型，箱蓋開啟有動畫（open 0 → 1），開啟時冒出一陣金光 */
+interface ChestView {
+  figure: PolyFigure;
+  facing: Vec2;
+  /** 箱蓋目前開啟的程度（0～1）與目標 */
+  open: number;
+  target: number;
+  glow: Graphics;
+  glowTime: number;
+}
+
+/** 寶箱模型的大小（比主角矮、但在地上一眼看得到） */
+const CHEST_SCALE = 1.25;
+/** 箱蓋開啟所需時間（秒） */
+const CHEST_OPEN_TIME = 0.45;
+/** 開箱金光持續時間（秒） */
+const CHEST_GLOW_TIME = 0.9;
+
 interface View {
   container: Container;
   label: Text | null;
@@ -37,10 +56,12 @@ interface View {
   labelShift: number;
   /** 點選範圍（相對 container，px）：標籤與圖示各一塊，避免上疊的標籤蓋住下面的標籤 */
   hit: Rect[];
-  chest: { lid: Graphics; opened: boolean } | null;
+  chest: ChestView | null;
   /** 地上裝備的稀有度光柱 */
   beam?: LootBeam;
   exit?: { portal: Graphics; open: boolean };
+  /** 傳送口：每幀重畫的旋轉符文與光柱 */
+  waypoint?: Graphics;
 }
 
 /**
@@ -88,6 +109,7 @@ export class InteractableLayer {
     stairsUp: StairsUp | null = null,
     merchants: readonly Merchant[] = [],
     dt = 1 / 60,
+    waypoints: readonly Waypoint[] = [],
   ): void {
     const seen = new Set<number>();
     let changed = false;
@@ -115,6 +137,12 @@ export class InteractableLayer {
       // 商人面向鏡頭（畫面下方）
       this.merchantFigures.get(merchant.id)?.update(dt, { facing: { x: 1, y: 1 }, moving: false, alive: true });
     }
+    for (const wp of waypoints) {
+      seen.add(wp.id);
+      const view = this.views.get(wp.id) ?? this.createWaypointView(wp);
+      if (view.waypoint) this.drawWaypoint(view.waypoint, performance.now() / 1000);
+      this.highlight(view, wp.id);
+    }
     if (stairsUp) {
       seen.add(stairsUp.id);
       const view = this.views.get(stairsUp.id) ?? this.createStairsView(stairsUp, nextFloor - 2);
@@ -123,8 +151,7 @@ export class InteractableLayer {
     for (const c of chests) {
       seen.add(c.id);
       const view = this.views.get(c.id) ?? this.createChestView(c);
-      if (view.chest && view.chest.opened !== c.opened) this.drawLid(view.chest, c.opened);
-      view.container.alpha = c.opened ? 0.7 : 1;
+      if (view.chest) this.animateChest(view.chest, c.opened, dt);
       this.highlight(view, c.opened ? null : c.id);
     }
     for (const [id, view] of this.views) {
@@ -170,7 +197,7 @@ export class InteractableLayer {
   private highlight(view: View, id: number | null): void {
     const hovered = id !== null && id === this.hoveredId;
     if (view.labelBack) view.labelBack.alpha = hovered ? 0.9 : 0.55;
-    if (view.chest) view.chest.lid.tint = hovered ? 0xffe6a0 : 0xffffff;
+    if (view.chest) view.chest.figure.graphics.tint = hovered ? 0xffe6a0 : 0xffffff;
   }
 
   private createGroundView(g: GroundItem): View {
@@ -221,18 +248,20 @@ export class InteractableLayer {
     const container = new Container();
     container.position.set(s.x, s.y);
     container.zIndex = this.projection.depth(c.position);
-    const body = new Graphics()
-      .ellipse(0, 2, 20, 9)
-      .fill({ color: PALETTE.shadow, alpha: 0.4 })
-      .rect(-16, -18, 32, 18)
-      .fill({ color: LOOT_COLORS.chest })
-      .stroke({ color: LOOT_COLORS.chestDark, width: 2 });
-    const lid = new Graphics();
-    container.addChild(body, lid);
+    const shadow = new Graphics().ellipse(0, 3, 29, 13).fill({ color: PALETTE.shadow, alpha: 0.45 });
+    // 王座廳的寶箱（最終寶箱）用紅木金箍；其他為橡木鐵箍
+    const figure = new PolyFigure(CHESTS[c.lootTable.includes('final') ? 'royal' : 'wood'], CHEST_SCALE);
+    const glow = new Graphics().ellipse(0, -24, 22, 14).fill({ color: 0xffd070 });
+    glow.blendMode = 'add';
+    glow.alpha = 0;
+    container.addChild(shadow, figure.graphics, glow);
     this.objectLayer.addChild(container);
-    const chest = { lid, opened: c.opened };
-    this.drawLid(chest, c.opened);
-    const view: View = { container, label: null, labelBack: null, labelShift: 0, chest, hit: [{ x: -20, y: -34, width: 40, height: 40 }] };
+    // 寶箱斜放（看得到正面與側面），依 id 朝左前或右前
+    const facing = c.id % 2 ? { x: 1, y: 0 } : { x: 0, y: 1 };
+    const open = c.opened ? 1 : 0;
+    const chest: ChestView = { figure, facing, open, target: open, glow, glowTime: 0 };
+    figure.showPose(chestPose(open), facing);
+    const view: View = { container, label: null, labelBack: null, labelShift: 0, chest, hit: [{ x: -30, y: -48, width: 60, height: 54 }] };
     this.views.set(c.id, view);
     return view;
   }
@@ -255,6 +284,50 @@ export class InteractableLayer {
     this.views.set(exit.id, view);
     this.drawExit(view, exit.open, 0);
     return view;
+  }
+
+  /** 傳送口：地上發光的旋轉符文與一道淡淡的光柱，標籤寫要傳送到哪裡 */
+  private createWaypointView(wp: Waypoint): View {
+    const s = this.projection.toScreen(wp.position);
+    const container = new Container();
+    container.position.set(s.x, s.y);
+    container.zIndex = this.projection.depth(wp.position) - 0.5;
+    const g = new Graphics();
+    g.blendMode = 'add';
+    container.addChild(g);
+    this.objectLayer.addChild(container);
+    const label = new Text({ text: wp.to === 'midway' ? '傳送 → 中途存檔點' : '傳送 → 樓梯口', style: { fontFamily: 'sans-serif', fontSize: 12, fill: FLOOR_COLORS.waypoint } });
+    label.anchor.set(0.5, 1);
+    label.position.set(s.x, s.y - 50);
+    const labelBack = new Graphics();
+    labelBack.position.copyFrom(label.position);
+    const pad = LABEL_PAD;
+    labelBack
+      .rect(-label.width / 2 - pad, -label.height - pad / 2, label.width + pad * 2, label.height + pad)
+      .fill({ color: LOOT_COLORS.labelBack, alpha: 0.55 });
+    this.labels.addChild(labelBack, label);
+    const view: View = { container, label, labelBack, labelShift: 0, chest: null, waypoint: g, hit: [{ x: -26, y: -48, width: 52, height: 58 }] };
+    this.views.set(wp.id, view);
+    return view;
+  }
+
+  private drawWaypoint(g: Graphics, time: number): void {
+    const color = FLOOR_COLORS.waypoint;
+    const pulse = 0.7 + 0.3 * Math.sin(time * 3);
+    g.clear();
+    // 地上的兩圈符文環（等角壓扁的橢圓），外圈上的六個光點繞著轉
+    g.ellipse(0, 0, 24, 12).stroke({ color, width: 2, alpha: 0.8 * pulse });
+    g.ellipse(0, 0, 15, 7.5).stroke({ color, width: 1.5, alpha: 0.6 * pulse });
+    g.ellipse(0, 0, 24, 12).fill({ color, alpha: 0.12 * pulse });
+    for (let i = 0; i < 6; i++) {
+      const a = time * 1.2 + (i / 6) * Math.PI * 2;
+      g.circle(Math.cos(a) * 20, Math.sin(a) * 10, 1.8).fill({ color: 0xffffff, alpha: 0.8 * pulse });
+    }
+    // 往上升的光柱（上方漸淡）
+    for (let k = 0; k < 5; k++) {
+      const h = 8 + k * 8;
+      g.rect(-10 + k * 1.5, -h, 20 - k * 3, 8).fill({ color, alpha: (0.18 - k * 0.03) * pulse });
+    }
   }
 
   /** 商人：多面體的商人與小攤（面向鏡頭），標籤「商人」 */
@@ -344,15 +417,22 @@ export class InteractableLayer {
       .fill({ color: LOOT_COLORS.labelBack, alpha: 0.55 });
   }
 
-  private drawLid(chest: { lid: Graphics; opened: boolean }, opened: boolean): void {
-    chest.opened = opened;
-    chest.lid.clear();
-    if (opened) chest.lid.rect(-16, -32, 32, 8).fill({ color: LOOT_COLORS.chestDark });
-    else
-      chest.lid
-        .roundRect(-17, -26, 34, 10, 4)
-        .fill({ color: LOOT_COLORS.chest })
-        .stroke({ color: LOOT_COLORS.chestTrim, width: 2 });
+  /** 箱蓋往目標角度翻動（先快後慢）；剛打開時冒出金光 */
+  private animateChest(chest: ChestView, opened: boolean, dt: number): void {
+    const target = opened ? 1 : 0;
+    if (target !== chest.target) {
+      chest.target = target;
+      if (opened) chest.glowTime = CHEST_GLOW_TIME;
+    }
+    if (chest.open !== chest.target) {
+      const step = dt / CHEST_OPEN_TIME;
+      chest.open = chest.target > chest.open ? Math.min(chest.target, chest.open + step) : Math.max(chest.target, chest.open - step);
+      // ease-out：箱蓋翻到後面時慢下來
+      const k = 1 - (1 - chest.open) * (1 - chest.open);
+      chest.figure.showPose(chestPose(chest.target > 0 ? k : chest.open), chest.facing);
+    }
+    chest.glowTime = Math.max(0, chest.glowTime - dt);
+    chest.glow.alpha = Math.sin((chest.glowTime / CHEST_GLOW_TIME) * Math.PI) * 0.55;
   }
 
   private describe(g: GroundItem): { text: string; color: number } {

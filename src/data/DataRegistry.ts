@@ -140,6 +140,9 @@ export class DataRegistry {
       for (const f of filters) for (const id of f.skills ?? []) if (!skills.has(id)) problems.push(`legendary '${def.id}' 引用不存在的 skill '${id}'`);
       for (const id of required) if (!buffs.has(id)) problems.push(`legendary '${def.id}' 需要的增益 '${id}' 沒有由這件裝備產生`);
     }
+    if (balance && !lootTables.has(balance.endgame.miniBoss.lootTable)) {
+      problems.push(`balance.endgame.miniBoss 引用不存在的 lootTable '${balance.endgame.miniBoss.lootTable}'`);
+    }
     if (balance && !lootTables.has(balance.elite.lootTable)) {
       problems.push(`balance.elite 引用不存在的 lootTable '${balance.elite.lootTable}'`);
     }
@@ -165,6 +168,11 @@ export class DataRegistry {
         const boss = enemies.has(floor.boss.enemyId) ? enemies.get(floor.boss.enemyId) : null;
         if (!boss) problems.push(`floor '${floor.id}' 的 Boss 引用不存在的 enemy '${floor.boss.enemyId}'`);
         else if (!boss.boss) problems.push(`floor '${floor.id}' 的 Boss '${boss.id}' 沒有設定 boss: true`);
+      }
+      for (const id of [...(floor.miniBosses ?? []), ...(floor.throne ? [floor.throne.enemyId] : [])]) {
+        const e = enemies.has(id) ? enemies.get(id) : null;
+        if (!e) problems.push(`floor '${floor.id}' 的小王 / 王座廳魔王引用不存在的 enemy '${id}'`);
+        else if (!e.boss) problems.push(`floor '${floor.id}' 的 '${id}' 沒有設定 boss: true`);
       }
       if (!floor.monsterPool.some((m) => m.minFloor <= floor.floors[0])) {
         problems.push(`floor '${floor.id}' 在第 ${floor.floors[0]} 層沒有任何可生成的怪物（檢查 minFloor）`);

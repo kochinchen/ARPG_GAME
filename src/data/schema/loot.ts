@@ -6,6 +6,10 @@ export const LootTableDefSchema = z.strictObject({
   id: IdSchema,
   /** 掉落次數 */
   rolls: z.int().positive(),
+  /** 前幾次必定是物品（精英保底） */
+  guaranteedItems: z.int().nonnegative().default(0),
+  /** 接著幾次必定是藥水（第 35 層的寶箱：每個必出 2 罐） */
+  guaranteedPotions: z.int().nonnegative().default(0),
   entries: z
     .array(
       z.strictObject({

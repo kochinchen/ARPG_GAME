@@ -1,7 +1,8 @@
 import { distance, type Vec2 } from '../../core/math/Vec2';
 import type { Rng } from '../../core/Rng';
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { EquipSlot, ItemBaseDef, MaterialId } from '../../data/schema/item';
+import type { ItemBaseDef, MaterialId } from '../../data/schema/item';
+import type { LegendaryKind } from '../../data/schema/legendary';
 import type { Materials } from '../player/Materials';
 import type { Actor } from '../entities/Actor';
 import type { GameEventBus, GameEvents } from '../GameEvents';
@@ -210,8 +211,8 @@ export class ShopSystem {
     return true;
   }
 
-  /** 賭博：付錢，得到一件指定類別、隨機稀有度的物品 */
-  gamble(slot: EquipSlot): ItemInstance | null {
+  /** 賭博：付錢，得到一件指定種類（劍 / 斧 / 弓 / 法杖、防具與飾品部位）、隨機稀有度的物品 */
+  gamble(kind: LegendaryKind): ItemInstance | null {
     if (!this.canTrade()) return null;
     if (this.ctx.inventory.isFull) {
       this.fail('inventoryFull');
@@ -219,7 +220,7 @@ export class ShopSystem {
     }
     const price = this.gamblePrice;
     if (!this.pay(price)) return null;
-    const item = this.ctx.generator.generateForSlot(slot, Math.max(1, this.floor), this.data.balance.shop.gamble.rarityWeights);
+    const item = this.ctx.generator.generateForKind(kind, Math.max(1, this.floor), this.data.balance.shop.gamble.rarityWeights);
     if (!item) {
       this.ctx.wallet.add(price);
       return null;

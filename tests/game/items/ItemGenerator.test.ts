@@ -4,8 +4,9 @@ import { gameData } from '../../../src/data';
 import { DataRegistry } from '../../../src/data/DataRegistry';
 import { AFFIX_COUNT, type Rarity } from '../../../src/data/schema/item';
 import { describeItem } from '../../../src/game/items/ItemDescriber';
-import { EPIC_NAMES } from '../../../src/data/itemNames';
-import { affixTier, ItemGenerator } from '../../../src/game/items/ItemGenerator';
+import { EPIC_NAMES, RARE_PREFIXES } from '../../../src/data/itemNames';
+import { affixTier, baseIsKind, ItemGenerator } from '../../../src/game/items/ItemGenerator';
+import { LegendaryKindSchema } from '../../../src/data/schema/legendary';
 
 const data = DataRegistry.load(gameData);
 const WEIGHTS = { normal: 60, magic: 30, rare: 10, epic: 0, legendary: 0, mythic: 0 };
@@ -73,8 +74,8 @@ describe('describeItem', () => {
       { uid: 'y', baseId: 'boots.leather', rarity: 'rare', itemLevel: 1, affixes: [{ id: 'affix.swift', rolls: [0.08] }] },
       data,
     );
-    // 稀有：主要詞綴（移動速度）的主題前綴 + 基底
-    expect(d.name).toMatch(/^(風行|影行|疾風)・?皮靴$/);
+    // 稀有：詞綴（移動速度）的主題前綴 + 基底
+    expect(RARE_PREFIXES.moveSpeed).toContain(d.name.replace(/・?皮靴$/, ''));
     expect(d.lines).toContain('+8% 移動速度');
   });
 });
@@ -94,6 +95,17 @@ describe('裝備命名', () => {
     const epic = describeItem(item('e1', 'weapon.hunting_bow', 'epic'), data);
     expect(epic.name).not.toContain('獵弓');
     expect(epic.subtitle).toBe('史詩 弓 · 獵弓');
+  });
+
+  it('稀有：前綴來自前兩條詞綴的主題詞，同一條主詞綴也有多種名稱', () => {
+    const allowed = [...RARE_PREFIXES.maxMana!, ...RARE_PREFIXES.maxHp!];
+    const affixes = [{ id: 'affix.mind', rolls: [9] }, { id: 'affix.vital', rolls: [11] }];
+    const prefixes = new Set(
+      Array.from({ length: 60 }, (_, i) => describeItem(item(`r${i}`, 'weapon.hunting_bow', 'rare', affixes), data).name.replace(/・?獵弓$/, '')),
+    );
+    for (const p of prefixes) expect(allowed).toContain(p);
+    expect([...prefixes].some((p) => RARE_PREFIXES.maxHp!.includes(p))).toBe(true);
+    expect(prefixes.size).toBeGreaterThan(6);
   });
 
   it('稀有飾品使用神秘名稱', () => {
@@ -181,7 +193,7 @@ describe('主倍率與強屬性', () => {
   const only = (rarity: Rarity) => ({ ...ALL, [rarity]: 1 });
   const many = (rarity: Rarity, slot: 'weapon' | 'ring' | 'armor', count = 400) => {
     const gen = new ItemGenerator(data, new Rng(31));
-    return Array.from({ length: count }, () => gen.generateForSlot(slot, 20, only(rarity))!);
+    return Array.from({ length: count }, () => gen.generateForKind(slot, 20, only(rarity))!);
   };
 
   it('主倍率落在各稀有度的區間，相鄰稀有度互相重疊', () => {
@@ -248,6 +260,25 @@ describe('主倍率與強屬性', () => {
       expect(d.strongLines).toHaveLength(1);
       expect(d.affixLines).toHaveLength(3);
       expect(data.affixes.get(item.affixes[0]!.id).kind).toBe('strong');
+    }
+  });
+});
+
+describe('賭博：指定種類', () => {
+  const ALL = { normal: 0, magic: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 };
+
+  it('每一種裝備（劍、斧、弓、法杖、防具、飾品）在各樓層、各稀有度都拿得到，而且種類正確', () => {
+    for (const kind of LegendaryKindSchema.options) {
+      for (const itemLevel of [1, 12, 30, 45]) {
+        for (const rarity of ['normal', 'magic', 'rare', 'epic', 'legendary', 'mythic'] as const) {
+          const gen = new ItemGenerator(data, new Rng(itemLevel * 7 + kind.length));
+          for (let i = 0; i < 5; i++) {
+            const item = gen.generateForKind(kind, itemLevel, { ...ALL, [rarity]: 1 });
+            expect(item, `${kind} Lv${itemLevel} ${rarity}`).not.toBeNull();
+            expect(baseIsKind(data.items.get(item!.baseId), kind), `${kind} Lv${itemLevel} ${rarity} → ${item!.baseId}`).toBe(true);
+          }
+        }
+      }
     }
   });
 });

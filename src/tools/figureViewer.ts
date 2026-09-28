@@ -5,7 +5,8 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { vec2, type Vec2 } from '../core/math/Vec2';
 import { HEROINE } from '../render/figure/Heroine';
-import type { AttackVariant, FigureModel, Pose } from '../render/figure/FigureModel';
+import { figureScale, type AttackVariant, type FigureModel, type Pose } from '../render/figure/FigureModel';
+import { CHESTS, chestPose } from '../render/figure/Chest';
 import { MERCHANT } from '../render/figure/Merchant';
 import { MONSTER_MODELS } from '../render/figure/Monsters';
 import { PolyFigure } from '../render/figure/PolyFigure';
@@ -13,6 +14,10 @@ import { GearAuraView } from '../render/views/GearAuraView';
 import { EffectLayer } from '../render/views/EffectLayer';
 import type { ImpactKind } from '../render/views/fx/ImpactFx';
 import { IsoProjection } from '../core/math/IsoProjection';
+import { NavGrid } from '../game/movement/NavGrid';
+import { TileMapView } from '../render/views/TileMapView';
+import { BOSS_ARENAS } from '../render/themes';
+import type { DungeonTheme } from '../data/schema/floor';
 import { WeaponGlowView } from '../render/views/WeaponGlowView';
 import { lookByKey, mountFor, tierLook, UNIQUE_WEAPON_IDS, uniqueLook, type WeaponLook } from '../render/figure/weapons/WeaponLooks';
 import type { WeaponType } from '../data/schema/item';
@@ -65,6 +70,8 @@ const MODELS: { key: string; label: string; model: FigureModel; radius: number; 
   { key: 'mage', label: '骷髏法師', model: MONSTER_MODELS['enemy.skeleton_mage']!, radius: 0.3 },
   { key: 'dummy', label: '訓練木樁', model: MONSTER_MODELS['enemy.training_dummy']!, radius: 0.35 },
   { key: 'merchant', label: '商人', model: MERCHANT, radius: 0.3 },
+  { key: 'chest', label: '寶箱', model: CHESTS.wood, radius: 0.5 },
+  { key: 'chest_royal', label: '王座廳寶箱', model: CHESTS.royal, radius: 0.5 },
   // 樓層魔王（遊戲中的大小 = radius × size）與眷屬
   ...(
     [
@@ -75,6 +82,7 @@ const MODELS: { key: string; label: string; model: FigureModel; radius: number; 
       ['fallen_knight', '20F 墮落騎士', 0.5 * 2.2],
       ['spider_queen', '25F 蜘蛛女王', 0.5 * 2.1],
       ['abyss_lord', '30F 深淵魔王', 0.5 * 2.5],
+      ['abyss_sovereign', '35F 深淵統御者', 0.5 * 3],
     ] as const
   ).map(([key, label, radius]) => ({ key, label, model: MONSTER_MODELS[`enemy.${key}`]!, radius, boss: true })),
   // 非人形怪物（10 樓以上）
@@ -181,8 +189,10 @@ function gallery(app: Application, bosses: boolean): void {
     const cell = new Container();
     cell.position.set(16 + (i % cols) * w + w / 2, 30 + Math.floor(i / cols) * h + h - 34);
     const ground = new Graphics().poly([-50, 0, 0, -25, 50, 0, 0, 25]).fill({ color: 0x2a241e });
-    const figure = new PolyFigure(m.model, m.radius / m.model.referenceRadius);
-    figure.graphics.scale.set((bosses ? Math.min(1.1, h / 150) : Math.min(2.4, h / 80)) * USER_ZOOM);
+    const figure = new PolyFigure(m.model, figureScale(m.model, m.radius));
+    // 圖鑑格子大小固定：非人形怪物抵消外觀倍率，每隻都放得進格子（魔王比較模式保留真實比例）
+    const fit = bosses ? 1 : 1 / (m.model.visualScale ?? 1);
+    figure.graphics.scale.set((bosses ? Math.min(1.1, h / 150) : Math.min(2.4, h / 80)) * USER_ZOOM * fit);
     const label = new Text({ text: m.label, style: { fontFamily: 'sans-serif', fontSize: 13, fill: 0xd8cbb4 } });
     label.anchor.set(0.5, 0);
     label.position.set(0, 18);
@@ -202,16 +212,24 @@ function gallery(app: Application, bosses: boolean): void {
 }
 
 /**
- * ?model=X&close=1：單一模型的特寫（左 / 下（正面）/ 右 / 上（背面）四個方向，自動放大到填滿格子）。
- * pose=attack / windup / cast / dead 切換樣態，省略為待機動畫。
+ * ?model=X&close=1：單一模型的特寫（左 / 下（正面）/ 右 / 上（背面）四個方向，自動放大到填滿格子；diag=1 改看斜 45° 的四個方向）。
+ * pose=attack / windup / cast / dead 切換樣態，省略為待機動畫；寶箱可用 pose=half / open 看箱蓋打開。
  */
 function closeUp(app: Application): void {
-  const dirs: { label: string; facing: Vec2 }[] = [
-    { label: '左', facing: vec2(-1, 1) },
-    { label: '下（正面）', facing: vec2(1, 1) },
-    { label: '右', facing: vec2(1, -1) },
-    { label: '上（背面）', facing: vec2(-1, -1) },
-  ];
+  // diag=1：斜 45° 的四個方向（寶箱在遊戲中的擺法）
+  const dirs: { label: string; facing: Vec2 }[] = params.get('diag')
+    ? [
+        { label: '左下', facing: vec2(0, 1) },
+        { label: '右下', facing: vec2(1, 0) },
+        { label: '右上', facing: vec2(0, -1) },
+        { label: '左上', facing: vec2(-1, 0) },
+      ]
+    : [
+        { label: '左', facing: vec2(-1, 1) },
+        { label: '下（正面）', facing: vec2(1, 1) },
+        { label: '右', facing: vec2(1, -1) },
+        { label: '上（背面）', facing: vec2(-1, -1) },
+      ];
   const w = (window.innerWidth - 32) / dirs.length;
   const h = window.innerHeight - 80;
   const P = selected.model.poses;
@@ -230,6 +248,7 @@ function closeUp(app: Application): void {
     ? (animKeys(animKey[1]!)[Number(animKey[2]) - 1] ?? null)
     : chainKey
     ? (chain[Number(chainKey[1]) - 1] ?? null)
+    : poseKey === 'open' ? chestPose(1) : poseKey === 'half' ? chestPose(0.5)
     : poseKey === 'attack' ? P.attackStrike : poseKey === 'windup' ? P.attackWindup : poseKey === 'cast' ? P.castWindup : poseKey === 'hit' ? P.hit : poseKey === 'dead' ? P.dead : null;
   const cells = dirs.map((d, i) => {
     const cell = new Container();
@@ -385,6 +404,58 @@ function fxPreview(app: Application): void {
   });
 }
 
+/**
+ * ?model=arena&boss=enemy.lava_behemoth：魔王競技場預覽（與遊戲相同的地板、牆、紋路與擺設），
+ * 中間放魔王與主角比較大小。zoom 可放大。
+ */
+function arenaPreview(app: Application): void {
+  const bossId = params.get('boss') ?? 'enemy.crypt_guardian';
+  const bossRadius = 0.5 * ({ 'enemy.lava_behemoth': 2.4, 'enemy.spider_queen': 2.1, 'enemy.abyss_lord': 2.5 }[bossId] ?? 2.2);
+  const radius = 15 * bossRadius;
+  const cell = 0.5;
+  const n = Math.ceil((radius + 6) * 2 / cell);
+  const c = n / 2;
+  const rows = Array.from({ length: n }, (_, y) =>
+    Array.from({ length: n }, (_, x) => {
+      if (x === Math.floor(c) && y === Math.floor(c) + 4) return 'S';
+      return Math.hypot(x + 0.5 - c, y + 0.5 - c) * cell <= radius ? '.' : '#';
+    }).join(''),
+  );
+  const center = vec2(c * cell, c * cell);
+  const map = { id: 'preview', rows, cellSize: cell, spawns: [], chests: [] };
+  const nav = NavGrid.fromMap(map);
+  const projection = new IsoProjection();
+  const world = new Container();
+  const objects = new Container();
+  objects.sortableChildren = true;
+  const theme = { 'enemy.crypt_guardian': 'tomb', 'enemy.fallen_priest': 'sanctum', 'enemy.lava_behemoth': 'lava', 'enemy.fallen_knight': 'fortress', 'enemy.spider_queen': 'abyss', 'enemy.abyss_lord': 'temple' }[bossId] as DungeonTheme;
+  const tiles = new TileMapView(projection, nav, objects, theme, { center, radius, style: BOSS_ARENAS[bossId]! });
+  world.addChild(tiles.floor, objects);
+  const zoom = 0.42 * USER_ZOOM;
+  world.scale.set(zoom);
+  const s = projection.toScreen(center);
+  world.position.set(window.innerWidth / 2 - s.x * zoom, window.innerHeight / 2 - s.y * zoom);
+  app.stage.addChild(world);
+  const boss = new PolyFigure(MONSTER_MODELS[bossId]!, bossRadius / MONSTER_MODELS[bossId]!.referenceRadius);
+  const hero = new PolyFigure(HEROINE, 1);
+  const bp = projection.toScreen(center);
+  const hp = projection.toScreen(vec2(center.x + 4, center.y + 4));
+  boss.graphics.position.set(bp.x, bp.y);
+  hero.graphics.position.set(hp.x, hp.y);
+  boss.graphics.zIndex = projection.depth(center);
+  hero.graphics.zIndex = projection.depth(vec2(center.x + 4, center.y + 4));
+  objects.addChild(boss.graphics, hero.graphics);
+  const title = new Text({ text: `魔王競技場預覽：${bossId}（直徑 ${(radius * 2).toFixed(1)} 格 = 魔王身寬 × 15）`, style: { fontFamily: 'sans-serif', fontSize: 16, fill: 0xe8c47a } });
+  title.position.set(16, 12);
+  app.stage.addChild(title);
+  app.ticker.add((ticker) => {
+    const dt = ticker.deltaMS / 1000;
+    boss.update(dt, { facing: vec2(1, 1), moving: false, alive: true });
+    hero.update(dt, { facing: vec2(-1, -1), moving: false, alive: true });
+    tiles.update(center, dt);
+  });
+}
+
 async function main(): Promise<void> {
   modelNav();
   const host = document.getElementById('viewer')!;
@@ -393,6 +464,10 @@ async function main(): Promise<void> {
   host.appendChild(app.canvas);
   if (params.get('close')) {
     closeUp(app);
+    return;
+  }
+  if (params.get('model') === 'arena') {
+    arenaPreview(app);
     return;
   }
   if (params.get('model') === 'fx') {
@@ -439,7 +514,7 @@ async function main(): Promise<void> {
       // 地面格與影子
       const ground = new Graphics().poly([-40, 0, 0, -20, 40, 0, 0, 20]).fill({ color: 0x2a241e });
       if (!selected.model.dynamicShadow) ground.ellipse(0, 0, 13, 6.5).fill({ color: 0x000000, alpha: 0.4 });
-      const figure = armed(new PolyFigure(selected.model, selected.radius / selected.model.referenceRadius));
+      const figure = armed(new PolyFigure(selected.model, figureScale(selected.model, selected.radius)));
       // 模型（與光芒）一起縮放
       const holder = new Container();
       holder.scale.set(ZOOM);

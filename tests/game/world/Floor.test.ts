@@ -41,7 +41,11 @@ function useExit(world: GameWorld, commands: CommandQueue<GameCommand>) {
 describe('DifficultyScaler', () => {
   const d = data.balance.difficulty;
   it('第 1 層為基準；之後每層線性成長；密度有上限', () => {
-    expect(scaleForFloor(1, d)).toEqual({ hp: 1, damage: 1, defense: 1, xp: 1, density: 1 });
+    // 前期怪物數量加成：第 1～5 層 +20%，之後遞減，第 30 層起沒有加成
+    expect(scaleForFloor(1, d)).toEqual({ hp: 1, damage: 1, defense: 1, xp: 1, density: 1.2 });
+    expect(scaleForFloor(5, d).density).toBeCloseTo((1 + 4 * d.densityPerFloor) * 1.2);
+    expect(scaleForFloor(30, d).density).toBe(d.maxDensityMultiplier);
+    expect(scaleForFloor(20, d).density).toBeCloseTo(d.maxDensityMultiplier * (1 + 0.2 * (10 / 25)));
     const f10 = scaleForFloor(10, d);
     expect(f10.hp).toBeCloseTo(1 + 9 * d.hpPerFloor);
     expect(f10.damage).toBeCloseTo(1 + 9 * d.damagePerFloor);
@@ -216,7 +220,7 @@ describe('回到上一層（M9）', () => {
     expect(world.stairsUp!.position).toEqual(world.spawnPoint);
   });
 
-  it('第 3 層往上：到第 2 層樓梯口，怪物全部重生、擊殺數 0、中途未啟動、出口已開', () => {
+  it('第 3 層往上：到第 2 層樓梯口，怪物全部重生、擊殺數 0、到過的中途點維持啟動、出口關閉', () => {
     const { world, commands } = floorWorld(2, 7);
     const fullCount = enemies(world).length;
     kill(world, 3);
@@ -231,19 +235,23 @@ describe('回到上一層（M9）', () => {
     expect(world.progress.highestFloor).toBe(3);
     expect(enemies(world).length).toBe(fullCount);
     expect(world.floors.killed).toBe(0);
-    expect(world.checkpoints.checkpoints.find((c) => c.kind === 'midway')!.active).toBe(false);
+    // 以前到過第 2 層的中途：重新進入後中途點維持啟動，但一樣從樓梯口開始
+    expect(world.checkpoints.get('midway')!.active).toBe(true);
     expect(distance(world.player.position, world.spawnPoint)).toBeLessThan(0.01);
-    expect(world.floors.exitOpen).toBe(true);
-    expect(world.exit!.open).toBe(true);
+    expect(world.floors.exitOpen).toBe(false);
+    expect(world.exit!.open).toBe(false);
   });
 
-  it('最深的樓層出口仍需清怪；已通過的樓層往下後再回來，出口直接開', () => {
+  it('重新進入已通過的樓層：出口關閉，要重新清怪才能往下', () => {
     const { world, commands } = floorWorld(1);
     expect(world.floors.exitOpen).toBe(false);
     world.enterFloor(2);
     expect(world.floors.exitOpen).toBe(false);
     useStairsUp(world, commands);
     expect(world.floors.floor).toBe(1);
+    expect(world.floors.exitOpen).toBe(false);
+    expect(world.floors.remainingToOpen).toBeGreaterThan(0);
+    kill(world, enemies(world).length);
     expect(world.floors.exitOpen).toBe(true);
   });
 
@@ -265,6 +273,8 @@ describe('回到上一層（M9）', () => {
     kill(world, 4);
     useStairsUp(world, commands);
     expect(world.floors.floor).toBe(2);
+    // 回到的樓層出口關閉：清怪後才能往下
+    kill(world, enemies(world).length);
     useExit(world, commands);
     expect(world.floors.floor).toBe(3);
     expect(enemies(world).length).toBe(fullCount);
@@ -325,5 +335,73 @@ describe('離開樓層前的確認（M8）', () => {
     run(world, 0.2);
     expect(asked).toHaveBeenCalledWith({ direction: 'up', toFloor: 1, valuableItems: 1 });
     expect(world.floors.floor).toBe(2);
+  });
+});
+
+describe('傳送口與魔王門前存檔點', () => {
+  function click(world: GameWorld, commands: CommandQueue<GameCommand>, target: { id: number; position: { x: number; y: number } }) {
+    world.player.position = vec2(target.position.x - 0.4, target.position.y);
+    commands.push({ type: 'PrimaryAction', worldPos: vec2(target.position.x, target.position.y), targetId: null, interactId: target.id, held: false });
+    run(world, 0.5);
+  }
+
+  it('中途點啟動後：樓梯口與中途旁各有一個傳送口，互相傳送', () => {
+    const { world, commands, events } = floorWorld(2);
+    expect(world.waypoints).toEqual([]);
+    const midway = world.checkpoints.get('midway')!;
+    world.player.position = midway.position;
+    run(world, 1 / 60);
+    expect(world.waypoints.map((w) => w.to)).toEqual(['midway', 'stairs']);
+    const onUsed = vi.fn();
+    events.on('WaypointUsed', onUsed);
+
+    const atStairs = world.waypoints.find((w) => w.to === 'midway')!;
+    expect(distance(atStairs.position, world.spawnPoint)).toBeLessThan(4);
+    click(world, commands, atStairs);
+    expect(distance(world.player.position, midway.position)).toBeLessThan(0.01);
+
+    click(world, commands, world.waypoints.find((w) => w.to === 'stairs')!);
+    expect(distance(world.player.position, world.spawnPoint)).toBeLessThan(0.01);
+    expect(onUsed).toHaveBeenCalledTimes(2);
+  });
+
+  it('重新進入到過中途的樓層：一開始就有傳送口；沒到過中途的樓層沒有', () => {
+    const { world } = floorWorld(2);
+    world.player.position = world.checkpoints.get('midway')!.position;
+    run(world, 1 / 60);
+    world.enterFloor(3);
+    expect(world.waypoints).toEqual([]);
+    world.enterFloor(2);
+    expect(world.checkpoints.get('midway')!.active).toBe(true);
+    expect(world.waypoints).toHaveLength(2);
+    expect(distance(world.player.position, world.spawnPoint)).toBeLessThan(0.01);
+  });
+
+  it('魔王層：競技場外有魔王門前存檔點，啟動後死亡回到那裡；重新進入後重設', () => {
+    const { world } = floorWorld(5);
+    const arena = world.map.arena!;
+    const gate = world.checkpoints.get('boss')!;
+    expect(gate).toBeDefined();
+    const toCenter = Math.hypot(gate.position.x - arena.x, gate.position.y - arena.y);
+    expect(toCenter).toBeGreaterThan(arena.radius);
+    expect(toCenter).toBeLessThan(arena.radius + 4);
+    expect(world.checkpoints.respawn.kind).toBe('stairs');
+
+    world.player.position = gate.position;
+    run(world, 1 / 60);
+    expect(gate.active).toBe(true);
+    expect(world.checkpoints.respawn.kind).toBe('boss');
+    world.player.hp = 0;
+    run(world, 6);
+    expect(world.player.alive).toBe(true);
+    expect(distance(world.player.position, gate.position)).toBeLessThan(0.01);
+
+    world.enterFloor(6);
+    world.enterFloor(5);
+    expect(world.checkpoints.get('boss')!.active).toBe(false);
+  });
+
+  it('一般樓層沒有魔王門前存檔點', () => {
+    expect(floorWorld(2).world.checkpoints.get('boss')).toBeUndefined();
   });
 });

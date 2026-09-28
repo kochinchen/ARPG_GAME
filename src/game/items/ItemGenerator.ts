@@ -1,7 +1,7 @@
 import type { Rng } from '../../core/Rng';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { AFFIX_COUNT, RARITIES, STRONG_COUNT, type AffixDef, type EquipSlot, type ItemBaseDef, type Rarity } from '../../data/schema/item';
-import type { LegendaryDef } from '../../data/schema/legendary';
+import type { LegendaryDef, LegendaryKind } from '../../data/schema/legendary';
 import type { LootTableDef } from '../../data/schema/loot';
 import type { ItemInstance } from './ItemInstance';
 import { epicTheme } from './ItemNamer';
@@ -32,14 +32,18 @@ export class ItemGenerator {
 
   generate(itemLevel: number, rarityWeights: LootTableDef['rarityWeights']): ItemInstance {
     const rarity = this.rollRarity(rarityWeights);
-    return this.create(this.rng.pick(this.basesFor(itemLevel)), rarity, itemLevel);
+    return this.create(this.baseFor(this.rng.pick(this.basesFor(itemLevel)), rarity, itemLevel), rarity, itemLevel);
   }
 
-  /** 指定裝備類別（賭博）：從該類別中等級需求符合的基底抽一件 */
-  generateForSlot(slot: EquipSlot, itemLevel: number, rarityWeights: LootTableDef['rarityWeights']): ItemInstance | null {
-    const bases = this.basesFor(itemLevel).filter((b) => b.slot === slot);
+  /**
+   * 指定裝備種類（賭博）：劍 / 斧 / 弓 / 法杖、各防具與飾品部位；'weapon' = 任一種武器。
+   * 從該種類中等級需求符合的基底抽一件；傳奇 / 神話也只從同種類的設計挑（沒有時降一級）。
+   */
+  generateForKind(kind: LegendaryKind | EquipSlot, itemLevel: number, rarityWeights: LootTableDef['rarityWeights']): ItemInstance | null {
+    const bases = this.basesFor(itemLevel).filter((b) => baseIsKind(b, kind));
     if (bases.length === 0) return null;
-    return this.create(this.rng.pick(bases), this.rollRarity(rarityWeights), itemLevel);
+    const rarity = this.rollRarity(rarityWeights);
+    return this.create(this.baseFor(this.rng.pick(bases), rarity, itemLevel), rarity, itemLevel, true);
   }
 
   /** 可以掉落的基底：等級需求 ≤ 物品等級，且不低於物品等級 − BASE_LEVEL_WINDOW（每個部位至少保留最高的一種） */
@@ -48,6 +52,26 @@ export class ItemGenerator {
     if (eligible.length === 0) throw new Error(`no item base for itemLevel ${itemLevel}`);
     const floor = itemLevel - BASE_LEVEL_WINDOW;
     return eligible.filter((b) => b.levelReq >= floor || !eligible.some((o) => o.slot === b.slot && (o.weaponType ?? '') === (b.weaponType ?? '') && o.levelReq > b.levelReq));
+  }
+
+  /** 紫裝換成偏態分布的階級；橘 / 紅在 createLegendary 挑基底，白～黃維持原本的基底 */
+  private baseFor(base: ItemBaseDef, rarity: Rarity, itemLevel: number): ItemBaseDef {
+    return rarity === 'epic' ? this.tieredBase(base, itemLevel) : base;
+  }
+
+  /**
+   * 紫 / 橘 / 紅的基底階級：同種類中「樓層階」（等級需求 ≤ 物品等級的最高階）加上依權重抽的偏移，
+   * 限制在 T1～最高階。可能高於玩家等級（先收著，升級後才能穿）或低於樓層（靠飛昇跟上）。飾品沒有階級，不變。
+   */
+  private tieredBase(base: ItemBaseDef, itemLevel: number): ItemBaseDef {
+    if (base.tier === undefined) return base;
+    const kind = this.data.items.all.filter((b) => b.tier !== undefined && b.slot === base.slot && b.weaponType === base.weaponType);
+    const tiers = kind.map((b) => b.tier!);
+    const floorTier = Math.max(Math.min(...tiers), ...kind.filter((b) => b.levelReq <= itemLevel).map((b) => b.tier!));
+    const { offsets, weights } = this.data.balance.loot.highRarityTier;
+    const { offset } = this.rng.weighted(offsets.map((offset, i) => ({ offset, weight: weights[i]! })));
+    const tier = Math.min(Math.max(floorTier + offset, Math.min(...tiers)), Math.max(...tiers));
+    return kind.find((b) => b.tier === tier) ?? base;
   }
 
   /** 取一個新的 uid（商人販賣的物品在購買時換成主產生器的 uid，避免重複） */
@@ -59,15 +83,16 @@ export class ItemGenerator {
     return this.rng.weighted(RARITIES.map((rarity) => ({ rarity, weight: weights[rarity] }))).rarity;
   }
 
-  create(base: ItemBaseDef, rarity: Rarity, itemLevel: number): ItemInstance {
+  /** sameKindOnly：傳奇 / 神話只從同種類的設計挑（賭博指定了種類） */
+  create(base: ItemBaseDef, rarity: Rarity, itemLevel: number, sameKindOnly = false): ItemInstance {
     // 傳奇 / 神話：固定設計（同部位優先；該部位沒有時從全部挑）
     if (rarity === 'legendary' || rarity === 'mythic') {
       const all = this.data.legendaries.all.filter((d) => d.rarity === rarity && d.minItemLevel <= itemLevel);
       const sameKind = all.filter((d) => kindMatches(d, base));
-      const pool = sameKind.length > 0 ? sameKind : all;
+      const pool = sameKind.length > 0 || sameKindOnly ? sameKind : all;
       if (pool.length > 0) return this.createLegendary(this.rng.weighted(pool), itemLevel);
       // 這個等級還沒有可掉落的設計（例如神話要第 10 層以上）：降一級
-      return this.create(base, rarity === 'mythic' ? 'legendary' : 'epic', itemLevel);
+      return this.create(base, rarity === 'mythic' ? 'legendary' : 'epic', itemLevel, sameKindOnly);
     }
     const uid = this.nextUid();
     const eligible = (a: AffixDef) => !a.slots || a.slots.includes(base.slot);
@@ -107,11 +132,13 @@ export class ItemGenerator {
     return { uid, baseId: base.id, rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes };
   }
 
-  /** 產生一件指定的傳奇 / 神話裝備：基底 = 該種類中目前等級能用的最高階；固定屬性在小範圍內擲骰並隨階級成長 */
+  /** 產生一件指定的傳奇 / 神話裝備：基底階級依偏態分布（樓層階 −1 ～ +2）；固定屬性在小範圍內擲骰並隨階級成長 */
   createLegendary(def: LegendaryDef, itemLevel: number): ItemInstance {
     const candidates = this.data.items.all.filter((b) => kindMatches(def, b));
     const eligible = candidates.filter((b) => b.levelReq <= itemLevel);
-    const base = (eligible.length > 0 ? eligible : candidates).reduce((best, b) => (b.levelReq > best.levelReq ? b : best));
+    // 樓層能用的最高階；有階級的（武器、防具）再依偏態分布換階
+    const top = (eligible.length > 0 ? eligible : candidates).reduce((best, b) => (b.levelReq > best.levelReq ? b : best));
+    const base = this.tieredBase(top, itemLevel);
     const uid = this.nextUid();
     const tier = affixTier(itemLevel, this.data.balance);
     const legendaryRolls = def.lines
@@ -147,5 +174,10 @@ export function affixTier(itemLevel: number, balance: Pick<DataRegistry, 'balanc
 
 /** 傳奇設計的種類是否對應這個基底（武器看武器種類，其他看部位） */
 function kindMatches(def: LegendaryDef, base: ItemBaseDef): boolean {
-  return base.slot === 'weapon' ? base.weaponType === def.kind : base.slot === def.kind;
+  return baseIsKind(base, def.kind);
+}
+
+/** 基底是否屬於某個裝備種類（武器看武器類型；'weapon' = 任一種武器） */
+export function baseIsKind(base: ItemBaseDef, kind: LegendaryKind | EquipSlot): boolean {
+  return base.slot === 'weapon' && kind !== 'weapon' ? base.weaponType === kind : base.slot === kind;
 }

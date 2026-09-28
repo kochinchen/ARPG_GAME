@@ -1,4 +1,4 @@
-import type { FigureModel, Joint, PartDef, Pose, PoseSet } from './FigureModel';
+import { grounded, type FigureModel, type Joint, type PartDef, type Pose, type PoseSet } from './FigureModel';
 import { box, lowSphere, normalize, placeMesh, prism, type Mesh, type V3 } from './Poly3D';
 
 /**
@@ -56,6 +56,52 @@ export const plus = (base: Pose, extra: Angles, rootY = base.rootY): Pose => {
 
 // ─────────────────────────── 四足 ───────────────────────────
 
+/**
+ * 四足站姿的腿部角度（弧度，繞 X：負 = 往前、正 = 往後）。
+ * rear = [大腿, 小腿（相對大腿）]、front = [上臂, 前臂（相對上臂）]；腳掌自動放平。
+ * 預設（舊的站姿）：後腿 [-0.35, 0.7]、前腿 [0.2, -0.2]（前腿幾乎是直的）。
+ * 生物感的站姿：後腿大腿往前、小腿往後（跗關節在後）；前腿上臂往後、前臂往前下（手肘朝後），再加上 splay 讓四肢外張。
+ */
+export interface QuadLimbs {
+  rear: [number, number];
+  front: [number, number];
+  /**
+   * 下半截（小腿、前臂）往內收的程度（splay 的倍數）：上半截往外張、下半截往內收，
+   * 手肘與膝蓋往外突出、腳掌回到身體下方（省略 = 0，整條腿一起外張）。
+   */
+  kneeIn?: number;
+}
+export const DEFAULT_LIMBS: QuadLimbs = { rear: [-0.35, 0.7], front: [0.2, -0.2] };
+
+/** 兩節腿在站姿時的垂直比例（腿長 × 這個值 = 腿的高度）：上半截外張 splay、下半截外張 splay × (1 − kneeIn) */
+export const legReach = ([a, b]: [number, number], splay: number, kneeIn = 0): number =>
+  0.5 * (Math.cos(a) * Math.cos(splay) + Math.cos(a + b) * Math.cos(splay * (1 - kneeIn)));
+
+/**
+ * 讓四隻腳掌踩在地上：以待機姿勢量出最低的腳掌，把所有姿勢（倒地以外）一起往上 / 下移。
+ */
+export function groundQuad(model: FigureModel): FigureModel {
+  const feet: Joint[] = ['footL', 'footR', 'handL', 'handR'];
+  const rest = model.poses.ready(0);
+  const delta = grounded(model.parts, model.hipHeight, rest, feet).rootY - rest.rootY;
+  if (Math.abs(delta) < 0.01) return model;
+  const lift = (p: Pose): Pose => ({ ...p, rootY: p.rootY + delta });
+  const P = model.poses;
+  return {
+    ...model,
+    poses: {
+      ...P,
+      ready: (t) => lift(P.ready(t)),
+      run: (x) => lift(P.run(x)),
+      attackWindup: lift(P.attackWindup),
+      attackStrike: lift(P.attackStrike),
+      castWindup: lift(P.castWindup),
+      castRelease: lift(P.castRelease),
+      hit: lift(P.hit),
+    },
+  };
+}
+
 interface QuadOptions {
   /** 後腿髖部高度 */
   hip: number;
@@ -87,6 +133,8 @@ interface QuadOptions {
   tailExtras?: Mesh[];
   /** 腳掌：爪子顏色 */
   claw?: number;
+  /** 站姿的腿部角度（省略為舊的站姿） */
+  limbs?: QuadLimbs;
 }
 
 function quadruped(o: QuadOptions): { parts: PartDef[]; hip: number } {
@@ -98,9 +146,10 @@ function quadruped(o: QuadOptions): { parts: PartDef[]; hip: number } {
   const foot = 1.6;
   // 後腿：大腿往前下、小腿往後下（ready 姿勢時的角度），長度讓腳剛好踩在地上
   const rearTop = o.hip - H * 0.4;
-  const rearLen = (rearTop - foot) / Math.cos(0.35) / Math.cos(splay);
+  const limbs = o.limbs ?? DEFAULT_LIMBS;
+  const rearLen = (rearTop - foot) / legReach(limbs.rear, splay, limbs.kneeIn);
   const frontTop = o.hip + raise - H * 0.4;
-  const frontLen = (frontTop - foot) / Math.cos(0.2) / Math.cos(splay);
+  const frontLen = (frontTop - foot) / legReach(limbs.front, splay, limbs.kneeIn);
   const fr = o.frontLegR ?? o.legR;
   // 身體中心（臀部到胸口的中點）對準角色位置：root 的零件與子關節整體往後移
   const dz = -L * 0.3;
@@ -172,21 +221,27 @@ function quadruped(o: QuadOptions): { parts: PartDef[]; hip: number } {
   return { parts, hip: o.hip };
 }
 
-export function quadPoses(o: { splay?: number; heavy?: boolean }): PoseSet {
+export function quadPoses(o: { splay?: number; heavy?: boolean; limbs?: QuadLimbs }): PoseSet {
   const sp = o.splay ?? 0;
+  const { rear, front, kneeIn = 0 } = o.limbs ?? DEFAULT_LIMBS;
+  const rearFoot = -(rear[0] + rear[1]);
+  const frontHand = -(front[0] + front[1]);
+  // 下半截往內收 kneeIn × splay；腳掌再轉回水平
+  const inward = sp * kneeIn;
+  const flat = sp - inward;
   const ready = pose(0, {
-    thighL: [-0.35, 0, sp],
-    thighR: [-0.35, 0, -sp],
-    shinL: [0.7, 0, 0],
-    shinR: [0.7, 0, 0],
-    footL: [-0.35, 0, -sp],
-    footR: [-0.35, 0, sp],
-    upperArmL: [0.2, 0, sp],
-    upperArmR: [0.2, 0, -sp],
-    forearmL: [-0.2, 0, 0],
-    forearmR: [-0.2, 0, 0],
-    handL: [0, 0, -sp],
-    handR: [0, 0, sp],
+    thighL: [rear[0], 0, sp],
+    thighR: [rear[0], 0, -sp],
+    shinL: [rear[1], 0, -inward],
+    shinR: [rear[1], 0, inward],
+    footL: [rearFoot, 0, -flat],
+    footR: [rearFoot, 0, flat],
+    upperArmL: [front[0], 0, sp],
+    upperArmR: [front[0], 0, -sp],
+    forearmL: [front[1], 0, -inward],
+    forearmR: [front[1], 0, inward],
+    handL: [frontHand, 0, -flat],
+    handR: [frontHand, 0, flat],
   });
   const k = o.heavy ? 0.6 : 1;
   return {
@@ -238,9 +293,10 @@ export function quadPoses(o: { splay?: number; heavy?: boolean }): PoseSet {
 /** 四足模型：倒地時依身寬決定往下降多少（側躺在地上） */
 function quadModel(o: QuadOptions, referenceRadius: number, heavy = false): FigureModel {
   const { parts, hip } = quadruped(o);
-  const poses = quadPoses({ ...(o.splay !== undefined ? { splay: o.splay } : {}), heavy });
+  const poses = quadPoses({ ...(o.splay !== undefined ? { splay: o.splay } : {}), ...(o.limbs ? { limbs: o.limbs } : {}), heavy });
   poses.dead = { ...poses.dead, rootY: -hip + o.width * 0.5 };
-  return { parts, hipHeight: hip, referenceRadius, poses };
+  const model: FigureModel = { parts, hipHeight: hip, referenceRadius, poses };
+  return o.limbs ? groundQuad(model) : model;
 }
 
 // ─────────────────────────── 節肢 ───────────────────────────
@@ -458,6 +514,9 @@ const MOLTEN = { rock: 0x3a2c26, dark: 0x201814, crack: 0xff7a20, glow: 0xffc040
 const MOLTEN_BRUTE = quadModel(
   {
     hip: 22,
+    // 巨獸的站姿：四肢粗壯地彎曲外張、手肘與膝蓋朝外
+    limbs: { rear: [-0.45, 0.85], front: [0.35, -0.75], kneeIn: 1.7 },
+    splay: 0.36,
     length: 32,
     width: 17,
     height: 15,

@@ -1,5 +1,5 @@
 import { vec2 } from '../core/math/Vec2';
-import type { GameWorld } from '../game/GameWorld';
+import { RNG_STREAMS, type GameWorld } from '../game/GameWorld';
 import type { ComboCodexEntry } from '../game/combo/ComboCodex';
 import type { GroundContent } from '../game/entities/Interactable';
 import type { InventoryEntry } from '../game/items/Inventory';
@@ -27,7 +27,7 @@ export const SaveMapper = {
       const item = world.equipment.get(slot);
       if (item) equipment[slot] = clone(item);
     }
-    const midway = world.checkpoints.checkpoints.find((c) => c.kind === 'midway');
+    const midway = world.checkpoints.get('midway');
     return {
       meta: { createdAt, playTimeSec: world.playTime, runSeed: world.runSeed },
       character: {
@@ -70,18 +70,22 @@ export const SaveMapper = {
         highest: progress.highestFloor,
         mapId: world.map.id,
         midwayActive: midway?.active ?? false,
+        bossGateActive: world.checkpoints.get('boss')?.active ?? false,
+        midwayFloors: [...world.floors.midwayFloors].sort((a, b) => a - b),
         exitOpen: world.floors.exitOpen,
         killed: [...world.floors.killedSpawns],
         openedChests: Object.fromEntries([...world.floors.openedChests].map(([floor, set]) => [String(floor), [...set].sort((a, b) => a - b)])),
         groundItems: captureGround(world),
         shopBought: world.shop.boughtIndices,
       },
+      endgame: { cleared: progress.cleared, completedHidden: progress.completedHidden },
       bestiary: Object.fromEntries(progress.bestiary),
       collection: [...progress.collection].sort(),
       materials: world.materials.snapshot(),
       salvage: world.salvage.slots.map((item) => (item ? clone(item) : null)),
       ascendSlot: world.shop.ascendSlot ? clone(world.shop.ascendSlot) : null,
       counters: { itemUidCounter: world.itemGenerator.uidCounter },
+      rng: Object.fromEntries(RNG_STREAMS.map((name) => [name, world.rngStreams[name].getState()])),
     };
   },
 
@@ -132,6 +136,11 @@ export const SaveMapper = {
       if (item) world.equipment.equipTo(slot, toItem(item));
     }
     world.itemGenerator.uidCounter = save.counters.itemUidCounter;
+    // 亂數序列接續存檔時的狀態；舊存檔（v8 以前）沒有紀錄時混出新狀態，避免重跑新遊戲的序列
+    for (const name of RNG_STREAMS) {
+      const state = save.rng[name];
+      world.rngStreams[name].setState(state ?? reseed(save.meta.runSeed, name, save.counters.itemUidCounter, save.meta.playTimeSec));
+    }
 
     // Codex：名稱與說明依目前規則重新產生；規則已不存在的條目移除
     const rankOf = (id: string) => player.skillRanks.get(id) ?? 1;
@@ -159,10 +168,16 @@ export const SaveMapper = {
     for (const [floor, indices] of Object.entries(save.floor.openedChests)) {
       for (const i of indices) world.floors.markChestOpened(Number(floor), i);
     }
+    world.floors.midwayFloors.clear();
+    for (const f of save.floor.midwayFloors) world.floors.midwayFloors.add(f);
     progress.highestFloor = save.floor.highest;
+    // 終局紀錄要在進入樓層前還原（往上的樓梯是否存在取決於它）
+    progress.cleared = save.endgame.cleared;
+    progress.completedHidden = save.endgame.completedHidden;
     world.enterFloor(save.floor.current, {
       killed: save.floor.killed,
       midwayActive: save.floor.midwayActive,
+      bossGateActive: save.floor.bossGateActive,
       exitOpen: save.floor.exitOpen,
       shopBought: save.floor.shopBought,
     });
@@ -251,6 +266,16 @@ function toItem(saved: SavedItem): ItemInstance {
     ...(legendaryId === undefined ? {} : { legendaryId }),
     ...(legendaryRolls === undefined ? {} : { legendaryRolls }),
   };
+}
+
+/** 沒有存下狀態的序列：由種子、序列名稱與遊玩進度混出一個狀態（FNV-1a） */
+function reseed(seed: number, name: string, uidCounter: number, playTimeSec: number): number {
+  let h = 0x811c9dc5;
+  for (const ch of `${seed}|${name}|${uidCounter}|${Math.floor(playTimeSec * 1000)}`) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
 function clone<T>(value: T): T {

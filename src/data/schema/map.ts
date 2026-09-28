@@ -19,6 +19,10 @@ export const MapDefSchema = z
     spawns: z.array(z.strictObject({ enemyId: IdSchema, at: PointSchema })).default([]),
     /** 寶箱位置與掉落表 */
     chests: z.array(z.strictObject({ at: PointSchema, lootTable: IdSchema })).default([]),
+    /** 魔王競技場（隨機地圖的魔王層）：圓心與半徑（World 單位）。魔王在圓心，一般怪物與寶箱不會生成在裡面 */
+    arena: z.strictObject({ x: z.number(), y: z.number(), radius: z.number().positive() }).optional(),
+    /** 中途小王的圓形空地（挑戰樓層）：小王在圓心，一般怪物與寶箱不會生成在裡面 */
+    subArenas: z.array(z.strictObject({ x: z.number(), y: z.number(), radius: z.number().positive() })).default([]),
   })
   .superRefine((map, ctx) => {
     const width = map.rows[0]?.length ?? 0;

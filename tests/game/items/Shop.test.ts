@@ -195,7 +195,7 @@ describe('商人', () => {
 
     const before = world.wallet.gold;
     const count = world.inventory.items.length;
-    send({ type: 'ShopGamble', slot: 'gloves' });
+    send({ type: 'ShopGamble', kind: 'gloves' });
     expect(world.wallet.gold).toBe(before - gamblePrice(3, data));
     const items = world.inventory.items;
     expect(items).toHaveLength(count + 1);
@@ -209,7 +209,7 @@ describe('商人', () => {
     world.inventory.restore(world.inventory.cells.map(() => ({ kind: 'potion' as const, potionId: 'potion.rejuvenation', count: 20 })));
     world.wallet.gold = 10000;
     send({ type: 'ShopBuy', index: 0 });
-    send({ type: 'ShopGamble', slot: 'weapon' });
+    send({ type: 'ShopGamble', kind: 'axe' });
     expect(world.wallet.gold).toBe(10000);
     expect(world.shop.stock[0]).not.toBeNull();
   });

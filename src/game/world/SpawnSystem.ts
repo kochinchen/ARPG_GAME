@@ -81,8 +81,9 @@ export class SpawnSystem {
     return requests;
   }
 
-  planChests(count: number, avoid: readonly Vec2[]): Vec2[] {
-    const tiles = this.candidates(avoid.map((center) => ({ center, radius: 3 })));
+  /** avoid：這些點附近 3 格內不放；zones：另外不放寶箱的範圍（魔王競技場） */
+  planChests(count: number, avoid: readonly Vec2[], zones: readonly SafeZone[] = []): Vec2[] {
+    const tiles = this.candidates([...avoid.map((center) => ({ center, radius: 3 })), ...zones]);
     const chests: Vec2[] = [];
     for (let attempts = 0; chests.length < count && tiles.length > 0 && attempts < 200; attempts++) {
       const p = this.nav.cellCenter(this.rng.pick(tiles));

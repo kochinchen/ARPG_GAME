@@ -25,6 +25,9 @@
 - `npm test`：單元測試
 - `npm run lint`：型別檢查（含無 DOM 的 `tsconfig.logic.json`）+ 依賴方向檢查
 - `npm run build`：正式版建置
+- `npm run package`：可攜版遊戲包（單一 HTML + Windows / Mac 啟動檔 + 說明）→ `release/ARPG-遊戲包/` 與 `.zip`
+- `npm run docs:models`：重新產生設計文件的怪物模型圖（每隻怪物旁邊站著女主角當比例尺）→ `release/設計文件/models/`
+- `npm run docs:combos`：用遊戲的 Combo 判定重新產生組合技圖鑑 → `release/設計文件/組合技圖鑑.html`（頁面樣式在 `scripts/combo-doc.template.html`）
 
 ## 開發用快捷鍵（只在 `npm run dev` 有效）
 
@@ -40,3 +43,4 @@
 
 - 依 Milestone 順序開發（M0 → M9），每個 Milestone 完成 Acceptance 與 Test 才進下一個。
 - `npm test` 與 `npm run lint`（含 dependency-cruiser）必須通過。
+- 設計文件（Artifact 頁面）在 `release/設計文件/` 有本機版：怪物與樓層、裝備圖鑑、角色成長模擬、開發歷程、組合技圖鑑（連結見該資料夾的 `說明.txt`）。改到這些頁面的內容（怪物、樓層、魔王、裝備、成長數值、模型、開發進度）時，線上頁面與本機 HTML 都要一起更新；改到怪物或女主角模型時執行 `npm run docs:models`；改到技能、Combo 標籤或組合技規則時執行 `npm run docs:combos`，線上版用 `node scripts/render-combo-doc.mjs <檔案> --fragment` 產生後重新發布。`npm run package` 只會重建 `release/ARPG-遊戲包/`，不會動到 `release/設計文件/`。

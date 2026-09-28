@@ -48,6 +48,11 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'affix.grounded', name: '絕緣的', kind: 'item', stat: 'lightningResist', value: [0.05, 0.12], minItemLevel: 1, weight: 5, growth: PERCENT, slots: [...DEFENSIVE] },
   { id: 'affix.antidote', name: '抗毒的', kind: 'item', stat: 'poisonResist', value: [0.05, 0.12], minItemLevel: 1, weight: 5, growth: PERCENT, slots: [...DEFENSIVE] },
 
+  // ── 控制抗性（上限 balance.combat.maxControlResist）──
+  { id: 'affix.unhindered', name: '自在的', kind: 'item', stat: 'slowResist', value: [0.08, 0.2], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['boots', 'gloves', 'amulet'] },
+  { id: 'affix.steadfast', name: '穩健的', kind: 'item', stat: 'knockbackResist', value: [0.1, 0.25], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['armor', 'boots', 'ring'] },
+  { id: 'affix.lucid', name: '清醒的', kind: 'item', stat: 'stunResist', value: [0.08, 0.2], minItemLevel: 6, weight: 5, growth: PERCENT, slots: ['helmet', 'armor', 'amulet'] },
+
   // ── 移動 ──
   { id: 'affix.swift', name: '迅捷的', kind: 'item', stat: 'moveSpeed', modifier: 'increased', value: [0.05, 0.1], minItemLevel: 1, weight: 6, growth: PERCENT, slots: ['boots'] },
 
@@ -78,4 +83,8 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'strong.soul_drain', name: '汲魂', kind: 'strong', stat: 'manaSteal', value: [0.03, 0.04], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['weapon', 'ring'] },
   { id: 'strong.sage', name: '賢者', kind: 'strong', stat: 'maxMana', modifier: 'increased', value: [0.2, 0.25], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['armor', 'helmet', ...JEWELRY] },
   { id: 'strong.windwalk', name: '疾行', kind: 'strong', stat: 'moveSpeed', modifier: 'increased', value: [0.12, 0.16], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['boots'] },
+  // 控制抗性：一條強屬性約等於兩條一般詞綴；T5 紫裝約 45%～65%（上限 75%）
+  { id: 'strong.unbound', name: '無羈', kind: 'strong', stat: 'slowResist', value: [0.25, 0.35], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['boots', 'amulet'] },
+  { id: 'strong.bedrock', name: '山岳', kind: 'strong', stat: 'knockbackResist', value: [0.3, 0.4], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['armor', 'boots'] },
+  { id: 'strong.clarity', name: '明心', kind: 'strong', stat: 'stunResist', value: [0.25, 0.35], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['helmet', 'amulet'] },
 ];

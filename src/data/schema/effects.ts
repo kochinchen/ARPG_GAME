@@ -122,6 +122,10 @@ export const AreaEffectSchema = z.strictObject({
   at: z.enum(['origin', 'target']).default('origin'),
   /** 扇形角度（朝施放方向）；省略 = 360° */
   angleDeg: z.number().positive().max(360).optional(),
+  /** 扇形朝向相對施放方向的旋轉角度（180 = 背後，例如尾巴橫掃；±25 = 裂地的左右分支） */
+  offsetDeg: z.number().min(-180).max(180).default(0),
+  /** 直線範圍：從中心沿施放方向延伸 length 格、寬 width 格的長方形（取代圓 / 扇形；radius 設為 length） */
+  line: z.strictObject({ length: z.number().positive(), width: z.number().positive() }).optional(),
   /** 主要目標一定命中（近戰揮砍：目標在出招途中稍微移動也不會落空） */
   includeTarget: z.boolean().default(false),
   get effects() {

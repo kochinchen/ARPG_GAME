@@ -51,5 +51,17 @@ export interface Merchant {
   position: Vec2;
 }
 
+/**
+ * 傳送口：本層的中途存檔點啟動過之後（包含以前來過、已經到過中途的樓層），
+ * 樓梯口旁與中途存檔點旁各一個，互相傳送。
+ */
+export interface Waypoint {
+  kind: 'waypoint';
+  id: number;
+  position: Vec2;
+  /** 傳送到哪一個存檔點 */
+  to: 'stairs' | 'midway';
+}
+
 /** 玩家可以點擊互動的物件 */
-export type Interactable = GroundItem | Chest | ExitPortal | StairsUp | Merchant;
+export type Interactable = GroundItem | Chest | ExitPortal | StairsUp | Merchant | Waypoint;

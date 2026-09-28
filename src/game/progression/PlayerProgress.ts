@@ -22,6 +22,10 @@ export class PlayerProgress {
   /** 目前所在樓層與到過的最高樓層（測試地圖模式為 0） */
   currentFloor = 0;
   highestFloor = 0;
+  /** 已通關：擊敗第 30 層的魔王（docs/ENDGAME.md） */
+  cleared = false;
+  /** 已完成隱藏難關：擊敗第 35 層的深淵統御者 */
+  completedHidden = false;
   private _version = 0;
 
   get version(): number {

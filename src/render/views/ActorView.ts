@@ -2,7 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { Actor } from '../../game/entities/Actor';
-import type { AttackVariant } from '../figure/FigureModel';
+import { figureScale, type AttackVariant } from '../figure/FigureModel';
 import { HEROINE } from '../figure/Heroine';
 import { DEFAULT_MONSTER_MODEL, MONSTER_MODELS } from '../figure/Monsters';
 import { PolyFigure, type ActionKind } from '../figure/PolyFigure';
@@ -29,7 +29,7 @@ export const HIT_BOX = { halfWidth: 18, top: -60, bottom: 10 } as const;
 const modelOf = (actor: Actor) => (actor.faction === 'player' ? HEROINE : (MONSTER_MODELS[actor.defId ?? ''] ?? DEFAULT_MONSTER_MODEL));
 
 /** 角色相對於標準體型（主角）的大小：模型的縮放倍率（隨機體型、精英、Boss 都會放大） */
-export const sizeOf = (actor: Actor) => Math.max(1, actor.visualRadius / modelOf(actor).referenceRadius);
+export const sizeOf = (actor: Actor) => Math.max(1, figureScale(modelOf(actor), actor.visualRadius));
 
 /**
  * 角色外觀：影子 + 多面體模型（女主角 / 各種怪物，八方向、各種樣態）+ 面向指示；
@@ -62,6 +62,8 @@ export class ActorView {
   private readonly dynamicShadow: boolean;
   private lungeDir = { x: 0, y: 0 };
   hovered = false;
+  /** 模型剛開始待機怒吼（Renderer 讀取後清除） */
+  roared = false;
 
   constructor(
     private readonly projection: IsoProjection,
@@ -71,10 +73,10 @@ export class ActorView {
     this.isPlayer = actor.faction === 'player';
     // Boss 與精英：名稱與血條一直顯示、腳下有光圈（Boss 為紅色）
     this.isElite = actor.elite || actor.isBoss;
-    const px = actor.visualRadius * projection.tileWidth;
-
     const model = modelOf(actor);
-    this.figure = new PolyFigure(model, actor.visualRadius / model.referenceRadius);
+    // 影子與光圈跟著外觀倍率（模型放大時腳下也跟著變大）
+    const px = actor.visualRadius * projection.tileWidth * (model.visualScale ?? 1);
+    this.figure = new PolyFigure(model, figureScale(model, actor.visualRadius));
     this.body.addChild(this.figure.graphics);
     this.barY = BAR_Y * sizeOf(actor);
 
@@ -140,6 +142,11 @@ export class ActorView {
     this.figure.hit();
   }
 
+  /** 魔王的階段變化（盾牌碎裂、巨劍落地：模型的 phaseHidden） */
+  setPhase(phase: number): void {
+    this.figure.setPhase(phase);
+  }
+
   /** 揮擊動畫：往 direction（畫面座標）前衝一下 */
   lunge(screenDirection: Vec2): void {
     const len = Math.hypot(screenDirection.x, screenDirection.y) || 1;
@@ -169,6 +176,7 @@ export class ActorView {
     const worldSpeed = this.lastWorld && dt > 0 ? Math.hypot(position.x - this.lastWorld.x, position.y - this.lastWorld.y) / dt : 0;
     this.lastWorld = { x: position.x, y: position.y };
     this.figure.update(dt, { facing: actor.facing, moving: actor.alive && speed > MOVING_SPEED, alive: actor.alive, speed: worldSpeed });
+    if (this.figure.consumeRoar()) this.roared = true;
     this.gear?.update(dt, this.figure.weaponTip, actor.alive);
     this.weaponGlow?.update(dt, this.figure.weaponAxis, actor.alive);
 

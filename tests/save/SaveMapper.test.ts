@@ -143,6 +143,31 @@ describe('SaveMapper：Round-trip', () => {
       expect(counter(item.uid)).toBeGreaterThan(Math.max(...[...existing].map(counter)));
     }
   });
+
+  it('亂數接續存檔時的狀態：讀檔後掉的裝備與沒讀檔時相同，而不是重跑新遊戲的序列', () => {
+    const { world } = progressedWorld();
+    const { world: loaded } = reload(world);
+    const fresh = newWorld(11).world;
+    const bow = data.items.all.find((b) => b.weaponType === 'bow' && b.levelReq <= 1)!;
+    const stats = (w: GameWorld) => {
+      const { uid: _uid, ...rest } = w.itemGenerator.create(bow, 'rare', 2);
+      return rest;
+    };
+    const next = stats(world);
+    expect(stats(loaded)).toEqual(next);
+    expect(stats(fresh)).not.toEqual(next);
+  });
+
+  it('舊存檔（沒有亂數紀錄）：讀檔後的序列與新遊戲不同', () => {
+    const { world } = progressedWorld();
+    const save = SaveMapper.capture(world, CREATED);
+    const loaded = newWorld(save.meta.runSeed).world;
+    SaveMapper.restore(loaded, repairSave({ ...save, rng: {} }, data));
+    const fresh = newWorld(save.meta.runSeed).world;
+    for (const name of ['items', 'loot', 'combat'] as const) {
+      expect(loaded.rngStreams[name].getState()).not.toBe(fresh.rngStreams[name].getState());
+    }
+  });
 });
 
 describe('SaveMapper：屬性點', () => {
@@ -270,9 +295,40 @@ describe('SaveMapper：重新整理不能刷 / 不能補滿（讀檔 = 死亡）
     const { world: loaded } = reload(world);
     expect(loaded.floors.floor).toBe(2);
     expect(loaded.progress.highestFloor).toBe(3);
-    expect(loaded.floors.exitOpen).toBe(true);
+    // 重新進入的樓層出口是關的，讀檔後維持
+    expect(loaded.floors.exitOpen).toBe(false);
     expect(loaded.chests.find((c) => c.spawnIndex === 0)!.opened).toBe(true);
     expect(loaded.stairsUp).not.toBeNull();
+  });
+});
+
+describe('存檔點（v11）', () => {
+  it('魔王門前已啟動：讀檔回到魔王門前，擊殺紀錄保留', () => {
+    const { world } = newWorld(9, 5);
+    world.player.position = world.checkpoints.get('midway')!.position;
+    run(world, 1 / 60);
+    world.player.position = world.checkpoints.get('boss')!.position;
+    run(world, 1 / 60);
+    const victim = world.actors.find((a) => a.faction === 'enemy' && !a.isBoss)!;
+    victim.hp = 0;
+    run(world, 1 / 60);
+    const { world: loaded } = reload(world);
+    expect(loaded.checkpoints.get('boss')!.active).toBe(true);
+    expect(loaded.checkpoints.respawn.kind).toBe('boss');
+    expect(distance(loaded.player.position, loaded.checkpoints.get('boss')!.position)).toBeLessThan(0.01);
+    expect(loaded.floors.killed).toBe(1);
+  });
+
+  it('到過中途的樓層跨層保留：讀檔後回到那一層，中途點維持啟動、有傳送口', () => {
+    const { world } = newWorld(9, 2);
+    world.player.position = world.checkpoints.get('midway')!.position;
+    run(world, 1 / 60);
+    world.enterFloor(3);
+    const { world: loaded, save } = reload(world);
+    expect(save.floor.midwayFloors).toEqual([2]);
+    loaded.enterFloor(2);
+    expect(loaded.checkpoints.get('midway')!.active).toBe(true);
+    expect(loaded.waypoints).toHaveLength(2);
   });
 });
 

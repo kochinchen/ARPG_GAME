@@ -1,4 +1,4 @@
-import { bar, detail, loft, tone } from '../Facets';
+import { bar, detail, facetize, loft, tone } from '../Facets';
 import { box, lowSphere, placeMesh, prism, type Mesh } from '../Poly3D';
 import { EYE, HAIR_DEEP, LIP, SHIRT, SKIN, SKIN_SHADOW } from './HeroinePalette';
 
@@ -11,9 +11,9 @@ import { EYE, HAIR_DEEP, LIP, SHIRT, SKIN, SKIN_SHADOW } from './HeroinePalette'
 /** 頭（head 關節，原點在頸部上端）：頭骨、臉的各個平面（額頭、太陽穴、雙頰、鼻、下顎、下巴）、眼、眉、唇 */
 export function heroineHead(): Mesh[] {
   return [
-    tone(lowSphere(4.2, SKIN[0], [0, 5, -0.2], 8, 5, [0.9, 1.05, 1]), SKIN, 1),
+    facetize(tone(lowSphere(4.2, SKIN[0], [0, 5, -0.2], 10, 6, [0.9, 1.05, 1]), SKIN, 1), 0.1, 1),
     // 額頭（上半被瀏海蓋住）
-    tone(placeMesh(box(4.4, 1.8, 1.2, SKIN[0]), [-0.3, 0, 0], [0, 6.7, 2.9]), SKIN, 2),
+    facetize(tone(placeMesh(box(4.4, 1.8, 1.2, SKIN[0]), [-0.3, 0, 0], [0, 6.7, 2.9]), SKIN, 2), 0.18, 2),
     // 下半臉：往下巴收窄、往前突出的放樣體（jaw + chin）
     loft(
       [
@@ -27,8 +27,8 @@ export function heroineHead(): Mesh[] {
       3,
     ),
     // 雙頰（往外斜的平面）
-    tone(placeMesh(box(2.3, 2.4, 1.2, SKIN[0]), [0.1, 0.55, 0], [1.8, 4.3, 3.3]), SKIN, 4),
-    tone(placeMesh(box(2.3, 2.4, 1.2, SKIN[0]), [0.1, -0.55, 0], [-1.8, 4.3, 3.3]), SKIN, 5),
+    facetize(tone(placeMesh(box(2.3, 2.4, 1.2, SKIN[0]), [0.1, 0.55, 0], [1.8, 4.3, 3.3]), SKIN, 4), 0.2, 4),
+    facetize(tone(placeMesh(box(2.3, 2.4, 1.2, SKIN[0]), [0.1, -0.55, 0], [-1.8, 4.3, 3.3]), SKIN, 5), 0.2, 5),
     // 太陽穴、眼窩的陰影面
     ...detail(1, [
       tone(placeMesh(box(0.6, 1.8, 2, SKIN[3]), [0, 0.5, 0], [2.9, 5.6, 2.2]), SKIN, 6),
@@ -67,7 +67,7 @@ export function heroineChest(): Mesh[] {
   return [
     loft(
       [
-        { y: 0, rx: 4.5, rz: 3.2 },
+        { y: 0, rx: 4.1, rz: 3 },
         { y: 2.5, rx: 5, rz: 3.6 },
         { y: 5.2, rx: 5.5, rz: 3.9, cz: 0.2 },
         { y: 8.2, rx: 5.9, rz: 3.7 },
@@ -77,18 +77,19 @@ export function heroineChest(): Mesh[] {
       SHIRT,
       1,
     ),
-    tone(lowSphere(2.3, SHIRT[0], [1.9, 5.2, 2.6], 6, 4, [1, 0.85, 0.75]), SHIRT, 2),
-    tone(lowSphere(2.3, SHIRT[0], [-1.9, 5.2, 2.6], 6, 4, [1, 0.85, 0.75]), SHIRT, 3),
+    // 胸部：往前明顯隆起（上緣較平、下緣較圓）
+    facetize(tone(lowSphere(2.7, SHIRT[0], [1.95, 5.3, 3.1], 8, 5, [1, 0.92, 0.88]), SHIRT, 2), 0.08, 2),
+    facetize(tone(lowSphere(2.7, SHIRT[0], [-1.95, 5.3, 3.1], 8, 5, [1, 0.92, 0.88]), SHIRT, 3), 0.08, 3),
   ];
 }
 
-/** 腰（torso 關節，0～6.4）：露出的腰身（分成上下兩段，腰部收窄但不誇張） */
+/** 腰（torso 關節，0～6.4）：露出的腰身（分成上下兩段，腰部明顯收窄） */
 export function heroineWaist(): Mesh[] {
   return [
     loft(
       [
         { y: -0.2, rx: 4.9, rz: 3.6 },
-        { y: 3, rx: 4.3, rz: 3.2, cz: 0.1 },
+        { y: 3, rx: 3.7, rz: 2.9, cz: 0.1 },
       ],
       8,
       SKIN,
@@ -96,8 +97,8 @@ export function heroineWaist(): Mesh[] {
     ),
     loft(
       [
-        { y: 3, rx: 4.3, rz: 3.2, cz: 0.1 },
-        { y: 6.6, rx: 4.6, rz: 3.3 },
+        { y: 3, rx: 3.7, rz: 2.9, cz: 0.1 },
+        { y: 6.6, rx: 4.2, rz: 3.1 },
       ],
       8,
       SKIN,

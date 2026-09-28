@@ -22,6 +22,7 @@ export class ViewSync {
   private bestiaryVersion = -1;
   private bannerTimer = 0;
   private discoveryTimer = 0;
+  private milestoneTimer = 0;
 
   constructor(
     private readonly world: GameWorld,
@@ -30,6 +31,7 @@ export class ViewSync {
     const events = world.events;
     events.on('FloorEntered', (e) => {
       gameView.leavePrompt = null;
+      gameView.challengePrompt = null;
       this.showBanner(e.floor);
     });
     events.on('ComboDiscovered', (e) => {
@@ -38,6 +40,17 @@ export class ViewSync {
       this.discoveryTimer = window.setTimeout(() => (gameView.discovery = null), DISCOVERY_SECONDS * 1000);
     });
     events.on('ShopOpened', () => gameView.shopRequest++);
+    events.on('ChallengeConfirm', (e) => {
+      gameView.challengePrompt = { toFloor: e.toFloor, valuableItems: e.valuableItems };
+    });
+    events.on('GameCleared', (e) => {
+      gameView.milestone =
+        e.stage === 'normal'
+          ? { title: '已通關', text: '擊敗了第 30 層的深淵魔王。出口通往第 31 層的極限挑戰；讀檔時也可以選擇回到 1～30 層。' }
+          : { title: '已完成隱藏難關', text: '深淵統御者倒下了。之後讀檔可以選擇前往第 1～35 層的任何一層。' };
+      window.clearTimeout(this.milestoneTimer);
+      this.milestoneTimer = window.setTimeout(() => (gameView.milestone = null), 10_000);
+    });
     events.on('LeaveFloorConfirm', (e) => {
       gameView.leavePrompt = { direction: e.direction, toFloor: e.toFloor, valuableItems: e.valuableItems };
     });
@@ -82,9 +95,10 @@ export class ViewSync {
     gameView.floor.remaining = floors.remainingToOpen;
     gameView.floor.exitOpen = floors.exitOpen;
     gameView.floor.bossFloor = floors.bossFloor;
+    gameView.floor.lastFloor = floors.floor >= this.data.balance.endgame.lastFloor;
     this.updateBoss();
     gameView.respawnIn = world.deathHandler.secondsUntilRespawn;
-    gameView.respawnAt = world.checkpoints.respawn.kind === 'midway' ? '中途存檔點' : '樓梯口';
+    gameView.respawnAt = { stairs: '樓梯口', midway: '中途存檔點', boss: '魔王門前' }[world.checkpoints.respawn.kind];
 
     if (world.itemsVersion !== this.inventoryVersion) {
       this.inventoryVersion = world.itemsVersion;
@@ -155,7 +169,7 @@ export class ViewSync {
   private updateBoss(): void {
     const world = this.world;
     const boss = world.actors.find(
-      (a) => a.isBoss && a.alive && (a.ai?.state === 'chase' || Math.hypot(a.position.x - world.player.position.x, a.position.y - world.player.position.y) < 10),
+      (a) => a.isBoss && !a.miniBoss && a.alive && (a.ai?.state === 'chase' || Math.hypot(a.position.x - world.player.position.x, a.position.y - world.player.position.y) < 10),
     );
     if (!boss) {
       gameView.boss = null;

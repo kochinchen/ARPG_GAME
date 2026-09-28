@@ -5,7 +5,7 @@ import type { EquipSlot, WeaponType } from './schema/item';
  * 裝備命名用的名稱池（ItemNamer 依物品 uid 固定挑選，不存檔）：
  * - 普通（白）：樸素的材質 / 品質詞 + 基底名稱，例如「鐵製短劍」「破舊手斧」
  * - 魔法（藍）：第一個詞綴的名稱 + 基底，例如「鋒利的短劍」
- * - 稀有（黃）：依主要詞綴決定主題前綴 + 基底，例如「裂骨戰斧」「霜牙・獵弓」；飾品用神秘名稱
+ * - 稀有（黃）：依前兩條詞綴決定主題前綴 + 基底，例如「裂骨戰斧」「霜牙・獵弓」；飾品用神秘名稱
  * - 史詩（紫）：特殊名稱，例如「夜行者」，下方再顯示「史詩 短劍」
  * - 傳奇（橘）/ 神話（紅）：全部人工命名（第二批），不隨機產生
  */
@@ -24,39 +24,42 @@ export const COMMON_WORDS: Record<WeaponType | Exclude<EquipSlot, 'weapon'>, rea
   amulet: ['', '', '黯淡的', '樸素的'],
 };
 
-/** 稀有裝備的主題前綴：依主要詞綴的屬性挑選，名稱會反映裝備的路線 */
+/**
+ * 稀有裝備的主題前綴：從前兩條詞綴的屬性各取一組合併後挑選，名稱會反映裝備的路線。
+ * 每種屬性 6 個詞、彼此不重複，同路線的裝備也不容易撞名。
+ */
 export const RARE_PREFIXES: Partial<Record<StatId, readonly string[]>> = {
-  damageMin: ['裂骨', '血痕', '鋒刃', '斷鋼'],
-  damageMax: ['裂骨', '碎顱', '血痕', '裂地'],
-  meleeDamageBonus: ['狂戰', '碎骨', '血怒', '裂山'],
-  rangedDamageBonus: ['鷹眼', '霜牙', '疾矢', '獵影'],
-  spellDamageBonus: ['星火', '烈焰', '寒霜', '雷鳴'],
-  spellPower: ['星火', '秘紋', '烈焰', '寒霜'],
-  castSpeed: ['星火', '流光', '迅咒'],
-  defense: ['鐵壁', '黑鐵', '深岩', '守誓'],
-  damageReduction: ['鐵壁', '不屈', '深岩'],
-  maxHp: ['血誓', '不屈', '巨人', '獸心'],
-  maxMana: ['星輝', '寒霜', '秘紋', '深淵'],
-  manaRegen: ['深淵', '星輝', '湧泉'],
-  attackSpeed: ['迅捷', '風暴', '疾風'],
-  moveSpeed: ['風行', '影行', '疾風'],
-  critChance: ['幽影', '霜牙', '致命'],
-  lifeSteal: ['血牙', '吸魂', '血痕'],
-  fireDamagePct: ['烈焰', '灼熱', '熔火'],
-  coldDamagePct: ['寒霜', '霜牙', '冰脈'],
-  lightningDamagePct: ['雷鳴', '風暴', '電光'],
-  poisonDamagePct: ['毒牙', '腐蝕', '瘴氣'],
-  fireResist: ['灰燼', '炎盾', '熔岩'],
-  coldResist: ['冬眠', '霜盾', '極地'],
-  lightningResist: ['絕緣', '避雷', '靜默'],
-  poisonResist: ['淨化', '解毒', '聖泉'],
-  hpRegenPct: ['再生', '生機', '不死'],
-  dodgeChance: ['影行', '幻步', '靈巧'],
-  thorns: ['荊棘', '尖刺', '棘甲'],
-  potionEffect: ['煉金', '藥師', '秘藥'],
+  damageMin: ['裂骨', '鋒刃', '斷鋼', '銳鋒', '破甲', '寒刃'],
+  damageMax: ['碎顱', '裂地', '重錘', '崩岳', '斬首', '震天'],
+  meleeDamageBonus: ['狂戰', '血怒', '裂山', '蠻王', '戰吼', '鐵拳'],
+  rangedDamageBonus: ['鷹眼', '疾矢', '獵影', '穿楊', '追星', '落羽'],
+  spellDamageBonus: ['秘焰', '咒爆', '奧能', '靈爆', '法潮', '星隕'],
+  spellPower: ['星火', '秘紋', '符文', '智者', '奧秘', '天啟'],
+  castSpeed: ['流光', '迅咒', '瞬念', '急詠', '飛符', '疾語'],
+  defense: ['鐵壁', '黑鐵', '守誓', '堅甲', '城垛', '盾衛'],
+  damageReduction: ['不屈', '深岩', '磐石', '鋼心', '堅忍', '金剛'],
+  maxHp: ['血誓', '巨人', '獸心', '泰坦', '熊魂', '巨像'],
+  maxMana: ['星輝', '深淵', '秘海', '月華', '靈泉', '天穹'],
+  manaRegen: ['湧泉', '潮汐', '冥想', '清泉', '甘霖', '流雲'],
+  attackSpeed: ['迅捷', '疾風', '連擊', '旋風', '狂舞', '閃刃'],
+  moveSpeed: ['風行', '輕羽', '奔雷', '追風', '遊俠', '飛燕'],
+  critChance: ['幽影', '致命', '暗殺', '要害', '夜刺', '死神'],
+  lifeSteal: ['血牙', '吸魂', '血痕', '飲血', '蝠翼', '血宴'],
+  fireDamagePct: ['烈焰', '灼熱', '熔火', '炎魔', '焚天', '赤焰'],
+  coldDamagePct: ['寒霜', '霜牙', '冰脈', '凜冬', '雪崩', '極寒'],
+  lightningDamagePct: ['雷鳴', '風暴', '電光', '天雷', '雷霆', '閃電'],
+  poisonDamagePct: ['毒牙', '腐蝕', '瘴氣', '蛇吻', '劇毒', '蠍尾'],
+  fireResist: ['灰燼', '炎盾', '熔岩', '耐火', '燼甲', '避火'],
+  coldResist: ['冬眠', '霜盾', '極地', '暖陽', '雪狼', '冰原'],
+  lightningResist: ['絕緣', '避雷', '靜默', '接地', '鎮雷', '沉雷'],
+  poisonResist: ['淨化', '解毒', '聖泉', '百草', '清心', '抗瘟'],
+  hpRegenPct: ['再生', '生機', '不死', '回春', '綠葉', '復甦'],
+  dodgeChance: ['影行', '幻步', '靈巧', '殘影', '魅影', '迷蹤'],
+  thorns: ['荊棘', '尖刺', '棘甲', '刺蝟', '反噬', '薔薇'],
+  potionEffect: ['煉金', '藥師', '秘藥', '仙丹', '靈藥', '丹心'],
 };
 /** 沒有對應主題時使用 */
-export const RARE_FALLBACK_PREFIXES: readonly string[] = ['幽影', '深淵', '黑鐵', '風暴', '烈焰', '寒霜'];
+export const RARE_FALLBACK_PREFIXES: readonly string[] = ['無名', '古舊', '流浪', '遺忘', '孤狼', '荒野'];
 
 /** 稀有飾品：直接使用神秘的名稱 */
 export const RARE_JEWELRY_NAMES: Record<'ring' | 'amulet', readonly string[]> = {

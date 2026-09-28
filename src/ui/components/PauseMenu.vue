@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import type { GameView } from '../bridge/GameViewStore';
 import { systemBridge } from '../bridge/SystemBridge';
+import { audioBridge, volume, type VolumeState } from '../bridge/AudioBridge';
 import Dialog from './Dialog.vue';
 
 defineProps<{ save: GameView['save']; devAvailable: boolean; devEnabled: boolean }>();
@@ -17,9 +18,34 @@ function onImportFile(e: Event) {
   if (file) systemBridge.importSave(file);
 }
 
-function newCharacter() {
-  if (!window.confirm('開始新角色？目前的角色與所有存檔都會被刪除，無法復原。\n\n（建議先「匯出存檔」備份）')) return;
-  systemBridge.newCharacter();
+const saving = ref(false);
+const savedMessage = ref('');
+async function saveNow() {
+  saving.value = true;
+  const ok = await systemBridge.saveNow();
+  saving.value = false;
+  savedMessage.value = ok ? '已儲存' : '現在無法存檔（倒地中），稍後再試';
+  window.setTimeout(() => (savedMessage.value = ''), 2500);
+}
+
+function returnToTitle() {
+  if (!window.confirm('儲存並返回標題畫面？')) return;
+  systemBridge.returnToTitle();
+}
+
+function quitGame() {
+  if (!window.confirm('儲存並離開遊戲？')) return;
+  systemBridge.quitGame();
+}
+
+type Channel = Exclude<keyof VolumeState, 'muted'>;
+const CHANNELS: [Channel, string][] = [
+  ['master', '主音量'],
+  ['music', '背景音樂'],
+  ['sfx', '音效'],
+];
+function onVolume(channel: Channel, e: Event) {
+  audioBridge.set({ [channel]: Number((e.target as HTMLInputElement).value) / 100 });
 }
 
 const CONTROLS: [string, string][] = [
@@ -50,12 +76,34 @@ const CONTROLS: [string, string][] = [
         <button type="button" @click="page = 'controls'">操作說明</button>
       </div>
 
-      <h3>存檔</h3>
+      <h3>音量</h3>
+      <div v-for="[key, label] in CHANNELS" :key="key" class="volume">
+        <span class="volume-label">{{ label }}</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          :value="Math.round(volume[key] * 100)"
+          :disabled="volume.muted"
+          :aria-label="label"
+          @input="onVolume(key, $event)"
+          @change="key !== 'music' && audioBridge.preview()"
+        />
+        <span class="volume-value">{{ Math.round(volume[key] * 100) }}</span>
+      </div>
+      <label class="check"><input type="checkbox" :checked="volume.muted" @change="audioBridge.set({ muted: !volume.muted })" /> 靜音</label>
+
+      <h3>存檔（欄位 {{ save.slot }}）</h3>
       <p class="save-status">
         <span v-if="save.error" class="error" :title="save.error">自動存檔失敗：{{ save.error }}</span>
         <span v-else-if="save.lastSavedAt">自動存檔：{{ save.lastSavedAt }}</span>
         <span v-else>尚未存檔</span>
       </p>
+      <div class="row">
+        <button type="button" class="primary" :disabled="saving" @click="saveNow">儲存遊戲</button>
+        <span v-if="savedMessage" class="saved">{{ savedMessage }}</span>
+      </div>
       <div class="row">
         <button type="button" @click="systemBridge.exportSave()">匯出存檔</button>
         <button type="button" @click="importInput?.click()">匯入存檔</button>
@@ -63,8 +111,11 @@ const CONTROLS: [string, string][] = [
       </div>
       <p class="hint">遊戲會自動存檔。匯出的檔案可以在別台電腦或瀏覽器匯入。</p>
 
-      <h3>角色</h3>
-      <button type="button" class="danger" @click="newCharacter">開始新角色…</button>
+      <h3>遊戲</h3>
+      <div class="row">
+        <button type="button" @click="returnToTitle">返回標題畫面</button>
+        <button type="button" class="danger" @click="quitGame">離開遊戲</button>
+      </div>
 
       <template v-if="devAvailable">
         <h3>開發</h3>
@@ -103,6 +154,14 @@ h3 {
   display: flex;
   gap: 8px;
 }
+.row + .row {
+  margin-top: 6px;
+}
+.saved {
+  align-self: center;
+  font-size: 12px;
+  color: #7fe07f;
+}
 .save-status {
   margin: 0 0 6px;
 }
@@ -113,6 +172,24 @@ h3 {
   margin: 6px 0 0;
   font-size: 11px;
   color: #8a7c68;
+}
+.volume {
+  display: grid;
+  grid-template-columns: 72px 1fr 32px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.volume input {
+  width: 100%;
+  accent-color: #c89a4a;
+  cursor: pointer;
+}
+.volume-value {
+  font-size: 12px;
+  color: #8a7c68;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .check {
   display: flex;

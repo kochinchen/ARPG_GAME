@@ -68,6 +68,33 @@ export class AutoSaver {
   }
 
   /**
+   * 立即存檔（選單的「儲存遊戲」、返回標題 / 離開前）：等進行中的寫入完成後再寫一次。
+   * forced = true 時倒地中也存（存成已重生的狀態）。回傳存檔時間；不適合存檔時回傳 null。
+   */
+  async saveNow(forced = false): Promise<string | null> {
+    if (this.disabled) return null;
+    await this.pending;
+    const data = forced ? this.captureForced() : this.capture();
+    if (data === null) return null;
+    this.dirty = false;
+    this.immediate = false;
+    let savedAt: string | null = null;
+    this.pending = (async () => {
+      try {
+        savedAt = await this.service.write(data);
+        this.options.onSaved?.(savedAt);
+      } catch (error) {
+        this.dirty = true;
+        this.options.onError?.(error);
+      } finally {
+        this.pending = null;
+      }
+    })();
+    await this.pending;
+    return savedAt;
+  }
+
+  /**
    * 停止所有自動存檔，並等待進行中的寫入完成。
    * 重置 / 匯入前使用：避免清除存檔後，進行中的寫入又把舊狀態寫回去。
    */

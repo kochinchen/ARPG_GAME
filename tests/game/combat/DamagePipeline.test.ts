@@ -15,7 +15,7 @@ const CRIT = balance.combat.critMultiplier;
 
 function setup(seed = 1) {
   const events = new EventBus<GameEvents>();
-  const statuses = new StatusEffectSystem(events);
+  const statuses = new StatusEffectSystem(events, balance.combat.maxControlResist);
   const pipeline = new DamagePipeline(balance, new Rng(seed), events, statuses);
   return { events, pipeline, statuses };
 }

@@ -1,6 +1,6 @@
 import { distance } from '../../core/math/Vec2';
 import type { Actor } from '../entities/Actor';
-import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp } from '../entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp, Waypoint } from '../entities/Interactable';
 import type { GameEventBus } from '../GameEvents';
 import type { ChestSystem } from '../items/ChestSystem';
 import type { Inventory } from '../items/Inventory';
@@ -19,12 +19,15 @@ export interface InteractionWorld {
   exit: ExitPortal | null;
   stairsUp: StairsUp | null;
   merchants: readonly Merchant[];
+  waypoints: readonly Waypoint[];
   /** 點擊出口 */
   useExit(): void;
   /** 點擊往上的樓梯 */
   useStairsUp(): void;
   /** 點擊商人 */
   openShop(): void;
+  /** 點擊傳送口 */
+  useWaypoint(to: Waypoint['to']): void;
 }
 
 /**
@@ -49,13 +52,14 @@ export class InteractionSystem {
   }
 
   find(id: number): Interactable | undefined {
-    const { exit, stairsUp, merchants } = this.world;
+    const { exit, stairsUp, merchants, waypoints } = this.world;
     return (
       this.world.groundItems.find((g) => g.id === id) ??
       this.world.chests.find((c) => c.id === id && !c.opened) ??
       (exit?.id === id ? exit : undefined) ??
       (stairsUp?.id === id ? stairsUp : undefined) ??
-      merchants.find((m) => m.id === id)
+      merchants.find((m) => m.id === id) ??
+      waypoints.find((w) => w.id === id)
     );
   }
 
@@ -99,6 +103,7 @@ export class InteractionSystem {
     else if (target.kind === 'exit') this.world.useExit();
     else if (target.kind === 'stairsUp') this.world.useStairsUp();
     else if (target.kind === 'merchant') this.world.openShop();
+    else if (target.kind === 'waypoint') this.world.useWaypoint(target.to);
     else this.pickUp(target, true);
   }
 

@@ -69,10 +69,12 @@ export class EnemyFactory {
     /** 召喚者（Boss 召喚物）：不給經驗、不掉寶 */
     summonedBy: ActorId | null = null,
     size: SizeRoll = NORMAL_SIZE,
+    /** 中途小王：魔王數值再乘這些倍率（balance.endgame.miniBoss） */
+    miniBoss?: { hpMultiplier: number; damageMultiplier: number; xpMultiplier: number },
   ): Actor {
     const e = elite?.config;
-    const hpMult = scaling.hp * (e?.hpMultiplier ?? 1) * size.stat;
-    const damageMult = scaling.damage * (e?.damageMultiplier ?? 1) * size.stat;
+    const hpMult = scaling.hp * (e?.hpMultiplier ?? 1) * size.stat * (miniBoss?.hpMultiplier ?? 1);
+    const damageMult = scaling.damage * (e?.damageMultiplier ?? 1) * size.stat * (miniBoss?.damageMultiplier ?? 1);
     const stats = new StatBlock({
       maxHp: def.hp * hpMult,
       moveSpeed: def.moveSpeed,
@@ -107,7 +109,8 @@ export class EnemyFactory {
             }),
       skillRanks: new Map(def.skills.map((skillId) => [skillId, 1])),
       isBoss: def.boss,
-      xpReward: Math.round(def.xp * scaling.xp * (e?.xpMultiplier ?? 1)),
+      miniBoss: miniBoss !== undefined,
+      xpReward: Math.round(def.xp * scaling.xp * (e?.xpMultiplier ?? 1) * (miniBoss?.xpMultiplier ?? 1)),
     });
     return actor;
   }

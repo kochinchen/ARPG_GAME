@@ -13,6 +13,12 @@ defineProps<{ view: GameView }>();
     <div v-for="line in view.discovery.description" :key="line" class="discovery-line">{{ line }}</div>
   </div>
 
+  <div v-if="view.milestone" class="discovery milestone" role="status">
+    <div class="discovery-title">{{ view.milestone.title === '已通關' ? 'GAME CLEAR' : 'HIDDEN CHALLENGE COMPLETE' }}</div>
+    <div class="discovery-name">{{ view.milestone.title }}</div>
+    <div class="discovery-line">{{ view.milestone.text }}</div>
+  </div>
+
   <div v-if="view.saveNotices.length" class="save-notices" role="status">
     <div v-for="n in view.saveNotices" :key="n">{{ n }}</div>
   </div>

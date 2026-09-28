@@ -5,7 +5,7 @@ import type { Checkpoint } from '../../game/world/CheckpointSystem';
 import { FLOOR_COLORS } from '../palette';
 
 /**
- * 地面上的存檔點符文：未啟動為灰色，啟動後發藍光。
+ * 地面上的存檔點符文：未啟動為灰色，啟動後發藍光（魔王門前的存檔點為紅色系）。
  */
 export class FloorMarkersView {
   readonly container = new Container();
@@ -24,7 +24,12 @@ export class FloorMarkersView {
 
   update(time: number): void {
     for (const { checkpoint, graphics } of this.views) {
-      const color = checkpoint.kind === 'stairs' ? FLOOR_COLORS.stairs : checkpoint.active ? FLOOR_COLORS.checkpointActive : FLOOR_COLORS.checkpointIdle;
+      const color =
+        checkpoint.kind === 'stairs'
+          ? FLOOR_COLORS.stairs
+          : checkpoint.kind === 'boss'
+            ? checkpoint.active ? FLOOR_COLORS.bossGateActive : FLOOR_COLORS.bossGateIdle
+            : checkpoint.active ? FLOOR_COLORS.checkpointActive : FLOOR_COLORS.checkpointIdle;
       const pulse = checkpoint.active ? 0.55 + 0.25 * Math.sin(time / 300) : 0.45;
       graphics.clear();
       graphics.poly(this.circle(checkpoint.position, 0.9)).fill({ color, alpha: 0.15 * pulse }).stroke({ color, width: 2, alpha: pulse });

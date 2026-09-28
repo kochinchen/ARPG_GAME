@@ -96,6 +96,7 @@ export class PlayerController {
       case 'DebugNextFloor':
       case 'DebugSpawnLoot':
       case 'ConfirmLeaveFloor':
+      case 'ConfirmEnterChallenge':
       case 'SortInventory':
       case 'ShopBuy':
       case 'ShopBuyPotion':

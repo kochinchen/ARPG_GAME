@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { EquipSlot } from '../../data/schema/item';
 import { gameBridge } from '../bridge/GameBridge';
 import type { EntryView } from '../bridge/InventoryView';
 import type { ShopView } from '../bridge/ShopView';
@@ -24,9 +23,9 @@ function buyPotion(e: MouseEvent, count: number) {
   blur(e);
   gameBridge.send({ type: 'ShopBuyPotion', count });
 }
-function gamble(e: MouseEvent, slot: EquipSlot) {
+function gamble(e: MouseEvent, kind: ShopView['gambleKinds'][number]['kind']) {
   blur(e);
-  gameBridge.send({ type: 'ShopGamble', slot });
+  gameBridge.send({ type: 'ShopGamble', kind });
 }
 function ascend(e: MouseEvent) {
   blur(e);
@@ -147,21 +146,21 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
     </section>
 
     <section v-else class="list">
-      <p class="note">選一種裝備，付 {{ view.gamblePrice }} 金幣換一件隨機物品：可能是普通、魔法或稀有。</p>
+      <p class="note">選一種裝備，付 {{ view.gamblePrice }} 金幣換一件隨機稀有度的物品（武器可以指定劍、斧、弓或法杖）。</p>
       <div class="gamble-grid">
         <button
-          v-for="g in view.gambleSlots"
-          :key="g.slot"
+          v-for="g in view.gambleKinds"
+          :key="g.kind"
           type="button"
           class="gamble"
           :disabled="view.gold < view.gamblePrice"
-          @click="gamble($event, g.slot)"
+          @click="gamble($event, g.kind)"
         >
           <span class="gamble-glyph">{{ g.glyph }}</span>
           <span>{{ g.label }}</span>
         </button>
       </div>
-      <p class="odds">普通 15% · 魔法 60% · 稀有 25%</p>
+      <p class="odds">{{ view.gambleOdds }}</p>
     </section>
 
     <div v-if="hovered" class="tooltip-anchor" :style="{ top: `${hovered.top}px` }">
@@ -389,7 +388,7 @@ button:disabled {
 }
 .gamble-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
 }
 .gamble-grid button {

@@ -23,6 +23,8 @@ export interface ActorInit {
   /** 會的技能與等級 */
   skillRanks?: ReadonlyMap<string, number>;
   isBoss?: boolean;
+  /** 挑戰樓層的中途小王：魔王數值打折、沒有階段變化與魔王血條（docs/ENDGAME.md） */
+  miniBoss?: boolean;
   /** 精英怪（每群的隊長）：名稱加上詞綴、較大、較強、掉落較好 */
   elite?: boolean;
   /** 召喚者（Boss 召喚的骷髏）：不給經驗、不掉寶、不計入樓層擊殺 */
@@ -84,6 +86,7 @@ export class Actor {
   /** 有 AI 的角色（怪物、召喚物）；玩家與訓練木樁為 null */
   readonly ai: AiBrain | null;
   readonly isBoss: boolean;
+  readonly miniBoss: boolean;
   readonly elite: boolean;
   readonly summonedBy: ActorId | null;
   readonly xpReward: number;
@@ -132,6 +135,7 @@ export class Actor {
     this.stats = init.stats;
     this.ai = init.ai ?? null;
     this.isBoss = init.isBoss ?? false;
+    this.miniBoss = init.miniBoss ?? false;
     this.elite = init.elite ?? false;
     this.summonedBy = init.summonedBy ?? null;
     this.xpReward = init.xpReward ?? 0;

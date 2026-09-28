@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { vec2 } from '../../../src/core/math/Vec2';
 import type { GroundItem } from '../../../src/game/entities/Interactable';
+import { EventBus } from '../../../src/core/EventBus';
+import { Rng } from '../../../src/core/Rng';
+import { gameData } from '../../../src/data';
+import { DataRegistry } from '../../../src/data/DataRegistry';
+import type { GameEvents } from '../../../src/game/GameEvents';
+import { ItemGenerator } from '../../../src/game/items/ItemGenerator';
+import { LootSystem } from '../../../src/game/items/LootSystem';
 import { createWorldWithMap, enemiesOf, run } from '../helpers';
 
 const ROOM = [
@@ -159,5 +166,35 @@ describe('掉寶（M5）', () => {
     expect(data.enemies.get('enemy.skeleton').lootTable).toBe('loot.skeleton');
     expect(data.maps.get('map.test_1').chests.length).toBeGreaterThan(0);
     expect(world.chests).toHaveLength(0);
+  });
+});
+
+describe('掉寶的樓層成長', () => {
+  const data = DataRegistry.load(gameData);
+  const loot = (lootTier: number) =>
+    new LootSystem(data, new Rng(3), new ItemGenerator(data, new Rng(4)), null as never, () => {}, () => 20, () => lootTier, new EventBus<GameEvents>());
+
+  it('lootTier 放大黃以上的權重，白 / 藍不變；超出設定的階級用最後一組', () => {
+    const table = data.lootTables.get('loot.skeleton');
+    expect(loot(1).rarityWeights(table)).toEqual(table.rarityWeights);
+    const deep = loot(4).rarityWeights(table);
+    const bonus = data.balance.loot.tierBonus[3]!;
+    expect(deep.normal).toBe(table.rarityWeights.normal);
+    expect(deep.magic).toBe(table.rarityWeights.magic);
+    expect(deep.rare).toBeCloseTo(table.rarityWeights.rare * bonus.rare);
+    expect(deep.legendary).toBeCloseTo(table.rarityWeights.legendary * bonus.legendary);
+    expect(deep.mythic).toBeCloseTo(table.rarityWeights.mythic * bonus.mythic);
+    expect(loot(9).rarityWeights(table)).toEqual(deep);
+  });
+
+  it('精英額外掉落至少一件物品', () => {
+    const system = loot(1);
+    for (let i = 0; i < 300; i++) expect(system.roll('loot.elite').some((d) => d.kind === 'item')).toBe(true);
+  });
+
+  it('大型怪使用 loot.brute（擲兩次）', () => {
+    const brutes = data.enemies.all.filter((e) => e.lootTable === 'loot.brute').map((e) => e.id);
+    expect(brutes).toEqual(expect.arrayContaining(['enemy.horned_brute', 'enemy.molten_brute', 'enemy.quake_beast', 'enemy.egg_matron']));
+    expect(data.lootTables.get('loot.brute').rolls).toBe(2);
   });
 });

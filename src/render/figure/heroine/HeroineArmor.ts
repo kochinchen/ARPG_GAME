@@ -1,5 +1,5 @@
-import { bar, detail, loft, tone } from '../Facets';
-import { box, placeMesh, prism, type Mesh } from '../Poly3D';
+import { bar, detail, facetize, loft, tone } from '../Facets';
+import { box, lowSphere, placeMesh, prism, type Mesh } from '../Poly3D';
 import { BOOT, GOLD, LEATHER, LEATHER_DARK, METAL, METAL_DARK, RED_CLOTH, SKIRT } from './HeroinePalette';
 
 /**
@@ -15,7 +15,7 @@ export function chestArmor(): Mesh[] {
     // 胸下的束腰皮甲
     loft(
       [
-        { y: -0.3, rx: 4.75, rz: 3.45 },
+        { y: -0.3, rx: 4.3, rz: 3.2 },
         { y: 3.3, rx: 5.3, rz: 3.95, cz: 0.1 },
       ],
       8,
@@ -26,14 +26,14 @@ export function chestArmor(): Mesh[] {
     tone(placeMesh(box(1, 6.4, 4.4, LEATHER[1]), [0, 0, 0.08], [5.2, 5.4, -0.3]), LEATHER, 2),
     tone(placeMesh(box(1, 6.4, 4.4, LEATHER[1]), [0, 0, -0.08], [-5.2, 5.4, -0.3]), LEATHER, 3),
     // 肩帶（前 → 過肩 → 後）
-    bar([3.7, 3, 3.3], [3.5, 10, 0.8], 1.1, 0.5, LEATHER_DARK, 1),
-    bar([-3.7, 3, 3.3], [-3.5, 10, 0.8], 1.1, 0.5, LEATHER_DARK, 2),
+    bar([4.3, 3.2, 3.2], [3.7, 10, 0.8], 1.1, 0.5, LEATHER_DARK, 1),
+    bar([-4.3, 3.2, 3.2], [-3.7, 10, 0.8], 1.1, 0.5, LEATHER_DARK, 2),
     bar([3.5, 10, 0.8], [3, 3.5, -3.5], 1.1, 0.5, LEATHER_DARK, 3),
     bar([-3.5, 10, 0.8], [-3, 3.5, -3.5], 1.1, 0.5, LEATHER_DARK, 4),
     // 斜背帶：左肩 → 胸前 → 右腰
-    bar([4, 9.6, 2.2], [0.5, 5.6, 4.75], 1.2, 0.55, LEATHER_DARK, 5),
-    bar([0.5, 5.6, 4.75], [-4.5, 1.2, 3.8], 1.2, 0.55, LEATHER_DARK, 6),
-    tone(box(1.4, 1.4, 0.6, GOLD[0], [0.5, 5.6, 5]), GOLD),
+    bar([4.2, 9.6, 2.4], [0.3, 5.4, 5], 1.2, 0.55, LEATHER_DARK, 5),
+    bar([0.3, 5.4, 5], [-4.2, 1.2, 3.6], 1.2, 0.55, LEATHER_DARK, 6),
+    tone(box(1.4, 1.4, 0.6, GOLD[0], [0.3, 5.4, 5.3]), GOLD),
     ...detail(1, [bar([-3, 9.2, -3.2], [3.4, 2, -3.7], 1, 0.5, LEATHER_DARK, 7), ...[1.2, 2.2].map((y) => box(3.2, 0.35, 0.3, GOLD[2], [0, y, 3.95]))]),
   ];
 }
@@ -41,7 +41,7 @@ export function chestArmor(): Mesh[] {
 /** 肩甲（upperArm 關節）：由大到小往下疊的三片有稜角的金屬板 + 皮帶 */
 export function pauldron(side: 1 | -1): Mesh[] {
   const plate = (r0: number, r1: number, h: number, x: number, y: number, tilt: number, seed: number) =>
-    tone(placeMesh(prism(5, 0, -h, [r0, r0 * 0.9], [r1, r1 * 0.9], METAL[0], [0, 0, 0], 0.3), [0, 0, -tilt * side], [x * side, y, 0]), METAL, seed);
+    facetize(tone(placeMesh(prism(7, 0, -h, [r0, r0 * 0.9], [r1, r1 * 0.9], METAL[0], [0, 0, 0], 0.3), [0, 0, -tilt * side], [x * side, y, 0]), METAL, seed), 0.16, seed);
   return [
     plate(2.5, 3.2, 2.2, 0.7, 1.6, 0.35, 1),
     plate(2.6, 3, 1.8, 1.2, -0.3, 0.5, 2),
@@ -79,13 +79,16 @@ export function pelvisArmor(): Mesh[] {
     loft(
       [
         { y: -3.8, rx: 5.2, rz: 3.9 },
-        { y: 0, rx: 5.6, rz: 4.1 },
+        { y: 0, rx: 5.9, rz: 4.1 },
         { y: 3.6, rx: 5, rz: 3.7 },
       ],
       8,
       SKIRT,
       1,
     ),
+    // 臀部：往後、往上翹的兩個圓弧體積（短褲）
+    facetize(tone(lowSphere(3.1, SKIRT[0], [2.35, -0.6, -2.7], 8, 5, [0.95, 0.9, 0.85]), SKIRT, 11), 0.08, 11),
+    facetize(tone(lowSphere(3.1, SKIRT[0], [-2.35, -0.6, -2.7], 8, 5, [0.95, 0.9, 0.85]), SKIRT, 12), 0.08, 12),
     loft(
       [
         { y: 2.1, rx: 5.35, rz: 4 },
@@ -107,7 +110,7 @@ export function pelvisArmor(): Mesh[] {
     // 深色裙片：兩側與後方
     panel(5.2, 0, Math.PI / 2, 2.4, 7, 7),
     panel(-5.2, 0, -Math.PI / 2, 2.2, 6.5, 8),
-    panel(0, -4.2, 0, 3, 7.5, 9),
+    tone(placeMesh(prism(4, 0, -7.5, [3, 0.3], [3.45, 0.3], SKIRT[0]), [-0.3, 0, 0], [0, 2.4, -4.6]), SKIRT, 9),
   ];
 }
 
@@ -123,8 +126,8 @@ export function frontCloth(): Mesh[] {
 /** 紅色腰布後片（clothBack 關節） */
 export function backCloth(): Mesh[] {
   return [
-    tone(prism(4, 0, -9, [2.8, 0.3], [2.4, 0.3], RED_CLOTH[0], [0.5, 0, -4.2]), RED_CLOTH, 1),
-    tone(placeMesh(prism(4, -9, -12.5, [2.4, 0.3], [0.5, 0.2], RED_CLOTH[0]), [-0.08, 0, 0.12], [0.5, 0, -4.2]), RED_CLOTH, 2),
+    tone(placeMesh(prism(4, 0, -9, [2.8, 0.3], [2.4, 0.3], RED_CLOTH[0]), [-0.28, 0, 0], [0.5, 0, -4.9]), RED_CLOTH, 1),
+    tone(placeMesh(prism(4, -9, -12.5, [2.4, 0.3], [0.5, 0.2], RED_CLOTH[0]), [-0.2, 0, 0.12], [0.5, 0, -4.9]), RED_CLOTH, 2),
   ];
 }
 
@@ -141,7 +144,7 @@ export const bootCuff = (): Mesh[] => [
     BOOT,
     1,
   ),
-  ...detail(1, [tone(prism(7, -9.2, -10, [2.7, 2.8], [2.65, 2.75], LEATHER[1], [0, 0, 0.2]), LEATHER, 2)]),
+  ...detail(1, [facetize(tone(prism(7, -9.2, -10, [2.7, 2.8], [2.65, 2.75], LEATHER[1], [0, 0, 0.2]), LEATHER, 2), 0.14, 21)]),
 ];
 
 /** 小腿（shin 關節）：長靴（小腿肚、腳踝）、護膝、脛甲、綁帶 */
@@ -158,20 +161,21 @@ export const bootShin = (): Mesh[] => [
     3,
   ),
   // 護膝（多面楔形）與脛甲
-  tone(placeMesh(prism(5, 0.8, -2.8, [1.9, 1], [1.4, 0.8], METAL[0]), [-0.12, 0, 0], [0, 0, 1.9]), METAL, 4),
-  tone(placeMesh(prism(4, -3, -9.5, [1.3, 0.55], [0.9, 0.45], LEATHER[1], [0, 0, 0], 0), [0.06, 0, 0], [0, 0, 2.2]), LEATHER, 5),
+  facetize(tone(placeMesh(prism(5, 0.8, -2.8, [1.9, 1], [1.4, 0.8], METAL[0]), [-0.12, 0, 0], [0, 0, 1.9]), METAL, 4), 0.14, 22),
+  facetize(tone(placeMesh(prism(4, -3, -9.5, [1.3, 0.55], [0.9, 0.45], LEATHER[1], [0, 0, 0], 0), [0.06, 0, 0], [0, 0, 2.2]), LEATHER, 5), 0.14, 23),
   ...detail(1, [
-    tone(prism(7, -5.6, -6.2, [2.4, 2.5], [2.35, 2.45], LEATHER_DARK[0], [0, 0, -0.1]), LEATHER_DARK),
-    tone(prism(7, -8.6, -9.2, [2.1, 2.2], [2.05, 2.15], LEATHER_DARK[0], [0, 0, -0.05]), LEATHER_DARK),
+    facetize(tone(prism(7, -5.6, -6.2, [2.4, 2.5], [2.35, 2.45], LEATHER_DARK[0], [0, 0, -0.1]), LEATHER_DARK), 0.14, 24),
+    facetize(tone(prism(7, -8.6, -9.2, [2.1, 2.2], [2.05, 2.15], LEATHER_DARK[0], [0, 0, -0.05]), LEATHER_DARK), 0.14, 25),
   ]),
 ];
 
 /** 靴子（foot 關節）：靴跟、腳背、楔形靴尖、靴底、腳踝綁帶 */
 export const bootFoot = (): Mesh[] => [
-  tone(box(3.2, 2.3, 2.8, BOOT[0], [0, -1.3, -0.6]), BOOT, 1),
-  tone(placeMesh(box(3.3, 1.9, 4, BOOT[1]), [0.12, 0, 0], [0, -1.35, 2]), BOOT, 2),
-  tone(placeMesh(prism(5, 0, 2.2, [1.6, 1], [0.9, 0.6], BOOT[0], [0, 0, 0], 0.3), [Math.PI / 2, 0, 0], [0, -1.7, 3.9]), BOOT, 3),
+  facetize(tone(box(3.2, 2.3, 2.8, BOOT[0], [0, -1.3, -0.6]), BOOT, 1), 0.14, 26),
+  facetize(tone(placeMesh(box(3.3, 1.9, 4, BOOT[1]), [0.12, 0, 0], [0, -1.35, 2]), BOOT, 2), 0.14, 27),
+  facetize(tone(placeMesh(prism(5, 0, 2.2, [1.6, 1], [0.9, 0.6], BOOT[0], [0, 0, 0], 0.3), [Math.PI / 2, 0, 0], [0, -1.7, 3.9]), BOOT, 3), 0.14, 28),
+  // 靴底保持平的（貼地）
   tone(box(3.5, 0.7, 7.6, LEATHER_DARK[2], [0, -2.55, 1.4]), LEATHER_DARK),
-  ...detail(1, [tone(prism(7, 0.2, -0.5, [2.05, 2.15], [2.1, 2.2], LEATHER_DARK[0]), LEATHER_DARK)]),
+  ...detail(1, [facetize(tone(prism(7, 0.2, -0.5, [2.05, 2.15], [2.1, 2.2], LEATHER_DARK[0]), LEATHER_DARK), 0.14, 30)]),
   ...detail(2, [box(0.8, 0.8, 0.4, GOLD[0], [1.9, 0, 0.6])]),
 ];

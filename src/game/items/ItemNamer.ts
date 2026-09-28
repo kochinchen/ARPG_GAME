@@ -6,7 +6,7 @@ import type { ItemInstance } from './ItemInstance';
  * 依稀有度產生裝備名稱（純函式）。名稱由物品 uid 決定挑哪一個，同一件物品永遠同名，不需要存檔。
  * - 普通：品質詞 + 基底（「鐵製短劍」）
  * - 魔法：第一個詞綴 + 基底（「鋒利的短劍」）
- * - 稀有：主要詞綴的主題前綴 + 基底（「裂骨戰斧」「霜牙・獵弓」）；飾品用神秘名稱（「火紋戒」）
+ * - 稀有：前兩條詞綴的主題前綴 + 基底（「裂骨戰斧」「霜牙・獵弓」）；飾品用神秘名稱（「火紋戒」）
  * - 史詩：特殊名稱（「夜行者」）
  * - 傳奇 / 神話：人工命名（第二批）；尚未定義時顯示基底名稱
  */
@@ -21,7 +21,9 @@ export function nameItem(item: ItemInstance, base: ItemBaseDef, affixes: readonl
       return affixes[0] ? `${affixes[0].name}${base.name}` : base.name;
     case 'rare': {
       if (base.slot === 'ring' || base.slot === 'amulet') return pick(RARE_JEWELRY_NAMES[base.slot], 2);
-      const prefix = pick((affixes[0] && RARE_PREFIXES[affixes[0].stat]) ?? RARE_FALLBACK_PREFIXES, 3);
+      // 前兩條詞綴的主題詞合併後挑一個：名稱反映裝備路線，同一條主詞綴也有十幾種名稱
+      const pool = affixes.slice(0, 2).flatMap((a) => RARE_PREFIXES[a.stat] ?? []);
+      const prefix = pick(pool.length > 0 ? pool : RARE_FALLBACK_PREFIXES, 3);
       return hash(item.uid, 4) % 3 === 0 ? `${prefix}・${base.name}` : `${prefix}${base.name}`;
     }
     case 'epic':

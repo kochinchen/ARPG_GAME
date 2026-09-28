@@ -1,4 +1,4 @@
-import { quadPoses, seg, spike } from './Creatures';
+import { DEFAULT_LIMBS, groundQuad, legReach, quadPoses, seg, spike, type QuadLimbs } from './Creatures';
 import type { FigureModel, PartDef } from './FigureModel';
 import { box, lowSphere, normalize, prism, type Mesh, type V3 } from './Poly3D';
 
@@ -110,6 +110,8 @@ interface BeastOptions {
   neck?: Mesh[];
   /** 肌肉團塊的粗細倍率 */
   bulk?: number;
+  /** 站姿的腿部角度（省略為舊的站姿） */
+  limbs?: QuadLimbs;
 }
 
 function beast(o: BeastOptions): { parts: PartDef[]; hip: number } {
@@ -121,9 +123,10 @@ function beast(o: BeastOptions): { parts: PartDef[]; hip: number } {
   const raise = o.shoulderRaise ?? 0;
   const foot = 1.8;
   const rearTop = o.hip - H * 0.4;
-  const rearLen = (rearTop - foot) / Math.cos(0.35) / Math.cos(splay);
+  const limbs = o.limbs ?? DEFAULT_LIMBS;
+  const rearLen = (rearTop - foot) / legReach(limbs.rear, splay, limbs.kneeIn);
   const frontTop = o.hip + raise - H * 0.4;
-  const frontLen = (frontTop - foot) / Math.cos(0.2) / Math.cos(splay);
+  const frontLen = (frontTop - foot) / legReach(limbs.front, splay, limbs.kneeIn);
   const fr = o.frontLegR ?? o.legR;
   // 身體中心對準角色位置：臀部往後移
   const dz = -L * 0.3;
@@ -232,9 +235,10 @@ function beast(o: BeastOptions): { parts: PartDef[]; hip: number } {
 
 function beastModel(o: BeastOptions, referenceRadius: number, heavy = false): FigureModel {
   const { parts, hip } = beast(o);
-  const poses = quadPoses({ ...(o.splay !== undefined ? { splay: o.splay } : {}), heavy });
+  const poses = quadPoses({ ...(o.splay !== undefined ? { splay: o.splay } : {}), ...(o.limbs ? { limbs: o.limbs } : {}), heavy });
   poses.dead = { ...poses.dead, rootY: -hip + o.width * 0.5 };
-  return { parts, hipHeight: hip, referenceRadius, poses };
+  const model: FigureModel = { parts, hipHeight: hip, referenceRadius, poses };
+  return o.limbs ? groundQuad(model) : model;
 }
 
 /** 張開的嘴：上顎齒列朝下、下顎齒列朝上 */
@@ -252,12 +256,20 @@ function teeth(z0: number, z1: number, count: number, halfWidth: number, upperY:
   return out;
 }
 
+/** 獵食者（獵獸、獵豹）：後腿大腿往前、小腿往後（跗關節在後）；前腿上臂往後、前臂往前下；關節往外突 */
+const HUNTER_LIMBS: QuadLimbs = { rear: [-0.72, 1.4], front: [0.6, -1.1], kneeIn: 1.5 };
+/** 巨獸：粗壯的四肢彎曲承重（彎曲較少、外張較多，手肘與膝蓋往外突、腳掌收回身體下方） */
+const BRUTE_LIMBS: QuadLimbs = { rear: [-0.45, 0.85], front: [0.35, -0.75], kneeIn: 1.7 };
+
 // ═══════════════════════════ 骨刺獵獸 ═══════════════════════════
 
 const H1 = { hide: 0x5e4a38, dark: 0x3a2c20, belly: 0x7a6450, bone: 0xe6d8ba, boneDark: 0xb49e7c, eye: 0xffa030, mouth: 0x5a1a14, tooth: 0xf2e8d0 };
 const BONE_HOUND = beastModel(
   {
     hip: 18,
+    // 獵食者的站姿：後腿跗關節在後、前腿手肘朝後朝外，四肢外張
+    limbs: HUNTER_LIMBS,
+    splay: 0.26,
     length: 27,
     width: 10,
     height: 10,
@@ -383,6 +395,9 @@ const crystals = (c: V3, dir: V3, len: number, r: number): Mesh[] => [
 const SHADOW_PANTHER = beastModel(
   {
     hip: 17,
+    // 獵食者的站姿：後腿跗關節在後、前腿手肘朝後朝外，四肢外張
+    limbs: HUNTER_LIMBS,
+    splay: 0.26,
     length: 31,
     width: 8.6,
     height: 8.4,
@@ -440,6 +455,9 @@ const armor = (c: V3, n: V3, size: number, color: number) => plate(c, n, size, s
 const HORNED_BRUTE = beastModel(
   {
     hip: 24,
+    // 巨獸的站姿：四肢粗壯地彎曲外張、手肘與膝蓋朝外
+    limbs: BRUTE_LIMBS,
+    splay: 0.36,
     length: 34,
     width: 18,
     height: 16,
@@ -502,6 +520,9 @@ const boulder = (c: V3, n: V3, size: number, mossy = false): Mesh[] => {
 const QUAKE_BEAST = beastModel(
   {
     hip: 21,
+    // 巨獸的站姿：四肢粗壯地彎曲外張、手肘與膝蓋朝外
+    limbs: BRUTE_LIMBS,
+    splay: 0.36,
     length: 27,
     width: 21,
     height: 18,

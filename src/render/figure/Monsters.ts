@@ -335,6 +335,46 @@ const DUMMY: FigureModel = {
 };
 
 /** EnemyDef ID → 模型（沒有對應時 ActorView 使用骷髏戰士） */
+/**
+ * 非人形怪物的外觀倍率（只放大畫面，不影響碰撞與數值）。
+ * 目標高度（基準體型、相對女主角）：掠界獸 0.9、甲殼與節肢 0.7、噴吐異種 0.7、
+ * 寄生變異體 1.2、漂浮異體 0.9、巨獸 2.1；部分樓層魔王另外指定。倍率 = 目標 ÷ 模型原本的高度比。
+ */
+const VISUAL_SCALE: Record<string, number> = {
+  // 掠界獸系 → 0.9
+  'enemy.bone_hound': 1.64,
+  'enemy.blood_lizard': 1.76,
+  'enemy.shadow_panther': 1.8,
+  // 甲殼與節肢系 → 0.7
+  'enemy.acid_beetle': 2.26,
+  'enemy.hatchling_spider': 2.8,
+  'enemy.hook_claw': 2.06,
+  // 噴吐異種 → 0.7
+  'enemy.poison_spitter': 2.19,
+  'enemy.fire_crawler': 2,
+  'enemy.frost_sporeling': 1.43,
+  // 寄生變異體 → 1.2
+  'enemy.egg_matron': 2,
+  'enemy.soul_flower': 2.03,
+  'enemy.burrower': 3.64,
+  // 漂浮異體 → 0.9
+  'enemy.eye_floater': 1.22,
+  'enemy.brain_floater': 1.29,
+  'enemy.void_spore': 1.8,
+  // 巨獸系 → 2.1
+  'enemy.horned_brute': 3.18,
+  'enemy.molten_brute': 3.28,
+  'enemy.quake_beast': 3.39,
+  // 樓層魔王（相對女主角的高度，含遊戲中的體型倍率）：蜘蛛女王 3.2、熔岩巨獸 4、深淵魔王 3.8（深淵分身不放大）
+  'enemy.spider_queen': 1.51,
+  'enemy.lava_behemoth': 1.62,
+  'enemy.abyss_lord': 1.18,
+  'enemy.abyss_sovereign': 1.18,
+};
+
+const scaled = (models: Record<string, FigureModel>): Record<string, FigureModel> =>
+  Object.fromEntries(Object.entries(models).map(([id, m]) => [id, VISUAL_SCALE[id] ? { ...m, visualScale: VISUAL_SCALE[id] } : m]));
+
 export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.skeleton': SKELETON_WARRIOR,
   'enemy.ghoul': GHOUL,
@@ -342,9 +382,9 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.armored_skeleton': ARMORED,
   'enemy.skeleton_mage': MAGE,
   'enemy.training_dummy': DUMMY,
-  ...CREATURE_MODELS,
-  ...BEAST_MODELS,
-  ...BOSS_MODELS,
+  ...scaled(CREATURE_MODELS),
+  ...scaled(BEAST_MODELS),
+  ...scaled(BOSS_MODELS),
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;

@@ -53,14 +53,20 @@ describe('傳奇 / 神話的設計', () => {
     expect(new Set(all.map((d) => d.name)).size).toBe(all.length);
   });
 
-  it('產生：名稱與屬性固定；基底 = 該種類目前等級能用的最高階；主倍率與數值在設計範圍內', () => {
+  it('產生：名稱與屬性固定；基底在樓層階 −1 ～ +2（飾品 = 能用的最高階）；主倍率與數值在設計範圍內', () => {
     const gen = new ItemGenerator(data, new Rng(5));
     for (const def of data.legendaries.all) {
       const item = gen.createLegendary(def, 20);
       const base = data.items.get(item.baseId);
       expect(base.weaponType ?? base.slot).toBe(def.kind);
-      const better = data.items.all.filter((b) => (b.weaponType ?? b.slot) === def.kind && b.levelReq <= 20 && b.levelReq > base.levelReq);
-      expect(better, def.id).toHaveLength(0);
+      if (base.tier === undefined) {
+        const better = data.items.all.filter((b) => (b.weaponType ?? b.slot) === def.kind && b.levelReq <= 20 && b.levelReq > base.levelReq);
+        expect(better, def.id).toHaveLength(0);
+      } else {
+        // 第 20 層的樓層階 = T4（等級需求 18）
+        expect(base.tier, def.id).toBeGreaterThanOrEqual(3);
+        expect(base.tier, def.id).toBeLessThanOrEqual(6);
+      }
       if (def.main) {
         expect(item.quality!).toBeGreaterThanOrEqual(def.main[0]);
         expect(item.quality!).toBeLessThanOrEqual(def.main[1]);
@@ -69,6 +75,37 @@ describe('傳奇 / 神話的設計', () => {
       expect(d.name).toBe(def.name);
       expect((d.mainLine ? 1 : 0) + d.legendary!.lines.length).toBe(def.rarity === 'legendary' ? 6 : 8);
       expect(d.legendary!.lines.filter((l) => l.kind === 'unique').length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('紫 / 橘 / 紅的基底階級偏態分布：第 10 層多為 T2～T4、第 20 層 T3～T6、第 30 層 T5～T8', () => {
+    const gen = new ItemGenerator(data, new Rng(21));
+    const tiers = (level: number, rarity: 'epic' | 'mythic') => {
+      const weights = { normal: 0, magic: 0, rare: 0, epic: 0, legendary: 0, mythic: 0, [rarity]: 1 };
+      const counts = new Map<number, number>();
+      let n = 0;
+      while (n < 2000) {
+        const tier = data.items.get(gen.generate(level, weights).baseId).tier;
+        if (tier === undefined) continue;
+        counts.set(tier, (counts.get(tier) ?? 0) + 1);
+        n++;
+      }
+      return (t: number) => (counts.get(t) ?? 0) / n;
+    };
+    for (const rarity of ['epic', 'mythic'] as const) {
+      const f10 = tiers(10, rarity);
+      expect(f10(1)).toBeGreaterThan(0.08);
+      expect(f10(2)).toBeGreaterThan(0.33);
+      expect(f10(2) + f10(3) + f10(4)).toBeGreaterThan(0.8);
+      expect(f10(5)).toBe(0);
+      const f20 = tiers(20, rarity);
+      expect(f20(3) + f20(4) + f20(5) + f20(6)).toBeCloseTo(1);
+      expect(f20(4)).toBeGreaterThan(f20(6));
+      const f30 = tiers(30, rarity);
+      expect(f30(5) + f30(6) + f30(7) + f30(8)).toBeCloseTo(1);
+      expect(f30(6) + f30(7) + f30(8)).toBeGreaterThan(0.8);
+      // 最高階以上合併到 T8
+      expect(tiers(42, rarity)(8)).toBeGreaterThan(0.8);
     }
   });
 

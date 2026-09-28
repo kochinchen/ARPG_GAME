@@ -11,10 +11,12 @@ import { SkillCategorySchema } from '../data/schema/skill';
  * v6：傳奇 / 神話裝備的固定屬性擲骰（legendaryRolls）。
  * v7：裝備圖鑑（collection）。
  * v8：材料（materials）與拆解區（salvage）；地上的材料（飛昇碎片）。
+ * v10：終局紀錄（endgame：已通關、已完成隱藏難關）。
+ * v11：魔王門前的存檔點（floor.bossGateActive）、到過中途存檔點的樓層（floor.midwayFloors）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 11;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -99,6 +101,10 @@ export const SaveDataSchema = z.object({
     highest: int.min(1),
     mapId: z.string(),
     midwayActive: z.boolean(),
+    /** 魔王門前的存檔點已啟動（v11；只在本次進入樓層有效，換層後重設） */
+    bossGateActive: z.boolean(),
+    /** 到過中途存檔點的樓層（v11；重新進入時中途點維持啟動、有傳送口） */
+    midwayFloors: z.array(int.min(1)),
     exitOpen: z.boolean(),
     killed: z.array(nonNegInt),
     /** 樓層（JSON 的 key 一定是字串）→ 已開啟的寶箱索引 */
@@ -121,6 +127,10 @@ export const SaveDataSchema = z.object({
     /** ItemGenerator 最後使用的流水號；讀檔後從下一號接續 */
     itemUidCounter: nonNegInt,
   }),
+  /** 終局紀錄（v10；docs/ENDGAME.md）：已通關（擊敗第 30 層魔王）、已完成隱藏難關（擊敗第 35 層魔王） */
+  endgame: z.object({ cleared: z.boolean(), completedHidden: z.boolean() }),
+  /** 持續推進的亂數序列狀態：序列名稱 → Rng 狀態（v9；缺少的序列讀檔時重新混合種子） */
+  rng: z.record(z.string(), z.number().int().min(0).max(0xffffffff)),
 });
 
 export type SaveData = z.infer<typeof SaveDataSchema>;

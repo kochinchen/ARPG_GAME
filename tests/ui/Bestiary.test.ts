@@ -58,8 +58,9 @@ describe('圖鑑內容', () => {
 
   it('出現樓層：一般怪物、魔王、只會被召喚的眷屬', () => {
     expect(byId('enemy.bone_hound').appears).toBe('第 10 層起');
-    expect(byId('enemy.crypt_guardian').appears).toBe('第 5 層（魔王）');
-    expect(byId('enemy.abyss_lord').appears).toMatch(/^第 30、35、40… 層/);
+    expect(byId('enemy.crypt_guardian').appears).toBe('第 5 層（魔王）、第 31～34 層（小王）');
+    expect(byId('enemy.abyss_lord').appears).toBe('第 30、34 層（魔王）');
+    expect(byId('enemy.abyss_sovereign').appears).toBe('第 35 層（最終魔王）');
     expect(byId('enemy.cultist').appears).toBe('由墮落神官召喚');
     expect(byId('enemy.cultist').firstFloor).toBe(10);
   });

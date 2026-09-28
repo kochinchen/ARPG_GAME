@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
 import type { Vec2 } from '../../core/math/Vec2';
-import { lerpPose, samplePoses, solveJoints, type AttackVariant, type FigureModel, type Joint, type JointFrames, type Pose } from './FigureModel';
+import { IDLE_ROAR_OFFSET, lerpPose, samplePoses, solveJoints, type AttackVariant, type FigureModel, type Joint, type JointFrames, type Pose } from './FigureModel';
 import { apply, dot, faceNormal, jointRotation, normalize, rotY, type M3, type Mesh, type V3 } from './Poly3D';
 
 /** 模型單位 → 畫面像素（45° 等角：地面 2:1，垂直略為縮短） */
@@ -82,6 +82,8 @@ export class PolyFigure {
   private current: Pose;
   private action: Action | null = null;
   private hitTime = 0;
+  /** 這一幀開始待機怒吼（播放吼聲用；讀取後清除） */
+  private roarStarted = false;
   /** 死亡過程：開始的姿勢與經過時間 */
   private death: { from: Pose; elapsed: number } | null = null;
   /** 次級運動：各關節目前的方向（模型空間） */
@@ -93,6 +95,8 @@ export class PolyFigure {
   weaponAxis: { a: ScreenPoint; b: ScreenPoint; mid: ScreenPoint; focus: ScreenPoint | null; front: boolean } | null = null;
   /** undefined = 模型原本的武器；null = 空手 */
   private mount: WeaponMount | null | undefined = undefined;
+  /** 不畫的關節（魔王階段變化：盾牌碎裂、巨劍落地） */
+  private hidden: ReadonlySet<Joint> = new Set();
   /** 腳下影子（相對腳底，px；模型有 dynamicShadow 時才有）：中心與水平半徑 */
   shadow: { x: number; y: number; rx: number } | null = null;
 
@@ -114,6 +118,18 @@ export class PolyFigure {
     this.mount = mount;
   }
 
+  /** 魔王的階段：依模型的 phaseHidden 隱藏關節 */
+  setPhase(phase: number): void {
+    this.hidden = new Set(this.model.phaseHidden?.[phase] ?? []);
+  }
+
+  /** 是否剛開始待機怒吼（讀取後清除） */
+  consumeRoar(): boolean {
+    const r = this.roarStarted;
+    this.roarStarted = false;
+    return r;
+  }
+
   hit(): void {
     this.hitTime = this.model.poses.hitKeys ? HIT_KEYS_TIME : HIT_TIME;
   }
@@ -127,10 +143,15 @@ export class PolyFigure {
   }
 
   update(dt: number, state: FigureState): void {
+    const roar = this.model.idleRoar;
+    if (roar && state.alive && !state.moving && !this.action) {
+      const cycle = (t: number) => Math.floor((t - IDLE_ROAR_OFFSET) / roar.period);
+      if (this.time + dt >= IDLE_ROAR_OFFSET && cycle(this.time + dt) > cycle(this.time)) this.roarStarted = true;
+    }
     this.time += dt;
     this.stepDt = dt;
     const walking = state.moving && !!this.model.poses.walk && (state.speed ?? Infinity) < WALK_BELOW;
-    if (state.moving) this.runPhase += dt * (walking ? 7.5 : 11);
+    if (state.moving) this.runPhase += dt * (walking ? 7.5 : 11) * (this.model.gaitRate ?? 1);
     this.hitTime = Math.max(0, this.hitTime - dt);
     const target = this.targetPose(state, dt, walking);
     // 動作（攻擊 / 施法 / 死亡過程）直接用時間軸的姿勢，其他狀態平滑過渡
@@ -220,6 +241,7 @@ export class PolyFigure {
     const px = k * (Math.hypot(t.a, t.b) || 1);
     const lod = px < LOD_MEDIUM ? 0 : px < LOD_HIGH ? 1 : 2;
     const rim = this.model.rimLight ?? 0;
+    const soft = this.model.softLight ?? false;
     const weaponJoint = this.model.weaponJoint ?? 'handR';
     const mount = this.mount;
     const tipJoint = mount ? mount.joint : weaponJoint;
@@ -237,7 +259,7 @@ export class PolyFigure {
         return { x, y };
       };
       if (part.joint === tipJoint && tipLocal) this.weaponTip = screen(tipLocal);
-      let meshes = part.meshes;
+      let meshes = this.hidden.has(part.joint) ? [] : part.meshes;
       if (mount !== undefined && (part.joint === weaponJoint || part.joint === mount?.joint)) meshes = mount?.joint === part.joint ? mount.meshes : [];
       if (mount && part.joint === mount.joint) {
         const [a, b] = mount.axis;
@@ -262,7 +284,8 @@ export class PolyFigure {
             depth += dot(v, VIEW);
             points.push(...toScreen(v));
           }
-          const lit = Math.max(0, dot(n, LIGHT));
+          const d = dot(n, LIGHT);
+          const lit = soft ? Math.max(0, (d + 0.45) / 1.45) : Math.max(0, d);
           let color = shade(face.color, AMBIENT + DIFFUSE * lit);
           // 輪廓光：接近輪廓（幾乎側對鏡頭）且背光的面，加一點暖色
           if (rim > 0) color = addRim(color, rim * Math.max(0, 1 - facingView * 2.2) * (1 - lit));

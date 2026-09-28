@@ -35,14 +35,21 @@ export const FloorDefSchema = z.strictObject({
   monsterPool: z
     .array(z.strictObject({ enemyId: IdSchema, weight: z.number().positive(), minFloor: z.int().positive().default(1) }))
     .min(1),
-  /** 每 100 格地板的怪物數（第一層基準，之後依 balance.difficulty 增加） */
-  density: z.number().positive(),
+  /** 每 100 格地板的怪物數（第一層基準，之後依 balance.difficulty 增加）；0 = 沒有一般怪物 */
+  density: z.number().nonnegative(),
   /** 一群怪物的隻數範圍 */
   packSize: RangeSchema.default([2, 4]),
   /** 每一群的隊長成為精英怪的機率（balance.elite.minFloor 之前不會出現） */
   eliteChance: z.number().min(0).max(1).default(0),
   /** Boss 層：樓層號是 every 的倍數時，在出口前生成 Boss；擊敗 Boss 後出口才開啟 */
   boss: z.strictObject({ enemyId: IdSchema, every: z.int().positive() }).optional(),
+  /** 挑戰樓層的中途小王（依序輪流出現）；數量上限、空地大小與強度見 balance.endgame.miniBoss */
+  miniBosses: z.array(IdSchema).min(1).optional(),
+  /**
+   * 最後一層（王座廳）：整層只有一個圓形大空間，魔王在中央，沒有出口。
+   * bodies：空間直徑 = 魔王身體寬度的幾倍。寶箱沿外圈擺放（數量與掉落表用 chests / chestLootTable）
+   */
+  throne: z.strictObject({ enemyId: IdSchema, bodies: z.number().positive() }).optional(),
   /** 精英怪的詞綴數量範圍 */
   affixCount: RangeSchema.default([1, 1]),
   lootTier: z.int().positive(),

@@ -175,7 +175,13 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   if (overflow.length > 0) notes.push(`背包放不下的 ${overflow.length} 件物品已放在樓梯口`);
 
   // ---- 樓層 ----
-  save.floor.highest = Math.max(save.floor.highest, save.floor.current);
+  // 樓層上限（舊版沒有上限）：超過最後一層時回到最後一層
+  const { lastFloor } = balance.endgame;
+  if (save.floor.current > lastFloor) {
+    notes.push(`樓層上限改為第 ${lastFloor} 層，已移到第 ${lastFloor} 層`);
+    save.floor.current = lastFloor;
+  }
+  save.floor.highest = Math.min(lastFloor, Math.max(save.floor.highest, save.floor.current));
   const expectedMap = mapIdForFloor(data, save.floor.current);
   const ground = save.floor.groundItems.flatMap((g) => {
     const e = g.entry;
@@ -194,7 +200,10 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
       ...save.floor,
       mapId: expectedMap,
       midwayActive: false,
-      exitOpen: save.floor.current < save.floor.highest,
+      bossGateActive: false,
+      // 等同重新進入這一層：出口關閉、這一層的中途點要重新走到
+      midwayFloors: save.floor.midwayFloors.filter((f) => f !== save.floor.current),
+      exitOpen: false,
       killed: [],
       shopBought: [],
       openedChests: Object.fromEntries(Object.entries(save.floor.openedChests).filter(([f]) => Number(f) !== save.floor.current)),

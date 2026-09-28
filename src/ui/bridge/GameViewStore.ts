@@ -51,7 +51,8 @@ export const gameView = reactive({
     supports: [] as string[],
   },
   /** 樓層進度（固定地圖模式 floor = 0） */
-  floor: { floor: 0, killed: 0, total: 0, remaining: 0, exitOpen: false, bossFloor: false },
+  /** lastFloor：最後一層（王座廳，沒有出口） */
+  floor: { floor: 0, killed: 0, total: 0, remaining: 0, exitOpen: false, bossFloor: false, lastFloor: false },
   /** 交戰中的 Boss（畫面上方的大血條）；沒有時為 null */
   /** 怪物圖鑑：EnemyDef ID → 擊敗次數 */
   bestiary: {} as Record<string, number>,
@@ -69,6 +70,10 @@ export const gameView = reactive({
   discovery: null as { name: string; description: string[] } | null,
   /** 離開樓層前的確認（地上還有稀有以上物品） */
   leavePrompt: null as LeaveFloorPrompt | null,
+  /** 第 30 層出口：確認是否進入極限挑戰（進入後回不到 1～30 層） */
+  challengePrompt: null as { toFloor: number; valuableItems: number } | null,
+  /** 通關橫幅（已通關 / 已完成隱藏難關），顯示幾秒 */
+  milestone: null as { title: string; text: string } | null,
   inventory: emptyInventoryView(),
   skillTree: emptySkillTreeView(),
   character: emptyCharacterView(),
@@ -76,7 +81,8 @@ export const gameView = reactive({
   /** 點了商人：每次 +1，UI 看到變化就開啟商店 */
   shopRequest: 0,
   /** 存檔狀態：最後一次成功存檔的時間、錯誤訊息 */
-  save: { lastSavedAt: '', error: null as string | null },
+  /** 存檔狀態；slot = 目前遊玩的存檔欄位 */
+  save: { slot: 1, lastSavedAt: '', error: null as string | null },
   /** 讀檔時的提示（從備份還原、資料修復），顯示幾秒 */
   saveNotices: [] as string[],
   /** 開發用除錯資訊（只在 npm run dev 顯示，F3 切換） */

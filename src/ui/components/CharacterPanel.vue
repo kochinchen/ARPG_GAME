@@ -20,6 +20,8 @@ function add(e: MouseEvent, attribute: string) {
       <button type="button" class="close" aria-label="關閉" @click="emit('close')">×</button>
     </header>
 
+    <div class="columns">
+    <div class="col">
     <section class="attributes">
       <div v-for="a in view.attributes" :key="a.id" class="row">
         <div class="name">{{ a.name }}</div>
@@ -50,15 +52,30 @@ function add(e: MouseEvent, attribute: string) {
         <span class="value">{{ s.value }}</span>
       </div>
     </section>
+
+    </div>
+
+    <!-- 右欄：抗性與特殊屬性（左右兩欄，不用往下捲） -->
+    <div class="col side">
+      <section v-for="g in view.groups" :key="g.title" class="group">
+        <h4>{{ g.title }}</h4>
+        <div v-for="r in g.rows" :key="r.label" class="stat" :class="{ zero: r.zero }">
+          <span>{{ r.label }}</span>
+          <span class="value">{{ r.value }}</span>
+        </div>
+      </section>
+    </div>
+    </div>
   </aside>
 </template>
 
 <style scoped>
 .panel {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  width: min(340px, calc(100vw - 32px));
+  /* 位置由 App 的左側欄（left-dock）決定，與技能頁並排 */
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  width: min(620px, calc(100vw - 32px));
   max-height: calc(100vh - 170px);
   overflow-y: auto;
   pointer-events: auto;
@@ -170,5 +187,26 @@ h4 {
 .value {
   color: #f2e2b8;
   font-variant-numeric: tabular-nums;
+}
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+}
+.col.side {
+  border-left: 1px solid #3d342c;
+}
+.group {
+  padding: 6px 12px 10px;
+}
+.group + .group {
+  border-top: 1px solid #3d342c;
+}
+.group .stat {
+  font-size: 12px;
+}
+/* 沒有加成的屬性仍顯示（例如抗性 0%），但變暗 */
+.group .stat.zero,
+.group .stat.zero .value {
+  color: #6a5e4e;
 }
 </style>

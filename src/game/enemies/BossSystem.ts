@@ -29,7 +29,8 @@ export class BossSystem {
 
   update(actors: readonly Actor[]): void {
     for (const boss of actors) {
-      if (!boss.isBoss || !boss.alive || boss.defId === null) continue;
+      // 中途小王沒有階段變化
+      if (!boss.isBoss || boss.miniBoss || !boss.alive || boss.defId === null) continue;
       const phases = this.data.enemies.get(boss.defId).phases;
       let current = this.phaseOf(boss);
       // 一次掉很多血時可能連跳好幾個階段，依序套用

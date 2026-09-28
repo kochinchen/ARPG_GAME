@@ -25,6 +25,7 @@ export class DeathSystem {
         elite: actor.elite,
         summoned: actor.summonedBy !== null,
         boss: actor.isBoss,
+        miniBoss: actor.miniBoss,
       });
     }
   }

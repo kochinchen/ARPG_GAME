@@ -31,12 +31,14 @@ function sample(gold: number): SaveData {
     inventory: { cells, cursor: null },
     equipment: {},
     codex: [],
-    floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, exitOpen: false, killed: [], openedChests: {}, groundItems: [], shopBought: [] },
+    floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, bossGateActive: false, midwayFloors: [], exitOpen: false, killed: [], openedChests: {}, groundItems: [], shopBought: [] },
+    endgame: { cleared: false, completedHidden: false },
     bestiary: {},
     collection: [],
     materials: {},
     salvage: [],
     counters: { itemUidCounter: 0 },
+    rng: {},
   };
 }
 
@@ -175,6 +177,22 @@ describe('Migration v4 → v5（主倍率）', () => {
     expect(item(2).quality).toBeCloseTo(0.525);
     expect(item(3).quality).toBeCloseTo(0.3);
     expect(v5.equipment.armor!.quality).toBe(0);
+  });
+});
+
+describe('Migration v10 → v11（魔王門前存檔點、到過中途的樓層）', () => {
+  it('魔王門前一律未啟動；目前這一層的中途已啟動時記為到過中途', () => {
+    const make = (midwayActive: boolean) => {
+      const v10 = structuredClone(sample(3)) as unknown as Record<string, unknown> & SaveData;
+      const floor = v10.floor as Partial<SaveData['floor']>;
+      delete floor.bossGateActive;
+      delete floor.midwayFloors;
+      floor.current = 4;
+      floor.midwayActive = midwayActive;
+      return SaveDataSchema.parse(migrate(v10, 10));
+    };
+    expect(make(true).floor).toMatchObject({ bossGateActive: false, midwayFloors: [4] });
+    expect(make(false).floor).toMatchObject({ bossGateActive: false, midwayFloors: [] });
   });
 });
 
@@ -317,5 +335,39 @@ describe('AutoSaver', () => {
     saver.flushSync();
     await flush();
     expect(storage.data).toEqual(before);
+  });
+});
+
+describe('存檔欄位', () => {
+  it('三個欄位互不影響；欄位 1 沿用舊版的鍵（舊存檔自動成為欄位 1）', async () => {
+    const storage = new MemoryStorage();
+    const emergency = new MemoryStore();
+    const slot = (n: number) => new SaveService(storage, emergency, clock(), n);
+    await slot(1).write(sample(11));
+    await slot(2).write(sample(22));
+    expect((await loadedGold(slot(1))).data.character.gold).toBe(11);
+    expect((await loadedGold(slot(2))).data.character.gold).toBe(22);
+    expect((await slot(3).load()).status).toBe('empty');
+    // 舊版（沒有欄位參數）讀到的就是欄位 1
+    expect((await loadedGold(new SaveService(storage, emergency, clock()))).data.character.gold).toBe(11);
+    // 各欄位的緊急副本分開
+    slot(2).writeEmergency(sample(23));
+    expect(emergency.getItem(EMERGENCY_KEY)).toBeNull();
+    // 刪除欄位 2 不影響欄位 1
+    await slot(2).clear();
+    expect((await slot(2).load()).status).toBe('empty');
+    expect((await loadedGold(slot(1))).data.character.gold).toBe(11);
+  });
+
+  it('立即存檔：等進行中的寫入完成後寫入；不適合存檔時回傳 null（forced 仍會存）', async () => {
+    const { service } = setup();
+    let alive = false;
+    const saver = new AutoSaver(service, () => (alive ? sample(5) : null), () => sample(6));
+    expect(await saver.saveNow()).toBeNull();
+    expect(await saver.saveNow(true)).not.toBeNull();
+    expect((await loadedGold(service)).data.character.gold).toBe(6);
+    alive = true;
+    expect(await saver.saveNow()).not.toBeNull();
+    expect((await loadedGold(service)).data.character.gold).toBe(5);
   });
 });

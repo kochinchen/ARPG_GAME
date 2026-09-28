@@ -1,3 +1,4 @@
+import type { StatId } from '../../data/schema/common';
 import type { StatusKind } from '../../data/schema/effects';
 import type { Actor, StatusInstance } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
@@ -22,7 +23,16 @@ const STAT_EFFECTS: Partial<Record<StatusKind, (magnitude: number) => Omit<StatM
  * 同種狀態重複施加時取較長的時間與較強的效果。
  */
 export class StatusEffectSystem {
-  constructor(private readonly events: GameEventBus) {}
+  constructor(
+    private readonly events: GameEventBus,
+    /** 控制抗性上限（balance.combat.maxControlResist） */
+    private readonly maxControlResist: number,
+  ) {}
+
+  /** 控制抗性（0～上限）：緩速抗性、擊退抗性、暈眩時間減少 */
+  controlResist(actor: Actor, stat: Extract<StatId, 'slowResist' | 'knockbackResist' | 'stunResist'>): number {
+    return Math.min(this.maxControlResist, Math.max(0, actor.stats.get(stat)));
+  }
 
   apply(target: Actor, kind: StatusKind, duration: number, magnitude: number, source: Actor | null): void {
     if (!target.alive || duration <= 0) return;
@@ -30,6 +40,10 @@ export class StatusEffectSystem {
       kind = 'slow';
       magnitude = BOSS_FREEZE_SLOW;
     }
+    // 控制抗性：緩速變弱、暈眩變短（在 Boss 冰凍轉緩速之後計算，所以 Boss 的緩速抗性也有效）
+    if (kind === 'slow') magnitude *= 1 - this.controlResist(target, 'slowResist');
+    if (kind === 'stun') duration *= 1 - this.controlResist(target, 'stunResist');
+    if (duration <= 0) return;
     const dps = kind === 'burn' && source ? source.stats.get('spellPower') * magnitude : 0;
     const existing = target.statuses.find((s) => s.kind === kind);
     if (existing) {

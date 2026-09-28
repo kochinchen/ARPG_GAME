@@ -3,7 +3,7 @@ import type { BalanceSchema } from './schema/balance';
 
 /** 全域平衡數值。調整手感優先改這裡。 */
 export const balance: z.input<typeof BalanceSchema> = {
-  maxLevel: 99,
+  maxLevel: 70,
   xpCurve: { base: 50, exponent: 1.5 },
   skillPointsPerLevel: 1,
   statsPerLevel: { maxHp: 5, maxMana: 2 },
@@ -75,6 +75,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     xpPerFloor: 0.15,
     densityPerFloor: 0.03,
     maxDensityMultiplier: 1.4,
+    // 前期怪物數量加成：第 1～5 層 +20%，之後逐層遞減，第 30 層起為 0（第 30 層以後的數量不變）
+    earlyDensityBoost: { bonus: 0.2, fullUntil: 5, fadeTo: 30 },
   },
   floor: {
     // 樓梯口與出口：大於最遠的偵測距離（骷髏王 9），上下樓時附近一定沒有怪物
@@ -83,11 +85,17 @@ export const balance: z.input<typeof BalanceSchema> = {
     safeRadius: 12,
     checkpointRadius: 1.2,
   },
+  // 終局（docs/ENDGAME.md）
+  endgame: {
+    lastNormalFloor: 30,
+    lastFloor: 35,
+    miniBoss: { maxPerFloor: 4, arenaBodies: 15, hpMultiplier: 0.5, damageMultiplier: 0.5, xpMultiplier: 0.5, lootTable: 'loot.elite' },
+  },
   elite: {
     minFloor: 3,
     hpMultiplier: 3,
-    damageMultiplier: 1.3,
-    xpMultiplier: 3,
+    damageMultiplier: 1.8,
+    xpMultiplier: 3.5,
     radiusMultiplier: 1.2,
     lootTable: 'loot.elite',
     floorResist: { minFloor: 10, perFloor: { elite: 0.015, boss: 0.02 }, max: 0.4 },
@@ -103,6 +111,18 @@ export const balance: z.input<typeof BalanceSchema> = {
     base: { normal: [0, 0], magic: [0.2, 0.9], rare: [0.7, 1.5], epic: [1.3, 2.3], legendary: [2.1, 3.2], mythic: [2.9, 4] },
     // 飾品：所有詞綴 +X%
     jewelry: { normal: [0, 0], magic: [0.05, 0.25], rare: [0.2, 0.45], epic: [0.4, 0.65], legendary: [0.6, 0.85], mythic: [0.8, 1] },
+  },
+  loot: {
+    // lootTier 1（1～4 層）不變；2（5～14）、3（15～24）、4（25 層起）逐步提高黃以上的權重（白、藍不變）
+    tierBonus: [
+      { rare: 1, epic: 1, legendary: 1, mythic: 1 },
+      { rare: 1.2, epic: 1.4, legendary: 1.4, mythic: 1.5 },
+      { rare: 1.4, epic: 1.8, legendary: 1.8, mythic: 2 },
+      { rare: 1.6, epic: 2.2, legendary: 2.2, mythic: 2.6 },
+    ],
+    // 紫 / 橘 / 紅的基底：樓層階 −1 ～ +2，偏向樓層階與上一階（第 10 層多為 T2～T4、第 20 層 T3～T6、第 30 層 T6～T8），
+    // 高於等級的基底要升級才能穿；早期拿到的好裝備要靠飛昇跟上樓層
+    highRarityTier: { offsets: [-1, 0, 1, 2], weights: [15, 40, 30, 15] },
   },
   salvage: {
     slots: 10,
@@ -127,8 +147,9 @@ export const balance: z.input<typeof BalanceSchema> = {
     stockRarityWeights: { normal: 30, magic: 60, rare: 10 },
     potionBuyPrice: 12,
     potionSellPrice: 3,
-    // 賭博：比直接買一件魔法物品便宜一點，但可能拿到普通或稀有
-    gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 56.5, rare: 25, epic: 3, legendary: 0.5 } },
+    // 賭博：比直接買一件魔法物品便宜一點，但可能拿到普通或稀有。
+    // 史詩 / 傳奇只有一般怪物掉落的一半（0.3% / 0.05%，也沒有深層的 tierBonus）：可以用金幣一直賭，不能比打寶好拿
+    gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 59.65, rare: 25, epic: 0.3, legendary: 0.05 } },
     // 飛昇：越高階、越稀有越貴（紅裝升到第 8 階約 1 萬金幣）
     ascend: {
       base: 60,
@@ -156,5 +177,6 @@ export const balance: z.input<typeof BalanceSchema> = {
     defenseConstant: 100,
     maxResist: 0.75,
     maxDodge: 0.5,
+    maxControlResist: 0.75,
   },
 };

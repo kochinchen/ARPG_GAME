@@ -67,7 +67,7 @@ export function faceNormal(verts: readonly V3[], idx: readonly number[]): V3 {
 // ─────────────────────────── 網格 ───────────────────────────
 
 /** 讓每個面的頂點順序朝外（凸多面體：法線與「面中心 − 網格中心」同向） */
-function orient(mesh: Mesh): Mesh {
+export function orient(mesh: Mesh): Mesh {
   const c = mesh.verts.reduce<V3>((s, v) => [s[0] + v[0], s[1] + v[1], s[2] + v[2]], [0, 0, 0]).map((x) => x / mesh.verts.length) as V3;
   for (const f of mesh.faces) {
     const fc = f.idx.reduce<V3>((s, i) => [s[0] + mesh.verts[i]![0], s[1] + mesh.verts[i]![1], s[2] + mesh.verts[i]![2]], [0, 0, 0]);

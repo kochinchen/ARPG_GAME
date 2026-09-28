@@ -34,7 +34,7 @@ const sleep = (boss: Actor) => {
 };
 
 describe('Boss 層', () => {
-  it('每 5 層一隻魔王（依樓層區間不同），位置在出口前方；第 4、6 層沒有', () => {
+  it('每 5 層一隻魔王（依樓層區間不同），站在競技場中央；第 4、6 層沒有', () => {
     const expected: [number, string][] = [
       [5, 'enemy.crypt_guardian'],
       [10, 'enemy.fallen_priest'],
@@ -42,14 +42,35 @@ describe('Boss 層', () => {
       [20, 'enemy.fallen_knight'],
       [25, 'enemy.spider_queen'],
       [30, 'enemy.abyss_lord'],
-      [35, 'enemy.abyss_lord'],
+      // 極限挑戰：每層最後的魔王（docs/ENDGAME.md）
+      [31, 'enemy.lava_behemoth'],
+      [34, 'enemy.abyss_lord'],
     ];
     for (const [floor, id] of expected) {
       const w = world(floor).world;
-      const bosses = w.actors.filter((a) => a.isBoss);
+      const bosses = w.actors.filter((a) => a.isBoss && !a.miniBoss);
       expect(bosses).toHaveLength(1);
       expect(bosses[0]!.defId).toBe(id);
-      expect(distance(bosses[0]!.position, w.exit!.position)).toBeLessThan(6);
+      const boss = bosses[0]!;
+      const arena = w.map.arena!;
+      const center = vec2(arena.x, arena.y);
+      // 競技場：直徑至少 19 個魔王身體寬度，魔王在中央；出口在競技場後方的小房間（競技場外、但離邊緣不遠），商人也在那裡
+      expect(arena.radius * 2).toBeGreaterThanOrEqual(19 * 2 * boss.visualRadius - 0.5);
+      expect(distance(boss.position, center)).toBeLessThan(2);
+      const exitDistance = distance(w.exit!.position, center);
+      expect(exitDistance).toBeGreaterThan(arena.radius);
+      expect(exitDistance).toBeLessThan(arena.radius + 20);
+      const exitMerchant = w.merchants[w.merchants.length - 1]!;
+      expect(distance(exitMerchant.position, center)).toBeGreaterThan(arena.radius);
+      // 裡面是空地（抽樣的點幾乎都能走），也沒有一般怪物
+      let open = 0;
+      for (let i = 0; i < 40; i++) {
+        const a = (i / 40) * Math.PI * 2;
+        const r = arena.radius * (0.2 + (i % 4) * 0.2);
+        if (w.nav.isClearAt(vec2(center.x + Math.cos(a) * r, center.y + Math.sin(a) * r), 0.3)) open++;
+      }
+      expect(open).toBeGreaterThanOrEqual(38);
+      expect(w.actors.filter((x) => x.faction === 'enemy' && !x.isBoss && distance(x.position, center) < arena.radius)).toHaveLength(0);
       expect(w.floors.bossFloor).toBe(true);
     }
     for (const floor of [4, 6]) {
@@ -200,5 +221,20 @@ describe('Boss 與存檔', () => {
   it('資料驗證：Boss 層的怪物必須設定 boss: true', () => {
     const floors = (gameData.floors as { id: string }[]).map((f) => ({ ...f, boss: { enemyId: 'enemy.skeleton', every: 5 } }));
     expect(() => DataRegistry.load({ ...gameData, floors })).toThrow(/boss: true/);
+  });
+});
+
+describe('魔王的範圍技', () => {
+  const skills = DataRegistry.load(gameData).skills;
+  const areaOf = (id: string) => skills.get(id).effects.find((e) => e.type === 'area' || e.type === 'zone') as { radius: number };
+  it('範圍 × 1.2；直接打在地上的範圍技都有前搖範圍提示（衝鋒、暗黑領域也有）', () => {
+    expect(areaOf('enemy.guardian_slam').radius).toBeCloseTo(3.4 * 1.2);
+    expect(areaOf('enemy.lord_domain').radius).toBeCloseTo(5.5 * 1.2);
+    const barrage = skills.get('enemy.priest_barrage').effects[0] as { scatter: number; effects: { radius: number }[] };
+    expect(barrage.scatter).toBeCloseTo(2.2 * 1.2);
+    expect(barrage.effects[0]!.radius).toBeCloseTo(1.2 * 1.2);
+    for (const id of ['enemy.guardian_charge', 'enemy.knight_dash', 'enemy.queen_pounce', 'enemy.lord_domain', 'enemy.guardian_quake']) expect(skills.get(id).telegraph, id).toBe(true);
+    // 原本的前搖秒數不變
+    expect(skills.get('enemy.guardian_slam').castTime).toBe(1.5);
   });
 });

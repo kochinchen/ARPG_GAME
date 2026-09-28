@@ -3,6 +3,7 @@ import type { ActorId } from './entities/Actor';
 import type { SkillCategory } from '../data/schema/skill';
 import type { EquipmentSlot } from './items/ItemInstance';
 import type { EquipSlot } from '../data/schema/item';
+import type { LegendaryKind } from '../data/schema/legendary';
 
 /**
  * Input / UI 能對遊戲送出的所有指令。
@@ -59,8 +60,8 @@ export type GameCommand =
   | { type: 'ShopSellHeld' }
   /** 商人：賣出背包裡所有普通（白色）物品 */
   | { type: 'ShopSellNormals' }
-  /** 商人：賭博，指定裝備類別 */
-  | { type: 'ShopGamble'; slot: EquipSlot }
+  /** 商人：賭博，指定裝備種類（劍 / 斧 / 弓 / 法杖、防具與飾品部位） */
+  | { type: 'ShopGamble'; kind: LegendaryKind }
   /** 拆解區：點格子（放下 / 互換 / 拿起） */
   | { type: 'SalvageClick'; slot: number }
   /** 拆解區：拆掉所有格子裡的裝備 */
@@ -71,6 +72,8 @@ export type GameCommand =
   | { type: 'ShopAscend' }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
+  /** 確認進入極限挑戰（第 31 層，之後回不到 1～30 層） */
+  | { type: 'ConfirmEnterChallenge' }
   /** 開發用：直接升一級（只有 dev 版的 Input 會送出） */
   | { type: 'DebugLevelUp' }
   /** 開發用：在玩家周圍生成寶箱 */

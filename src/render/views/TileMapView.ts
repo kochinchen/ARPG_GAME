@@ -4,6 +4,7 @@ import { vec2, type Vec2 } from '../../core/math/Vec2';
 import type { DungeonTheme } from '../../data/schema/floor';
 import type { NavGrid } from '../../game/movement/NavGrid';
 import { THEMES, type ThemeColors } from '../themes';
+import { arenaBlend, buildArena, type ArenaView } from './ArenaDecor';
 
 /** 牆高（px）：每一格隨機加上 0～WALL_JITTER，牆頂參差不齊 */
 const WALL_HEIGHT = 24;
@@ -49,11 +50,17 @@ function mix(a: number, b: number, t: number): number {
  * - 牆：只畫鄰接地板的牆（岩壁深處留黑），高度隨機、牆頂參差；同一條對角線上每 CHUNK 格合成一個物件，
  *   與角色一起依深度排序
  * - 光源：火把 / 燭光 / 熔岩 / 水晶，地上有光暈並閃爍
+ * - 魔王競技場（arena）：範圍內換成魔王的配色，加上地上的紋路、外圈的擺設與火盆（ArenaDecor）
  */
 export class TileMapView {
-  readonly floor = new Graphics();
+  /** 地板層：地磚 + 競技場的紋路 */
+  readonly floor = new Container();
+  private readonly tiles = new Graphics();
   private readonly walls: WallChunk[] = [];
   private readonly lights: Light[] = [];
+  /** 競技場的擺設（換樓層時移除） */
+  private readonly props: Graphics[] = [];
+  private arenaGlow: Graphics | null = null;
   private readonly theme: ThemeColors;
   private time = 0;
 
@@ -62,9 +69,14 @@ export class TileMapView {
     private readonly nav: NavGrid,
     private readonly objectLayer: Container,
     theme: DungeonTheme = 'crypt',
+    private readonly arena?: ArenaView,
   ) {
     this.theme = THEMES[theme];
     const t = this.theme;
+    this.floor.addChild(this.tiles);
+    const c0 = nav.cell;
+    /** 這一格屬於競技場的程度（0～1） */
+    const inArena = (x: number, y: number) => (arena ? arenaBlend(arena, vec2((x + 0.5) * c0, (y + 0.5) * c0)) : 0);
     const nearFloor = (x: number, y: number) => {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (nav.isWalkable(x + dx, y + dy)) return true;
       return false;
@@ -77,10 +89,13 @@ export class TileMapView {
         if (!walkable && !nearFloor(x, y)) continue;
         // 地板（牆底下也畫，牆變半透明時才不會露出背景）
         let color = mix(t.floorA, t.floorB, hash(x, y));
-        if (walkable) color = this.floorAccent(x, y, color);
-        this.floor.poly(this.corners(x, y)).fill({ color });
+        const k = inArena(x, y);
+        if (walkable && k < 1) color = this.floorAccent(x, y, color);
+        if (k > 0) color = mix(color, this.arenaFloor(x, y), k);
+        this.tiles.poly(this.corners(x, y)).fill({ color });
         if (walkable) {
-          this.decorate(x, y);
+          // 競技場裡不放一般的火把與小裝飾（有自己的擺設）
+          if (k === 0) this.decorate(x, y);
           continue;
         }
         const key = `${x + y}:${Math.floor((x - y + nav.height) / CHUNK)}`;
@@ -89,7 +104,7 @@ export class TileMapView {
           chunk = { g: new Graphics(), x: 0, y: 0, n: 0 };
           chunks.set(key, chunk);
         }
-        this.drawWall(chunk.g, x, y);
+        this.drawWall(chunk.g, x, y, k);
         chunk.x += x;
         chunk.y += y;
         chunk.n++;
@@ -105,20 +120,41 @@ export class TileMapView {
       objectLayer.addChild(chunk.g);
       this.walls.push({ graphics: chunk.g, screen: projection.toScreen(vec2((cx + 0.5) * c, (cy + 0.5) * c)), depth });
     }
+    if (arena) {
+      const decor = buildArena(arena, projection, this.floor, objectLayer);
+      this.arenaGlow = decor.glow;
+      this.props.push(...decor.props);
+      decor.lights.forEach((graphics, i) => this.lights.push({ graphics, phase: i * 1.7 }));
+    }
   }
 
-  /** 換樓層時移除地板、牆壁與光源 */
+  /** 換樓層時移除地板、牆壁、光源與競技場擺設 */
   destroy(): void {
     for (const wall of this.walls) wall.graphics.destroy();
-    for (const light of this.lights) light.graphics.destroy();
+    for (const light of this.lights) if (!light.graphics.destroyed) light.graphics.destroy();
+    for (const prop of this.props) if (!prop.destroyed) prop.destroy();
     this.walls.length = 0;
     this.lights.length = 0;
-    this.floor.destroy();
+    this.props.length = 0;
+    this.floor.destroy({ children: true });
+  }
+
+  /** 競技場的地板色（騎士的決鬥場是 2×2 格的棋盤地磚） */
+  private arenaFloor(x: number, y: number): number {
+    const style = this.arena!.style;
+    if (style.pattern === 'checker') {
+      const c = this.nav.cell;
+      const cell = Math.floor((x * c) / 2) + Math.floor((y * c) / 2);
+      return mix(cell % 2 ? style.floorA : style.floorB, 0x000000, hash(x, y) * 0.12);
+    }
+    return mix(style.floorA, style.floorB, hash(x, y, 3));
   }
 
   /** 牆：畫面外不顯示；在玩家前方、蓋住玩家身體的改為半透明；光源閃爍 */
   update(playerPos: Vec2, dt = 1 / 60): void {
     this.time += dt;
+    // 競技場的紋路緩慢脈動
+    if (this.arenaGlow) this.arenaGlow.alpha = 0.75 + 0.25 * Math.sin(this.time * 1.8);
     const playerDepth = this.projection.depth(playerPos);
     const p = this.projection.toScreen(playerPos);
     for (const wall of this.walls) {
@@ -176,17 +212,19 @@ export class TileMapView {
     // 小裝飾：碎石、骨頭、熔岩縫的亮點
     if (hash(x, y, 23) >= 0.02) return;
     if (t.decor === 'bones') {
-      this.floor.poly([center.x - 5, center.y - 1, center.x + 5, center.y + 1, center.x + 5, center.y + 2.5, center.x - 5, center.y + 0.5]).fill({ color: 0xcfc6b0 });
+      this.tiles.poly([center.x - 5, center.y - 1, center.x + 5, center.y + 1, center.x + 5, center.y + 2.5, center.x - 5, center.y + 0.5]).fill({ color: 0xcfc6b0 });
     } else if (t.decor === 'cracks') {
-      this.floor.poly([center.x - 7, center.y, center.x, center.y - 1.5, center.x + 7, center.y + 1, center.x, center.y + 1]).fill({ color: t.glow, alpha: 0.8 });
+      this.tiles.poly([center.x - 7, center.y, center.x, center.y - 1.5, center.x + 7, center.y + 1, center.x, center.y + 1]).fill({ color: t.glow, alpha: 0.8 });
     } else {
-      this.floor.poly([center.x - 3, center.y, center.x, center.y - 2.5, center.x + 3.5, center.y, center.x, center.y + 1.5]).fill({ color: mix(t.wallTop, 0x000000, 0.2) });
+      this.tiles.poly([center.x - 3, center.y, center.x, center.y - 2.5, center.x + 3.5, center.y, center.x, center.y + 1.5]).fill({ color: mix(t.wallTop, 0x000000, 0.2) });
     }
   }
 
   /** 一格牆：左、右兩個面與頂面，高度與明暗依格子座標隨機 */
-  private drawWall(g: Graphics, x: number, y: number): void {
-    const t = this.theme;
+  private drawWall(g: Graphics, x: number, y: number, arenaK = 0): void {
+    const base = this.theme;
+    const a = this.arena?.style;
+    const t = a && arenaK > 0 ? { wallLeft: mix(base.wallLeft, a.wallLeft, arenaK), wallRight: mix(base.wallRight, a.wallRight, arenaK), wallTop: mix(base.wallTop, a.wallTop, arenaK) } : base;
     const [top, right, bottom, left] = this.cornerPoints(x, y);
     const h = WALL_HEIGHT + Math.floor(hash(x, y, 5) * WALL_JITTER);
     const up = (p: Vec2) => vec2(p.x, p.y - h);

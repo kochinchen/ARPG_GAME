@@ -267,9 +267,10 @@ const STEPS = [0, 1, 2] as const;
 
 <style scoped>
 .panel {
-  position: absolute;
-  top: 12px;
-  left: 12px;
+  /* 位置由 App 的左側欄（left-dock）決定：只開技能頁時靠左，與角色頁一起開時排在角色頁右邊 */
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
   width: min(520px, calc(100vw - 32px));
   max-height: calc(100vh - 150px);
   overflow-x: hidden;

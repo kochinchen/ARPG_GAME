@@ -66,7 +66,11 @@ describe('MapGenerator', () => {
   it('所有樓層區間都用隨機地圖，並依深度設定風格', () => {
     const data = DataRegistry.load(gameData);
     const themes = data.floors.all.map((f) => [f.floors[0], f.theme]);
-    expect(themes).toEqual([[1, 'crypt'], [5, 'tomb'], [10, 'sanctum'], [15, 'lava'], [20, 'fortress'], [25, 'abyss'], [30, 'temple']]);
+    expect(themes).toEqual([
+      [1, 'crypt'], [5, 'tomb'], [10, 'sanctum'], [15, 'lava'], [20, 'fortress'], [25, 'abyss'], [30, 'temple'],
+      // 極限挑戰 31～34 與王座廳 35（docs/ENDGAME.md）
+      [31, 'temple'], [32, 'temple'], [33, 'temple'], [34, 'temple'], [35, 'temple'],
+    ]);
     expect(data.floors.all.every((f) => f.layout !== undefined)).toBe(true);
   });
 });

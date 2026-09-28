@@ -1,5 +1,7 @@
 import type { DataRegistry } from '../../data/DataRegistry';
-import { MATERIAL_LABELS, type EquipSlot, type MaterialId } from '../../data/schema/item';
+import { MATERIAL_LABELS, RARITIES, RARITY_LABELS, WEAPON_TYPE_LABELS, type EquipSlot, type MaterialId, type WeaponType } from '../../data/schema/item';
+import { LegendaryKindSchema, type LegendaryKind } from '../../data/schema/legendary';
+import { baseIsKind } from '../../game/items/ItemGenerator';
 import type { GameWorld } from '../../game/GameWorld';
 import { SLOT_LABELS } from '../../game/items/ItemDescriber';
 import type { ItemInstance } from '../../game/items/ItemInstance';
@@ -22,7 +24,10 @@ export interface ShopView {
   /** 身上的藥水 / 攜帶上限 */
   potions: { count: number; max: number };
   gamblePrice: number;
-  gambleSlots: { slot: EquipSlot; label: string; glyph: string }[];
+  /** 可以賭的種類：四種武器分開，再加上防具與飾品部位 */
+  gambleKinds: { kind: LegendaryKind; label: string; glyph: string }[];
+  /** 賭博的稀有度機率（例：普通 15% · 魔法 56.5% …） */
+  gambleOdds: string;
   /** 手上拿著的物品賣出價格（沒拿東西為 null） */
   heldSellPrice: number | null;
   /**
@@ -55,7 +60,8 @@ export function emptyShopView(): ShopView {
     potionPrice: 0,
     potions: { count: 0, max: 0 },
     gamblePrice: 0,
-    gambleSlots: [],
+    gambleKinds: [],
+    gambleOdds: '',
     heldSellPrice: null,
     ascendSlot: null,
     ascend: null,
@@ -74,7 +80,27 @@ const GLYPHS: Record<EquipSlot, string> = {
   amulet: '符',
 };
 
-const GAMBLE_SLOTS: readonly EquipSlot[] = ['weapon', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
+const WEAPON_GLYPHS: Record<WeaponType, string> = { sword: '劍', axe: '斧', bow: '弓', staff: '杖' };
+
+/** 賭博的種類：資料中有基底的才列出（新增武器類型只要加資料） */
+function gambleKinds(data: DataRegistry): ShopView['gambleKinds'] {
+  return LegendaryKindSchema.options
+    .filter((kind) => data.items.all.some((b) => baseIsKind(b, kind)))
+    .map((kind) => {
+      const weapon = kind in WEAPON_GLYPHS ? (kind as WeaponType) : null;
+      return weapon
+        ? { kind, label: WEAPON_TYPE_LABELS[weapon], glyph: WEAPON_GLYPHS[weapon] }
+        : { kind, label: SLOT_LABELS[kind as EquipSlot], glyph: GLYPHS[kind as EquipSlot] };
+    });
+}
+
+function gambleOdds(data: DataRegistry): string {
+  const weights = data.balance.shop.gamble.rarityWeights;
+  const total = RARITIES.reduce((sum, r) => sum + (weights[r] ?? 0), 0);
+  return RARITIES.filter((r) => (weights[r] ?? 0) > 0)
+    .map((r) => `${RARITY_LABELS[r]} ${Number((((weights[r] ?? 0) / total) * 100).toFixed(2))}%`)
+    .join(' · ');
+}
 
 /** 貨架、金幣、背包改變時重建 */
 export function shopSignature(world: GameWorld): string {
@@ -104,7 +130,8 @@ export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
       max: data.potions.get(data.balance.player.potionId).maxCarry,
     },
     gamblePrice: shop.gamblePrice,
-    gambleSlots: GAMBLE_SLOTS.filter((slot) => data.items.all.some((b) => b.slot === slot)).map((slot) => ({ slot, label: SLOT_LABELS[slot], glyph: GLYPHS[slot] })),
+    gambleKinds: gambleKinds(data),
+    gambleOdds: gambleOdds(data),
     heldSellPrice: held ? sellPrice(held, data) : null,
     ascendSlot: shop.ascendSlot ? itemEntryView(shop.ascendSlot, data) : null,
     ascend: shop.ascendSlot ? ascendView(world, data, shop.ascendSlot, gold) : null,

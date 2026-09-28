@@ -223,6 +223,47 @@ export const bossEnemies: EnemyInput[] = [
     ],
   },
 
+  {
+    ...BOSS,
+    id: 'enemy.abyss_sovereign',
+    name: '深淵統御者',
+    lore: '被遺忘在地底深處的古老魔物，擁有無盡的憤怒與無限的空間欲望。四足半身的巨大惡魔，右手巨劍、左手盾牌；盾牌碎裂後轉為狂暴近戰，失去巨劍後魔力暴走。第 35 層的隱藏最終魔王。',
+    // 第 35 層套用樓層成長（HP ×7.8、傷害 ×5.08、防禦 ×4.4）後約為：HP 30,000、傷害 86～137、防禦 340（docs/ENDGAME.md 5.1）
+    hp: 3850,
+    damage: [17, 27],
+    defense: 77,
+    moveSpeed: 2.4,
+    radius: 0.5,
+    size: 3,
+    attackRange: 0.9,
+    attackSpeed: 0.8,
+    ai: 'melee',
+    // 全抗性固定 30%（取代魔王的樓層減傷）
+    fixedResist: 0.3,
+    // 第 1 階段：重裝統御者（盾＋劍）
+    skills: ['enemy.sov_claw', 'enemy.sov_meteor', 'enemy.sov_charge', 'enemy.sov_cleave', 'enemy.sov_sweep', 'enemy.sov_stomp'],
+    xp: 2400,
+    phases: [
+      {
+        // 盾牌碎裂：防禦 −20%，攻擊更積極
+        hpBelow: 0.7,
+        label: '破盾狂獸',
+        modifiers: [{ stat: 'defense', kind: 'increased', value: -0.2 }],
+        skills: ['enemy.sov_claw', 'enemy.sov_meteor', 'enemy.sov_fan_slash', 'enemy.sov_claw_combo', 'enemy.sov_sweep_double', 'enemy.sov_stomp'],
+      },
+      {
+        // 巨劍落地：物理 −20%、魔法 +20%，改用火冰彈幕與隕石暴雨
+        hpBelow: 0.3,
+        label: '深淵魔化',
+        modifiers: [
+          { stat: 'meleeDamageBonus', value: -0.2 },
+          { stat: 'spellDamageBonus', value: 0.2 },
+        ],
+        skills: ['enemy.sov_claw', 'enemy.sov_meteor_storm', 'enemy.sov_fire_volley', 'enemy.sov_ice_volley', 'enemy.sov_tail', 'enemy.sov_stomp'],
+      },
+    ],
+  },
+
   // ── 魔王的眷屬（只會被召喚，不在一般怪物池） ──
   {
     id: 'enemy.cultist',
@@ -271,7 +312,7 @@ const hit = (element: 'physical' | 'fire' | 'cold' | 'lightning' | 'poison', mul
   hits,
 });
 
-export const bossSkills: SkillInput[] = [
+const BASE_SKILLS: SkillInput[] = [
   // ── 墓穴守衛 ──
   {
     id: 'enemy.guardian_summon',
@@ -732,4 +773,223 @@ export const bossSkills: SkillInput[] = [
     tags: ['spell', 'area', 'cold'],
     effects: [{ type: 'zone', radius: 5.5, duration: 12, interval: 0.5, effects: [hit('cold', 0.3), { type: 'status', status: 'slow', duration: 1, magnitude: 0.3 }] }],
   },
+];
+
+// ─────────────────── 35F 深淵統御者（docs/ENDGAME.md 5.2）───────────────────
+// 範圍已是最終數值（不再 × AOE_SCALE）；打在地上的範圍技都有前搖提示。身體寬度約 3 格，有效戰鬥範圍約 10 × 10 格。
+// 近戰招式帶 melee（第 3 階段 −20%），法術帶 spell（第 3 階段 +20%）。
+const meteor = (id: string, name: string, count: number, scatter: number, cooldown: number): SkillInput => ({
+  id,
+  name,
+  description: `舉劍召喚 ${count} 顆隕石，散布在玩家周圍 ${scatter} 格內：紅色落點提示 3 秒後落下爆炸，並留下 3 秒火焰地面。`,
+  // 以玩家所在位置為中心大範圍散布（遠程也躲不掉，要一直移動）
+  targeting: 'ground',
+  range: 40,
+  castTime: 1.2,
+  cooldown,
+  tags: ['spell', 'area', 'fire'],
+  effects: [
+    {
+      type: 'delayed',
+      delay: 3,
+      repeat: count,
+      interval: 0.1,
+      scatter,
+      effects: [
+        { type: 'area', radius: 2.2, effects: [hit('fire', 1.8)] },
+        { type: 'zone', radius: 1.8, duration: 3, interval: 0.5, effects: [hit('fire', 0.25)] },
+      ],
+    },
+  ],
+});
+const volley = (id: string, name: string, element: 'fire' | 'cold', onHit: EffectInput[]): SkillInput => ({
+  id,
+  name,
+  description: element === 'fire' ? '五顆大火球呈 30° 扇形射出，命中爆炸。' : '五顆冰彈呈 30° 扇形射出，命中緩速並在地上留下冰面。',
+  targeting: 'direction',
+  range: 10,
+  castTime: 0.9,
+  cooldown: 5,
+  tags: ['spell', 'projectile', element],
+  // 大型彈體（半徑 1.1 格）：知道角度也不能輕鬆鑽過去
+  effects: [{ type: 'projectile', speed: 7, radius: 1.1, range: 22, count: 5, spreadDeg: 30, onHit }],
+});
+const SOVEREIGN_SKILLS: SkillInput[] = [
+  {
+    id: 'enemy.sov_claw',
+    name: '爪擊',
+    description: '壓低肩膀，前爪往前方 100° 抓擊。',
+    targeting: 'enemy',
+    range: 3,
+    castTime: 0.9,
+    impactAt: 0.6,
+    telegraph: true,
+    tags: ['attack', 'melee'],
+    effects: [{ type: 'area', radius: 3.2, angleDeg: 100, includeTarget: true, effects: [hit('physical', 1.2)] }],
+  },
+  {
+    id: 'enemy.sov_stomp',
+    name: '四足踐踏',
+    description: '抬起前半身，兩隻前腳一起砸地：周圍震波、短暫暈眩。',
+    targeting: 'self',
+    range: 3.5,
+    castTime: 1.2,
+    impactAt: 0.6,
+    telegraph: true,
+    cooldown: 7,
+    tags: ['attack', 'melee', 'area'],
+    effects: [{ type: 'area', radius: 4, effects: [hit('physical', 1.6), { type: 'status', status: 'stun', duration: 0.5 }] }],
+  },
+  {
+    id: 'enemy.sov_cleave',
+    name: '巨劍直線劈砍',
+    description: '蓄力約 1 秒後巨劍重砍地面，劈出一道約 7 格長的地裂。',
+    targeting: 'enemy',
+    range: 7,
+    castTime: 1.6,
+    impactAt: 0.65,
+    telegraph: true,
+    cooldown: 8,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [{ type: 'area', radius: 7.5, angleDeg: 16, effects: [hit('physical', 2.4), { type: 'knockback', distance: 1 }] }],
+  },
+  {
+    id: 'enemy.sov_sweep',
+    name: '橫掃',
+    description: '扭轉上半身，巨劍往周圍 210° 大範圍橫斬；站在身旁也不安全。',
+    targeting: 'enemy',
+    range: 4,
+    castTime: 1.3,
+    impactAt: 0.6,
+    telegraph: true,
+    cooldown: 6,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [{ type: 'area', radius: 4.5, angleDeg: 210, effects: [hit('physical', 1.6), { type: 'knockback', distance: 1.2 }] }],
+  },
+  {
+    id: 'enemy.sov_charge',
+    name: '盾牌衝撞',
+    description: '舉盾蓄力約 1.2 秒，朝玩家衝刺 30 格：路線上寬 10 格的範圍都會被撞飛、暈眩（只有第一階段）。',
+    targeting: 'direction',
+    range: 30,
+    castTime: 2,
+    impactAt: 0.6,
+    telegraph: true,
+    cooldown: 10,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [
+      { type: 'area', radius: 30, line: { length: 30, width: 10 }, effects: [hit('physical', 2.2), { type: 'knockback', distance: 3 }, { type: 'status', status: 'stun', duration: 0.6 }] },
+      { type: 'dash', distance: 30, direction: 'forward' },
+    ],
+  },
+  meteor('enemy.sov_meteor', '隕石召喚', 14, 15, 12),
+  // ── 第 2 階段：破盾狂獸 ──
+  {
+    id: 'enemy.sov_claw_combo',
+    name: '爪擊連段',
+    description: '左爪 → 右手巨劍 → 前腳踐踏的三段近戰。',
+    targeting: 'enemy',
+    range: 3,
+    castTime: 1.4,
+    impactAt: 0.35,
+    telegraph: true,
+    cooldown: 5,
+    tags: ['attack', 'melee'],
+    effects: [
+      { type: 'area', radius: 3.2, angleDeg: 100, includeTarget: true, effects: [hit('physical', 0.9)] },
+      { type: 'delayed', delay: 0.35, effects: [{ type: 'area', radius: 4, angleDeg: 120, effects: [hit('physical', 1.2)] }] },
+      { type: 'delayed', delay: 0.7, effects: [{ type: 'area', radius: 3.5, effects: [hit('physical', 1), { type: 'status', status: 'stun', duration: 0.3 }] }] },
+    ],
+  },
+  {
+    id: 'enemy.sov_fan_slash',
+    name: '五道劍氣',
+    description: '巨劍往前方 180° 斬出五道劍氣，每道長 60 格、寬 2 格；站在兩道之間才躲得掉。',
+    targeting: 'enemy',
+    range: 40,
+    castTime: 1.6,
+    impactAt: 0.65,
+    telegraph: true,
+    cooldown: 8,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [
+      { type: 'area', radius: 60, offsetDeg: -80, line: { length: 60, width: 2 }, effects: [hit('physical', 2)] },
+      { type: 'area', radius: 60, offsetDeg: -40, line: { length: 60, width: 2 }, effects: [hit('physical', 2)] },
+      { type: 'area', radius: 60, offsetDeg: 0, line: { length: 60, width: 2 }, effects: [hit('physical', 2)] },
+      { type: 'area', radius: 60, offsetDeg: 40, line: { length: 60, width: 2 }, effects: [hit('physical', 2)] },
+      { type: 'area', radius: 60, offsetDeg: 80, line: { length: 60, width: 2 }, effects: [hit('physical', 2)] },
+    ],
+  },
+  {
+    id: 'enemy.sov_sweep_double',
+    name: '雙向橫掃',
+    description: '左 → 右橫掃之後立刻右 → 左再掃一次，第二次稍快。',
+    targeting: 'enemy',
+    range: 4,
+    castTime: 1.3,
+    impactAt: 0.6,
+    telegraph: true,
+    cooldown: 6,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [
+      { type: 'area', radius: 4.5, angleDeg: 210, effects: [hit('physical', 1.5), { type: 'knockback', distance: 0.8 }] },
+      { type: 'delayed', delay: 0.45, effects: [{ type: 'area', radius: 4.5, angleDeg: 210, effects: [hit('physical', 1.5), { type: 'knockback', distance: 0.8 }] }] },
+    ],
+  },
+  // ── 第 3 階段：深淵魔化 ──
+  // 火球：命中爆炸（半徑 2.8）並留下 3 秒燃燒地面
+  volley('enemy.sov_fire_volley', '火彈五連散射', 'fire', [
+    hit('fire', 1.8),
+    { type: 'area', radius: 2.8, effects: [hit('fire', 1)] },
+    { type: 'zone', radius: 2.2, duration: 3, interval: 0.5, effects: [hit('fire', 0.3)] },
+  ]),
+  // 冰球：傷害較低，但強力緩速、25% 機率冰凍，並留下 4 秒大片冰面
+  volley('enemy.sov_ice_volley', '冰彈五連散射', 'cold', [
+    hit('cold', 1.3),
+    { type: 'status', status: 'slow', duration: 3, magnitude: 0.55 },
+    { type: 'status', status: 'freeze', duration: 1, chance: 0.25 },
+    { type: 'zone', radius: 2.8, duration: 4, interval: 0.5, effects: [{ type: 'status', status: 'slow', duration: 1, magnitude: 0.5 }] },
+  ]),
+  meteor('enemy.sov_meteor_storm', '隕石暴雨', 26, 22, 9),
+  {
+    id: 'enemy.sov_tail',
+    name: '尾巴橫掃',
+    description: '尾巴高舉後往周圍 270° 甩掃，躲在側面或背後也會被打到。',
+    targeting: 'enemy',
+    range: 4.5,
+    castTime: 1.1,
+    impactAt: 0.6,
+    telegraph: true,
+    cooldown: 7,
+    tags: ['attack', 'melee'],
+    effects: [{ type: 'area', radius: 5, angleDeg: 270, effects: [hit('physical', 1.3), { type: 'knockback', distance: 1.5 }] }],
+  },
+];
+
+/** 魔王的範圍技範圍倍率（競技場加大後，範圍跟著加大才有威脅） */
+const AOE_SCALE = 1.2;
+
+/** 範圍（area / zone 的半徑、延遲落點的散布）× AOE_SCALE；巢狀效果一併處理 */
+function scaleAoe(effect: EffectInput): EffectInput {
+  const e = { ...effect } as EffectInput & { radius?: number; scatter?: number; effects?: EffectInput[] };
+  if ((e.type === 'area' || e.type === 'zone') && typeof e.radius === 'number') e.radius = +(e.radius * AOE_SCALE).toFixed(2);
+  if (e.type === 'delayed' && e.scatter !== undefined) e.scatter = +(e.scatter * AOE_SCALE).toFixed(2);
+  if (e.effects) e.effects = e.effects.map(scaleAoe);
+  return e;
+}
+
+/**
+ * 魔王技能：範圍技的範圍 × 1.2；直接打在地上的範圍技（重擊、衝鋒落點、暗黑領域）一律在前搖時顯示範圍，
+ * 讓玩家有時間閃開（延遲落下的轟擊本來就會先標出落點）。原本的前搖秒數不變。
+ */
+export const bossSkills: SkillInput[] = [
+  ...BASE_SKILLS.map((skill) => {
+    const direct = (skill.effects ?? []).some((e) => e.type === 'area' || e.type === 'zone');
+    return {
+      ...skill,
+      effects: (skill.effects ?? []).map(scaleAoe),
+      ...(direct && (skill.castTime ?? 0) > 0 ? { telegraph: true } : {}),
+    };
+  }),
+  ...SOVEREIGN_SKILLS,
 ];

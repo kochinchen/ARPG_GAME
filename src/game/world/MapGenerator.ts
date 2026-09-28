@@ -9,10 +9,14 @@ import type { LayoutDef } from '../../data/schema/floor';
  * 3. 邊緣隨機侵蝕後平滑（細胞自動機），做出不規則的牆面
  * 4. 「開運算」：只保留能放進 5×5 空地的格子，保證通道至少 5 格寬（cellSize 0.5 時 = 2.5 Tile）
  * 5. 只保留最大的連通區域，放置樓梯口（S）、中途存檔點（M）、出口（X）
+ * 魔王層（arena）：先在地圖右下方挖出圓形競技場（不放柱子、不放怪），魔王在圓心；
+ * 競技場遠端（右下）再接一間小房間（出口與商人），只能穿過競技場進去。
+ * 挑戰樓層另有中途小王的圓形空地（subArenas），和一般房間一樣連進通道。
+ * 最後一層（王座廳）改用 generateThroneMap：整層只有一個圓形大空間
  */
 
 /** 產生器版本：演算法改變時 + 1，讓舊存檔的樓層判定為佈局不符而重新生成 */
-export const GENERATOR_VERSION = 2;
+export const GENERATOR_VERSION = 4;
 
 export function generatedMapId(floor: number): string {
   return `map.generated.v${GENERATOR_VERSION}.f${floor}`;
@@ -32,16 +36,27 @@ const GAP = 5;
 const WALL = 1;
 const FLOOR = 0;
 
-export function generateMap(id: string, rng: Rng, layout: LayoutDef): MapDef {
+/** 競技場後方小房間的半徑（格；cellSize 0.5 時 = 7 Tile）與連接通道的長度、半寬（邊緣侵蝕後約 6 Tile 寬） */
+const ANTEROOM_R = 14;
+const ANTEROOM_LINK = 10;
+const ANTEROOM_LINK_HALF = 7;
+
+/** 魔王競技場：直徑（World 單位）；subArenas：中途小王空地的直徑（放得下幾個就放幾個） */
+export interface ArenaSpec {
+  diameter: number;
+  subArenas?: readonly number[];
+}
+
+export function generateMap(id: string, rng: Rng, layout: LayoutDef, arena?: ArenaSpec): MapDef {
   // 極少數情況（房間太少、連不起來）重試
   for (let attempt = 0; attempt < 8; attempt++) {
-    const map = tryGenerate(id, rng, layout);
+    const map = tryGenerate(id, rng, layout, arena);
     if (map) return map;
   }
   throw new Error(`map generation failed: ${id}`);
 }
 
-function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
+function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaSpec): MapDef | null {
   const W = Math.round(layout.width / layout.cellSize);
   const H = Math.round(layout.height / layout.cellSize);
   const grid = new Uint8Array(W * H).fill(WALL);
@@ -50,8 +65,57 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
     if (x > 1 && y > 1 && x < W - 2 && y < H - 2) grid[y * W + x] = v;
   };
 
-  // ── 1. 房間 ──
+  // ── 1. 房間（魔王層先放競技場：右下方的大圓，其他房間避開它） ──
   const rooms: Room[] = [];
+  /** 其他房間不能放的區域（競技場後方的小房間與通道；不參與通道連接） */
+  const reserved: Room[] = [];
+  let arena: Room | null = null;
+  let anteroom: Room | null = null;
+  if (arenaSpec) {
+    const r = Math.ceil(arenaSpec.diameter / 2 / layout.cellSize);
+    // 小房間在競技場的右下對角線上：圓心距離 = 競技場半徑 + 通道 + 小房間半徑
+    const d = Math.round((r + ANTEROOM_LINK + ANTEROOM_R) / Math.SQRT2);
+    const cx = W - d - ANTEROOM_R - 8 - rng.int(0, Math.floor(W * 0.06));
+    const cy = H - d - ANTEROOM_R - 8 - rng.int(0, Math.floor(H * 0.06));
+    if (cx - r < 6 || cy - r < 6) return null;
+    arena = { x: cx - r, y: cy - r, w: r * 2 + 1, h: r * 2 + 1, cx, cy };
+    for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) set(x, y, FLOOR);
+    rooms.push(arena);
+    const ax = cx + d;
+    const ay = cy + d;
+    const R = ANTEROOM_R;
+    anteroom = { x: ax - R, y: ay - R, w: R * 2 + 1, h: R * 2 + 1, cx: ax, cy: ay };
+    for (let y = ay - R; y <= ay + R; y++) for (let x = ax - R; x <= ax + R; x++) if ((x - ax) ** 2 + (y - ay) ** 2 <= R * R) set(x, y, FLOOR);
+    // 通道：沿對角線從競技場圓心挖到小房間圓心（半寬 ANTEROOM_LINK_HALF）
+    for (let t = 0; t <= d; t++) {
+      const px = cx + t;
+      const py = cy + t;
+      const h = ANTEROOM_LINK_HALF;
+      for (let dy = -h; dy <= h; dy++) for (let dx = -h; dx <= h; dx++) if (dx * dx + dy * dy <= h * h) set(px + dx, py + dy, FLOOR);
+    }
+    // 保留區：從競技場邊緣到小房間外緣的方框
+    const edge = Math.round(r * 0.6);
+    reserved.push({ x: cx + edge, y: cy + edge, w: ax + R - (cx + edge) + 1, h: ay + R - (cy + edge) + 1, cx: ax, cy: ay });
+  }
+  const blocked = (x: number, y: number, w: number, h: number) =>
+    [...rooms, ...reserved].some((r) => x < r.x + r.w + GAP && x + w + GAP > r.x && y < r.y + r.h + GAP && y + h + GAP > r.y);
+  // 中途小王的圓形空地：先放（尺寸大），放不下就少放
+  const subs: Room[] = [];
+  for (const diameter of arenaSpec?.subArenas ?? []) {
+    const r = Math.ceil(diameter / 2 / layout.cellSize);
+    for (let tries = 0; tries < 400; tries++) {
+      const x = rng.int(4, W - r * 2 - 5);
+      const y = rng.int(4, H - r * 2 - 5);
+      if (x < 4 || y < 4 || blocked(x, y, r * 2 + 1, r * 2 + 1)) continue;
+      const room: Room = { x, y, w: r * 2 + 1, h: r * 2 + 1, cx: x + r, cy: y + r };
+      for (let yy = y; yy <= y + r * 2; yy++) for (let xx = x; xx <= x + r * 2; xx++) if ((xx - room.cx) ** 2 + (yy - room.cy) ** 2 <= r * r) set(xx, yy, FLOOR);
+      rooms.push(room);
+      subs.push(room);
+      break;
+    }
+  }
+  /** 特殊房間（競技場、小王空地）：不放柱子，不當樓梯口或中途存檔點 */
+  const special = (r: Room) => r === arena || subs.includes(r);
   const target = rng.int(layout.rooms[0], layout.rooms[1]);
   // 房間大（寬 22～54、高 18～42 格）、彼此間隔 5 格：地圖被房間填滿，不留大片空白
   for (let tries = 0; tries < 4000 && rooms.length < target; tries++) {
@@ -59,19 +123,19 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
     const h = rng.int(18, 42);
     const x = rng.int(4, W - w - 5);
     const y = rng.int(4, H - h - 5);
-    if (rooms.some((r) => x < r.x + r.w + GAP && x + w + GAP > r.x && y < r.y + r.h + GAP && y + h + GAP > r.y)) continue;
+    if (blocked(x, y, w, h)) continue;
     const room: Room = { x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) };
     rooms.push(room);
     carveRoom(room, rng, set);
   }
-  if (rooms.length < 6) return null;
+  if (rooms.length < (arena ? 7 : 6)) return null;
   // 填空：大房間放完後，空白處還放得下的地方再放中型房間（避免地圖上留下大片沒用到的區域）
   for (let tries = 0; tries < 3000; tries++) {
     const w = rng.int(18, 30);
     const h = rng.int(16, 26);
     const x = rng.int(4, W - w - 5);
     const y = rng.int(4, H - h - 5);
-    if (rooms.some((r) => x < r.x + r.w + GAP && x + w + GAP > r.x && y < r.y + r.h + GAP && y + h + GAP > r.y)) continue;
+    if (blocked(x, y, w, h)) continue;
     const room: Room = { x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) };
     rooms.push(room);
     carveRoom(room, rng, set);
@@ -143,7 +207,7 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
 
   // 大房間放柱子（2×2，間距夠寬，不會擋住通道）
   for (const r of rooms) {
-    if (r.w < 36 || r.h < 28 || !rng.chance(0.55)) continue;
+    if (special(r) || r.w < 36 || r.h < 28 || !rng.chance(0.55)) continue;
     for (let y = r.y + 7; y < r.y + r.h - 8; y += 11) {
       for (let x = r.x + 7; x < r.x + r.w - 8; x += 11) {
         let clear = true;
@@ -159,15 +223,30 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
   if (reachable.length < 6) return null;
   rooms.length = 0;
   rooms.push(...reachable);
-  const startRoom = rooms.reduce((a, b) => (a.cx + a.cy * 1.3 < b.cx + b.cy * 1.3 ? a : b));
+  const startRoom = rooms.filter((r) => !special(r)).reduce((a, b) => (a.cx + a.cy * 1.3 < b.cx + b.cy * 1.3 ? a : b));
   const s = floorCell(startRoom.cx, startRoom.cy);
   if (s === null) return null;
   const { dist: d, prev } = bfs(grid, W, H, s);
   let far: number | null = null;
-  for (const r of rooms) {
-    const c = floorCell(r.cx, r.cy);
-    if (c === null || d[c]! < 0) continue;
-    if (far === null || d[c]! > d[far]!) far = c;
+  if (arena && anteroom) {
+    // 魔王層：出口在競技場後方小房間的遠端；必須走得到，而且只能穿過競技場進去
+    far = floorCell(anteroom.cx + Math.round(ANTEROOM_R * 0.35), anteroom.cy + Math.round(ANTEROOM_R * 0.35));
+    if (far === null || d[far]! < 0) return null;
+    // 把競技場（含侵蝕後外擴的邊緣）整個封起來，小房間應該就走不到了
+    const sealed = grid.slice();
+    const outer = arena.w / 2 + 3;
+    for (let y = Math.floor(arena.cy - outer); y <= arena.cy + outer; y++) {
+      for (let x = Math.floor(arena.cx - outer); x <= arena.cx + outer; x++) {
+        if (x >= 0 && y >= 0 && x < W && y < H && (x - arena.cx) ** 2 + (y - arena.cy) ** 2 <= outer * outer) sealed[y * W + x] = WALL;
+      }
+    }
+    if (bfs(sealed, W, H, s).dist[far]! >= 0) return null;
+  } else {
+    for (const r of rooms) {
+      const c = floorCell(r.cx, r.cy);
+      if (c === null || d[c]! < 0) continue;
+      if (far === null || d[c]! > d[far]!) far = c;
+    }
   }
   if (far === null || d[far]! < 120) return null;
   const path: number[] = [];
@@ -175,6 +254,7 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
   const half = path[Math.floor(path.length / 2)]!;
   let mid: number | null = null;
   for (const r of rooms) {
+    if (special(r)) continue;
     const c = floorCell(r.cx, r.cy);
     if (c === null || c === s || c === far || d[c]! < 0) continue;
     const score = Math.abs((c % W) - (half % W)) + Math.abs(Math.floor(c / W) - Math.floor(half / W));
@@ -192,7 +272,41 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef): MapDef | null {
     }
     rows.push(row);
   }
-  return { id, rows, cellSize: layout.cellSize, spawns: [], chests: [] };
+  const c = layout.cellSize;
+  return {
+    id,
+    rows,
+    cellSize: c,
+    spawns: [],
+    chests: [],
+    ...(arena ? { arena: { x: (arena.cx + 0.5) * c, y: (arena.cy + 0.5) * c, radius: (arena.w / 2) * c } } : {}),
+    subArenas: subs.filter((r) => rooms.includes(r)).map((r) => ({ x: (r.cx + 0.5) * c, y: (r.cy + 0.5) * c, radius: (r.w / 2) * c })),
+  };
+}
+
+/**
+ * 最後一層（王座廳）：整層只有一個直徑 diameter（World 單位）的圓形大空間，魔王在圓心。
+ * 樓梯口在左上邊緣，中途存檔點在樓梯口與圓心之間（都在魔王的偵測範圍外）；沒有出口。
+ */
+export function generateThroneMap(id: string, diameter: number, cellSize: number): MapDef {
+  const R = Math.ceil(diameter / 2 / cellSize);
+  const margin = 4;
+  const size = R * 2 + 1 + margin * 2;
+  const c = margin + R;
+  // 樓梯口：往左上（-1, -1）方向、離邊緣 8 格；中途存檔點：同方向、離圓心 55%
+  const along = (dist: number) => Math.round(c - dist / Math.SQRT2);
+  const s = { x: along(R - 8), y: along(R - 8) };
+  const m = { x: along(R * 0.55), y: along(R * 0.55) };
+  const rows: string[] = [];
+  for (let y = 0; y < size; y++) {
+    let row = '';
+    for (let x = 0; x < size; x++) {
+      const inside = (x - c) ** 2 + (y - c) ** 2 <= R * R;
+      row += x === s.x && y === s.y ? MAP_TILES.spawn : x === m.x && y === m.y ? MAP_TILES.midway : inside ? MAP_TILES.floor : MAP_TILES.wall;
+    }
+    rows.push(row);
+  }
+  return { id, rows, cellSize, spawns: [], chests: [], arena: { x: (c + 0.5) * cellSize, y: (c + 0.5) * cellSize, radius: (R + 0.5) * cellSize }, subArenas: [] };
 }
 
 /** 房間形狀：矩形大廳、圓形洞窟、十字形 */

@@ -3,7 +3,7 @@ import type { AttackVariant } from './figure/FigureModel';
 import type { ActionKind } from './figure/PolyFigure';
 import { Container, Graphics, type Application } from 'pixi.js';
 import type { IsoProjection } from '../core/math/IsoProjection';
-import { lerp, sub, type Vec2 } from '../core/math/Vec2';
+import { lerp, rotate, sub, vec2, type Vec2 } from '../core/math/Vec2';
 import type { DataRegistry } from '../data/DataRegistry';
 import { MATERIAL_LABELS, type MaterialId } from '../data/schema/item';
 import type { Actor, ActorId } from '../game/entities/Actor';
@@ -19,6 +19,11 @@ import { FloatingTextLayer } from './views/FloatingTextLayer';
 import { InteractableLayer } from './views/InteractableLayer';
 import { FloorMarkersView } from './views/FloorMarkersView';
 import { TileMapView } from './views/TileMapView';
+import type { ArenaView } from './views/ArenaDecor';
+import { BOSS_ARENAS } from './themes';
+import { MONSTER_MODELS } from './figure/Monsters';
+import { PolyFigure } from './figure/PolyFigure';
+import { figureScale } from './figure/FigureModel';
 import { MinimapView, type MinimapMarker } from './views/MinimapView';
 
 /**
@@ -38,6 +43,9 @@ export class Renderer {
   private readonly effects: EffectLayer;
   private readonly interactables: InteractableLayer;
   private readonly actorViews = new Map<ActorId, ActorView>();
+  private readonly roars: ActorId[] = [];
+  /** 魔王階段變化時掉在地上的物件（碎盾、插在地上的巨劍）；換樓層時清除 */
+  private readonly drops: Container[] = [];
   private hoveredId: ActorId | null = null;
   private hoveredInteractable: number | null = null;
 
@@ -48,7 +56,7 @@ export class Renderer {
     private readonly camera: Camera,
     private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'skills' | 'balance'>,
   ) {
-    this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme);
+    this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
     this.effects = new EffectLayer(projection, this.objectLayer);
     this.interactables = new InteractableLayer(projection, this.objectLayer, data);
     this.markers = new FloorMarkersView(projection);
@@ -80,8 +88,9 @@ export class Renderer {
     });
     // 換樓層：重建地圖與地面標記（角色、物品依 ID 同步，會自動清掉）
     world.events.on('FloorEntered', () => {
+      for (const drop of this.drops.splice(0)) drop.destroy({ children: true });
       this.tileMap.destroy();
-      this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme);
+      this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
       this.worldLayer.addChildAt(this.tileMap.floor, 0);
       this.markers.rebuild(world.checkpoints.checkpoints);
       this.minimap.destroy();
@@ -94,13 +103,18 @@ export class Renderer {
       const skill = data.skills.get(e.skillId);
       if (skill.telegraph) {
         // 前搖提示：在地上畫出攻擊範圍，填滿時命中
-        const area = skill.effects.find((effect) => effect.type === 'area');
         const motion = this.motionFor(attacker, skill.tags);
         this.actorViews.get(e.actorId)?.attack(e.impactIn, motion.kind, motion.variant);
-        if (area?.type === 'area') {
-          const center = skill.targeting === 'ground' ? e.point : attacker.position;
-          const active = () => attacker.alive && attacker.cast?.skill.id === skill.id;
-          this.effects.spawnTelegraph(center, rankValue(area.radius, attacker.cast?.rank ?? 1), e.direction, area.angleDeg ?? 360, e.impactIn, active);
+        // 衝鋒類（先位移再攻擊）：範圍畫在落點（目標位置）；同一招有多個範圍（例如裂地的分支）時每個都畫
+        const dashes = skill.effects.some((effect) => effect.type === 'dash');
+        const center = skill.targeting === 'ground' || dashes ? e.point : attacker.position;
+        const active = () => attacker.alive && attacker.cast?.skill.id === skill.id;
+        for (const area of skill.effects) {
+          if (area.type !== 'area' && area.type !== 'zone') continue;
+          const direction = area.type === 'area' && area.offsetDeg ? rotate(e.direction, area.offsetDeg) : e.direction;
+          // 直線範圍從施放者腳下延伸（衝鋒也是：先標出整條衝撞路線）
+          const line = area.type === 'area' ? area.line : undefined;
+          this.effects.spawnTelegraph(line ? attacker.position : center, rankValue(area.radius, attacker.cast?.rank ?? 1), direction, area.type === 'area' ? (area.angleDeg ?? 360) : 360, e.impactIn, active, line);
         }
         return;
       }
@@ -164,14 +178,31 @@ export class Renderer {
     });
     world.events.on('BossPhaseChanged', (e) => {
       const boss = world.targeting.getActor(e.actorId);
-      if (boss) this.floatingText.spawnText(projection.toScreen(boss.position), `${e.name}：${e.label}！`, PALETTE.critText, 22);
+      if (!boss) return;
+      this.floatingText.spawnText(projection.toScreen(boss.position), `${e.name}：${e.label}！`, PALETTE.critText, 22);
+      // 外觀跟著階段改變（盾牌碎裂、巨劍落地），掉下來的東西留在場上記錄戰鬥歷程
+      this.actorViews.get(e.actorId)?.setPhase(e.phase);
+      const model = MONSTER_MODELS[boss.defId ?? ''];
+      const drop = model?.phaseDrops?.[e.phase];
+      if (model && drop) {
+        const at = vec2(boss.position.x + drop.offset[0], boss.position.y + drop.offset[1]);
+        const s = projection.toScreen(at);
+        const figure = new PolyFigure(drop.model, figureScale(model, boss.visualRadius));
+        const container = new Container();
+        container.position.set(s.x, s.y);
+        container.zIndex = projection.depth(at) - 0.01;
+        container.addChild(figure.graphics);
+        figure.showPose(drop.model.poses.ready(0), boss.facing);
+        this.objectLayer.addChild(container);
+        this.drops.push(container);
+      }
     });
     world.events.on('MasteryAchieved', () => say(world.player.position, '精通！其他類別開放', PALETTE.manaText));
     world.events.on('ComboCompleted', (e) => {
       this.floatingText.spawnText(projection.toScreen(world.player.position), e.name, PALETTE.critText, 18);
     });
     world.events.on('ComboInterrupted', () => say(world.player.position, '連段中斷', PALETTE.manaText));
-    world.events.on('CheckpointActivated', (e) => say(e.position, '存檔點已啟動', PALETTE.manaText));
+    world.events.on('CheckpointActivated', (e) => say(e.position, e.kind === 'boss' ? '魔王門前存檔點已啟動' : '存檔點已啟動', PALETTE.manaText));
     world.events.on('ExitOpened', () => say(world.player.position, '出口已開啟', 0xe0c8ff));
     world.events.on('ExitLocked', (e) =>
       say(world.player.position, e.boss ? '擊敗 Boss 後出口才會開啟' : `還需擊敗 ${e.remaining} 隻`, PALETTE.manaText),
@@ -193,7 +224,7 @@ export class Renderer {
     const local = sub(screen, this.camera.offset);
     const exit = this.world.exit ? [this.world.exit] : [];
     const stairs = this.world.stairsUp ? [this.world.stairsUp] : [];
-    return this.interactables.pickAt(local, [...stairs, ...this.world.merchants, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
+    return this.interactables.pickAt(local, [...stairs, ...this.world.merchants, ...this.world.waypoints, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
   }
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
@@ -244,7 +275,7 @@ export class Renderer {
     this.tileMap.update(playerPos, dt);
     this.minimap.update(playerPos, this.minimapMarkers());
     this.interactables.setHovered(this.hoveredInteractable);
-    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000);
+    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000, this.world.waypoints);
     this.markers.update(this.app.ticker.lastTime);
     this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
     this.floatingText.update(dt);
@@ -269,6 +300,11 @@ export class Renderer {
     if (w.exit) markers.push({ kind: 'exit', position: w.exit.position });
     for (const m of w.merchants) markers.push({ kind: 'merchant', position: m.position });
     return markers;
+  }
+
+  /** 這一幀開始待機怒吼的角色（吼聲；main.ts 讀取） */
+  consumeRoars(): ActorId[] {
+    return this.roars.splice(0);
   }
 
   private syncActorViews(alpha: number, dt: number): void {
@@ -301,6 +337,10 @@ export class Renderer {
       }
       const position = lerp(actor.prevPosition, actor.position, alpha);
       view.update(actor, position, dt, onScreen(position));
+      if (view.roared) {
+        view.roared = false;
+        this.roars.push(actor.id);
+      }
     }
     for (const [id, view] of this.actorViews) {
       if (alive.has(id)) continue;
@@ -331,6 +371,14 @@ export class Renderer {
 }
 
 /** 依技能標籤選擇攻擊招式（只影響動畫）：重擊 → 上劈、範圍 → 橫斬、其他 → 橫斬與突刺交替 */
+/** 魔王競技場的畫面設定：地圖有競技場、這一層是魔王層時，依魔王選擇配色與佈置 */
+function arenaOf(world: GameWorld): ArenaView | undefined {
+  const arena = world.map.arena;
+  const boss = world.floors.def?.boss?.enemyId;
+  if (!arena || !boss) return undefined;
+  return { center: vec2(arena.x, arena.y), radius: arena.radius, style: BOSS_ARENAS[boss] ?? BOSS_ARENAS['enemy.crypt_guardian']! };
+}
+
 /** 大招：更大、更久、震動更強 */
 const BIG_IMPACTS = new Set(['magic.meteor', 'magic.absolute_zero', 'melee.devastator', 'melee.earth_break', 'magic.storm_core']);
 

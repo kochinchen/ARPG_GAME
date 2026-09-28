@@ -114,6 +114,8 @@ export const BalanceSchema = z.strictObject({
     densityPerFloor: z.number().nonnegative(),
     /** 怪物密度倍率上限 */
     maxDensityMultiplier: z.number().min(1),
+    /** 前期怪物數量加成：第 1～fullUntil 層 +bonus，之後線性遞減，第 fadeTo 層起為 0 */
+    earlyDensityBoost: z.strictObject({ bonus: z.number().nonnegative(), fullUntil: z.int().positive(), fadeTo: z.int().positive() }),
   }),
   floor: z.strictObject({
     /** 樓梯口與出口的安全範圍（Tile）：大於所有怪物的偵測距離 */
@@ -122,6 +124,23 @@ export const BalanceSchema = z.strictObject({
     safeRadius: z.number().nonnegative(),
     /** 走到中途存檔點多近時啟動 */
     checkpointRadius: z.number().positive(),
+  }),
+  /** 終局（docs/ENDGAME.md）：30 層通關、31～35 極限挑戰 */
+  endgame: z.strictObject({
+    /** 一般模式的最後一層：擊敗這層的魔王 = 已通關；出口先詢問是否進入挑戰 */
+    lastNormalFloor: z.int().positive(),
+    /** 最後一層：擊敗這層的魔王 = 已完成隱藏難關；沒有下一層 */
+    lastFloor: z.int().positive(),
+    /** 挑戰樓層的中途小王（魔王數值 × 樓層成長後，再乘這些倍率；沒有階段變化） */
+    miniBoss: z.strictObject({
+      maxPerFloor: z.int().positive(),
+      /** 小王空地的直徑：小王身體寬度的幾倍 */
+      arenaBodies: z.number().positive(),
+      hpMultiplier: z.number().positive(),
+      damageMultiplier: z.number().positive(),
+      xpMultiplier: z.number().positive(),
+      lootTable: IdSchema,
+    }),
   }),
   /** 精英怪（每群隊長）的共通強化 */
   elite: EliteConfigSchema,
@@ -146,6 +165,19 @@ export const BalanceSchema = z.strictObject({
   mainRoll: z.strictObject({
     base: z.record(RaritySchema, z.tuple([z.number().nonnegative(), z.number().nonnegative()])),
     jewelry: z.record(RaritySchema, z.tuple([z.number().nonnegative(), z.number().nonnegative()])),
+  }),
+  /**
+   * 掉寶的樓層成長：
+   * - tierBonus：樓層 lootTier → 黃以上的稀有度權重倍率（index = lootTier − 1，超出時用最後一組）
+   * - highRarityTier：紫 / 橘 / 紅的基底階級 = 樓層階（等級需求 ≤ 物品等級的最高階）+ 偏移，偏移依權重抽
+   */
+  loot: z.strictObject({
+    tierBonus: z
+      .array(z.strictObject({ rare: z.number().positive(), epic: z.number().positive(), legendary: z.number().positive(), mythic: z.number().positive() }))
+      .min(1),
+    highRarityTier: z
+      .strictObject({ offsets: z.array(z.int()).min(1), weights: z.array(z.number().positive()).min(1) })
+      .refine((t) => t.offsets.length === t.weights.length, 'offsets 與 weights 長度必須相同'),
   }),
   /** 拆解：拆解區的格數與各稀有度拆出的精華數量 */
   salvage: z.strictObject({
@@ -215,6 +247,8 @@ export const BalanceSchema = z.strictObject({
     maxResist: z.number().min(0).max(1),
     /** 閃避上限 */
     maxDodge: z.number().min(0).max(1),
+    /** 控制抗性上限（緩速抗性、擊退抗性、暈眩時間減少） */
+    maxControlResist: z.number().min(0).max(1),
   }),
 });
 

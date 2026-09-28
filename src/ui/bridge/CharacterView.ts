@@ -1,4 +1,5 @@
 import type { DataRegistry } from '../../data/DataRegistry';
+import type { StatId } from '../../data/schema/common';
 import { defenseMitigation } from '../../game/combat/DamagePipeline';
 import { itemStats } from '../../game/items/ItemStats';
 import type { GameWorld } from '../../game/GameWorld';
@@ -23,10 +24,12 @@ export interface CharacterView {
   attack: { label: string; value: string }[];
   /** 目前的最終屬性（含裝備、Support、屬性點）；sub = 縮排的明細列 */
   stats: { label: string; value: string; sub?: boolean }[];
+  /** 抗性與特殊屬性（分組）；zero = 目前沒有加成（畫面上變暗，但仍顯示，讓玩家知道有這項屬性） */
+  groups: { title: string; rows: { label: string; value: string; zero: boolean }[] }[];
 }
 
 export function emptyCharacterView(): CharacterView {
-  return { level: 1, unspent: 0, pointsPerLevel: 0, attributes: [], attack: [], stats: [] };
+  return { level: 1, unspent: 0, pointsPerLevel: 0, attributes: [], attack: [], stats: [], groups: [] };
 }
 
 /** 屬性點、等級、裝備、Support 改變時才重建 */
@@ -35,7 +38,10 @@ export function characterSignature(world: GameWorld): string {
 }
 
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
+/** 帶正負號的百分比（負值不要顯示成「+-4%」） */
+const signedPct = (v: number) => `${v >= 0 ? '+' : ''}${pct(v)}`;
 const num = (v: number) => `${+v.toFixed(1)}`;
+const signedNum = (v: number) => `${v >= 0 ? '+' : ''}${num(v)}`;
 
 export function buildCharacterView(world: GameWorld, data: DataRegistry): CharacterView {
   const attrs = world.attributes;
@@ -91,14 +97,79 @@ export function buildCharacterView(world: GameWorld, data: DataRegistry): Charac
       { label: '武器傷害（合計）', value: `${num(weaponMin)} – ${num(weaponMax)}` },
       ...weaponBreakdown(world, data, weaponMin, weaponMax),
       { label: '基礎法術強度', value: num(spell) },
-      { label: '傷害加成', value: `+${pct(stats.get('damageBonus'))}` },
-      { label: '近戰傷害加成', value: `+${pct(stats.get('meleeDamageBonus'))}` },
-      { label: '遠程傷害加成', value: `+${pct(stats.get('rangedDamageBonus'))}` },
-      { label: '法術傷害加成', value: `+${pct(stats.get('spellDamageBonus'))}` },
+      { label: '傷害加成', value: signedPct(stats.get('damageBonus')) },
+      { label: '近戰傷害加成', value: signedPct(stats.get('meleeDamageBonus')) },
+      { label: '遠程傷害加成', value: signedPct(stats.get('rangedDamageBonus')) },
+      { label: '法術傷害加成', value: signedPct(stats.get('spellDamageBonus')) },
       { label: '暴擊率', value: pct(Math.min(1, stats.get('critChance'))) },
       { label: '防禦', value: `${num(stats.get('defense'))}（減傷 ${pct(mitigation)}）` },
     ],
+    groups: specialGroups(world, data),
   };
+}
+
+/**
+ * 抗性與特殊屬性。有上限的屬性顯示實際生效值，超過上限時標出原始值（例如「75%（88%，上限 75%）」）。
+ */
+function specialGroups(world: GameWorld, data: DataRegistry): CharacterView['groups'] {
+  const stats = world.player.stats;
+  const { maxResist, maxDodge, maxControlResist, critMultiplier } = data.balance.combat;
+  const capped = (v: number, cap: number) => (v > cap ? `${pct(cap)}（${pct(v)}，上限 ${pct(cap)}）` : pct(v));
+  const row = (label: string, v: number, text = pct(v)) => ({ label, value: text, zero: Math.abs(v) < 1e-9 });
+  const resistRow = (label: string, stat: StatId, cap: number) => row(label, stats.get(stat), capped(stats.get(stat), cap));
+  const resist = (label: string, stat: StatId) => resistRow(label, stat, maxResist);
+  const baseSpeed = data.balance.player.moveSpeed;
+  return [
+    {
+      title: `抗性（上限 ${pct(maxResist)}）`,
+      rows: [
+        resist('火焰抗性', 'fireResist'),
+        resist('冰寒抗性', 'coldResist'),
+        resist('閃電抗性', 'lightningResist'),
+        resist('毒素抗性', 'poisonResist'),
+        resist('物理減傷', 'physicalResist'),
+      ],
+    },
+    {
+      title: `控制抗性（上限 ${pct(maxControlResist)}）`,
+      rows: [
+        resistRow('緩速抗性', 'slowResist', maxControlResist),
+        resistRow('擊退抗性', 'knockbackResist', maxControlResist),
+        resistRow('暈眩時間減少', 'stunResist', maxControlResist),
+      ],
+    },
+    {
+      title: '防禦',
+      rows: [
+        row('受到傷害減免', stats.get('damageReduction'), capped(stats.get('damageReduction'), 0.9)),
+        row('閃避', stats.get('dodgeChance'), capped(stats.get('dodgeChance'), maxDodge)),
+        row('荊棘傷害', stats.get('thorns'), num(stats.get('thorns'))),
+        row('藥水效果', stats.get('potionEffect'), signedPct(stats.get('potionEffect'))),
+      ],
+    },
+    {
+      title: '攻擊',
+      rows: [
+        { label: '攻擊速度', value: `${num(stats.get('attackSpeed'))} / 秒`, zero: false },
+        row('施法速度', stats.get('castSpeed'), signedPct(stats.get('castSpeed'))),
+        { label: '暴擊傷害', value: `×${+(critMultiplier + stats.get('critDamageBonus')).toFixed(2)}`, zero: false },
+        row('附加火焰傷害', stats.get('fireDamagePct'), signedPct(stats.get('fireDamagePct'))),
+        row('附加冰寒傷害', stats.get('coldDamagePct'), signedPct(stats.get('coldDamagePct'))),
+        row('附加閃電傷害', stats.get('lightningDamagePct'), signedPct(stats.get('lightningDamagePct'))),
+        row('附加毒素傷害', stats.get('poisonDamagePct'), signedPct(stats.get('poisonDamagePct'))),
+      ],
+    },
+    {
+      title: '吸取與資源',
+      rows: [
+        row('生命吸取', stats.get('lifeSteal')),
+        row('魔力吸取', stats.get('manaSteal')),
+        row('命中回復魔力', stats.get('manaOnHit'), num(stats.get('manaOnHit'))),
+        row('魔力消耗降低', stats.get('manaCostReduction'), capped(stats.get('manaCostReduction'), 0.9)),
+        { label: '移動速度', value: `${num(stats.get('moveSpeed'))}（${signedPct(stats.get('moveSpeed') / baseSpeed - 1)}）`, zero: false },
+      ],
+    },
+  ];
 }
 
 /**
@@ -124,6 +195,6 @@ function weaponBreakdown(world: GameWorld, data: DataRegistry, totalMin: number,
     rows.push({ label: `裝備武器 ${w.base.name}`, value: `${wMin} – ${wMax}${main}`, sub: true });
   }
   if (attr > 0) rows.push({ label: '攻擊屬性', value: `+${num(attr)}`, sub: true });
-  if (Math.abs(otherMin) > 0.05 || Math.abs(otherMax) > 0.05) rows.push({ label: '其他裝備詞綴', value: `+${num(otherMin)} – +${num(otherMax)}`, sub: true });
+  if (Math.abs(otherMin) > 0.05 || Math.abs(otherMax) > 0.05) rows.push({ label: '其他裝備詞綴', value: `${signedNum(otherMin)} – ${signedNum(otherMax)}`, sub: true });
   return rows;
 }

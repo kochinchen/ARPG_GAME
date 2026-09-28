@@ -14,6 +14,7 @@ import InventoryPanel from './components/InventoryPanel.vue';
 import ItemCell from './components/ItemCell.vue';
 import ItemTooltip from './components/ItemTooltip.vue';
 import LeavePrompt from './components/LeavePrompt.vue';
+import ChallengePrompt from './components/ChallengePrompt.vue';
 import MenuBar, { type PanelName } from './components/MenuBar.vue';
 import Notices from './components/Notices.vue';
 import PauseMenu from './components/PauseMenu.vue';
@@ -80,8 +81,6 @@ function toggle(panel: PanelName, value = !open[panel]) {
   }
   if (open.menu && panel !== 'menu') return;
   open[panel] = value;
-  if (value && panel === 'character') open.skills = false;
-  if (value && panel === 'skills') open.character = false;
   // 商店也在左側
   if (value && (panel === 'character' || panel === 'skills')) shopOpen.value = false;
   if (!open.inventory) hoverTarget.value = null;
@@ -124,6 +123,7 @@ function onKeyDown(e: KeyboardEvent) {
     case 'Escape':
       // 依序：確認對話框 → 選單 → 面板 → 開啟選單
       if (gameView.leavePrompt) gameView.leavePrompt = null;
+      else if (gameView.challengePrompt) gameView.challengePrompt = null;
       else if (open.bestiary) open.bestiary = false;
       else if (itemCodexOpen.value) itemCodexOpen.value = false;
       else if (open.menu) open.menu = false;
@@ -170,8 +170,11 @@ onBeforeUnmount(() => {
     @toggle="(panel) => (panel === 'menu' ? (open.menu = !open.menu) : toggle(panel))"
   />
 
-  <SkillTreePanel v-if="open.skills" :view="gameView.skillTree" @close="open.skills = false" />
-  <CharacterPanel v-if="open.character" :view="gameView.character" @close="open.character = false" />
+  <!-- 左側欄：角色頁與技能頁可以同時開（角色在左、技能在右）；只開技能頁時靠左。右側是背包 / 裝備 -->
+  <div v-if="open.character || open.skills" class="left-dock" :class="{ 'beside-inventory': open.inventory }">
+    <CharacterPanel v-if="open.character" :view="gameView.character" @close="open.character = false" />
+    <SkillTreePanel v-if="open.skills" :view="gameView.skillTree" @close="open.skills = false" />
+  </div>
   <ShopPanel v-if="shopOpen" :view="gameView.shop" @close="shopOpen = false" />
   <InventoryPanel
     v-if="open.inventory"
@@ -195,6 +198,7 @@ onBeforeUnmount(() => {
   </div>
 
   <LeavePrompt v-if="gameView.leavePrompt" :prompt="gameView.leavePrompt" @close="gameView.leavePrompt = null" />
+  <ChallengePrompt v-if="gameView.challengePrompt" :prompt="gameView.challengePrompt" @close="gameView.challengePrompt = null" />
   <PauseMenu
     v-if="open.menu"
     :save="gameView.save"
@@ -216,6 +220,21 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 左側欄：角色頁與技能頁並排；空白處不擋滑鼠（點得到遊戲畫面） */
+.left-dock {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: calc(100vw - 24px);
+  pointer-events: none;
+}
+/* 背包開著時讓出右側（背包寬 340 + 邊距） */
+.left-dock.beside-inventory {
+  max-width: calc(100vw - 376px);
+}
 .tooltips {
   position: absolute;
   display: flex;

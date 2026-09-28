@@ -48,6 +48,8 @@ export const EnemyDefSchema = z
   boss: z.boolean().default(false),
   /** 體型倍率（只影響外觀大小；Boss 為主角的 2 倍以上）。一般怪物另有隨機體型，見 balance.enemySize */
   size: z.number().positive().default(1),
+  /** 固定全抗性（物理減傷與四種元素抗性；取代魔王 / 精英的樓層減傷） */
+  fixedResist: z.number().min(0).max(1).optional(),
   /** Boss 的階段變化（依 hpBelow 由高到低） */
   phases: z.array(BossPhaseSchema).default([]),
   /** 怪物圖鑑：分類與介紹 */

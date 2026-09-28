@@ -70,6 +70,10 @@ export const StatIdSchema = z.enum([
   'hpRegenPct',
   /** 每秒回復最大魔力的比例（與固定值 manaRegen 相加） */
   'manaRegenPct',
+  /** 控制抗性（上限見 balance.combat.maxControlResist）：緩速效果降低、擊退距離降低、暈眩時間縮短 */
+  'slowResist',
+  'knockbackResist',
+  'stunResist',
 ]);
 export type StatId = z.infer<typeof StatIdSchema>;
 

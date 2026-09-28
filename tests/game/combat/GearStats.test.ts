@@ -14,7 +14,7 @@ const balance = DataRegistry.load(gameData).balance;
 
 function setup(seed = 1) {
   const events = new EventBus<GameEvents>();
-  const pipeline = new DamagePipeline(balance, new Rng(seed), events, new StatusEffectSystem(events));
+  const pipeline = new DamagePipeline(balance, new Rng(seed), events, new StatusEffectSystem(events, balance.combat.maxControlResist));
   return { events, pipeline };
 }
 

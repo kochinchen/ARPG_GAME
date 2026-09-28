@@ -62,6 +62,22 @@ const tier = (id: string, from: number, to: number, theme: FloorInput['theme'], 
   ...extra,
 });
 
+/** 深淵神殿（30 層起）的共通設定 */
+const TEMPLE: Partial<FloorInput> = {
+  boss: boss('enemy.abyss_lord'),
+  monsterPool: [...humanoids(0.3), ...CREATURES],
+  layout: { width: 225, height: 172, rooms: [42, 52], loops: 15 },
+  density: 2.0,
+  packSize: [4, 7],
+  eliteChance: 0.45,
+  affixCount: [2, 2],
+  lootTier: 4,
+  chests: [7, 9],
+};
+
+/** 第 31～34 層最後的魔王 */
+const CHALLENGE_BOSSES = ['enemy.lava_behemoth', 'enemy.fallen_knight', 'enemy.spider_queen', 'enemy.abyss_lord'];
+
 export const floors: FloorInput[] = [
   // 遺棄地窖：基礎教學區、簡單地形、低強度怪物
   tier('floor.crypt_1', 1, 4, 'crypt', {}),
@@ -121,16 +137,19 @@ export const floors: FloorInput[] = [
     lootTier: 4,
     chests: [6, 8],
   }),
-  // 深淵神殿：最大地圖
-  tier('floor.temple', 30, 999, 'temple', {
-    boss: boss('enemy.abyss_lord'),
-    monsterPool: [...humanoids(0.3), ...CREATURES],
-    layout: { width: 225, height: 172, rooms: [42, 52], loops: 15 },
-    density: 2.0,
-    packSize: [4, 7],
-    eliteChance: 0.45,
-    affixCount: [2, 2],
-    lootTier: 4,
-    chests: [7, 9],
+  // 深淵神殿：最大地圖；第 30 層是一般模式的最後一層（擊敗深淵魔王 = 已通關）
+  tier('floor.temple', 30, 30, 'temple', TEMPLE),
+  // 極限挑戰（docs/ENDGAME.md）：31～34 每層一位最後的魔王，中途有小王；進入後回不到 1～30 層
+  ...CHALLENGE_BOSSES.map((enemyId, i) =>
+    tier(`floor.challenge_${31 + i}`, 31 + i, 31 + i, 'temple', { ...TEMPLE, boss: { enemyId, every: 1 }, miniBosses: ['enemy.crypt_guardian', 'enemy.fallen_priest'] }),
+  ),
+  // 35：王座廳。只有一個直徑 40 個魔王身體寬度的圓形空間、最終魔王與 10 個寶箱；沒有一般怪物、沒有出口
+  tier('floor.throne', 35, 35, 'temple', {
+    ...TEMPLE,
+    boss: undefined,
+    throne: { enemyId: 'enemy.abyss_sovereign', bodies: 40 },
+    density: 0,
+    chests: [10, 10],
+    chestLootTable: 'loot.final_chest',
   }),
 ];

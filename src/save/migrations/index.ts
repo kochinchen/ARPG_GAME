@@ -128,8 +128,32 @@ const v6ToV7: Migration = (v6) => ({ ...v6, collection: [] });
 /** v7 → v8：加入材料與拆解區（舊存檔從零開始） */
 const v7ToV8: Migration = (v7) => ({ ...v7, materials: {}, salvage: [] });
 
+/**
+ * v8 → v9：存入亂數序列的狀態。舊存檔沒有這些狀態，給空的紀錄；
+ * 讀檔時由 SaveMapper 以種子、流水號、遊玩時間混出新狀態，不會再從頭重跑同一串結果。
+ */
+const v8ToV9: Migration = (v8) => ({ ...v8, rng: {} });
+
+/**
+ * v9 → v10：加入終局紀錄。舊版樓層沒有上限（第 30 層以後一直往下），最高樓層超過 30 視為已通關；
+ * 隱藏難關（第 35 層的最終魔王）是新內容，一律未完成。樓層超過 35 由 SaveRepair 修正。
+ */
+const v9ToV10: Migration = (v9) => {
+  const highest = Number(((v9.floor ?? {}) as { highest?: number }).highest ?? 1);
+  return { ...v9, endgame: { cleared: highest > 30, completedHidden: false } };
+};
+
+/**
+ * v10 → v11：魔王門前的存檔點與到過中途的樓層。舊存檔的魔王門前點一律未啟動；
+ * 目前這一層的中途點已啟動的話，記為到過中途（其他樓層沒有紀錄，重新走到中途即可）。
+ */
+const v10ToV11: Migration = (v10) => {
+  const floor = (v10.floor ?? {}) as { current?: number; midwayActive?: boolean };
+  return { ...v10, floor: { ...floor, bossGateActive: false, midwayFloors: floor.midwayActive && floor.current ? [floor.current] : [] } };
+};
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11];
 
 export class MigrationError extends Error {}
 

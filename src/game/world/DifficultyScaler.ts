@@ -19,8 +19,15 @@ export function scaleForFloor(floor: number, difficulty: Balance['difficulty']):
     damage: 1 + difficulty.damagePerFloor * n,
     defense: 1 + difficulty.defensePerFloor * n,
     xp: 1 + difficulty.xpPerFloor * n,
-    density: Math.min(difficulty.maxDensityMultiplier, 1 + difficulty.densityPerFloor * n),
+    density: Math.min(difficulty.maxDensityMultiplier, 1 + difficulty.densityPerFloor * n) * (1 + earlyBoost(floor, difficulty.earlyDensityBoost)),
   };
+}
+
+/** 前期怪物數量加成：第 1～fullUntil 層為 bonus，之後線性遞減，第 fadeTo 層起為 0 */
+function earlyBoost(floor: number, b: Balance['difficulty']['earlyDensityBoost']): number {
+  if (floor <= b.fullUntil) return b.bonus;
+  if (floor >= b.fadeTo) return 0;
+  return b.bonus * ((b.fadeTo - floor) / (b.fadeTo - b.fullUntil));
 }
 
 /** 精英 / Boss 的樓層減傷比例（未達起始樓層為 0） */
