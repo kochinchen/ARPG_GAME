@@ -4,8 +4,8 @@ import type { AffixDef, ItemBaseDef } from '../../data/schema/item';
 import type { LegendaryDef } from '../../data/schema/legendary';
 import type { ItemInstance } from './ItemInstance';
 
-/** 主倍率套用在哪裡：武器 = 基礎傷害、防具 = 基礎防禦、飾品 = 所有詞綴 */
-export type MainRollTarget = 'damage' | 'defense' | 'affixes';
+/** 主倍率套用在哪裡：武器 = 基礎傷害（法杖 = 法術強度）、防具 = 基礎防禦、飾品 = 所有詞綴 */
+export type MainRollTarget = 'damage' | 'spellPower' | 'defense' | 'affixes';
 
 export interface ItemStats {
   base: ItemBaseDef;
@@ -20,14 +20,15 @@ export interface ItemStats {
 
 /** 主倍率的作用對象 */
 export function mainTargetOf(base: ItemBaseDef): MainRollTarget {
-  if (base.slot === 'weapon') return 'damage';
+  // 法杖的輸出來自法術強度：主倍率放大法術強度，不放大偏弱的武器傷害
+  if (base.slot === 'weapon') return base.weaponType === 'staff' ? 'spellPower' : 'damage';
   if (base.slot === 'ring' || base.slot === 'amulet') return 'affixes';
   return 'defense';
 }
 
 /**
  * 一件物品實際提供的屬性（裝備時的 Modifier 與 Tooltip 共用，確保兩者一致）：
- * 主倍率只乘在基礎傷害（武器，法杖的法術強度不乘）或基礎防禦（防具）；飾品則乘在所有詞綴。
+ * 主倍率只乘在基礎傷害（劍、斧、弓）、法術強度（法杖，武器傷害不乘）或基礎防禦（防具）；飾品則乘在所有詞綴。
  */
 export function itemStats(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): ItemStats {
   const base = data.items.get(item.baseId);
@@ -39,6 +40,8 @@ export function itemStats(item: ItemInstance, data: Pick<DataRegistry, 'items' |
   if (mainTarget === 'damage') {
     if (baseStats.damageMin !== undefined) baseStats.damageMin = Math.round(baseStats.damageMin * mult);
     if (baseStats.damageMax !== undefined) baseStats.damageMax = Math.round(baseStats.damageMax * mult);
+  } else if (mainTarget === 'spellPower' && baseStats.spellPower !== undefined) {
+    baseStats.spellPower = Math.round(baseStats.spellPower * mult);
   } else if (mainTarget === 'defense' && baseStats.defense !== undefined) {
     baseStats.defense = Math.round(baseStats.defense * mult);
   }

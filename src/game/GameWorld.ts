@@ -94,8 +94,8 @@ export class GameWorld {
   exit: ExitPortal | null = null;
   /** 往上的樓梯（第 2 層以上） */
   stairsUp: StairsUp | null = null;
-  /** 出口旁的商人（固定地圖模式沒有） */
-  merchant: Merchant | null = null;
+  /** 本層的商人（樓梯口、中途存檔點、出口旁），共用 shop 的同一個貨架；固定地圖模式沒有 */
+  merchants: Merchant[] = [];
   readonly checkpoints: CheckpointSystem;
   readonly floors: FloorManager;
   readonly actors: Actor[] = [];
@@ -437,10 +437,14 @@ export class GameWorld {
     for (const [actorId, index] of spawnedIds) this.floors.trackSpawn(actorId, index);
     if (this.exit) this.exit.open = this.floors.exitOpen;
     this.stairsUp = floor >= 2 ? { kind: 'stairsUp', id: this.nextInteractableId++, position: this.spawnPoint } : null;
-    // 商人擺在出口旁；貨架由世界種子 + 樓層決定
-    const merchantAt = this.exit ? this.spotNear(this.exit.position, 2, 0.4) : null;
-    this.merchant = merchantAt ? { kind: 'merchant', id: this.nextInteractableId++, position: merchantAt } : null;
-    this.shop.open(floor, merchantAt, new Rng(this.seed).fork(`shop-${floor}`), restore?.shopBought);
+    // 商人擺在樓梯口、中途存檔點與出口旁（背包滿了不用走回頭）；三位共用同一個貨架，貨架由世界種子 + 樓層決定
+    const merchantSpots = this.exit
+      ? [this.spawnPoint, this.checkpoints.checkpoints[1]?.position, this.exit.position]
+          .filter((p): p is Vec2 => p !== undefined)
+          .map((p) => this.spotNear(p, 2, 0.4))
+      : [];
+    this.merchants = merchantSpots.map((position) => ({ kind: 'merchant', id: this.nextInteractableId++, position }));
+    this.shop.open(floor, merchantSpots, new Rng(this.seed).fork(`shop-${floor}`), restore?.shopBought);
     if (restore?.midwayActive) {
       this.checkpoints.restoreMidway();
       this.placePlayer(this.checkpoints.respawn.position);
@@ -514,7 +518,7 @@ export class GameWorld {
     this.groundItems.length = 0;
     this.chests.length = 0;
     this.stairsUp = null;
-    this.merchant = null;
+    this.merchants = [];
     this.scheduler.clear();
     this.bosses.clear();
     this.combos.cancel(this.player);

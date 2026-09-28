@@ -53,8 +53,8 @@ export class InteractableLayer {
   readonly labels = new Container();
   private readonly views = new Map<number, View>();
   private hoveredId: number | null = null;
-  /** 本層商人的多面體模型（待機動畫每幀更新） */
-  private merchantFigure: PolyFigure | null = null;
+  /** 本層商人的多面體模型（待機動畫每幀更新；key = 商人 id） */
+  private readonly merchantFigures = new Map<number, PolyFigure>();
 
   constructor(
     private readonly projection: IsoProjection,
@@ -86,7 +86,7 @@ export class InteractableLayer {
     exit: ExitPortal | null = null,
     nextFloor = 0,
     stairsUp: StairsUp | null = null,
-    merchant: Merchant | null = null,
+    merchants: readonly Merchant[] = [],
     dt = 1 / 60,
   ): void {
     const seen = new Set<number>();
@@ -108,12 +108,12 @@ export class InteractableLayer {
       if (view.exit) view.exit.portal.alpha = exit.open ? 0.75 + 0.25 * Math.sin(performance.now() / 250) : 1;
       this.highlight(view, exit.id);
     }
-    if (merchant) {
+    for (const merchant of merchants) {
       seen.add(merchant.id);
       const view = this.views.get(merchant.id) ?? this.createMerchantView(merchant);
       this.highlight(view, merchant.id);
       // 商人面向鏡頭（畫面下方）
-      this.merchantFigure?.update(dt, { facing: { x: 1, y: 1 }, moving: false, alive: true });
+      this.merchantFigures.get(merchant.id)?.update(dt, { facing: { x: 1, y: 1 }, moving: false, alive: true });
     }
     if (stairsUp) {
       seen.add(stairsUp.id);
@@ -133,6 +133,7 @@ export class InteractableLayer {
       view.label?.destroy();
       view.labelBack?.destroy();
       this.views.delete(id);
+      this.merchantFigures.delete(id);
       changed = true;
     }
     if (changed) this.layoutLabels(groundItems);
@@ -263,8 +264,9 @@ export class InteractableLayer {
     container.position.set(s.x, s.y);
     container.zIndex = this.projection.depth(merchant.position);
     const shadow = new Graphics().ellipse(0, 4, 26, 13).fill({ color: 0x000000, alpha: 0.4 });
-    this.merchantFigure = new PolyFigure(MERCHANT);
-    container.addChild(shadow, this.merchantFigure.graphics);
+    const figure = new PolyFigure(MERCHANT);
+    this.merchantFigures.set(merchant.id, figure);
+    container.addChild(shadow, figure.graphics);
     this.objectLayer.addChild(container);
     const label = new Text({ text: '商人', style: { fontFamily: 'sans-serif', fontSize: 12, fill: 0xe8c47a } });
     label.anchor.set(0.5, 1);

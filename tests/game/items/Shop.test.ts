@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CommandQueue } from '../../../src/core/CommandQueue';
 import { EventBus } from '../../../src/core/EventBus';
-import { distance } from '../../../src/core/math/Vec2';
+import { distance, type Vec2 } from '../../../src/core/math/Vec2';
 import { gameData } from '../../../src/data';
 import { DataRegistry } from '../../../src/data/DataRegistry';
 import type { GameCommand } from '../../../src/game/Commands';
@@ -14,6 +14,8 @@ import { repairSave } from '../../../src/save/SaveRepair';
 import { run } from '../helpers';
 
 const data = DataRegistry.load(gameData);
+/** 出口旁的商人（三位商人的最後一位） */
+const exitMerchant = (world: GameWorld) => world.merchants[world.merchants.length - 1]!;
 
 function setup(floor = 2, seed = 5) {
   const commands = new CommandQueue<GameCommand>();
@@ -25,7 +27,7 @@ function setup(floor = 2, seed = 5) {
   };
   /** 站到商人旁邊 */
   const approach = () => {
-    world.player.position = { ...world.merchant!.position, x: world.merchant!.position.x + 0.8 };
+    world.player.position = { ...exitMerchant(world).position, x: exitMerchant(world).position.x + 0.8 };
     world.player.prevPosition = world.player.position;
   };
   return { world, commands, events, send, approach };
@@ -53,10 +55,13 @@ describe('背包自動整理', () => {
 });
 
 describe('商人', () => {
-  it('每一層出口旁都有商人；貨架由世界種子 + 樓層決定', () => {
+  it('每一層樓梯口、中途存檔點、出口旁各有一位商人；貨架由世界種子 + 樓層決定', () => {
     const a = setup(2, 5).world;
-    expect(a.merchant).not.toBeNull();
-    expect(distance(a.merchant!.position, a.exit!.position)).toBeLessThan(3);
+    expect(a.merchants).toHaveLength(3);
+    const [atStairs, atMidway, atExit] = a.merchants.map((m) => m.position) as [Vec2, Vec2, Vec2];
+    expect(distance(atStairs, a.spawnPoint)).toBeLessThan(3);
+    expect(distance(atMidway, a.checkpoints.checkpoints[1]!.position)).toBeLessThan(3);
+    expect(distance(atExit, a.exit!.position)).toBeLessThan(3);
     expect(a.shop.stock).toHaveLength(data.balance.shop.stockSize);
     const b = setup(2, 5).world;
     expect(b.shop.stock.map((i) => i?.baseId)).toEqual(a.shop.stock.map((i) => i?.baseId));
@@ -66,10 +71,41 @@ describe('商人', () => {
     const { world, commands, events } = setup();
     const opened = vi.fn();
     events.on('ShopOpened', opened);
-    world.player.position = { x: world.merchant!.position.x + 0.6, y: world.merchant!.position.y };
-    commands.push({ type: 'PrimaryAction', worldPos: world.merchant!.position, targetId: null, interactId: world.merchant!.id, held: false });
+    const merchant = exitMerchant(world);
+    world.player.position = { x: merchant.position.x + 0.6, y: merchant.position.y };
+    commands.push({ type: 'PrimaryAction', worldPos: merchant.position, targetId: null, interactId: merchant.id, held: false });
     run(world, 0.3);
     expect(opened).toHaveBeenCalled();
+  });
+
+  it('三位商人共用同一家店：在樓梯口買走的，中途與出口的商人那裡也是已售出', () => {
+    const { world, send } = setup();
+    const stand = (i: number) => {
+      const m = world.merchants[i]!;
+      world.player.position = { x: m.position.x + 0.8, y: m.position.y };
+      world.player.prevPosition = world.player.position;
+    };
+    for (let i = 0; i < 3; i++) {
+      stand(i);
+      expect(world.shop.isNear()).toBe(true);
+    }
+    stand(0);
+    const item = world.shop.stock[0]!;
+    world.wallet.gold = buyPrice(item, data);
+    send({ type: 'ShopBuy', index: 0 });
+    expect(world.shop.stock[0]).toBeNull();
+    stand(1);
+    expect(world.shop.stock[0]).toBeNull();
+    expect(world.shop.boughtIndices).toEqual([0]);
+  });
+
+  it('中途存檔點周圍 12 格內沒有怪物（在那裡購物不會被遠程怪發現）', () => {
+    for (const floor of [3, 8, 15]) {
+      const world = setup(floor, 9).world;
+      const midway = world.checkpoints.checkpoints[1]!.position;
+      const near = world.actors.filter((a) => a.faction === 'enemy' && distance(a.position, midway) < data.balance.floor.safeRadius);
+      expect(near).toEqual([]);
+    }
   });
 
   it('購買：扣金幣、放進背包（換新的 uid）、貨架該格清空', () => {
@@ -91,6 +127,10 @@ describe('商人', () => {
     const failed = vi.fn();
     events.on('ShopFailed', failed);
     world.wallet.gold = 1;
+    // 樓梯口旁也有商人：站到寶箱那裡（寶箱不會生在商人所在的安全範圍內）
+    world.player.position = { ...world.chests[0]!.position };
+    world.player.prevPosition = world.player.position;
+    expect(world.merchants.every((m) => distance(m.position, world.player.position) > data.balance.shop.range)).toBe(true);
     send({ type: 'ShopBuy', index: 0 });
     expect(failed).toHaveBeenLastCalledWith({ reason: 'far' });
     approach();

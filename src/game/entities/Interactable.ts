@@ -44,7 +44,7 @@ export interface StairsUp {
   position: Vec2;
 }
 
-/** 出口旁的商人：點擊開啟商店 */
+/** 商人（樓梯口、中途存檔點、出口旁各一位，共用同一家店）：點擊開啟商店 */
 export interface Merchant {
   kind: 'merchant';
   id: number;

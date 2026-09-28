@@ -81,7 +81,7 @@ export function buildItemCodex(data: DataRegistry): { bases: BaseCodexEntry[]; u
     .sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.levelReq - b.levelReq);
   const uniques = data.legendaries.all
     .map((d) => {
-      const target = d.kind === 'ring' || d.kind === 'amulet' ? null : ['sword', 'axe', 'bow', 'staff'].includes(d.kind) ? '武器傷害' : '防禦';
+      const target = d.kind === 'ring' || d.kind === 'amulet' ? null : d.kind === 'staff' ? '法術強度' : ['sword', 'axe', 'bow'].includes(d.kind) ? '武器傷害' : '防禦';
       return {
         key: `legendary:${d.id}`,
         id: d.id,

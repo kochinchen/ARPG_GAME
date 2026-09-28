@@ -13,10 +13,10 @@ const MAGIC_T2_MP: R5 = [5, 6, 7, 8, 9];
 const MAGIC_T3_MP: R5 = [9, 10, 11, 12, 13];
 const T4_MP: R5 = [13, 14, 15, 17, 19];
 
-/** 普通攻擊（不在技能樹中） */
+/** 普通攻擊（不在技能樹中；只有怪物使用，玩家的左鍵預設是重砍） */
 const special: SkillInput[] = [
   {
-    // 玩家與怪物共用；傷害來自武器（怪物為 EnemyDef.damage）
+    // 傷害來自 EnemyDef.damage
     id: 'basic.attack',
     name: '普通攻擊',
     targeting: 'enemy',

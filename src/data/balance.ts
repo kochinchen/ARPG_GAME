@@ -32,11 +32,12 @@ export const balance: z.input<typeof BalanceSchema> = {
     startingPotions: 3,
     inventoryCols: 10,
     inventoryRows: 8,
-    startingSkills: ['basic.attack', 'melee.heavy_slash', 'magic.fireball'],
+    // 玩家沒有普通攻擊：免費送的重砍就是預設左鍵（普通攻擊只給怪物用）
+    startingSkills: ['melee.heavy_slash', 'magic.fireball'],
     startingSkillPoints: 2,
     comboSlotLevels: [1, 3, 6],
     startingLoadout: {
-      left: 'basic.attack',
+      left: 'melee.heavy_slash',
       // 第 2、3 格分別在 Lv3、Lv6 解鎖
       combos: [
         ['melee.heavy_slash', null, null],
@@ -78,8 +79,8 @@ export const balance: z.input<typeof BalanceSchema> = {
   floor: {
     // 樓梯口與出口：大於最遠的偵測距離（骷髏王 9），上下樓時附近一定沒有怪物
     stairsSafeRadius: 12,
-    // 中途存檔點：與骷髏的偵測距離相同
-    safeRadius: 7,
+    // 中途存檔點：與樓梯口相同（這裡也有商人，大於最遠的一般怪偵測距離 9，購物時不會被遠程怪發現）
+    safeRadius: 12,
     checkpointRadius: 1.2,
   },
   elite: {

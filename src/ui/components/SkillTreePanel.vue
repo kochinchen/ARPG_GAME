@@ -208,6 +208,10 @@ const STEPS = [0, 1, 2] as const;
       </section>
 
       <section v-if="category.kind === 'active'" class="loadout">
+        <div class="left-slot">
+          <h3>左鍵 <small>點技能格上的「左」指定</small></h3>
+          <span class="slot left-current">{{ view.left?.name ?? '—' }}</span>
+        </div>
         <h3>Q / W / E 連段 <small>右鍵依序施放 · 右鍵點格子清空</small></h3>
         <div v-for="combo in view.combos" :key="combo.key" class="combo-block">
           <div class="combo" :class="{ active: combo.active }">
@@ -559,6 +563,22 @@ small {
 }
 .combo-block {
   margin-bottom: 6px;
+}
+.left-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.left-slot h3 {
+  flex-basis: 100%;
+}
+.left-current {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
 }
 .combo {
   margin-bottom: 2px;

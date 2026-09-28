@@ -227,6 +227,9 @@ describe('特殊效果', () => {
     wear(world, 'legendary.star_burner');
     world.player.mana = world.player.maxMana;
     const target = dummy(world);
+    // 法杖主倍率放大法術強度後，火球會直接打倒 60 HP 的木樁；加厚才看得到分裂
+    target.stats.setBase('maxHp', 5000);
+    target.hp = 5000;
     const log = damageLog(world, target);
     world.loadout.left = 'magic.fireball';
     commands.push({ type: 'PrimaryAction', worldPos: target.position, targetId: target.id, held: false }, { type: 'PrimaryRelease' });

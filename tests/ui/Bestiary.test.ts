@@ -104,6 +104,6 @@ describe('裝備圖鑑', () => {
     expect(coldMoon.main).toBe('武器傷害 +235%～255%');
     expect(coldMoon.lines[0]!.text).toBe('+14%～18% 攻擊速度');
     expect(coldMoon.lines.at(-1)!.kind).toBe('unique');
-    expect(codex.bases.find((b) => b.id === 'weapon.iron_longsword')!.lines).toEqual(['傷害 6–13', '+8% 近戰傷害', '+2% 暴擊率']);
+    expect(codex.bases.find((b) => b.id === 'weapon.iron_longsword')!.lines).toEqual(['傷害 6–13', '+8% 近戰傷害', '+2% 暴擊率', '-20% 遠程傷害', '-20% 法術傷害']);
   });
 });

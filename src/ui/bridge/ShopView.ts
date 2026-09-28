@@ -121,7 +121,7 @@ function ascendView(world: GameWorld, data: DataRegistry, item: ItemInstance, go
   const info = world.shop.ascendInfo(item);
   const statOf = (baseId: string) => {
     const s = itemStats({ ...item, baseId }, data).baseStats;
-    if (s.damageMin !== undefined) return `傷害 ${s.damageMin}–${s.damageMax ?? 0}`;
+    if (s.damageMin !== undefined) return `傷害 ${s.damageMin}–${s.damageMax ?? 0}${s.spellPower !== undefined ? `・法術強度 ${s.spellPower}` : ''}`;
     if (s.defense !== undefined) return `防禦 ${s.defense}`;
     return '';
   };

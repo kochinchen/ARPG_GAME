@@ -125,10 +125,14 @@ describe('技能樹操作（M6）', () => {
 
   it('左鍵只能指定已學會的主動技能', () => {
     const { world, send, skillAt } = setup();
-    send({ type: 'AssignLeft', skillId: skillAt('ranged', 1, 'A') });
-    expect(world.loadout.left).toBe('basic.attack');
-    send({ type: 'AssignLeft', skillId: 'melee.heavy_slash' });
+    // 預設左鍵是免費送的重砍（玩家沒有普通攻擊）
     expect(world.loadout.left).toBe('melee.heavy_slash');
+    send({ type: 'AssignLeft', skillId: skillAt('ranged', 1, 'A') });
+    expect(world.loadout.left).toBe('melee.heavy_slash');
+    send({ type: 'AssignLeft', skillId: 'basic.attack' });
+    expect(world.loadout.left).toBe('melee.heavy_slash');
+    send({ type: 'AssignLeft', skillId: 'magic.fireball' });
+    expect(world.loadout.left).toBe('magic.fireball');
   });
 });
 

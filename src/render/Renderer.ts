@@ -193,8 +193,7 @@ export class Renderer {
     const local = sub(screen, this.camera.offset);
     const exit = this.world.exit ? [this.world.exit] : [];
     const stairs = this.world.stairsUp ? [this.world.stairsUp] : [];
-    const merchant = this.world.merchant ? [this.world.merchant] : [];
-    return this.interactables.pickAt(local, [...stairs, ...merchant, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
+    return this.interactables.pickAt(local, [...stairs, ...this.world.merchants, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
   }
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
@@ -245,7 +244,7 @@ export class Renderer {
     this.tileMap.update(playerPos, dt);
     this.minimap.update(playerPos, this.minimapMarkers());
     this.interactables.setHovered(this.hoveredInteractable);
-    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchant, this.app.ticker.deltaMS / 1000);
+    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000);
     this.markers.update(this.app.ticker.lastTime);
     this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
     this.floatingText.update(dt);
@@ -268,7 +267,7 @@ export class Renderer {
     const midway = w.checkpoints.checkpoints.find((c) => c.kind === 'midway');
     if (midway) markers.push({ kind: 'midway', position: midway.position });
     if (w.exit) markers.push({ kind: 'exit', position: w.exit.position });
-    if (w.merchant) markers.push({ kind: 'merchant', position: w.merchant.position });
+    for (const m of w.merchants) markers.push({ kind: 'merchant', position: m.position });
     return markers;
   }
 

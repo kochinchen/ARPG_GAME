@@ -44,7 +44,8 @@ export class ShopSystem {
   stock: (ItemInstance | null)[] = [];
   /** 飛昇格：要飛昇的裝備（飛昇後留在原位，點一下拿回來） */
   ascendSlot: ItemInstance | null = null;
-  private _position: Vec2 | null = null;
+  /** 商人位置（樓梯口、中途存檔點、出口旁；共用同一家店） */
+  private _positions: readonly Vec2[] = [];
   private floor = 0;
   private _version = 0;
 
@@ -54,8 +55,8 @@ export class ShopSystem {
     private readonly events: GameEventBus,
   ) {}
 
-  get position(): Vec2 | null {
-    return this._position;
+  get positions(): readonly Vec2[] {
+    return this._positions;
   }
 
   /** 貨架或價格改變時遞增（UI 依此重建快照） */
@@ -76,19 +77,21 @@ export class ShopSystem {
     return this.data.balance.shop.potionBuyPrice;
   }
 
-  /** 進入樓層：擺攤並補貨（固定地圖模式傳 null = 沒有商人） */
-  open(floor: number, position: Vec2 | null, rng: Rng, bought: readonly number[] = []): void {
+  /** 進入樓層：擺攤並補貨（固定地圖模式傳空陣列 = 沒有商人）。每層只有一個貨架，任何一個商人都能交易 */
+  open(floor: number, positions: readonly Vec2[], rng: Rng, bought: readonly number[] = []): void {
     this.floor = floor;
-    this._position = position;
+    this._positions = positions;
     const shop = this.data.balance.shop;
     const generator = new ItemGenerator(this.data, rng);
-    this.stock = position === null ? [] : Array.from({ length: shop.stockSize }, () => generator.generate(Math.max(1, floor), shop.stockRarityWeights));
+    this.stock = positions.length === 0 ? [] : Array.from({ length: shop.stockSize }, () => generator.generate(Math.max(1, floor), shop.stockRarityWeights));
     for (const i of bought) if (i < this.stock.length) this.stock[i] = null;
     this._version++;
   }
 
+  /** 站在任何一個商人附近 */
   isNear(): boolean {
-    return this._position !== null && distance(this.ctx.player.position, this._position) <= this.data.balance.shop.range;
+    const range = this.data.balance.shop.range;
+    return this._positions.some((p) => distance(this.ctx.player.position, p) <= range);
   }
 
   buy(index: number): boolean {

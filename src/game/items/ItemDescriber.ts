@@ -6,7 +6,7 @@ import type { ItemInstance } from './ItemInstance';
 import { nameItem } from './ItemNamer';
 import { itemStats, type MainRollTarget } from './ItemStats';
 
-const MAIN_LABELS: Record<MainRollTarget, string> = { damage: '武器傷害', defense: '防禦', affixes: '所有詞綴' };
+const MAIN_LABELS: Record<MainRollTarget, string> = { damage: '武器傷害', spellPower: '法術強度', defense: '防禦', affixes: '所有詞綴' };
 
 export interface ItemDescription {
   name: string;
@@ -126,7 +126,11 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
   const boosted = stats.quality > 0;
   if (damageMin !== undefined || damageMax !== undefined) {
     const raw = base.baseStats;
-    baseLines.push(`傷害 ${damageMin ?? 0}–${damageMax ?? 0}${boosted ? `（基礎 ${raw.damageMin ?? 0}–${raw.damageMax ?? 0}）` : ''}`);
+    baseLines.push(`傷害 ${damageMin ?? 0}–${damageMax ?? 0}${boosted && stats.mainTarget === 'damage' ? `（基礎 ${raw.damageMin ?? 0}–${raw.damageMax ?? 0}）` : ''}`);
+  }
+  if (boosted && stats.mainTarget === 'spellPower' && rest.spellPower !== undefined) {
+    baseLines.push(`法術強度 ${rest.spellPower}（基礎 ${base.baseStats.spellPower ?? 0}）`);
+    delete rest.spellPower;
   }
   if (boosted && stats.mainTarget === 'defense' && rest.defense !== undefined) {
     baseLines.push(`防禦 ${rest.defense}（基礎 ${base.baseStats.defense ?? 0}）`);

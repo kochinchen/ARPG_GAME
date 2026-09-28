@@ -191,7 +191,7 @@ export const LegendaryDefSchema = z
     /** 定位（顯示在說明） */
     role: z.string(),
     lore: z.string(),
-    /** 主倍率（武器傷害 / 防禦 +X%）；戒指與護身符沒有 */
+    /** 主倍率（武器傷害 / 法杖為法術強度 / 防禦 +X%）；戒指與護身符沒有 */
     main: z.tuple([z.number().positive(), z.number().positive()]).optional(),
     lines: z.array(LegendaryLineSchema),
     minItemLevel: z.int().positive().default(1),

@@ -119,7 +119,8 @@ function weaponBreakdown(world: GameWorld, data: DataRegistry, totalMin: number,
   const rows: CharacterView['stats'] = [{ label: '角色基礎', value: `${num(baseMin)} – ${num(baseMax)}`, sub: true }];
   if (w) {
     const raw = w.base.baseStats;
-    const main = w.quality > 0 ? `（${raw.damageMin ?? 0}–${raw.damageMax ?? 0} +${Math.round(w.quality * 100)}%）` : '';
+    // 法杖的主倍率在法術強度上，武器傷害沒有放大
+    const main = w.quality > 0 && w.mainTarget === 'damage' ? `（${raw.damageMin ?? 0}–${raw.damageMax ?? 0} +${Math.round(w.quality * 100)}%）` : '';
     rows.push({ label: `裝備武器 ${w.base.name}`, value: `${wMin} – ${wMax}${main}`, sub: true });
   }
   if (attr > 0) rows.push({ label: '攻擊屬性', value: `+${num(attr)}`, sub: true });

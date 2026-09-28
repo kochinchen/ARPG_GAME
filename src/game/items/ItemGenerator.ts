@@ -101,7 +101,7 @@ export class ItemGenerator {
       this.rng.int(minAffixes, maxAffixes),
     );
 
-    // 主倍率：武器傷害 / 防具防禦 / 飾品所有詞綴 +X%
+    // 主倍率：武器傷害（法杖為法術強度）/ 防具防禦 / 飾品所有詞綴 +X%
     const main = this.data.balance.mainRoll[mainTargetOf(base) === 'affixes' ? 'jewelry' : 'base'][rarity];
     const quality = main[1] > 0 ? Math.round(this.rng.range(main[0], main[1]) * 100) / 100 : 0;
     return { uid, baseId: base.id, rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes };

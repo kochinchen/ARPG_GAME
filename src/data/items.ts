@@ -6,11 +6,13 @@ type BaseInput = z.input<typeof ItemBaseDefSchema>;
 /**
  * 武器種類的內建加成（不限制技能，只讓對應類別更強）：
  * 劍 近戰 +8%、暴擊 +2%；斧 近戰 +12%；弓 遠程 +15%；法杖 法術 +15%（另有法術強度）。
+ * 拿錯類型的武器使用其他類別的技能會扣傷害（與詞綴、屬性點直接相加，可以用裝備補回）：
+ * 近戰武器 → 遠程 / 魔法 −20%；弓 → 近戰 −15%（基礎傷害本來就較低）、魔法 −20%；法杖 → 近戰 / 遠程 −20%。
  */
-const SWORD = { meleeDamageBonus: 0.08, critChance: 0.02 };
-const AXE = { meleeDamageBonus: 0.12 };
-const BOW = { rangedDamageBonus: 0.15 };
-const STAFF = { spellDamageBonus: 0.15 };
+const SWORD = { meleeDamageBonus: 0.08, critChance: 0.02, rangedDamageBonus: -0.2, spellDamageBonus: -0.2 };
+const AXE = { meleeDamageBonus: 0.12, rangedDamageBonus: -0.2, spellDamageBonus: -0.2 };
+const BOW = { rangedDamageBonus: 0.15, meleeDamageBonus: -0.15, spellDamageBonus: -0.2 };
+const STAFF = { spellDamageBonus: 0.15, meleeDamageBonus: -0.2, rangedDamageBonus: -0.2 };
 
 /**
  * 武器與防具都分 8 階（等級需求 1 / 6 / 12 / 18 / 24 / 30 / 36 / 42），每階數值約 ×1.4～1.5，

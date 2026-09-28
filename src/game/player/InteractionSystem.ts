@@ -18,7 +18,7 @@ export interface InteractionWorld {
   chests: Chest[];
   exit: ExitPortal | null;
   stairsUp: StairsUp | null;
-  merchant: Merchant | null;
+  merchants: readonly Merchant[];
   /** 點擊出口 */
   useExit(): void;
   /** 點擊往上的樓梯 */
@@ -49,13 +49,13 @@ export class InteractionSystem {
   }
 
   find(id: number): Interactable | undefined {
-    const { exit, stairsUp, merchant } = this.world;
+    const { exit, stairsUp, merchants } = this.world;
     return (
       this.world.groundItems.find((g) => g.id === id) ??
       this.world.chests.find((c) => c.id === id && !c.opened) ??
       (exit?.id === id ? exit : undefined) ??
       (stairsUp?.id === id ? stairsUp : undefined) ??
-      (merchant?.id === id ? merchant : undefined)
+      merchants.find((m) => m.id === id)
     );
   }
 

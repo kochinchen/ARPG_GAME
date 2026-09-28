@@ -36,6 +36,8 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
       notes.push(`技能「${id}」已移除，退回技能點`);
       continue;
     }
+    // 不在技能樹、也不是初始技能（例如舊版免費送的普通攻擊）：玩家不能擁有；本來就是免費的，不退點數
+    if (!data.skills.get(id).tree && !p.startingSkills.includes(id)) continue;
     const clamped = Math.min(rank, balance.maxSkillRank);
     if (clamped !== rank) notes.push(`技能「${data.skills.get(id).name}」等級超過上限，退回多出的點數`);
     ranks.set(id, clamped);
@@ -87,7 +89,7 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   const learned = (id: string | null, kind: 'active' | 'passive') =>
     id !== null && ranks.has(id) && data.skills.get(id).kind === kind;
   if (!learned(save.loadout.left, 'active')) {
-    notes.push('左鍵技能無效，改回普通攻擊');
+    notes.push(`左鍵技能無效，改回${data.skills.get(p.startingLoadout.left).name}`);
     save.loadout.left = p.startingLoadout.left;
   }
   for (const steps of save.loadout.combos) {
