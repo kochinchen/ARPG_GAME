@@ -23,6 +23,8 @@ import { InputManager } from './input/InputManager';
 import { bestiaryBridge } from './ui/bridge/BestiaryView';
 import { itemCodexBridge } from './ui/bridge/ItemCodexView';
 import { gameBridge } from './ui/bridge/GameBridge';
+import { touchBridge } from './ui/bridge/TouchBridge';
+import { sub, vec2 } from './core/math/Vec2';
 import { gameView } from './ui/bridge/GameViewStore';
 import { systemBridge } from './ui/bridge/SystemBridge';
 import { ViewSync } from './ui/bridge/ViewSync';
@@ -185,6 +187,11 @@ async function bootstrap(): Promise<void> {
 
   // 7. UI：讀取唯讀快照（gameView），遊戲操作一律送 Command，系統操作走 systemBridge
   gameBridge.connect((command) => commands.push(command));
+  // 觸控搖桿：畫面方向 → World 方向（投影是線性的，任取一點相減即可）
+  touchBridge.connect((dx, dy) => {
+    const origin = camera.screenToWorld(vec2(0, 0));
+    return sub(camera.screenToWorld(vec2(dx, dy)), origin);
+  });
   systemBridge.connect({
     setPaused: (paused) => (loop.paused = paused),
     exportSave: () => downloadText(exportFileName(), encodeSave(SaveMapper.capture(world, createdAt), new Date())),

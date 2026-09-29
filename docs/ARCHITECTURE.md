@@ -899,6 +899,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
   - 暫停、存檔、開新角色不是遊戲狀態，走 `ui/bridge/SystemBridge`，不經過 CommandQueue
   - 除錯資訊只在 `npm run dev` 顯示，F3 切換（預設關閉）
   - 測試：`tests/ui/NoDirectWrites.test.ts` 掃描 ui/ 內對 world 的寫入
+  - 觸控（iPad）：`TouchControls.vue` 只在觸控裝置顯示（`?touch=1` / `?touch=0` 可強制開關）。左邊浮動搖桿送 `MoveDirection`（畫面方向經 `ui/bridge/TouchBridge` 由 Camera 換成 World 方向），在搖桿區輕點轉交給遊戲畫面當作點地面；右邊攻擊鈕 `AutoAttack`、招式鈕 `AutoCastRight` 由 `PlayerController` 自動瞄準 8 格內最近的敵人，附近沒敵人就原地朝面向出手。測試：`tests/game/TouchControls.test.ts`
 
 ### M9 Save
 

@@ -33,6 +33,21 @@ export class TargetingService {
     );
   }
 
+  /** 離 source 最近、距離 range 內（含目標自身半徑）的敵對角色 */
+  nearestHostile(source: Actor, range: number): Actor | null {
+    let best: Actor | null = null;
+    let bestDistance = Infinity;
+    for (const actor of this.actors) {
+      if (!actor.alive || !this.isHostile(source.faction, actor.faction)) continue;
+      const d = distance(actor.position, source.position) - actor.radius;
+      if (d <= range && d < bestDistance) {
+        best = actor;
+        bestDistance = d;
+      }
+    }
+    return best;
+  }
+
   /** World 座標點選：回傳最接近該點的敵對目標 */
   pickAt(source: Actor, worldPos: Vec2): Actor | null {
     let best: Actor | null = null;

@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/math/Vec2';
+import { add, length, normalize, scale, type Vec2 } from '../../core/math/Vec2';
 import type { GameCommand } from '../Commands';
 import type { Actor } from '../entities/Actor';
 
@@ -14,6 +14,13 @@ import type { SkillDef } from '../../data/schema/skill';
 import type { PlayerLoadout } from './PlayerLoadout';
 import type { PotionBelt } from './PotionBelt';
 
+/** 觸控搖桿：每次指令往前看幾格（每 0.1 秒重送一次，要比這段時間走的距離長） */
+const STICK_LOOKAHEAD = 2;
+/** 觸控自動瞄準：距離多遠內的敵人算數（Tile） */
+const AUTO_AIM_RANGE = 8;
+/** 觸控攻擊附近沒有敵人時，朝面向前方多遠出手 */
+const AIR_SWING_DISTANCE = 2;
+
 /**
  * 把 Command 轉成玩家意圖。只協調其他系統，不自己計算移動或傷害。
  *
@@ -23,6 +30,10 @@ import type { PotionBelt } from './PotionBelt';
  * - 點地上物品 / 寶箱：走過去撿起 / 開啟
  * - 手上拿著物品時點地面：丟在腳下
  * 右鍵：依序施放目前 Q / W / E 選中的連段；按住則連段結束後再施放一次
+ *
+ * 觸控（iPad）：
+ * - 搖桿：朝方向持續移動；攻擊或連段進行中不會被搖桿打斷
+ * - 攻擊鈕 / 招式鈕：自動瞄準範圍內最近的敵人；附近沒有敵人就原地朝面向出手
  */
 export class PlayerController {
   /** 這次左鍵按下時決定的模式，按住期間維持不變 */
@@ -61,6 +72,18 @@ export class PlayerController {
       case 'CastRight':
         this.castRight(command.worldPos, command.targetId, command.standStill ?? false);
         break;
+      case 'MoveDirection':
+        this.moveDirection(command.dir);
+        break;
+      case 'AutoAttack':
+        this.autoAttack(command.held);
+        break;
+      case 'AutoCastRight': {
+        const target = this.targeting.nearestHostile(this.player, AUTO_AIM_RANGE);
+        if (target) this.castRight(target.position, target.id, false);
+        else this.castRight(this.ahead(), null, true);
+        break;
+      }
       case 'SelectRightSlot':
         this.loadout.select(command.slot);
         break;
@@ -180,6 +203,37 @@ export class PlayerController {
     // 已經打出至少一下就停手；還沒打到（仍在走過去）則維持「打一下」
     if (this.player.castCount > this.castCountAtPress) this.player.intent = null;
     else intent.hold = false;
+  }
+
+  private moveDirection(dir: Vec2 | null): void {
+    if (dir === null || length(dir) === 0) {
+      // 放開搖桿：停在原地（只停搖桿造成的移動，不取消攻擊或撿取）
+      if (!this.player.intent && !this.combos.isRunning(this.player)) this.player.path = [];
+      return;
+    }
+    // 攻擊鈕按住、連段進行中：先打完，搖桿不打斷
+    if (this.holdMode === 'attack' || this.combos.isRunning(this.player)) return;
+    this.holdMode = null;
+    this.moveTo(add(this.player.position, scale(normalize(dir), STICK_LOOKAHEAD)));
+  }
+
+  /** 觸控攻擊鈕：打最近的敵人；按住時持續攻擊同一目標，目標死了換下一個 */
+  private autoAttack(held: boolean): void {
+    if (!held) this.castCountAtPress = this.player.castCount;
+    this.holdMode = 'attack';
+    const intent = this.player.intent;
+    if (held && intent?.skillId === this.loadout.left && intent.targetId !== null && this.targeting.getValidTarget(this.player, intent.targetId)) {
+      intent.hold = true;
+      return;
+    }
+    const target = this.targeting.nearestHostile(this.player, AUTO_AIM_RANGE);
+    if (target) this.attack(target, true);
+    else this.castInPlace(this.ahead(), null, held);
+  }
+
+  /** 面向前方的點（觸控沒有游標，附近沒有敵人時朝這裡出手） */
+  private ahead(): Vec2 {
+    return add(this.player.position, scale(this.player.facing, AIR_SWING_DISTANCE));
   }
 
   private castRight(worldPos: Vec2, targetId: number | null, stationary: boolean): void {

@@ -20,6 +20,8 @@ import Notices from './components/Notices.vue';
 import PauseMenu from './components/PauseMenu.vue';
 import SkillTreePanel from './components/SkillTreePanel.vue';
 import ShopPanel from './components/ShopPanel.vue';
+import TouchControls from './components/TouchControls.vue';
+import { isTouchDevice, touchOverride } from './bridge/TouchBridge';
 
 const props = defineProps<{ devAvailable: boolean }>();
 
@@ -132,6 +134,11 @@ function onKeyDown(e: KeyboardEvent) {
       break;
   }
 }
+/** iPad 等觸控裝置才顯示搖桿與按鈕；偵測不到但第一次用手指點畫面時也打開 */
+const touchMode = ref(isTouchDevice());
+function onPointerDown(e: PointerEvent) {
+  if (e.pointerType === 'touch' && e.isTrusted && touchOverride() === null) touchMode.value = true;
+}
 function onPointerMove(e: PointerEvent) {
   pointer.value = { x: e.clientX, y: e.clientY };
 }
@@ -149,14 +156,22 @@ const heldStyle = computed(() => ({ left: `${pointer.value.x}px`, top: `${pointe
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('pointermove', onPointerMove, { passive: true });
+  window.addEventListener('pointerdown', onPointerDown, { passive: true });
 });
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('pointermove', onPointerMove);
+  window.removeEventListener('pointerdown', onPointerDown);
 });
 </script>
 
 <template>
+  <!-- 放在最前面：HUD、面板都蓋在觸控按鈕上面 -->
+  <TouchControls
+    v-if="touchMode && !open.menu && !open.bestiary && !itemCodexOpen"
+    :skill-bar="gameView.skillBar"
+    :potions="gameView.hud.potions"
+  />
   <FloorHud :floor="gameView.floor" />
   <BossBar v-if="gameView.boss" :boss="gameView.boss" />
   <DevOverlay v-if="gameView.dev.enabled" :dev="gameView.dev" />

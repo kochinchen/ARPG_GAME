@@ -28,6 +28,12 @@ export type GameCommand =
   | { type: 'PrimaryRelease' }
   /** 右鍵：依序施放目前選中的 Q / W / E 連段 */
   | { type: 'CastRight'; worldPos: Vec2; targetId: ActorId | null; standStill?: boolean }
+  /** 觸控搖桿：朝 World 方向持續移動（dir 不必是單位向量）；null = 放開搖桿、停下 */
+  | { type: 'MoveDirection'; dir: Vec2 | null }
+  /** 觸控攻擊鈕：自動瞄準最近的敵人施放左鍵技能（held 同 PrimaryAction）；放開送 PrimaryRelease */
+  | { type: 'AutoAttack'; held: boolean }
+  /** 觸控招式鈕：自動瞄準最近的敵人施放目前的 Q / W / E 連段 */
+  | { type: 'AutoCastRight' }
   /** Q / W / E：選擇右鍵要施放的連段 */
   | { type: 'SelectRightSlot'; slot: 0 | 1 | 2 }
   /** Space：同時回復 HP 與 MP */

@@ -29,6 +29,9 @@ export interface InputAdapters {
 export class InputManager {
   private leftHeld = false;
   private rightHeld = false;
+  /** 按下左 / 右鍵的那一根手指（觸控多指時，放開別根手指不算放開） */
+  private leftPointerId = -1;
+  private rightPointerId = -1;
   /** 按住 Shift：原地施放 */
   private shiftHeld = false;
   private pointer: Vec2 = vec2(0, 0);
@@ -43,10 +46,14 @@ export class InputManager {
   ) {
     this.listen(target, 'pointerdown', (e) => this.onPointerDown(e));
     this.listen(target, 'pointermove', (e) => this.updatePointer(e));
-    this.listen(window, 'pointerup', (e) => {
-      if (e.button === 0) this.releaseLeft();
-      if (e.button === 2) this.rightHeld = false;
-    });
+    const onPointerUp = (e: PointerEvent) => {
+      // 滑鼠的左右鍵是同一個 pointerId，要再看是哪個鍵放開
+      const cancel = e.type === 'pointercancel';
+      if (e.pointerId === this.leftPointerId && (cancel || e.button === 0)) this.releaseLeft();
+      if (e.pointerId === this.rightPointerId && (cancel || e.button === 2)) this.rightHeld = false;
+    };
+    this.listen(window, 'pointerup', onPointerUp);
+    this.listen(window, 'pointercancel', onPointerUp);
     this.listen(window, 'blur', () => {
       this.shiftHeld = false;
       this.releaseLeft();
@@ -95,10 +102,12 @@ export class InputManager {
     if (this.paused) return;
     if (e.button === 0) {
       this.leftHeld = true;
+      this.leftPointerId = e.pointerId;
       this.lastRepeat = e.timeStamp / 1000;
       this.commands.push({ type: 'PrimaryAction', ...this.primaryTarget(), held: false, standStill: this.shiftHeld });
     } else if (e.button === 2) {
       this.rightHeld = true;
+      this.rightPointerId = e.pointerId;
       this.lastRightRepeat = e.timeStamp / 1000;
       this.commands.push({ type: 'CastRight', ...this.pointerTarget(), standStill: this.shiftHeld });
     }
@@ -107,6 +116,7 @@ export class InputManager {
   private releaseLeft(): void {
     if (!this.leftHeld) return;
     this.leftHeld = false;
+    this.leftPointerId = -1;
     this.commands.push({ type: 'PrimaryRelease' });
   }
 
