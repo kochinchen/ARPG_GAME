@@ -10,6 +10,7 @@
     "package": "npm run typecheck && node scripts/package-portable.mjs",
     "docs:models": "node scripts/render-monster-models.mjs",
     "docs:combos": "node scripts/render-combo-doc.mjs",
+    "docs:pages": "node scripts/publish-design-docs.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.logic.json",

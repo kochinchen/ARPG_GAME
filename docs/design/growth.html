@@ -1,0 +1,845 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>地牢冒險 角色成長模擬</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --bg: #FDFDFD; --ink: #0E2442; --ink-2: #2C4E82; --muted: #7d6547;
+  --line: #ECECEB; --soft: #f4f6f9; --warm: #faf1e2; --accent: #D78212; --accent-ink: #FFFFFF;
+  --chip-bg: #EFC262; --chip-ink: #0E2442; --bar: #5A9DBB; --sky: #A5D5E7;
+  --good: #2f7d4f; --bad: #b3261e; --panel: #FDFDFD;
+  --node-on: #e3f0f6; --node-max: #0E2442; --node-max-ink: #FDFDFD;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1c33; --ink: #eef2f7; --ink-2: #a5d5e7; --muted: #c9b18f;
+    --line: #213a5c; --soft: #102440; --warm: #13294a; --accent: #EFA23A; --accent-ink: #0E2442;
+    --chip-bg: #EFC262; --chip-ink: #0E2442; --bar: #5A9DBB; --sky: #2C4E82;
+    --good: #7cc99a; --bad: #f08a80; --panel: #0b1c33;
+    --node-on: #173a5e; --node-max: #A5D5E7; --node-max-ink: #0E2442;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1c33; --ink: #eef2f7; --ink-2: #a5d5e7; --muted: #c9b18f;
+  --line: #213a5c; --soft: #102440; --warm: #13294a; --accent: #EFA23A; --accent-ink: #0E2442;
+  --chip-bg: #EFC262; --chip-ink: #0E2442; --bar: #5A9DBB; --sky: #2C4E82;
+  --good: #7cc99a; --bad: #f08a80; --panel: #0b1c33;
+  --node-on: #173a5e; --node-max: #A5D5E7; --node-max-ink: #0E2442;
+}
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  font-size: 15px; line-height: 1.65;
+}
+.wrap { max-width: 1160px; margin: 0 auto; padding-inline: 20px; padding-block: 44px 72px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1, h2 { font-family: "Noto Serif TC", "Songti TC", serif; font-weight: 900; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.2; }
+h2 { font-size: clamp(22px, 3.4vw, 28px); }
+h3 { font-size: 15px; color: var(--ink-2); }
+p { margin: 0; }
+.mono, .n { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 12px; letter-spacing: .14em; color: var(--muted); font-weight: 500; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+header { display: grid; gap: 12px; padding-bottom: 20px; }
+header p { max-width: 46em; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+nav.toc a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line); }
+section { padding-top: 44px; display: grid; gap: 16px; }
+.sec-head { display: grid; gap: 4px; }
+.sec-head p { color: var(--muted); max-width: 52em; }
+
+button {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--ink-2); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+select, input[type=number] {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; max-width: 100%;
+}
+input[type=number] { width: 70px; font-family: "JetBrains Mono", monospace; }
+input[type=range], input[type=checkbox] { accent-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Settings bar */
+.settings {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel);
+  border-block: 1px solid var(--line); padding-block: 10px;
+  display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+}
+.settings .grp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.settings label { font-weight: 700; font-size: 14px; }
+#level { width: 160px; }
+.pill { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: var(--chip-bg); color: var(--chip-ink); }
+.pill.soft { background: var(--soft); color: var(--ink-2); }
+
+/* Tables */
+.tbl { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.tbl.tall { max-height: 460px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+th { font-size: 12px; font-weight: 700; color: var(--muted); background: var(--soft); position: sticky; top: 0; z-index: 1; }
+td.n, th.n { text-align: right; }
+td.wrap { white-space: normal; }
+tr.mile td { background: var(--warm); }
+tr.cur td { outline: 2px solid var(--accent); outline-offset: -2px; }
+tr:last-child td { border-bottom: none; }
+
+/* Panels */
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.panel { border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; align-content: start; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.attr { display: grid; grid-template-columns: 64px 1fr auto; gap: 4px 10px; align-items: center; padding-block: 6px; border-bottom: 1px solid var(--line); }
+.attr:last-child { border-bottom: none; }
+.attr .nm { font-weight: 700; }
+.attr .fx { font-size: 13px; color: var(--muted); }
+.attr .ctl { display: flex; gap: 4px; align-items: center; }
+.attr .ctl b { min-width: 34px; text-align: center; font-family: "JetBrains Mono", monospace; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
+.kv div { background: var(--soft); border-radius: 6px; padding: 6px 10px; display: grid; }
+.kv span { font-size: 12px; color: var(--muted); }
+.kv b { font: 600 17px "JetBrains Mono", monospace; }
+.kv b.hi { color: var(--accent); }
+.gear { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13px; }
+.gear label { display: flex; align-items: center; gap: 6px; }
+.verdict { padding: 10px 12px; border-radius: 8px; background: var(--warm); font-size: 14px; }
+.verdict b { color: var(--accent); }
+.warn { color: var(--bad); font-weight: 700; font-size: 13px; }
+
+/* Tree */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tree { display: grid; grid-template-columns: 44px repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tree .hd { font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; }
+.tree .tier { font: 600 12px "JetBrains Mono", monospace; color: var(--muted); align-self: center; text-align: center; line-height: 1.3; }
+.node {
+  text-align: left; padding: 8px 10px; border-radius: 8px; display: grid; gap: 2px; min-height: 64px; align-content: start;
+  background: var(--bg); border: 1px dashed var(--line);
+}
+.node .t { font-weight: 700; font-size: 14px; }
+.node .r { font: 12px "JetBrains Mono", monospace; color: var(--muted); }
+.node .why { font-size: 11px; color: var(--muted); }
+.node.can { border-style: solid; border-color: var(--bar); }
+.node.on { background: var(--node-on); border-style: solid; border-color: var(--bar); }
+.node.max { background: var(--node-max); color: var(--node-max-ink); border-color: var(--node-max); }
+.node.max .r, .node.max .why { color: var(--node-max-ink); opacity: .8; }
+.node.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+.node.equip::after { content: "裝備中"; font-size: 11px; font-weight: 700; color: var(--accent); }
+.t4bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.detail { display: grid; gap: 8px; }
+.detail ul { margin: 0; padding-left: 1.1em; display: grid; gap: 2px; font-size: 14px; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--soft); color: var(--ink-2); }
+
+/* Combo */
+.combo-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .combo-pick { grid-template-columns: 1fr; } }
+.step { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 6px; }
+.step .lbl { font-size: 12px; color: var(--muted); font-weight: 700; }
+.step select { width: 100%; }
+.step .meta { font-size: 12px; color: var(--muted); }
+.result { border-radius: 10px; padding: 16px; display: grid; gap: 8px; border: 2px solid var(--line); }
+.result.ok { border-color: var(--accent); background: var(--warm); }
+.result .name { font-family: "Noto Serif TC", serif; font-weight: 900; font-size: 22px; }
+.result ul { margin: 0; padding-left: 1.1em; }
+details.rules summary { cursor: pointer; font-weight: 700; color: var(--ink-2); }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+#loadErr { color: var(--bad); font-weight: 700; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">地牢冒險 Dungeon Adventure · 平衡工具 · 直接使用遊戲本身的技能資料與 Combo 判定</div>
+    <h1>角色成長與戰鬥模擬</h1>
+    <p>上半部是 Lv1～70 的成長表。下半部有兩個可以點的模擬器：屬性點（HP / MP / 防禦等）與技能點（技能樹與攻擊力），並可測試三段 Combo。所有數值都會拿來跟你選的怪物比較，可以對照怪物頁確認難度。</p>
+    <p class="small muted">頁面開啟時載入的是示範配置（Lv30、近戰重擊路線），不是任何存檔的資料。玩家沒有普通攻擊：開局免費送的重砍就是預設左鍵。</p>
+    <nav class="toc"><a href="#levels">成長表</a><a href="#attrs">屬性點模擬</a><a href="#skills">技能與攻擊力</a><a href="#combo">Combo 測試</a></nav>
+    <p id="loadErr" hidden>模擬程式沒有載入成功，請重新整理頁面。</p>
+  </header>
+
+  <div class="settings" role="region" aria-label="模擬設定">
+    <div class="grp">
+      <label for="level">角色等級</label>
+      <input id="level" type="range" min="1" max="70" value="30">
+      <input id="levelNum" type="number" min="1" max="70" value="30" aria-label="角色等級數字">
+    </div>
+    <div class="grp">
+      <label for="enemy">對手</label>
+      <select id="enemy"></select>
+      <label for="floorNum" class="small">樓層</label>
+      <input id="floorNum" type="number" min="1" max="35" value="15">
+      <label class="small"><input type="checkbox" id="elite"> 精英</label>
+    </div>
+    <div class="grp small" id="enemySummary"></div>
+  </div>
+
+  <section id="levels">
+    <div class="sec-head">
+      <div class="eyebrow">balance.ts · ExperienceSystem</div>
+      <h2>Lv1～70 成長表</h2>
+      <p>每升一級：技能點 +1、屬性點 +3、基礎 HP +5、基礎 MP +2。升到下一級所需經驗 = 50 × 等級^1.5。橘底是解鎖等級；外框是目前選的等級。</p>
+    </div>
+    <div class="tbl tall">
+      <table>
+        <thead><tr>
+          <th class="n">Lv</th><th class="n">升下一級經驗</th><th class="n">累計經驗</th><th class="n">基礎 HP</th><th class="n">基礎 MP</th>
+          <th class="n">技能點（累計）</th><th class="n">屬性點（累計）</th><th>解鎖</th>
+        </tr></thead>
+        <tbody id="lvBody"></tbody>
+      </table>
+    </div>
+    <p class="small muted">技能點起始 2 點，另外免費贈送重砍、火球各 Lv1。學會第一個 T4 技能（Mastery）後，之後每升一級 +1 次「T4 開通次數」，用來開放其他類別的 T4。</p>
+  </section>
+
+  <section id="attrs">
+    <div class="sec-head">
+      <div class="eyebrow">模擬器 1</div>
+      <h2>屬性點：HP、MP、防禦</h2>
+      <p>點 + / − 分配屬性點。右側即時計算角色數值，並換算對手的普通攻擊打在你身上的傷害。暴擊上限 80 點。</p>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>分配屬性點</h3>
+          <span class="small">剩餘 <b class="mono" id="attrLeft"></b> / <span class="mono" id="attrTotal"></span></span>
+        </div>
+        <div id="attrList"></div>
+        <div id="attrWarn" class="warn" hidden></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="attrReset">全部歸零</button>
+          <button id="attrSample">套用示範配置</button>
+        </div>
+        <h3>裝備加成（選填）</h3>
+        <div class="gear">
+          <label>武器種類 <select id="gType"></select></label>
+          <span class="small muted" id="gTypeFx"></span>
+        </div>
+        <div class="gear">
+          <label>武器傷害 + <input type="number" id="gDmgMin" value="0" min="0" aria-label="武器最小傷害"> ～ <input type="number" id="gDmgMax" value="0" min="0" aria-label="武器最大傷害"></label>
+          <label>法術強度 + <input type="number" id="gSp" value="0" min="0"></label>
+          <label>生命 + <input type="number" id="gHp" value="0" min="0"></label>
+          <label>防禦 + <input type="number" id="gDef" value="0" min="0"></label>
+        </div>
+        <div class="gear">
+          <label>近戰傷害 +<input type="number" id="gMelee" value="0" min="0" step="1" aria-label="近戰傷害百分比">%</label>
+          <label>遠程傷害 +<input type="number" id="gRanged" value="0" min="0" step="1" aria-label="遠程傷害百分比">%</label>
+          <label>法術傷害 +<input type="number" id="gSpell" value="0" min="0" step="1" aria-label="法術傷害百分比">%</label>
+          <label>暴擊率 +<input type="number" id="gCrit" value="0" min="0" step="1" aria-label="暴擊率百分點">%</label>
+        </div>
+        <p class="small muted">數值欄填所有裝備加起來的總和：武器基底傷害（劍、斧、弓已乘主倍率）、法術強度（法杖已乘主倍率）＋詞綴。武器種類的內建加成會自動算進去，包含拿錯類型的扣分（例如拿劍用遠程技能 −20%）；百分比欄只填詞綴，例如「戰士的」「獵手的」「秘法的」與強屬性。預設為空手、無裝備。裝上的 Support 被動（模擬器 2）也會算進來。</p>
+      </div>
+      <div class="panel">
+        <h3>角色數值</h3>
+        <div class="kv" id="statCards"></div>
+        <h3>承受對手普通攻擊</h3>
+        <div class="kv" id="defCards"></div>
+        <div class="verdict" id="defVerdict"></div>
+        <p class="small muted">只計普通攻擊；怪物的特殊技能倍率較高，實際更危險。防禦減傷 = 防禦 ÷（防禦 + 100）。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="skills">
+    <div class="sec-head">
+      <div class="eyebrow">模擬器 2 · 使用遊戲的 MasteryRule 判定能否學習</div>
+      <h2>技能點：技能樹與攻擊力</h2>
+      <p>點技能格學習或升級（最多 Lv5）；再次點選已選取的技能也會升級。灰色虛線是目前不能學，格子下方寫原因。右側顯示選取技能打在對手身上的傷害。</p>
+    </div>
+    <div class="t4bar">
+      <span>技能點剩餘 <b class="mono" id="spLeft"></b> / <span class="mono" id="spTotal"></span></span>
+      <span id="masteryInfo" class="pill soft"></span>
+      <span id="t4Info"></span>
+      <span id="t4Buttons" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+      <button id="treeReset">重置技能</button>
+      <button id="treeSample">套用示範配置</button>
+    </div>
+    <div id="spWarn" class="warn" hidden></div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="tabs" role="tablist" id="catTabs"></div>
+        <div class="tree" id="tree"></div>
+        <p class="small muted" id="supportNote">Support 被動最多裝備 3 個；點已學會的 Support 技能下方「裝備 / 卸下」切換。</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>攻擊力</h3></div>
+        <div class="kv" id="atkCards"></div>
+        <div class="detail" id="detail"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="combo">
+    <div class="sec-head">
+      <div class="eyebrow">ComboResolver · 19 條規則</div>
+      <h2>三段 Combo 測試</h2>
+      <p>依序選 Q / W / E 連段的三招，會用遊戲的判定程式算出是否成立、套用哪條規則、每一招的加成，以及加成後打在對手身上的傷害。加成會隨技能等級放大（Lv1 ×1.0 → Lv5 ×1.4）。</p>
+    </div>
+    <label class="small"><input type="checkbox" id="comboAll"> 不受技能樹限制（所有主動技能，以 Lv5 計算）</label>
+    <div class="combo-pick" id="comboPick"></div>
+    <div id="comboSlotWarn" class="warn" hidden></div>
+    <div class="result" id="comboResult"></div>
+    <div class="tbl"><table>
+      <thead><tr><th>招式</th><th class="n">等級</th><th class="n">魔力</th><th class="n">Combo 傷害加成</th><th class="n">每次命中（對手）</th><th class="n">單一目標期望值</th><th>其他加成</th></tr></thead>
+      <tbody id="comboBody"></tbody>
+    </table></div>
+    <details class="rules">
+      <summary>全部 Combo 規則（依優先順序）</summary>
+      <div class="tbl" style="margin-top:10px"><table>
+        <thead><tr><th class="n">層級</th><th>名稱</th><th>條件</th><th>加成</th></tr></thead>
+        <tbody id="rulesBody"></tbody>
+      </table></div>
+    </details>
+  </section>
+
+  <footer>資料與規則取自專案 src/data/ 與 src/game/（MasteryRule、ComboResolver、SkillDescriber 直接打包進本頁）。傷害是期望值估算：不含隨機體型、精英詞綴、樓層抗性、裝備詞綴與傳奇效果。</footer>
+</div>
+
+<script src="sim.js"></script>
+<script>
+(function () {
+  if (!window.Sim) { document.getElementById('loadErr').hidden = false; return; }
+  const S = window.Sim, B = S.balance;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const f1 = (v) => (Math.round(v * 10) / 10).toString();
+  const pct = (v, d = 1) => (Math.round(v * 100 * 10 ** d) / 10 ** d) + '%';
+  const spct = (v) => (v >= 0 ? '+' : '') + pct(v);
+  const r0 = (v) => Math.round(v);
+  const skillById = new Map(S.skills.map((s) => [s.id, s]));
+  const enemyById = new Map(S.enemies.map((e) => [e.id, e]));
+  const CAT = S.labels.category, ROUTE = S.labels.route;
+  const CATS = ['melee', 'ranged', 'magic', 'support'];
+  const TREE = S.skills.filter((s) => s.tree);
+  const START = new Set(B.player.startingSkills);
+  // 武器種類的內建加成（取自 items.ts 的武器基底，扣除隨階級變動的傷害與法術強度）
+  const WEAPON_LABEL = { sword: '劍', axe: '斧', bow: '弓', staff: '法杖' };
+  const WEAPON_IMPLICIT = {};
+  for (const it of S.items || []) {
+    if (it.slot !== 'weapon' || !it.weaponType || WEAPON_IMPLICIT[it.weaponType]) continue;
+    const { damageMin, damageMax, spellPower, ...rest } = it.baseStats;
+    WEAPON_IMPLICIT[it.weaponType] = rest;
+  }
+  const IMPLICIT_LABEL = { meleeDamageBonus: '近戰傷害', rangedDamageBonus: '遠程傷害', spellDamageBonus: '法術傷害', critChance: '暴擊率' };
+
+  // ───────── State ─────────
+  const st = {
+    level: 30,
+    attrs: Object.fromEntries(B.attributes.list.map((a) => [a.id, 0])),
+    ranks: new Map(),
+    t4Unlocked: new Set(),
+    masteryLevel: null,
+    equipped: new Set(),
+    cat: 'melee',
+    selected: 'melee.heavy_slash',
+    enemy: 'enemy.skeleton',
+    floor: 15,
+    elite: false,
+    combo: ['melee.heavy_slash', 'melee.heavy_slash', 'magic.fireball'],
+    comboAll: false,
+  };
+  function resetRanks() {
+    st.ranks = new Map([...START].filter((id) => skillById.get(id)?.tree).map((id) => [id, 1]));
+    st.t4Unlocked = new Set(); st.masteryLevel = null; st.equipped = new Set();
+  }
+  resetRanks();
+
+  // ───────── Derived numbers ─────────
+  const attrTotal = () => B.attributes.pointsPerLevel * (st.level - 1);
+  const attrSpent = () => Object.values(st.attrs).reduce((a, b) => a + b, 0);
+  const spTotal = () => B.player.startingSkillPoints + B.skillPointsPerLevel * (st.level - 1);
+  const spSpent = () => { let n = 0; for (const [id, r] of st.ranks) n += r - (START.has(id) ? 1 : 0); return n; };
+  const mastery = () => S.masteryAchieved(treeState(0));
+  const t4Charges = () => (st.masteryLevel == null ? 0 : Math.max(0, (st.level - st.masteryLevel) * B.t4UnlockChargesPerLevel) - st.t4Unlocked.size);
+  function treeState(pointsOverride) {
+    return {
+      level: st.level, ranks: st.ranks,
+      skillPoints: pointsOverride ?? spTotal() - spSpent(),
+      t4Charges: st.masteryLevel == null ? 0 : t4Charges(), t4Unlocked: st.t4Unlocked,
+    };
+  }
+  const rank = (id) => st.ranks.get(id) ?? 0;
+
+  function playerStats() {
+    const P = B.player, L = st.level;
+    const base = {
+      maxHp: P.baseHp + B.statsPerLevel.maxHp * (L - 1), maxMana: P.baseMana + B.statsPerLevel.maxMana * (L - 1),
+      manaRegen: P.manaRegenPerSec, hpRegenPct: P.hpRegenPctPerSec, manaRegenPct: P.manaRegenPctPerSec,
+      moveSpeed: P.moveSpeed, damageMin: P.baseDamage[0], damageMax: P.baseDamage[1], spellPower: P.spellPower,
+      attackSpeed: P.attackSpeed, critChance: P.critChance, defense: P.defense,
+    };
+    const mods = [];
+    for (const a of B.attributes.list) for (const e of a.effects) mods.push({ stat: e.stat, kind: 'flat', value: e.perPoint * (st.attrs[a.id] || 0) });
+    const g = (id) => Math.max(0, Number($(id).value) || 0);
+    mods.push({ stat: 'damageMin', kind: 'flat', value: g('gDmgMin') }, { stat: 'damageMax', kind: 'flat', value: g('gDmgMax') },
+      { stat: 'spellPower', kind: 'flat', value: g('gSp') }, { stat: 'maxHp', kind: 'flat', value: g('gHp') }, { stat: 'defense', kind: 'flat', value: g('gDef') },
+      { stat: 'meleeDamageBonus', kind: 'flat', value: g('gMelee') / 100 }, { stat: 'rangedDamageBonus', kind: 'flat', value: g('gRanged') / 100 },
+      { stat: 'spellDamageBonus', kind: 'flat', value: g('gSpell') / 100 }, { stat: 'critChance', kind: 'flat', value: g('gCrit') / 100 });
+    for (const [stat, value] of Object.entries(WEAPON_IMPLICIT[$('gType').value] || {})) mods.push({ stat, kind: 'flat', value });
+    for (const id of st.equipped) {
+      const s = skillById.get(id), r = rank(id);
+      if (!s || r <= 0) continue;
+      for (const p of s.passive) mods.push({ stat: p.stat, kind: p.modifier, value: S.rankValue(p.values, r) });
+    }
+    const get = (stat) => {
+      let flat = 0, inc = 0, more = 1;
+      for (const m of mods) if (m.stat === stat) { if (m.kind === 'flat') flat += m.value; else if (m.kind === 'increased') inc += m.value; else more *= 1 + m.value; }
+      return ((base[stat] ?? 0) + flat) * (1 + inc) * more;
+    };
+    return { get };
+  }
+
+  function enemyStats() {
+    const e = enemyById.get(st.enemy), f = st.floor, n = Math.max(0, f - 1), d = B.difficulty;
+    const el = st.elite && !e.boss ? B.elite : null;
+    // 怪物強化：第 1 → toFloor 層線性提高（一般 HP ×1～8、魔王 HP ×1～20、攻擊 ×1～4、經驗 ×0.7）
+    const mb = d.monsterBoost, t = Math.min(1, n / Math.max(1, mb.toFloor - 1)), lerp = ([a, b]) => a + (b - a) * t;
+    const hpM = (1 + d.hpPerFloor * n) * lerp(e.boss ? mb.bossHp : mb.hp) * (el ? el.hpMultiplier : 1);
+    const dmM = (1 + d.damagePerFloor * n) * lerp(mb.damage) * (el ? el.damageMultiplier : 1);
+    return {
+      def: e, hp: e.hp * hpM, dmg: [e.damage[0] * dmM, e.damage[1] * dmM], defense: e.defense * (1 + d.defensePerFloor * n),
+      attackSpeed: e.attackSpeed, xp: e.xp * (1 + d.xpPerFloor * n) * mb.xp * (el ? el.xpMultiplier : 1),
+    };
+  }
+  const mitig = (def) => S.defenseMitigation(def, B.combat.defenseConstant);
+
+  // ───────── Skill damage (single target) ─────────
+  function collectDamage(effects, rankN, times, out) {
+    for (const e of effects) {
+      switch (e.type) {
+        case 'damage': out.push({ e, times }); break;
+        case 'area': collectDamage(e.effects, rankN, times, out); break;
+        case 'dash': collectDamage(e.onPath, rankN, times, out); break;
+        case 'projectile': collectDamage(e.onHit, rankN, times, out); break;
+        case 'chain': collectDamage(e.effects, rankN, times, out); break;
+        case 'delayed': collectDamage(e.effects, rankN, times * (e.repeat || 1), out); break;
+        case 'zone': collectDamage(e.effects, rankN, times * Math.max(1, Math.floor(e.duration / e.interval)), out); break;
+      }
+    }
+    return out;
+  }
+  function skillDamage(id, r, mods, ps, en) {
+    const s = skillById.get(id), cat = S.category(id);
+    mods = mods || { damage: 0, crit: 0, armorPenetration: 0, hitCount: 0, mp: 0, attackSpeed: 0, castSpeed: 0, animationSpeed: 0 };
+    const parts = collectDamage(s.effects, r, 1, []);
+    // 與 DamageEffect 相同：近戰 / 遠程 / 法術各自的類別加成
+    const dmgBonus = ps.get('damageBonus');
+    const melee = cat === 'melee' ? ps.get('meleeDamageBonus') : cat === 'ranged' ? ps.get('rangedDamageBonus') : cat === 'magic' ? ps.get('spellDamageBonus') : 0;
+    const crit = Math.min(1, ps.get('critChance') + (mods.crit || 0));
+    const critMul = B.combat.critMultiplier;
+    let perCast = 0; const lines = [];
+    for (const { e, times } of parts) {
+      const [bmin, bmax] = e.scaling === 'weapon' ? [ps.get('damageMin'), ps.get('damageMax')]
+        : e.scaling === 'spell' ? [ps.get('spellPower') * 0.8, ps.get('spellPower') * 1.2] : (e.base || [0, 0]);
+      const mult = S.rankValue(e.multiplier, r) * (1 + (mods.damage || 0)) * (1 + melee) * (1 + dmgBonus);
+      const red = e.element === 'physical' ? 1 - mitig(en.defense * (1 - Math.min(1, mods.armorPenetration || 0))) : 1;
+      const lo = bmin * mult * red, hi = bmax * mult * red;
+      const hits = (e.hits + (mods.hitCount || 0)) * times;
+      const exp = ((lo + hi) / 2) * (1 + crit * (critMul - 1)) * hits;
+      perCast += exp;
+      lines.push({ element: e.element, lo, hi, hits, exp });
+    }
+    const mana = S.manaCost(id, r) * (1 - Math.min(0.9, ps.get('manaCostReduction'))) * (1 + (mods.mp || 0));
+    const speed = 1 + Math.max(0, mods.animationSpeed || 0);
+    const cast = s.useAttackSpeed ? 1 / (ps.get('attackSpeed') * (1 + (mods.attackSpeed || 0)) * speed)
+      : s.castTime / ((1 + Math.max(0, ps.get('castSpeed') + (mods.castSpeed || 0))) * speed);
+    return { perCast, lines, mana, cast, cooldown: s.cooldown, crit };
+  }
+  const EL = { physical: '物理', fire: '火焰', cold: '冰霜', lightning: '雷電', poison: '毒素' };
+
+  // ───────── Rendering: level table ─────────
+  function renderLevels() {
+    let cum = 0, html = '';
+    for (let L = 1; L <= B.maxLevel; L++) {
+      const need = S.xpToNext(L);
+      const unlock = [];
+      B.tierLevelReq.forEach((req, i) => { if (req === L && i > 0) unlock.push(`T${i + 1} 技能`); });
+      B.player.comboSlotLevels.forEach((req, i) => { if (req === L && i > 0) unlock.push(`連段第 ${i + 1} 格`); });
+      if (L === 1) unlock.push('T1 技能、連段第 1 格');
+      const cls = [unlock.length && L > 1 ? 'mile' : '', L === st.level ? 'cur' : ''].join(' ');
+      html += `<tr class="${cls}"><td class="n">${L}</td><td class="n">${L === B.maxLevel ? '—' : need.toLocaleString()}</td><td class="n">${cum.toLocaleString()}</td>
+        <td class="n">${B.player.baseHp + B.statsPerLevel.maxHp * (L - 1)}</td><td class="n">${B.player.baseMana + B.statsPerLevel.maxMana * (L - 1)}</td>
+        <td class="n">${B.player.startingSkillPoints + B.skillPointsPerLevel * (L - 1)}</td><td class="n">${B.attributes.pointsPerLevel * (L - 1)}</td>
+        <td>${unlock.join('、')}</td></tr>`;
+      cum += need;
+    }
+    $('lvBody').innerHTML = html;
+  }
+
+  // ───────── Rendering: attributes ─────────
+  function renderAttrs() {
+    const imp = WEAPON_IMPLICIT[$('gType').value];
+    $('gTypeFx').textContent = imp ? '內建：' + Object.entries(imp).map(([k, v]) => `${IMPLICIT_LABEL[k] || k} ${v >= 0 ? '+' : ''}${pct(v)}`).join('、') : '';
+    const left = attrTotal() - attrSpent();
+    $('attrLeft').textContent = left; $('attrTotal').textContent = attrTotal();
+    $('attrWarn').hidden = left >= 0;
+    $('attrWarn').textContent = left < 0 ? `已分配的點數比 Lv${st.level} 可用的多 ${-left} 點，請減少或按「全部歸零」。` : '';
+    $('attrList').innerHTML = B.attributes.list.map((a) => {
+      const p = st.attrs[a.id] || 0;
+      const fx = a.effects.filter((e, i, arr) => arr.findIndex((x) => x.label === e.label) === i)
+        .map((e) => `${e.label} +${e.percent ? pct(e.perPoint) : e.perPoint}`).join('、');
+      const cap = a.maxPoints ? `（上限 ${a.maxPoints}）` : '';
+      return `<div class="attr"><span class="nm">${a.name}</span><span class="fx">每點：${fx}${cap}</span>
+        <span class="ctl"><button data-a="${a.id}" data-d="-5" aria-label="${a.name} 減 5">−5</button><button data-a="${a.id}" data-d="-1" aria-label="${a.name} 減 1">−</button>
+        <b>${p}</b><button data-a="${a.id}" data-d="1" aria-label="${a.name} 加 1">+</button><button data-a="${a.id}" data-d="5" aria-label="${a.name} 加 5">+5</button></span></div>`;
+    }).join('');
+  }
+  function addAttr(id, d) {
+    const def = B.attributes.list.find((a) => a.id === id);
+    let v = (st.attrs[id] || 0) + d;
+    if (d > 0) v = Math.min(v, (st.attrs[id] || 0) + Math.max(0, attrTotal() - attrSpent()));
+    if (def.maxPoints) v = Math.min(v, def.maxPoints);
+    st.attrs[id] = Math.max(0, v);
+    render();
+  }
+
+  function renderStats() {
+    const ps = playerStats(), en = enemyStats();
+    const hp = ps.get('maxHp'), mp = ps.get('maxMana'), def = ps.get('defense');
+    const cards = [
+      ['最大 HP', r0(hp), true], ['最大 MP', r0(mp), true], ['防禦', r0(def)], ['物理減傷', pct(mitig(def))],
+      ['暴擊率', pct(Math.min(1, ps.get('critChance')))], ['HP 回復 / 秒', f1(hp * ps.get('hpRegenPct'))],
+      ['脫戰 HP 回復 / 秒', f1(hp * ps.get('hpRegenPct') * B.player.outOfCombatRegen.multiplier)],
+      ['MP 回復 / 秒', f1(ps.get('manaRegen') + mp * ps.get('manaRegenPct'))], ['移動速度', f1(ps.get('moveSpeed'))],
+      ['吸血', pct(ps.get('lifeSteal'))],
+    ];
+    $('statCards').innerHTML = cards.map(([k, v, hi]) => `<div><span>${k}</span><b class="${hi ? 'hi' : ''}">${v}</b></div>`).join('');
+
+    const red = 1 - mitig(def);
+    const lo = en.dmg[0] * red, hi = en.dmg[1] * red, avg = (lo + hi) / 2;
+    const dps = avg * en.attackSpeed;
+    const hitsWorst = Math.ceil(hp / Math.max(1, Math.round(hi)));
+    const secs = hp / Math.max(0.01, dps);
+    $('defCards').innerHTML = [
+      ['每下傷害', `${Math.max(1, r0(lo))}–${Math.max(1, r0(hi))}`], ['每秒傷害（1 隻）', f1(dps)],
+      ['最少幾下倒地', hitsWorst], ['被 1 隻打倒', f1(secs) + ' 秒'], ['被 5 隻圍攻', f1(secs / 5) + ' 秒'],
+    ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+    const ratio = hp / Math.max(1, hi);
+    const level = ratio >= 40 ? '很安全' : ratio >= 18 ? '可以承受' : ratio >= 8 ? '有壓力，被圍會危險' : '非常危險';
+    $('defVerdict').innerHTML = `對 <b>${esc(en.def.name)}</b>（${st.floor}F${st.elite && !en.def.boss ? '・精英' : ''}）：HP 可承受約 <b>${r0(ratio)}</b> 下最重的普通攻擊，判斷為「${level}」。`;
+  }
+
+  // ───────── Rendering: tree ─────────
+  const REASON = {
+    maxRank: '已滿級', noPoints: '技能點不足', prerequisite: '需要先學同路線上一階', t4Locked: '需要 T4 開通次數', notInTree: '',
+  };
+  function reasonText(s, check) {
+    if (check.ok) return '';
+    if (check.reason === 'level') return `需要 Lv${B.tierLevelReq[s.tree.tier - 1]}`;
+    return REASON[check.reason] || check.reason;
+  }
+  function renderTree() {
+    const total = spTotal(), left = total - spSpent();
+    $('spLeft').textContent = left; $('spTotal').textContent = total;
+    $('spWarn').hidden = left >= 0;
+    $('spWarn').textContent = left < 0 ? `已使用的技能點比 Lv${st.level} 可用的多 ${-left} 點，請退回部分技能或按「重置技能」。` : '';
+    const tState = treeState();
+    const m = S.masteryAchieved(tState);
+    const withT4 = S.categoriesWithT4(tState);
+    $('masteryInfo').textContent = m ? `Mastery 已達成（${withT4.map((c) => CAT[c]).join('、')}）` : '尚未 Mastery：學會任一 T4 後開放其他類別';
+    $('t4Info').innerHTML = m ? `T4 開通次數 <b class="mono">${t4Charges()}</b>` : '';
+    $('t4Buttons').innerHTML = m ? CATS.map((c) => {
+      const open = S.isT4Open(tState, c);
+      const chk = S.checkUnlockT4(tState, c);
+      return open ? `<span class="pill soft">${CAT[c]} T4 已開放</span>` : `<button data-unlock="${c}" ${chk.ok ? '' : 'disabled'}>開通${CAT[c]} T4</button>`;
+    }).join('') : '';
+
+    $('catTabs').innerHTML = CATS.map((c) => {
+      const pts = TREE.filter((s) => s.tree.category === c).reduce((n, s) => n + rank(s.id), 0);
+      return `<button role="tab" aria-selected="${st.cat === c}" data-cat="${c}">${CAT[c]} <span class="mono small">${pts}</span></button>`;
+    }).join('');
+
+    let html = `<div></div>` + ['A', 'B', 'C'].map((b) => `<div class="hd">${ROUTE[st.cat][b]}</div>`).join('');
+    for (let t = 1; t <= 4; t++) {
+      html += `<div class="tier">T${t}<br>Lv${B.tierLevelReq[t - 1]}</div>`;
+      for (const b of ['A', 'B', 'C']) {
+        const s = TREE.find((x) => x.tree.category === st.cat && x.tree.tier === t && x.tree.branch === b);
+        if (!s) { html += '<div></div>'; continue; }
+        const r = rank(s.id), chk = S.checkLearn(tState, s.id);
+        const cls = ['node', r >= B.maxSkillRank ? 'max' : r > 0 ? 'on' : chk.ok ? 'can' : '', st.selected === s.id ? 'sel' : '',
+          s.kind === 'passive' && st.equipped.has(s.id) ? 'equip' : ''].join(' ');
+        const why = r > 0 && r < B.maxSkillRank && !chk.ok ? reasonText(s, chk) : r === 0 ? reasonText(s, chk) : '';
+        html += `<button class="${cls}" data-skill="${s.id}" aria-label="${esc(s.name)}，Lv${r}">
+          <span class="t">${esc(s.name)}</span><span class="r">Lv ${r} / ${B.maxSkillRank}${START.has(s.id) ? '・起始' : ''}</span>
+          ${why ? `<span class="why">${why}</span>` : ''}</button>`;
+      }
+    }
+    $('tree').innerHTML = html;
+    $('supportNote').hidden = st.cat !== 'support';
+  }
+
+  function learn(id) {
+    const s = skillById.get(id);
+    const chk = S.checkLearn(treeState(), id);
+    if (!chk.ok) return false;
+    const hadMastery = S.masteryAchieved(treeState(0));
+    st.ranks.set(id, rank(id) + 1);
+    if (!hadMastery && s.tree.tier === 4) st.masteryLevel = st.level;
+    if (s.kind === 'passive' && !st.equipped.has(id) && st.equipped.size < 3) st.equipped.add(id);
+    return true;
+  }
+  function unlearn(id) {
+    const s = skillById.get(id), r = rank(id);
+    const floor = START.has(id) ? 1 : 0;
+    if (r <= floor) return;
+    if (r === 1) {
+      const blocking = TREE.some((x) => x.tree.category === s.tree.category && x.tree.branch === s.tree.branch && x.tree.tier > s.tree.tier && rank(x.id) > 0);
+      if (blocking && !S.masteryAchieved(treeState(0))) return;
+      st.ranks.delete(id); st.equipped.delete(id);
+    } else st.ranks.set(id, r - 1);
+    if (!S.masteryAchieved(treeState(0))) { st.masteryLevel = null; st.t4Unlocked.clear(); }
+    render();
+  }
+
+  function renderAttack() {
+    const ps = playerStats();
+    $('atkCards').innerHTML = [
+      ['武器傷害', `${f1(ps.get('damageMin'))}–${f1(ps.get('damageMax'))}`], ['法術強度', f1(ps.get('spellPower'))],
+      ['暴擊率', pct(Math.min(1, ps.get('critChance')))], ['暴擊傷害', '×' + B.combat.critMultiplier],
+      ['近戰傷害加成', spct(ps.get('meleeDamageBonus'))], ['遠程傷害加成', spct(ps.get('rangedDamageBonus'))],
+      ['法術傷害加成', spct(ps.get('spellDamageBonus'))], ['全傷害加成', spct(ps.get('damageBonus'))],
+      ['攻擊速度', f1(ps.get('attackSpeed')) + ' / 秒'], ['魔力消耗降低', pct(Math.min(0.9, ps.get('manaCostReduction')))],
+    ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+
+    const s = skillById.get(st.selected);
+    if (!s) { $('detail').innerHTML = ''; return; }
+    const r = Math.max(1, rank(s.id));
+    const chk = S.checkLearn(treeState(), s.id);
+    const lines = S.describe(s.id, r);
+    const prof = S.profile(s.id);
+    const tags = prof ? [...prof.tags].map((t) => TAG[t] || t) : [];
+    let html = `<div class="panel-head"><h3 style="font-size:18px;color:var(--ink)">${esc(s.name)}</h3>
+      <span class="small muted">${CAT[s.tree.category]}・${ROUTE[s.tree.category][s.tree.branch]}・T${s.tree.tier}・${rank(s.id) ? 'Lv' + rank(s.id) : '未學（以 Lv1 顯示）'}</span></div>
+      ${s.description ? `<p>${esc(s.description)}</p>` : ''}
+      ${prof ? `<div class="tags"><span class="tag">${RANGE[prof.range]}</span><span class="tag">${ROLE[prof.role]}</span>${tags.map((t) => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
+      <ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="primary" data-learn="${s.id}" ${chk.ok ? '' : 'disabled'}>${rank(s.id) ? '升一級' : '學習'}</button>
+        <button data-unlearn="${s.id}" ${rank(s.id) > (START.has(s.id) ? 1 : 0) ? '' : 'disabled'}>退一級（模擬用）</button>
+        ${s.kind === 'passive' && rank(s.id) > 0 ? `<button data-equip="${s.id}">${st.equipped.has(s.id) ? '卸下' : '裝備'}</button>` : ''}
+        <span class="small muted">${chk.ok ? '' : reasonText(s, chk)}</span></div>`;
+    if (s.kind === 'active') {
+      const en = enemyStats(), d = skillDamage(s.id, r, null, ps, en);
+      const kills = en.hp / Math.max(0.01, d.perCast);
+      const every = Math.max(d.cast, d.cooldown);
+      html += `<h3>打在 ${esc(en.def.name)}（${st.floor}F${st.elite && !en.def.boss ? '・精英' : ''}）身上</h3>
+        <div class="kv">
+          ${d.lines.map((l) => `<div><span>${EL[l.element]}・每次命中${l.hits > 1 ? ` ×${l.hits}` : ''}</span><b>${Math.max(1, r0(l.lo))}–${Math.max(1, r0(l.hi))}</b></div>`).join('')}
+          <div><span>單一目標期望值（含暴擊）</span><b class="hi">${r0(d.perCast)}</b></div>
+          <div><span>幾次施放擊倒</span><b>${f1(kills)}</b></div>
+          <div><span>魔力</span><b>${f1(d.mana)}</b></div>
+          <div><span>施放時間 / 冷卻</span><b>${f1(d.cast)}s / ${d.cooldown}s</b></div>
+          <div><span>估算每秒傷害</span><b>${f1(d.perCast / every)}</b></div>
+        </div>
+        <p class="small muted">對手 HP ${r0(en.hp)}、防禦 ${r0(en.defense)}（物理減傷 ${pct(mitig(en.defense))}）。延遲 / 地面效果以最多命中次數計；多發投射物以單一目標只中一發計。</p>`;
+    }
+    $('detail').innerHTML = html;
+  }
+
+  // ───────── Combo ─────────
+  const TAG = { Heavy: '重擊', Impact: '衝擊', Fast: '快速', MultiHit: '多段', AoE: '範圍', Burst: '爆發', Projectile: '投射物', Pierce: '穿透',
+    Channel: '持續', Execute: '處決', Physical: '物理', Fire: '火', Ice: '冰', Lightning: '雷', Advance: '突進', Retreat: '後撤',
+    Knockback: '擊退', ArmorBreak: '破甲', Slow: '緩速', Freeze: '冰凍', Mark: '標記', Launch: '浮空' };
+  const RANGE = { Near: '近', Mid: '中', Far: '遠' };
+  const ROLE = { Starter: '起手', Setup: '鋪陳', Amplifier: '增幅', Bridge: '銜接', Finisher: '終結' };
+  const NO_COMBO = {
+    tooShort: '還沒選滿三招。', tripleSame: '三招都是同一個技能，不會形成 Combo。',
+    invalidRange: '距離順序不合理（近 → 遠 → 近，或 遠 → 近 → 遠），照常施放但沒有加成。',
+    noRule: '距離順序合理，但沒有符合的組合規則。', notComboSkill: '其中有技能不能用在連段。',
+  };
+  const MOD_LABEL = { damage: ['傷害', 'pct'], crit: ['暴擊率', 'pt'], aoeRadius: ['範圍', 'pct'], projectileSize: ['投射物大小', 'pct'],
+    projectileSpeed: ['投射物速度', 'pct'], projectileCount: ['投射物數量', 'n'], pierce: ['穿透', 'n'], armorPenetration: ['穿甲', 'pct'],
+    knockback: ['擊退距離', 'pct'], stagger: ['硬直（未實作）', 'pct'], attackSpeed: ['攻擊速度', 'pct'], castSpeed: ['施法速度', 'pct'],
+    animationSpeed: ['動作速度', 'pct'], burn: ['燃燒', 'pct'], freezeChance: ['冰凍機率', 'pt'], freezeDuration: ['冰凍時間', 'pct'],
+    statusChance: ['狀態觸發機率', 'pt'], chainCount: ['連鎖次數', 'n'], hitCount: ['命中次數', 'n'], mp: ['魔力消耗', 'pct'],
+    movementSpeed: ['位移距離', 'pct'], elementDamage: ['追加元素傷害', 'pct'], knockbackResist: ['免疫擊退', 'flag'] };
+  const fmtMod = (v, u) => u === 'n' ? `+${v}` : u === 'flag' ? '' : `${v >= 0 ? '+' : ''}${Math.round(v * 1000) / 10}%`;
+  const STEP = { step1: '第一招', step2: '第二招', step3: '第三招', allSteps: '三招', self: '自身' };
+
+  function comboOptions() {
+    const act = TREE.filter((s) => s.kind === 'active');
+    return st.comboAll ? act : act.filter((s) => rank(s.id) > 0);
+  }
+  function renderComboPick() {
+    const opts = comboOptions();
+    $('comboPick').innerHTML = [0, 1, 2].map((i) => {
+      const cur = st.combo[i];
+      const valid = opts.some((s) => s.id === cur);
+      const groups = ['melee', 'ranged', 'magic'].map((c) => {
+        const list = opts.filter((s) => s.tree.category === c);
+        return list.length ? `<optgroup label="${CAT[c]}">${list.map((s) => `<option value="${s.id}" ${s.id === cur ? 'selected' : ''}>${esc(s.name)}${st.comboAll ? '' : '（Lv' + rank(s.id) + '）'}</option>`).join('')}</optgroup>` : '';
+      }).join('');
+      const p = valid ? S.profile(cur) : null;
+      return `<div class="step"><span class="lbl">第 ${i + 1} 招（${'QWE'[i]} 連段第 ${i + 1} 格）</span>
+        <select data-step="${i}" aria-label="第 ${i + 1} 招"><option value="">— 未選 —</option>${groups}</select>
+        <span class="meta">${p ? `${RANGE[p.range]}距離・${ROLE[p.role]}・${[...p.tags].map((t) => TAG[t] || t).join('、')}` : ''}</span></div>`;
+    }).join('');
+  }
+  function renderCombo() {
+    const opts = new Set(comboOptions().map((s) => s.id));
+    const ids = st.combo.map((id) => (opts.has(id) ? id : ''));
+    const rOf = (id) => (st.comboAll ? 5 : Math.max(1, rank(id)));
+    const slotLv = B.player.comboSlotLevels;
+    const locked = slotLv.map((lv, i) => (st.level < lv ? i + 1 : 0)).filter(Boolean);
+    $('comboSlotWarn').hidden = !locked.length;
+    $('comboSlotWarn').textContent = locked.length ? `Lv${st.level} 還沒解鎖連段第 ${locked.join('、')} 格（第 2 格 Lv${slotLv[1]}、第 3 格 Lv${slotLv[2]}），遊戲中無法組成三段 Combo。` : '';
+
+    const filled = ids.filter(Boolean);
+    const res = filled.length === 3 ? S.resolve(ids, rOf) : { status: 'none', reason: 'tooShort' };
+    if (res.status === 'combo') {
+      const tierTxt = res.rule.tier === 1 ? '秘密 Combo（第 1 層，最優先）' : `第 ${res.rule.tier} 層規則`;
+      $('comboResult').className = 'result ok';
+      $('comboResult').innerHTML = `<span class="eyebrow">Combo 成立・${tierTxt}</span><span class="name">${esc(res.displayName)}</span>
+        ${res.rule.description ? `<p>${esc(res.rule.description)}</p>` : ''}
+        <ul>${res.description.map((d) => `<li>${esc(d)}</li>`).join('')}</ul>
+        <p class="small muted">規則：${esc(res.rule.name)}（${res.rule.id}）</p>`;
+    } else {
+      $('comboResult').className = 'result';
+      $('comboResult').innerHTML = `<span class="eyebrow">沒有 Combo</span><p>${NO_COMBO[res.reason] || res.reason}</p>
+        ${ids.every(Boolean) ? `<p class="small muted">距離：${ids.map((id) => RANGE[S.profile(id).range]).join(' → ')}</p>` : ''}`;
+    }
+
+    const ps = playerStats(), en = enemyStats();
+    $('comboBody').innerHTML = ids.map((id, i) => {
+      if (!id) return `<tr><td colspan="7" class="muted">第 ${i + 1} 招未選</td></tr>`;
+      const s = skillById.get(id), r = rOf(id);
+      const m = res.status === 'combo' ? res.modifiers.steps[i] : null;
+      const d = skillDamage(id, r, m, ps, en);
+      const other = [];
+      if (m) for (const [k, [label, u]] of Object.entries(MOD_LABEL)) {
+        if (k === 'damage' || k === 'elementDamage' || k === 'knockbackResist') continue;
+        if (m[k]) other.push(`${label} ${fmtMod(m[k], u)}`);
+      }
+      if (m) for (const e of m.elementDamage) other.push(`追加${EL[e.element]}傷害 ${fmtMod(e.value, 'pct')}`);
+      if (m) for (const c of m.vsTarget) other.push(`對特定狀態目標 ${c.type === 'crit' ? '暴擊率' : '傷害'} ${fmtMod(c.value, 'pct')}`);
+      return `<tr><td class="name"><b>${esc(s.name)}</b></td><td class="n">${r}</td><td class="n">${f1(d.mana)}</td>
+        <td class="n">${m && m.damage ? '+' + pct(m.damage) : '—'}</td>
+        <td class="n">${d.lines.map((l) => `${Math.max(1, r0(l.lo))}–${Math.max(1, r0(l.hi))}${l.hits > 1 ? ' ×' + l.hits : ''}`).join('<br>')}</td>
+        <td class="n"><b>${r0(d.perCast)}</b></td><td class="wrap small">${other.join('、') || '—'}</td></tr>`;
+    }).join('');
+  }
+
+  function renderRules() {
+    const matcher = (m) => {
+      const parts = [];
+      if (m.anyTags) parts.push(m.anyTags.map((t) => TAG[t] || t).join(' 或 '));
+      if (m.allTags) parts.push(m.allTags.map((t) => TAG[t] || t).join(' 且 '));
+      if (m.range) parts.push(m.range.map((x) => RANGE[x]).join('/') + '距離');
+      if (m.role) parts.push(m.role.map((x) => ROLE[x]).join('/'));
+      if (m.hasDamage) parts.push('有傷害');
+      if (m.hasElement) parts.push('有元素');
+      return parts.join('、') || '任意';
+    };
+    const sorted = [...S.comboRules].sort((a, b) => a.tier - b.tier || a.order - b.order);
+    $('rulesBody').innerHTML = sorted.map((r) => {
+      const m = r.match;
+      let cond = m.kind === 'exact' ? m.skills.map((id) => skillById.get(id)?.name || id).join(' → ')
+        : m.steps.map((s, i) => `${i + 1}. ${matcher(s)}`).join('<br>');
+      const extra = [];
+      if (m.distinctSkills) extra.push('三招不同');
+      if (m.distinctElements) extra.push('元素各不相同');
+      if (m.sameElement) extra.push('同元素 ' + (TAG[m.sameElement] || m.sameElement));
+      if (m.rangePattern) extra.push('距離 ' + m.rangePattern.map((x) => RANGE[x]).join('→'));
+      if (extra.length) cond += `<br><span class="muted">${extra.join('、')}</span>`;
+      const mods = r.modifiers.map((x) => {
+        const [label, u] = MOD_LABEL[x.type] || [x.type, 'pct'];
+        return `${STEP[x.target]}${label}${u === 'flag' ? '' : ' ' + fmtMod(x.value, u)}${x.when ? '（有條件）' : ''}`;
+      }).join('、');
+      return `<tr><td class="n">${r.tier}</td><td class="wrap"><b>${esc(r.name)}</b>${r.description ? `<br><span class="small muted">${esc(r.description)}</span>` : ''}</td>
+        <td class="wrap small">${cond}</td><td class="wrap small">${mods}</td></tr>`;
+    }).join('');
+  }
+
+  // ───────── Settings ─────────
+  function renderEnemySelect() {
+    const normal = S.enemies.filter((e) => !e.boss && e.ai !== 'none' && e.lootTable);
+    const bosses = S.enemies.filter((e) => e.boss);
+    $('enemy').innerHTML = `<optgroup label="一般怪物">${normal.map((e) => `<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>
+      <optgroup label="樓層魔王">${bosses.map((e) => `<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>`;
+    $('enemy').value = st.enemy;
+  }
+  function renderEnemySummary() {
+    const en = enemyStats();
+    $('elite').disabled = !!en.def.boss;
+    $('enemySummary').innerHTML = `<span class="mono">HP ${r0(en.hp)}・傷害 ${r0(en.dmg[0])}–${r0(en.dmg[1])}・防禦 ${r0(en.defense)}・經驗 ${r0(en.xp)}</span>`;
+  }
+
+  function render() {
+    $('level').value = st.level; $('levelNum').value = st.level;
+    renderLevels(); renderAttrs(); renderStats(); renderTree(); renderAttack(); renderComboPick(); renderCombo(); renderEnemySummary();
+  }
+
+  // ───────── Samples ─────────
+  const SAMPLE_ATTRS = { attack: 35, vitality: 25, mana: 10, defense: 12, crit: 5 };
+  function applyAttrSample() {
+    const total = attrTotal();
+    const sum = Object.values(SAMPLE_ATTRS).reduce((a, b) => a + b, 0);
+    for (const a of B.attributes.list) st.attrs[a.id] = Math.floor(((SAMPLE_ATTRS[a.id] || 0) / sum) * total);
+    render();
+  }
+  function applyTreeSample() {
+    const keep = st.level;
+    resetRanks();
+    const tryMany = (id, n) => { for (let i = 0; i < n; i++) learn(id); };
+    st.level = Math.min(keep, 24);
+    tryMany('melee.heavy_slash', 4); tryMany('melee.armor_break', 3); tryMany('melee.earth_break', 3); tryMany('melee.devastator', 1);
+    st.level = keep;
+    tryMany('magic.fireball', 2); tryMany('magic.flame_burst', 2); tryMany('melee.quick_slash', 2); tryMany('melee.double_slash', 2);
+    tryMany('support.vitality', 3); tryMany('support.precision', 3); tryMany('support.iron_skin', 2);
+    render();
+  }
+
+  // ───────── Events ─────────
+  const setLevel = (v) => { st.level = Math.min(B.maxLevel, Math.max(1, Math.round(Number(v) || 1))); render(); };
+  $('level').addEventListener('input', (e) => setLevel(e.target.value));
+  $('levelNum').addEventListener('change', (e) => setLevel(e.target.value));
+  $('enemy').addEventListener('change', (e) => { st.enemy = e.target.value; render(); });
+  $('floorNum').addEventListener('change', (e) => { st.floor = Math.min(35, Math.max(1, Math.round(Number(e.target.value) || 1))); e.target.value = st.floor; render(); });
+  $('elite').addEventListener('change', (e) => { st.elite = e.target.checked; render(); });
+  ['gDmgMin', 'gDmgMax', 'gSp', 'gHp', 'gDef', 'gMelee', 'gRanged', 'gSpell', 'gCrit'].forEach((id) => $(id).addEventListener('input', render));
+  $('gType').innerHTML = `<option value="">空手</option>` +
+    Object.keys(WEAPON_IMPLICIT).map((t) => `<option value="${t}">${WEAPON_LABEL[t] || t}</option>`).join('');
+  $('gType').addEventListener('change', render);
+  $('attrList').addEventListener('click', (e) => { const b = e.target.closest('button[data-a]'); if (b) addAttr(b.dataset.a, Number(b.dataset.d)); });
+  $('attrReset').addEventListener('click', () => { for (const k in st.attrs) st.attrs[k] = 0; render(); });
+  $('attrSample').addEventListener('click', applyAttrSample);
+  $('catTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-cat]'); if (b) { st.cat = b.dataset.cat; render(); } });
+  $('tree').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-skill]'); if (!b) return;
+    const id = b.dataset.skill;
+    if (st.selected === id || rank(id) === 0) learn(id);
+    st.selected = id; render();
+  });
+  $('detail').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.learn) { learn(b.dataset.learn); render(); }
+    else if (b.dataset.unlearn) unlearn(b.dataset.unlearn);
+    else if (b.dataset.equip) {
+      const id = b.dataset.equip;
+      if (st.equipped.has(id)) st.equipped.delete(id); else if (st.equipped.size < 3) st.equipped.add(id);
+      render();
+    }
+  });
+  $('t4Buttons').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-unlock]'); if (!b) return;
+    if (S.checkUnlockT4(treeState(), b.dataset.unlock).ok) { st.t4Unlocked.add(b.dataset.unlock); render(); }
+  });
+  $('treeReset').addEventListener('click', () => { resetRanks(); render(); });
+  $('treeSample').addEventListener('click', applyTreeSample);
+  $('comboPick').addEventListener('change', (e) => { const s = e.target.closest('select[data-step]'); if (s) { st.combo[Number(s.dataset.step)] = s.value; render(); } });
+  $('comboAll').addEventListener('change', (e) => { st.comboAll = e.target.checked; render(); });
+
+  renderEnemySelect(); renderRules();
+  for (const [k, v] of Object.entries(SAMPLE_ATTRS)) st.attrs[k] = v;
+  applyTreeSample();
+})();
+</script>
+
+</body></html>

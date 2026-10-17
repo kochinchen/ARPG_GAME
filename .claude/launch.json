@@ -50,6 +50,18 @@
         "--strictPort"
       ],
       "port": 5174
+    },
+    {
+      "name": "pages",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5190",
+        "--directory",
+        "docs"
+      ],
+      "port": 5190
     }
   ]
 }

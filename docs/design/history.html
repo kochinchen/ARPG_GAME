@@ -1,0 +1,369 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>地牢冒險 開發歷程</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --navy: #0E2442; --steel: #2C4E82; --aviation: #5A9DBB; --sky: #A5D5E7;
+  --amber: #D78212; --gold: #EFC262; --sand: #F2DBB5; --taupe: #9C805F;
+  --paper: #FDFDFD; --border: #ECECEB;
+
+  --bg: var(--paper);
+  --ink: var(--navy);
+  --ink-2: var(--steel);
+  --muted: #7d6547;
+  --line: var(--border);
+  --rail: var(--aviation);
+  --node: var(--sky);
+  --warm: #faf1e2;
+  --focus: var(--amber);
+  --badge-bg: var(--gold);
+  --badge-ink: var(--navy);
+  --bar: var(--steel);
+  --bar-hi: var(--amber);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1c33; --ink: #eef2f7; --ink-2: #a5d5e7; --muted: #c9b18f;
+    --line: #213a5c; --rail: #5A9DBB; --node: #2C4E82; --warm: #13294a;
+    --focus: #EFA23A; --badge-bg: #EFC262; --badge-ink: #0E2442;
+    --bar: #5A9DBB; --bar-hi: #EFA23A;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1c33; --ink: #eef2f7; --ink-2: #a5d5e7; --muted: #c9b18f;
+  --line: #213a5c; --rail: #5A9DBB; --node: #2C4E82; --warm: #13294a;
+  --focus: #EFA23A; --badge-bg: #EFC262; --badge-ink: #0E2442;
+  --bar: #5A9DBB; --bar-hi: #EFA23A;
+}
+
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  font-size: 16px; line-height: 1.75;
+}
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 20px; padding-block: 56px 80px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1, h2 { font-family: "Noto Serif TC", "Songti TC", serif; }
+.mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 13px; letter-spacing: .14em; color: var(--muted); font-weight: 500; }
+p { margin: 0; }
+
+/* Header */
+header { display: grid; gap: 18px; padding-bottom: 36px; border-bottom: 1px solid var(--line); }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 900; line-height: 1.2; letter-spacing: .02em; }
+h1 em { font-style: normal; color: var(--focus); }
+.lede { max-width: 38em; font-size: 17px; color: var(--ink); }
+.facts { display: flex; flex-wrap: wrap; gap: 10px 28px; font-size: 14px; color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 600; }
+
+section { padding-top: 56px; display: grid; gap: 22px; }
+h2 { font-size: clamp(24px, 4vw, 30px); font-weight: 900; }
+.sec-head { display: grid; gap: 6px; }
+.sec-head p { color: var(--muted); max-width: 40em; }
+
+/* Principles */
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.pr { padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 6px; align-content: start; }
+.pr h3 { font-size: 17px; color: var(--ink-2); font-weight: 700; }
+.pr p { font-size: 15px; }
+.pr .tag { font-size: 12px; color: var(--muted); }
+
+/* Timeline */
+.phase { display: grid; grid-template-columns: 120px 1fr; gap: 0 24px; }
+.phase + .phase { margin-top: 8px; }
+.phase-label { padding-top: 4px; display: grid; gap: 2px; align-content: start; }
+.phase-label .when { font-size: 13px; color: var(--muted); }
+.phase-label .name { font-weight: 700; font-size: 15px; color: var(--ink-2); line-height: 1.4; }
+.track { position: relative; padding-left: 26px; border-left: 2px solid var(--rail); padding-bottom: 20px; display: grid; gap: 14px; }
+.phase:last-child .track { border-left-style: dashed; }
+.item { position: relative; display: grid; gap: 3px; }
+.item::before {
+  content: ""; position: absolute; left: -34px; top: 7px; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--node); border: 2px solid var(--rail);
+}
+.item.key::before { background: var(--focus); border-color: var(--focus); width: 14px; height: 14px; left: -35px; top: 6px; }
+.item-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.ms { font-weight: 700; font-size: 16px; }
+.hash { font-size: 12px; color: var(--muted); }
+.tests { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
+.item p { font-size: 15px; }
+.item .why { font-size: 14px; color: var(--muted); }
+.badge { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: var(--badge-bg); color: var(--badge-ink); }
+.mvp-line {
+  margin: 4px 0 18px; padding: 12px 16px; background: var(--warm); border-radius: 8px;
+  font-size: 15px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+}
+.mvp-line b { color: var(--focus); }
+
+/* Chart */
+.chart { display: grid; gap: 8px; padding: 20px; border: 1px solid var(--line); border-radius: 10px; }
+.row { display: grid; grid-template-columns: 44px 1fr 40px; gap: 12px; align-items: center; font-size: 13px; }
+.row .lbl { color: var(--muted); }
+.row .bar { height: 14px; background: var(--bar); border-radius: 0 3px 3px 0; }
+.row.hi .bar { background: var(--bar-hi); }
+.row .val { text-align: right; color: var(--ink); }
+.chart .cap { font-size: 13px; color: var(--muted); padding-top: 6px; }
+
+/* Takeaways */
+ol.take { margin: 0; padding: 0; list-style: none; counter-reset: t; display: grid; gap: 14px; }
+ol.take li { counter-increment: t; display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
+ol.take li::before { content: counter(t); font-family: "Noto Serif TC", serif; font-weight: 900; font-size: 24px; color: var(--focus); line-height: 1.3; }
+ol.take b { color: var(--ink-2); }
+
+footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+
+@media (max-width: 620px) {
+  .phase { grid-template-columns: 1fr; }
+  .phase-label { padding: 0 0 10px; grid-auto-flow: column; justify-content: start; gap: 10px; align-items: baseline; }
+  .track { margin-left: 6px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">專案回顧 · 地牢冒險 Dungeon Adventure · 2026 年 9 月</div>
+    <h1>先拆解，做出 <em>MVP</em>，<br>再一層一層補強</h1>
+    <p class="lede">一款 Diablo 式 2D 等角 ARPG，用 TypeScript + PixiJS + Vue 從零開始寫。這頁整理這次開發的方法論，以及從架構文件到可攜版遊戲包的實際過程。</p>
+    <div class="facts">
+      <span><b class="mono">20</b> 個 commit</span>
+      <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">598</b> 個</span>
+      <span>核心 MVP 用時 <b>2 天</b></span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">方法論</div>
+      <h2>五個做法</h2>
+    </div>
+    <div class="principles">
+      <div class="pr">
+        <h3>先設計，再寫程式</h3>
+        <p>第一個 commit 以 <span class="mono">ARCHITECTURE.md</span> 為主：技術選型比較、座標與更新頻率原則、模組邊界、依賴方向，以及 M0～M9 路線圖。</p>
+        <span class="tag">每個 Milestone 都有 Goal / Classes / Dependencies / Acceptance / Test</span>
+      </div>
+      <div class="pr">
+        <h3>規則交給工具檢查</h3>
+        <p>架構規則寫進 <span class="mono">CLAUDE.md</span>，再用 dependency-cruiser、無 DOM 的邏輯 tsconfig、UI 直接寫入掃描測試自動擋下違規。</p>
+        <span class="tag">AI 寫錯會在 npm run lint / npm test 被抓到</span>
+      </div>
+      <div class="pr">
+        <h3>每一步都能實際玩</h3>
+        <p>每個 Milestone 完成後遊戲都能操作，通過驗收和測試才進下一個。</p>
+        <span class="tag">測試數從 28 一路累積到 260</span>
+      </div>
+      <div class="pr">
+        <h3>高風險系統先寫規格</h3>
+        <p>存檔與三段 Combo 先寫獨立規格，把重新整理刷寶、關分頁、多分頁等漏洞列清楚再實作。</p>
+        <span class="tag">SAVE_SYSTEM.md · COMBO_SYSTEM.md</span>
+      </div>
+      <div class="pr">
+        <h3>文件跟著程式更新</h3>
+        <p>完成時補上「狀態／實作細節」，記下和規格不同之處與原因；發現的問題寫給後面的 Milestone。</p>
+        <span class="tag">例：M3 發現重生死亡循環 → M7 規定存檔點 7 格內不放怪</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">開發過程</div>
+      <h2>時間軸</h2>
+      <p>依 git 紀錄排列。橘色節點是階段轉折點。</p>
+    </div>
+
+    <div class="timeline">
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/26</span><span class="name">階段 0<br>架構與規則</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">M0 專案骨架與架構文件</span><span class="hash mono">73394dd</span><span class="tests mono">28 tests</span></div>
+            <p>Game Loop、EventBus、CommandQueue、Seeded RNG、等角投影；畫面顯示等角格線與滑鼠所在 Tile。</p>
+            <p class="why">驗收包含「lint 能擋下 game → render 的 import」，規則從第一天就自動化。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/26</span><span class="name">第 1 天<br>核心玩法</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">M1 點擊移動、尋路、鏡頭</span><span class="hash mono">beb03bf</span><span class="tests mono">52 tests</span></div>
+            <p>A* 八方向尋路加視線拉直，點牆壁走到最近的地板。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M2 統一傷害流程</span><span class="hash mono">b3cb9a3</span><span class="tests mono">81 tests</span></div>
+            <p>所有傷害都走 DamagePipeline；訓練木樁、跳傷害數字、暴擊。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M3 怪物 AI</span><span class="hash mono">ea1c05b</span><span class="tests mono">94 tests</span></div>
+            <p>Idle / Chase / Return、角色互相推擠、玩家死亡與重生。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M4 技能系統</span><span class="hash mono">4c9c9da</span><span class="tests mono">114 tests</span></div>
+            <p>技能由 Effect 組合；新增技能只改資料檔。右鍵施放、QWE 切換、魔力與藥水。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M5 掉寶與裝備</span><span class="hash mono">ab82b75</span><span class="tests mono">137 tests</span></div>
+            <p>寶箱、格子背包、紙娃娃裝備欄、HP / MP 球。固定種子 1000 件物品驗證稀有度分佈。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/27</span><span class="name">第 2 天<br>補齊完整遊戲</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">M6 成長系統</span><span class="hash mono">5adcf76</span><span class="tests mono">179 tests</span></div>
+            <p>經驗與升級、技能樹與 Mastery 解鎖規則、三段 Combo、開發用快捷鍵。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M7 樓層與難度成長</span><span class="hash mono">d449987</span><span class="tests mono">260 tests</span></div>
+            <p>多樓層、DifficultyScaler、雙存檔點、出口；同時寫好 M9 存檔規格。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M9 存檔</span><span class="hash mono">ffec0fa</span><span class="badge">順序調整</span></div>
+            <p>輪替備份、Checksum、緊急副本、Migration、資料修復、匯出匯入、回到上一層。</p>
+            <p class="why">比 M8 UI 先做：存檔影響資料結構，越早定下來越好。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M7.5 近戰平衡與屬性點</span><span class="hash mono">cac2d5f</span><span class="badge">臨時插入</span></div>
+            <p>近戰傷害約為遠程的 1.3～1.4 倍、扇形範圍、「近近遠」Combo 加成；存檔升到 v2。</p>
+            <p class="why">原路線圖沒有，實際玩過後發現需要才加。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">M8 HUD、選單與暫停</span><span class="hash mono">d544e25</span></div>
+            <p>GameViewStore、技能欄、離開樓層確認；UI 只能送 Command，有測試掃描。</p>
+          </div>
+          <div class="mvp-line"><b>MVP 完成</b><span>可以打怪、掉寶、升級、下樓、存檔。</span></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/27</span><span class="name">MVP 之後<br>內容擴充</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">怪物三批</span><span class="hash mono">e92cbb8 · cc841cb · f7925a3</span></div>
+            <p>一般怪（弓手、重甲、法師）→ 精英怪詞綴 → Boss；另加商人、背包整理。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">角色與地牢</span><span class="hash mono">b0817ff · 3820aec</span></div>
+            <p>女主角多面體模型、樓層魔王、怪物圖鑑、隨機地牢、迷霧小地圖。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">裝備深度與視覺</span><span class="hash mono">1fd60bf · fc9fda9</span></div>
+            <p>六級稀有度、傳奇與神話、裝備圖鑑、拆解與材料、武器造型、技能特效、地上光柱。</p>
+            <p class="why">因為規定「新內容優先只改 src/data/」，這階段大多只加資料。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/28</span><span class="name">試玩回饋<br>與終局</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">戰鬥規則調整</span><span class="hash mono">100ed1d</span></div>
+            <p>左鍵預設重砍（玩家沒有普通攻擊）、拿錯類型的武器扣傷害、法杖主倍率改乘法術強度、每層三位商人共用一家店。</p>
+            <p class="why">先用模擬器與網頁資料表檢查平衡，再依試玩的感受回頭改規則。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">介面與屬性</span><span class="hash mono">b7296b7</span></div>
+            <p>角色頁左右兩欄、與技能頁並排；元素抗性與三種控制抗性（緩速、擊退、暈眩）。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">終局：30 層通關、31～35 極限挑戰</span><span class="hash mono">b7296b7</span></div>
+            <p>等級上限 70、進入 31 層後回不到 1～30、通關紀錄與讀檔選層、中途小王、第 35 層王座廳與最終魔王「深淵統御者」（三階段、四足模型、盾與劍掉在地上）。</p>
+            <p class="why">先寫 docs/ENDGAME.md 規格、確認決定，再分三步實作：規則 → 樓層 → 魔王，最後才做外觀。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">數值調整</span><span class="hash mono">b7296b7</span></div>
+            <p>一般怪物傷害 ×1.25（大型怪 ×1.3）、精英傷害 ×1.8／經驗 ×3.5、前期怪物數量 +20%；順手修正魔王貼身時不用特殊技能的 bug。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/28～9/29</span><span class="name">發佈 v0.2.0<br>已 commit</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">標題畫面與可攜版遊戲包</span><span class="hash mono">b7296b7</span></div>
+            <p><span class="mono">npm run package</span> 產出單一 HTML 加 Windows / Mac 啟動檔；瀏覽器不允許 IndexedDB 時改用 localStorage 存檔。</p>
+            <p class="why">9/29 重新打包 v0.2.0（約 440 KB），包含下面的音效、寶箱、賭博修正與魔王門前存檔點；啟動檔允許自動播放，標題音樂一開啟就有聲音。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">音效與背景音樂</span><span class="hash mono">b7296b7</span></div>
+            <p>全部由 Web Audio 即時合成，不需要音效檔：標題與每 5 層一首地牢音樂、所有招式（含怪物與魔王）、魔王怒吼、升級、裝備操作、倒地；選單可調整主音量、音樂、音效。</p>
+            <p class="why">招式的聲音由技能資料（標籤、效果、元素）推導，新技能只改 src/data/ 也會自動有聲音。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">寶箱模型與賭博修正</span><span class="hash mono">b7296b7</span></div>
+            <p>寶箱改成多面體模型（木板、鐵箍、鎖扣、拱形箱蓋），開箱時箱蓋往後翻、露出金幣；王座廳寶箱為紅木金箍。賭博的武器改成劍、斧、弓、法杖分開選；史詩 / 傳奇機率降到一般怪物掉落的一半（0.3% / 0.05%），機率顯示改由資料算出。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">魔王門前存檔點與傳送口</span><span class="hash mono">b7296b7</span><span class="badge">存檔 v11</span></div>
+            <p>魔王層在競技場外多一個存檔點，死亡與讀檔回到那裡；到過中途的樓層，樓梯口與中途之間有傳送口。重新進入樓層時怪物與魔王都重生、出口關閉，要重新打過才能往下。</p>
+            <p class="why">讀檔仍然不重生怪物（不能靠重新整理刷怪），但重打魔王不必再走完整張地圖。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/29～10/17</span><span class="name">線上遊玩與難度調整</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">GitHub Pages 線上遊玩與 iPad 觸控</span><span class="hash mono">36302a7 · e66a2f6</span></div>
+            <p>可攜版 HTML 放到 <span class="mono">docs/index.html</span> 供線上遊玩；觸控裝置有左側浮動搖桿，右側攻擊、招式、Q / W / E 與藥水按鈕，自動瞄準最近的敵人。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">更名「地牢冒險 Dungeon Adventure」與難度大改</span><span class="badge">尚未 commit</span></div>
+            <p>標題畫面改為英文標題 Dungeon Adventure、副標「地牢冒險」。怪物強化（第 1 → 35 層逐層提高）：一般怪與精英 HP ×1～8、魔王與 31～35 層的魔王 HP ×1～20、攻擊 ×1～4、特殊技能的圓形 / 扇形範圍 ×1.5～3（普通攻擊與直線招式不變）、經驗 ×0.7；第 1 層與原本相同，越往深層越強（第一版從 ×3 / ×8 / ×2 起跳，前期太難，已調降）。藥水回復 35% → 25%、冷卻 1 → 2 秒；技能樹「血之汲取 / 魔力汲取」每級 0.2%，滿級 1%。</p>
+            <p class="why">修正傳奇「分裂」效果沒有作用：分裂的箭與小火球原本從被打中的敵人中心生成，第一步就又打中同一個敵人而消失。現在從敵人身體邊緣飛出、不會再打同一個目標；並加上檢查，所有 50 件傳奇 / 神話效果的技能條件都至少有一個技能能觸發。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">品質</div>
+      <h2>測試數量隨 Milestone 累積</h2>
+      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 9/29 的 npm test 結果。</p>
+    </div>
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 531">
+      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:5.3%"></div><span class="val mono">28</span></div>
+      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:9.8%"></div><span class="val mono">52</span></div>
+      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:15.3%"></div><span class="val mono">81</span></div>
+      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:17.7%"></div><span class="val mono">94</span></div>
+      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:21.5%"></div><span class="val mono">114</span></div>
+      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:25.8%"></div><span class="val mono">137</span></div>
+      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:33.7%"></div><span class="val mono">179</span></div>
+      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:49.0%"></div><span class="val mono">260</span></div>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">531</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 531 個（含終局、音效、賭博種類的測試）。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">重點</div>
+      <h2>這套做法為什麼有效</h2>
+    </div>
+    <ol class="take">
+      <li><p><b>底層規則一開始就定死。</b>座標、更新頻率、隨機種子、模組依賴方向，越晚改越貴，所以最先決定。</p></li>
+      <li><p><b>每個系統先做最簡單可用的版本。</b>技能先 4 個、掉寶表先一張、地圖先手畫，全部接通後再逐一加深。</p></li>
+      <li><p><b>資料和程式分開。</b>MVP 之後擴充變快，主要靠「新內容只改 src/data/」。</p></li>
+      <li><p><b>品質靠自動檢查守住。</b>每個 Milestone 都要通過測試、lint 與依賴檢查，大改多次也沒有失控。</p></li>
+      <li><p><b>路線圖可以調整，但要寫回文件。</b>M7.5 的插入與 M8、M9 的順序對調都有記錄。</p></li>
+    </ol>
+  </section>
+
+  <footer>資料來源：專案 git 紀錄與 docs/ARCHITECTURE.md、SAVE_SYSTEM.md、COMBO_SYSTEM.md。</footer>
+</div>
+
+</body></html>
