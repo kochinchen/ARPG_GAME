@@ -10,6 +10,7 @@ import type { Rarity } from '../../data/schema/item';
 import { GearAuraView } from './GearAuraView';
 import { WeaponGlowView } from './WeaponGlowView';
 import { mountFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
+import type { OutfitParts } from '../figure/gear/ArmorLooks';
 import { PALETTE, STATUS_TINTS } from '../palette';
 
 const BAR_WIDTH = 40;
@@ -48,6 +49,7 @@ export class ActorView {
   /** 武器微光（只有主角） */
   private readonly weaponGlow: WeaponGlowView | null;
   private weaponLook: WeaponLook | null | undefined = undefined;
+  private outfit: OutfitParts | null = null;
   private readonly isEnemy: boolean;
   private readonly isPlayer: boolean;
   private readonly isElite: boolean;
@@ -135,6 +137,13 @@ export class ActorView {
       this.figure.setWeapon(look ? mountFor(look) : null);
     }
     this.weaponGlow?.set(look ? rarity : 'normal', look?.glow ?? null);
+  }
+
+  /** 主角穿上的頭盔、盔甲、靴子（換掉的關節網格；同一組裝備回傳同一個物件） */
+  setOutfit(parts: OutfitParts | null): void {
+    if (parts === this.outfit) return;
+    this.outfit = parts;
+    this.figure.setOutfit(parts);
   }
 
   /** 受到傷害 */

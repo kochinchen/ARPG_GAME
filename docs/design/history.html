@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">20</b> 個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">598</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">606</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -313,16 +313,21 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       </div>
 
       <div class="phase">
-        <div class="phase-label"><span class="when mono">9/29～10/17</span><span class="name">線上遊玩與難度調整</span></div>
+        <div class="phase-label"><span class="when mono">9/29～10/17</span><span class="name">線上遊玩、難度與換裝</span></div>
         <div class="track">
           <div class="item">
             <div class="item-head"><span class="ms">GitHub Pages 線上遊玩與 iPad 觸控</span><span class="hash mono">36302a7 · e66a2f6</span></div>
             <p>可攜版 HTML 放到 <span class="mono">docs/index.html</span> 供線上遊玩；觸控裝置有左側浮動搖桿，右側攻擊、招式、Q / W / E 與藥水按鈕，自動瞄準最近的敵人。</p>
           </div>
           <div class="item key">
-            <div class="item-head"><span class="ms">更名「地牢冒險 Dungeon Adventure」與難度大改</span><span class="badge">尚未 commit</span></div>
+            <div class="item-head"><span class="ms">更名「地牢冒險 Dungeon Adventure」與難度大改</span><span class="hash mono">8412715</span></div>
             <p>標題畫面改為英文標題 Dungeon Adventure、副標「地牢冒險」。怪物強化（第 1 → 35 層逐層提高）：一般怪與精英 HP ×1～8、魔王與 31～35 層的魔王 HP ×1～20、攻擊 ×1～4、特殊技能的圓形 / 扇形範圍 ×1.5～3（普通攻擊與直線招式不變）、經驗 ×0.7；第 1 層與原本相同，越往深層越強（第一版從 ×3 / ×8 / ×2 起跳，前期太難，已調降）。藥水回復 35% → 25%、冷卻 1 → 2 秒；技能樹「血之汲取 / 魔力汲取」每級 0.2%，滿級 1%。</p>
-            <p class="why">修正傳奇「分裂」效果沒有作用：分裂的箭與小火球原本從被打中的敵人中心生成，第一步就又打中同一個敵人而消失。現在從敵人身體邊緣飛出、不會再打同一個目標；並加上檢查，所有 50 件傳奇 / 神話效果的技能條件都至少有一個技能能觸發。</p>
+            <p class="why">GitHub Pages 另外放上設計文件（<span class="mono">docs/design/</span>）與 README（be78bea · 67101a1）。修正傳奇「分裂」效果沒有作用：分裂的箭與小火球原本從被打中的敵人中心生成，第一步就又打中同一個敵人而消失。現在從敵人身體邊緣飛出、不會再打同一個目標；並加上檢查，所有 50 件傳奇 / 神話效果的技能條件都至少有一個技能能觸發。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">換裝：裝備直接穿在主角身上</span><span class="badge">尚未 commit</span></div>
+            <p>武器、頭盔、盔甲、靴子依裝備改變外觀：四個部位各 8 階造型，外加 15 件橘 / 紅防具專屬外觀。詞綴決定主題：元素、吸血、法術等詞綴改變顏色、寶石、發光符文與光芒；防禦類詞綴讓裝備變厚重，敏捷類長出翅膀，荊棘加上尖刺。武器微光也改用主題色。</p>
+            <p class="why">先畫物品圖示與換裝樣張確認外觀，再放進遊戲。外觀完全由裝備資料推導，存檔格式不變；換裝後主角面數只多約 7%。</p>
           </div>
         </div>
       </div>

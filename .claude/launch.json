@@ -62,6 +62,18 @@
         "docs"
       ],
       "port": 5190
+    },
+    {
+      "name": "item-icons",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5191",
+        "--directory",
+        "release/item-icons"
+      ],
+      "port": 5191
     }
   ]
 }

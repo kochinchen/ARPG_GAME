@@ -9,6 +9,7 @@ import { MATERIAL_LABELS, type MaterialId } from '../data/schema/item';
 import type { Actor, ActorId } from '../game/entities/Actor';
 import type { GameWorld } from '../game/GameWorld';
 import { equippedItems, gearAura } from '../game/items/GearAura';
+import { outfitFor } from './figure/gear/ArmorLooks';
 import { weaponLookFor } from './figure/weapons/WeaponLooks';
 import type { Camera } from './Camera';
 import { ELEMENT_COLORS, PALETTE } from './palette';
@@ -334,6 +335,8 @@ export class Renderer {
         // 手上的武器造型與武器微光
         const weapon = weaponLookFor(this.world.equipment.get('weapon'), this.data);
         view.setWeapon(weapon?.look ?? null, weapon?.rarity ?? 'normal');
+        // 身上的頭盔、盔甲、靴子
+        view.setOutfit(outfitFor((slot) => this.world.equipment.get(slot), this.data));
       }
       const position = lerp(actor.prevPosition, actor.position, alpha);
       view.update(actor, position, dt, onScreen(position));

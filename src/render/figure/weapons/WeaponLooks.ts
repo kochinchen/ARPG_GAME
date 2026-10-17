@@ -1,4 +1,5 @@
 import type { DataRegistry } from '../../../data/DataRegistry';
+import { hasRunes, itemThemes, RARITY_TINT, themeColors, THEMES, tintTones, type GearTheme } from '../gear/GearTheme';
 import type { Rarity, WeaponType } from '../../../data/schema/item';
 import type { ItemInstance } from '../../../game/items/ItemInstance';
 import { apply, jointRotation, placeMesh, type Mesh, type V3 } from '../Poly3D';
@@ -323,11 +324,120 @@ export function uniqueLook(legendaryId: string): WeaponLook | null {
 /** 有專屬造型的傳奇 / 神話 ID（測試與預覽用） */
 export const UNIQUE_WEAPON_IDS = Object.keys(UNIQUES);
 
+// ─────────────────────────── 詞綴主題 ───────────────────────────
+
+/** 在手上時染色減弱，避免整把武器變成一種顏色 */
+const HAND_TINT = 0.7;
+const STAFF_HEAD: Partial<Record<GearTheme, StaffOptions['head']>> = { fire: 'orb', cold: 'crystal', lightning: 'prongs', poison: 'skull', blood: 'prongs', arcane: 'ring' };
+
+/**
+ * 基底造型 + 詞綴主題：
+ * - 顏色主題（元素、吸血、法術）：金屬染色、寶石換色，稀有以上有發光符文（劍身符文、斧刃、弓弦、杖頭）
+ * - 物理傷害：變寬變重；攻速：變細變長；暴擊：鋸齒、尖刺、刃緣閃光
+ */
+function themedSpec(spec: Spec, rarity: Rarity, themes: readonly GearTheme[]): Spec {
+  const { main, accent } = themeColors(themes);
+  const k = RARITY_TINT[rarity] * HAND_TINT;
+  const runes = hasRunes(rarity);
+  const color = main ? THEMES[main].color : null;
+  switch (spec.kind) {
+    case 'sword': {
+      const s = { ...spec.spec };
+      if (color !== null && main !== 'crit') {
+        s.colors = tintTones(s.colors, color, k);
+        if (runes) s.runes = color;
+        if (s.pommel !== 'skull') s.pommel = 'gem';
+        s.gem = accent ?? color;
+      }
+      if (themes.includes('brutal')) {
+        s.width *= 1.22;
+        if (s.shape === 'straight') s.shape = 'broad';
+      }
+      if (themes.includes('speed')) {
+        s.width *= 0.8;
+        s.length *= 1.08;
+        if (s.shape === 'straight' || s.shape === 'broad') s.shape = 'leaf';
+      }
+      if (themes.includes('crit') && s.shape !== 'rift') s.shape = 'serrated';
+      return sword(s);
+    }
+    case 'axe': {
+      const s = { ...spec.spec };
+      if (color !== null && main !== 'crit') {
+        s.headColors = tintTones(s.headColors, color, k);
+        if (rarity !== 'normal') s.edgeColor = color;
+      }
+      if (themes.includes('brutal')) {
+        s.size *= 1.18;
+        s.spike = true;
+      }
+      if (themes.includes('speed')) {
+        s.size *= 0.88;
+        s.haft *= 1.06;
+      }
+      if (themes.includes('crit')) {
+        s.spike = true;
+        s.edgeColor = 0xfff0b0;
+      }
+      return axeSpec(s);
+    }
+    case 'bow': {
+      const s = { ...spec.spec };
+      if (color !== null && main !== 'crit') {
+        s.colors = tintTones(s.colors, color, k * 0.8);
+        s.string = color;
+        if (runes) {
+          s.tips = 'orb';
+          s.tipColors = [accent ?? color];
+        }
+      }
+      if (themes.includes('brutal')) s.thickness *= 1.2;
+      if (themes.includes('speed')) s.recurve = (s.recurve ?? 0) + 1;
+      if (themes.includes('crit')) {
+        s.tips = 'blade';
+        s.tipColors = SILVER;
+      }
+      return bowSpec(s);
+    }
+    case 'staff': {
+      const s = { ...spec.spec };
+      if (color !== null && main !== 'crit') {
+        s.focus = color;
+        s.metal = tintTones(s.metal, color, k * 0.8);
+        s.shaft = tintTones(s.shaft, color, k * 0.35);
+        const head = main ? STAFF_HEAD[main] : undefined;
+        if (rarity !== 'normal' && head) s.head = head;
+        if (runes) s.bands = true;
+      }
+      if (themes.includes('crit') && !s.focus) s.focus = THEMES.crit.color;
+      if (themes.includes('speed')) s.length *= 1.04;
+      if (themes.includes('brutal')) s.bands = true;
+      return staffSpec(s);
+    }
+  }
+}
+
+/** 基底 + 詞綴主題的造型（主題色光芒；同一組合只建一次） */
+export function themedLook(kind: WeaponType, tier: number, rarity: Rarity, themes: readonly GearTheme[]): WeaponLook {
+  if (rarity === 'normal' || themes.length === 0) return tierLook(kind, tier);
+  const key = `${kind}:${tier}:${rarity}:${themes.join(',')}`;
+  let look = cache.get(key);
+  if (!look) {
+    const list = TIERS[kind];
+    const spec = themedSpec(list[Math.min(list.length, Math.max(1, tier)) - 1]!, rarity, themes);
+    const { main } = themeColors(themes);
+    const style = THEMES[main ?? themes[0]!];
+    look = { ...build(spec), glow: { color: style.color, particle: style.particle } };
+    cache.set(key, look);
+  }
+  return look;
+}
+
 /** 裝備中的武器 → 手上的造型與光芒的稀有度；沒有武器時為 null */
-export function weaponLookFor(item: ItemInstance | undefined, data: Pick<DataRegistry, 'items'>): { look: WeaponLook; rarity: Rarity } | null {
+export function weaponLookFor(item: ItemInstance | undefined, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): { look: WeaponLook; rarity: Rarity } | null {
   if (!item || !data.items.has(item.baseId)) return null;
   const base = data.items.get(item.baseId);
   if (!base.weaponType) return null;
-  const look = (item.legendaryId && uniqueLook(item.legendaryId)) || tierLook(base.weaponType, base.tier ?? 1);
+  const look = (item.legendaryId && uniqueLook(item.legendaryId)) || themedLook(base.weaponType, base.tier ?? 1, item.rarity, itemThemes(item, data));
   return { look, rarity: item.rarity };
 }

@@ -95,6 +95,8 @@ export class PolyFigure {
   weaponAxis: { a: ScreenPoint; b: ScreenPoint; mid: ScreenPoint; focus: ScreenPoint | null; front: boolean } | null = null;
   /** undefined = 模型原本的武器；null = 空手 */
   private mount: WeaponMount | null | undefined = undefined;
+  /** 換掉的關節網格（主角穿上的頭盔、盔甲、靴子）；沒有列出的關節用模型原本的網格 */
+  private outfit: ReadonlyMap<Joint, Mesh[]> | null = null;
   /** 不畫的關節（魔王階段變化：盾牌碎裂、巨劍落地） */
   private hidden: ReadonlySet<Joint> = new Set();
   /** 腳下影子（相對腳底，px；模型有 dynamicShadow 時才有）：中心與水平半徑 */
@@ -116,6 +118,11 @@ export class PolyFigure {
   /** 換手上的武器（null = 空手） */
   setWeapon(mount: WeaponMount | null): void {
     this.mount = mount;
+  }
+
+  /** 換裝：關節 → 取代的網格（null = 模型原本的外觀） */
+  setOutfit(parts: ReadonlyMap<Joint, Mesh[]> | null): void {
+    this.outfit = parts;
   }
 
   /** 魔王的階段：依模型的 phaseHidden 隱藏關節 */
@@ -259,7 +266,7 @@ export class PolyFigure {
         return { x, y };
       };
       if (part.joint === tipJoint && tipLocal) this.weaponTip = screen(tipLocal);
-      let meshes = this.hidden.has(part.joint) ? [] : part.meshes;
+      let meshes = this.hidden.has(part.joint) ? [] : (this.outfit?.get(part.joint) ?? part.meshes);
       if (mount !== undefined && (part.joint === weaponJoint || part.joint === mount?.joint)) meshes = mount?.joint === part.joint ? mount.meshes : [];
       if (mount && part.joint === mount.joint) {
         const [a, b] = mount.axis;

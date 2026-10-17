@@ -47,9 +47,9 @@ interface Mote {
 
 /**
  * 武器周圍的微光（只有主角）：顏色與強度依武器的稀有度。
- * - 藍：淡淡的光暈
- * - 黃：金色光暈 + 沿刃移動的亮點
- * - 紫：紫色光暈 + 亮點 + 飄散的微粒
+ * - 藍：淡淡的光暈（有詞綴主題時用主題色）
+ * - 黃：光暈 + 沿刃移動的亮點
+ * - 紫：光暈 + 亮點 + 飄散的微粒（有詞綴主題時加上少量主題粒子）
  * - 橘：專屬顏色的光暈與內核 + 元素粒子（火星、霜晶、電弧、血滴、暗影、聖光、風、星光、碎石）
  * - 紅：以上全部 + 環繞武器的符文 / 碎片 / 星星 + 間歇的閃光
  * 光芒跟著武器畫在角色前面或後面（武器在身後時被身體擋住）。
@@ -61,6 +61,8 @@ export class WeaponGlowView {
   private readonly motes: Mote[] = [];
   private rarity: Rarity = 'normal';
   private style: WeaponGlowStyle | null = null;
+  /** set() 收到的樣式（判斷是否換了武器） */
+  private input: WeaponGlowStyle | null = null;
   private color = 0xffffff;
   private core = 0xffffff;
   private time = 0;
@@ -72,12 +74,17 @@ export class WeaponGlowView {
     this.front.addChild(this.g);
   }
 
-  /** 換武器：稀有度與專屬光芒（橘 / 紅；沒有時依稀有度的顏色） */
+  /**
+   * 換武器：稀有度與光芒樣式（橘 / 紅的專屬光芒，或詞綴主題的顏色與粒子）。
+   * 藍 / 黃只換光暈顏色；紫起有主題粒子；沒有樣式時依稀有度的顏色。
+   */
   set(rarity: Rarity, style: WeaponGlowStyle | null): void {
-    if (rarity === this.rarity && style === this.style) return;
+    if (rarity === this.rarity && style === this.input) return;
     this.rarity = rarity;
-    this.style = atLeast(rarity, 'legendary') ? (style ?? { color: RARITY_COLORS[rarity], particle: rarity === 'mythic' ? 'spark' : 'ember', ...(rarity === 'mythic' ? { orbit: 'runes' as const } : {}) }) : null;
-    this.color = this.style?.color ?? RARITY_COLORS[rarity];
+    this.input = style;
+    if (atLeast(rarity, 'legendary')) this.style = style ?? { color: RARITY_COLORS[rarity], particle: rarity === 'mythic' ? 'spark' : 'ember', ...(rarity === 'mythic' ? { orbit: 'runes' as const } : {}) };
+    else this.style = atLeast(rarity, 'epic') && style ? { color: style.color, particle: style.particle } : null;
+    this.color = style?.color ?? RARITY_COLORS[rarity];
     this.core = this.style?.core ?? 0xffffff;
     this.motes.length = 0;
   }
@@ -145,7 +152,7 @@ export class WeaponGlowView {
     }
     const style = this.style;
     if (!style) return;
-    const rate = (this.rarity === 'mythic' ? 16 : 10) * RATE[style.particle];
+    const rate = (this.rarity === 'mythic' ? 16 : this.rarity === 'legendary' ? 10 : 5) * RATE[style.particle];
     this.spawn -= dt * rate;
     while (this.spawn <= 0) {
       this.spawn += 1;
