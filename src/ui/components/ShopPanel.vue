@@ -39,9 +39,13 @@ function sellHeld(e: MouseEvent) {
   blur(e);
   gameBridge.send({ type: 'ShopSellHeld' });
 }
-function sellNormals(e: MouseEvent, count: number, gold: number) {
+function sellTier(e: MouseEvent, t: ShopView['sellTiers'][number]) {
   blur(e);
-  if (window.confirm(`賣出背包裡 ${count} 件普通（白色）裝備，得到 ${gold} 金幣？`)) gameBridge.send({ type: 'ShopSellNormals' });
+  if (window.confirm(`賣出背包裡 ${t.count} 件${t.label}裝備，得到 ${t.gold} 金幣？`)) gameBridge.send({ type: 'ShopSellUpTo', rarity: t.rarity });
+}
+function reroll(e: MouseEvent, index: number) {
+  blur(e);
+  gameBridge.send({ type: 'ShopReroll', index });
 }
 function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryView[]) {
   const top = Math.min((e.currentTarget as HTMLElement).getBoundingClientRect().top, window.innerHeight - 300);
@@ -62,19 +66,26 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
       <template v-if="view.heldSellPrice !== null">賣出手上的物品：+{{ view.heldSellPrice }} 金幣</template>
       <template v-else>賣出：從背包拿起物品後點這裡（或 Ctrl + 點擊背包物品）</template>
     </button>
-    <button
-      v-if="view.normals.count > 0"
-      type="button"
-      class="sell-normals"
-      @click="sellNormals($event, view.normals.count, view.normals.gold)"
-    >
-      賣出所有普通裝備（{{ view.normals.count }} 件，+{{ view.normals.gold }}）
-    </button>
+    <div class="sell-tiers">
+      <span>一鍵賣出</span>
+      <button
+        v-for="t in view.sellTiers"
+        :key="t.rarity"
+        type="button"
+        class="sell-tier"
+        :class="`tier-${t.rarity}`"
+        :disabled="t.count === 0"
+        :title="`賣出背包裡所有${t.label}裝備（${t.count} 件，+${t.gold} 金幣）`"
+        @click="sellTier($event, t)"
+      >
+        {{ t.label }}<small>{{ t.count }} 件</small>
+      </button>
+    </div>
 
     <nav class="tabs">
       <button type="button" :class="{ on: tab === 'buy' }" @click="tab = 'buy'">購買</button>
       <button type="button" :class="{ on: tab === 'gamble' }" @click="tab = 'gamble'">賭博</button>
-      <button type="button" :class="{ on: tab === 'ascend' }" @click="tab = 'ascend'">飛昇</button>
+      <button type="button" :class="{ on: tab === 'ascend' }" @click="tab = 'ascend'">飛昇・重鑄</button>
     </nav>
 
     <section v-if="tab === 'buy'" class="list">
@@ -106,7 +117,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
     </section>
 
     <section v-else-if="tab === 'ascend'" class="list">
-      <p class="note">把裝備的基底升到同種類的下一階（例如 鐵製長劍 → 騎士長劍）。名稱、詞綴、主倍率與傳奇效果都會保留。</p>
+      <p class="note">把裝備放進鍛造格：飛昇（基底升到下一階，名稱、詞綴、主倍率與傳奇效果保留），或重鑄其中一條詞綴。</p>
       <div class="ascend-slot-row">
         <button
           type="button"
@@ -118,9 +129,9 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
           @pointerleave="hovered = null"
         >
           <ItemCell v-if="view.ascendSlot" :entry="view.ascendSlot" size="slot" />
-          <span v-else>飛昇格</span>
+          <span v-else>鍛造格</span>
         </button>
-        <span class="slot-hint">{{ view.ascendSlot ? '點飛昇格拿回裝備' : '從背包拿起武器或防具，點飛昇格放進去' }}</span>
+        <span class="slot-hint">{{ view.ascendSlot ? '點鍛造格拿回裝備' : '從背包拿起裝備，點鍛造格放進去' }}</span>
       </div>
       <template v-if="view.ascend">
         <div class="ascend">
@@ -141,6 +152,17 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
         </ul>
         <button type="button" class="ascend-go" :disabled="!view.ascend.canAscend || !view.ascend.affordable" @click="ascend">飛昇</button>
         <p v-if="view.ascend.canAscend && !view.ascend.affordable" class="odds">金幣或材料不足（精華：在背包的拆解區拆裝備；飛昇碎片：擊敗樓層魔王）</p>
+      </template>
+      <template v-if="view.reroll">
+        <h4 class="sub">詞綴重鑄<small v-if="view.reroll.rerolls > 0">（已重鑄 {{ view.reroll.rerolls }} 次）</small></h4>
+        <p class="note">{{ view.reroll.note }}</p>
+        <ul class="reroll">
+          <li v-for="l in view.reroll.lines" :key="l.index" :class="{ strong: l.strong }">
+            <span class="line">{{ l.strong ? '◆ ' : '' }}{{ l.text }}</span>
+            <span v-if="l.locked" class="locked" title="紫裝名稱決定的強屬性">固定</span>
+            <button v-else type="button" :disabled="!l.affordable" :title="`重鑄這一條：${l.price} 金幣`" @click="reroll($event, l.index)">● {{ l.price }}</button>
+          </li>
+        </ul>
       </template>
 
     </section>
@@ -307,12 +329,83 @@ button:disabled {
   color: #f2e2b8;
   border-color: #c8a25a;
 }
-.sell-normals {
-  display: block;
-  width: calc(100% - 24px);
-  margin: 0 12px 6px;
-  padding: 4px;
+.sell-tiers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 8px;
   font-size: 12px;
+  color: #a89880;
+}
+.sell-tier {
+  flex: 1;
+  display: grid;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 12px;
+  color: #d8cbb4;
+  cursor: pointer;
+  background: #1f1a15;
+  border: 1px solid #5a4632;
+}
+.sell-tier small {
+  color: #a89880;
+  font-size: 11px;
+}
+.sell-tier.tier-magic {
+  border-color: #6f8dff;
+}
+.sell-tier.tier-rare {
+  border-color: #f2d24b;
+}
+.sell-tier:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.sub {
+  margin: 14px 0 2px;
+  font-size: 13px;
+  color: #e8c47a;
+}
+.sub small {
+  margin-left: 6px;
+  font-weight: normal;
+  color: #a89880;
+}
+.reroll {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.reroll li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reroll .line {
+  flex: 1;
+}
+.reroll li.strong .line {
+  color: #e8a050;
+}
+.reroll button {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+  color: #e8c47a;
+  cursor: pointer;
+  background: #2a2016;
+  border: 1px solid #8a6a3a;
+}
+.reroll button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.reroll .locked {
+  font-size: 11px;
+  color: #7d6e5c;
 }
 .tabs {
   display: flex;

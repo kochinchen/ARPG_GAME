@@ -804,6 +804,10 @@ export class GameWorld {
       case 'SortInventory':
         sortInventory(this.inventory, this.data);
         return true;
+      case 'Respec':
+        if (command.kind === 'skills') this.respecSkills();
+        else this.respecAttributes();
+        return true;
       case 'ShopBuy':
         this.shop.buy(command.index);
         return true;
@@ -816,8 +820,8 @@ export class GameWorld {
       case 'ShopSellHeld':
         this.shop.sellHeld();
         return true;
-      case 'ShopSellNormals':
-        this.shop.sellNormals();
+      case 'ShopSellUpTo':
+        this.shop.sellUpTo(command.rarity);
         return true;
       case 'SalvageClick':
         this.salvage.click(command.slot);
@@ -830,6 +834,9 @@ export class GameWorld {
         return true;
       case 'ShopAscend':
         this.shop.ascend();
+        return true;
+      case 'ShopReroll':
+        this.shop.reroll(command.index);
         return true;
       case 'ShopGamble':
         this.shop.gamble(command.kind);
@@ -844,6 +851,69 @@ export class GameWorld {
 
   /** 在某點周圍的地板上生成寶箱（避開牆壁、角色與其他寶箱） */
   /** 開發用：玩家周圍一圈，每種稀有度各一件（物品等級 = 目前樓層） */
+  /** 洗點的金幣：round(base × 等級^exponent) */
+  respecCost(kind: 'skills' | 'attributes'): number {
+    const c = this.data.balance.respec[kind];
+    return Math.round(c.base * this.progress.level ** c.exponent);
+  }
+
+  /** 已用掉的技能點（起始免費的技能不算） */
+  get spentSkillPoints(): number {
+    const free = new Set(this.data.balance.player.startingSkills);
+    let n = 0;
+    for (const [id, rank] of this.player.skillRanks) if (this.data.skills.get(id).tree) n += rank - (free.has(id) ? 1 : 0);
+    return n;
+  }
+
+  /**
+   * 重置技能點：技能回到起始狀態、點數全部退回、已開通的 T4 退回開通次數；
+   * 連段與 Support 欄裡已經沒學的技能清空，左鍵換回起始技能。
+   */
+  respecSkills(): boolean {
+    const spent = this.spentSkillPoints;
+    if (spent === 0 && this.progress.t4Unlocked.size === 0) return this.respecFailed('skills', 'nothing');
+    const cost = this.respecCost('skills');
+    if (!this.wallet.spend(cost)) return this.respecFailed('skills', 'gold');
+    const p = this.data.balance.player;
+    const free = new Set(p.startingSkills);
+    for (const id of [...this.player.skillRanks.keys()]) {
+      if (!this.data.skills.get(id).tree) continue;
+      if (free.has(id)) this.player.skillRanks.set(id, 1);
+      else this.player.skillRanks.delete(id);
+    }
+    this.progress.skillPoints += spent;
+    this.progress.t4Charges += this.progress.t4Unlocked.size;
+    this.progress.t4Unlocked.clear();
+    const known = (id: string | null) => id !== null && this.player.skillRanks.has(id);
+    if (!known(this.loadout.left)) this.loadout.left = p.startingLoadout.left;
+    for (const combo of this.loadout.combos) combo.forEach((id, i) => (combo[i] = known(id) ? id : null));
+    this.loadout.supports.forEach((id, i) => (this.loadout.supports[i] = known(id) ? id : null));
+    this.support.update();
+    this.progress.changed();
+    this.events.emit('Respec', { kind: 'skills', gold: cost });
+    return true;
+  }
+
+  /** 重置屬性點：全部退回成未分配的點數 */
+  respecAttributes(): boolean {
+    let refund = 0;
+    for (const points of this.progress.attributes.values()) refund += points;
+    if (refund === 0) return this.respecFailed('attributes', 'nothing');
+    const cost = this.respecCost('attributes');
+    if (!this.wallet.spend(cost)) return this.respecFailed('attributes', 'gold');
+    this.progress.attributes.clear();
+    this.progress.attributePoints += refund;
+    this.attributes.apply();
+    this.progress.changed();
+    this.events.emit('Respec', { kind: 'attributes', gold: cost });
+    return true;
+  }
+
+  private respecFailed(kind: 'skills' | 'attributes', reason: 'gold' | 'nothing'): false {
+    this.events.emit('RespecFailed', { kind, reason });
+    return false;
+  }
+
   private spawnLootSamples(): void {
     const level = Math.max(1, this.itemLevel);
     const bases = this.data.items.all.filter((b) => b.levelReq <= level);

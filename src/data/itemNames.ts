@@ -20,6 +20,7 @@ export const COMMON_WORDS: Record<WeaponType | Exclude<EquipSlot, 'weapon'>, rea
   armor: ['', '', '破舊', '粗製', '補丁的'],
   gloves: ['', '', '破舊', '粗製', '磨損的'],
   boots: ['', '', '破舊', '粗製', '磨損的'],
+  shield: ['', '', '破舊', '粗製', '裂紋的'],
   ring: ['', '', '黯淡的', '樸素的'],
   amulet: ['', '', '黯淡的', '樸素的'],
 };
@@ -56,6 +57,7 @@ export const RARE_PREFIXES: Partial<Record<StatId, readonly string[]>> = {
   hpRegenPct: ['再生', '生機', '不死', '回春', '綠葉', '復甦'],
   dodgeChance: ['影行', '幻步', '靈巧', '殘影', '魅影', '迷蹤'],
   thorns: ['荊棘', '尖刺', '棘甲', '刺蝟', '反噬', '薔薇'],
+  blockChance: ['磐石', '鐵壁', '守望', '不退', '堅盾', '城垛'],
   potionEffect: ['煉金', '藥師', '秘藥', '仙丹', '靈藥', '丹心'],
 };
 /** 沒有對應主題時使用 */
@@ -123,6 +125,14 @@ export const EPIC_NAMES: Record<WeaponType | Exclude<EquipSlot, 'weapon'>, reado
     ['血握', 'strong.bloodthirst'],
     ['影觸', 'strong.crit'],
     ['霜指', 'strong.cold'],
+  ],
+  shield: [
+    ['不動之壁', 'strong.aegis'],
+    ['鐵誓', 'strong.fortress'],
+    ['灰燼之盾', 'strong.ashen'],
+    ['守夜人', 'strong.bulwark'],
+    ['巨岩', 'strong.bedrock'],
+    ['長城', 'strong.giant'],
   ],
   boots: [
     ['風行者', 'strong.windwalk'],

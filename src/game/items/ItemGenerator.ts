@@ -152,6 +152,40 @@ export class ItemGenerator {
     return { uid, baseId: base.id, rarity: def.rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes: [], legendaryId: def.id, legendaryRolls };
   }
 
+  /**
+   * 重鑄一條詞綴：同類（一般 / 強屬性）、部位可用、不與其他詞綴重複的詞綴中重新抽一條並擲數值
+   * （可能抽到同一條，只換數值）。回傳新的物品，原物品不變。
+   */
+  rerollAffix(item: ItemInstance, index: number): ItemInstance {
+    const old = item.affixes[index];
+    if (!old) return item;
+    const base = this.data.items.get(item.baseId);
+    const def = this.data.affixes.get(old.id);
+    const pool = this.data.affixes.all.filter(
+      (a) =>
+        a.kind === def.kind &&
+        (!a.slots || a.slots.includes(base.slot)) &&
+        (a.kind === 'strong' || a.minItemLevel <= item.itemLevel) &&
+        !item.affixes.some((x, i) => i !== index && x.id === a.id),
+    );
+    const affix = pool.length > 0 ? this.rng.weighted(pool) : def;
+    const [lo, hi] = this.data.balance.affixPower.rarity[item.rarity];
+    const power = lo === hi ? lo : this.rng.range(lo, hi);
+    const affixes = item.affixes.map((a, i) => (i === index ? { id: affix.id, rolls: [this.rollValue(affix, affixTier(item.itemLevel, this.data.balance), power)] } : a));
+    return { ...item, affixes };
+  }
+
+  /** 重鑄傳奇 / 神話的一條固定屬性：屬性不變，在設計範圍內重擲數值（含階級成長） */
+  rerollLegendaryLine(item: ItemInstance, index: number): ItemInstance {
+    if (!item.legendaryId || !item.legendaryRolls) return item;
+    const line = this.data.legendaries.get(item.legendaryId).lines.filter((l) => l.type === 'stat')[index];
+    if (!line || line.type !== 'stat') return item;
+    const [min, max] = line.value;
+    const raw = min === max ? min : this.rng.range(min, max);
+    const value = Math.round(raw * (1 + line.growth * (affixTier(item.itemLevel, this.data.balance) - 1)) * 10000) / 10000;
+    return { ...item, legendaryRolls: item.legendaryRolls.map((v, i) => (i === index ? value : v)) };
+  }
+
   /** 擲一條詞綴的數值：基礎範圍 × 階級成長 × 稀有度倍率 */
   private rollValue(affix: AffixDef, tier: number, power: number): number {
     const [min, max] = affix.value;

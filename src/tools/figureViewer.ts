@@ -103,13 +103,20 @@ const AURA_LEVEL = Math.min(4, Math.max(1, Number(params.get('level')) || 3));
 
 /** ?weapon=bow:5 / staff:3 / legendary.cold_moon：主角拿指定的武器（檢查弓、法杖的招式） */
 const WEAPON = selected.key === 'heroine' && params.get('weapon') ? lookByKey(params.get('weapon')!) : null;
-/** ?outfit=5&rarity=epic&theme=fire,guard：主角穿上 T5 的頭盔、盔甲、靴子（稀有度與詞綴主題，省略 = 普通） */
+/** ?outfit=5&rarity=epic&theme=fire,guard：主角穿上 T5 的頭盔、盔甲、靴子、盾牌（稀有度與詞綴主題，省略 = 普通） */
 const OUTFIT_TIER = selected.key === 'heroine' ? Number(params.get('outfit')) || 0 : 0;
 const OUTFIT = OUTFIT_TIER
   ? (() => {
       const rarity = (RARITIES.includes(params.get('rarity') as Rarity) ? params.get('rarity') : 'normal') as Rarity;
       const themes = (params.get('theme') ?? '').split(',').filter(Boolean) as GearTheme[];
-      return heroineOutfit({ helmet: armorSpec('helmet', OUTFIT_TIER, rarity, themes), armor: armorSpec('armor', OUTFIT_TIER, rarity, themes), boots: armorSpec('boots', OUTFIT_TIER, rarity, themes) });
+      // 盾牌：拿劍、斧或空手時一起顯示（&shield=0 不拿盾）
+      const shield = params.get('shield') !== '0' && (!WEAPON || WEAPON.kind === 'sword' || WEAPON.kind === 'axe');
+      return heroineOutfit({
+        helmet: armorSpec('helmet', OUTFIT_TIER, rarity, themes),
+        armor: armorSpec('armor', OUTFIT_TIER, rarity, themes),
+        boots: armorSpec('boots', OUTFIT_TIER, rarity, themes),
+        ...(shield ? { shield: armorSpec('shield', OUTFIT_TIER, rarity, themes) } : {}),
+      });
     })()
   : null;
 const armed = (figure: PolyFigure): PolyFigure => {

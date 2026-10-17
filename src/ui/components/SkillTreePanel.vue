@@ -55,6 +55,12 @@ function toggleSupport(node: SkillNodeView) {
 }
 
 const STEPS = [0, 1, 2] as const;
+
+/** 洗點：重置技能點（確認後送出） */
+function respec(e: MouseEvent) {
+  (e.currentTarget as HTMLElement).blur();
+  if (window.confirm(`花 ${props.view.respec.cost} 金幣重置技能點？所有技能回到起始狀態，技能點全部退回，連段裡沒學的技能會被移除。`)) gameBridge.send({ type: 'Respec', kind: 'skills' });
+}
 </script>
 
 <template>
@@ -65,6 +71,15 @@ const STEPS = [0, 1, 2] as const;
         等級 <b>{{ view.level }}</b> · 技能點 <b class="points">{{ view.skillPoints }}</b>
         <template v-if="view.mastery"> · T4 開通次數 <b class="points">{{ view.t4Charges }}</b></template>
       </span>
+      <button
+        type="button"
+        class="respec"
+        :disabled="!view.respec.available || !view.respec.affordable"
+        :title="view.respec.affordable ? '所有技能回到起始狀態，技能點全部退回' : '金幣不足'"
+        @click="respec"
+      >
+        重置技能點 ● {{ view.respec.cost }}
+      </button>
       <button type="button" class="close" aria-label="關閉" @click="emit('close')">×</button>
     </header>
 
@@ -624,5 +639,19 @@ small {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+}
+.respec {
+  margin-left: auto;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: #e8c47a;
+  cursor: pointer;
+  background: #2a2016;
+  border: 1px solid #8a6a3a;
+}
+.respec:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 </style>

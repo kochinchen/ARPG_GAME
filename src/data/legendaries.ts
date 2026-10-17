@@ -12,8 +12,8 @@ type Effect = z.input<typeof EffectDefSchema>;
 type StatId = Extract<Line, { type: 'stat' }>['stat'];
 
 /**
- * 傳奇（橘）30 件、神話（紅）20 件：每種裝備（劍、斧、弓、杖、頭盔、盔甲、手套、鞋子、戒指、護身符）
- * 橘 3 件、紅 2 件。設計原則：
+ * 傳奇（橘）33 件、神話（紅）23 件：每種裝備（劍、斧、弓、杖、頭盔、盔甲、手套、鞋子、戒指、護身符）
+ * 橘 3 件、紅 2 件；盾牌橘 3 件、紅 3 件。設計原則：
  * - 橘讓玩家說「這招變得好好用」：強化一個技能或一種玩法
  * - 紅讓玩家說「我想為了這件裝重新配 Q / W / E」：改變整個 Build 或 Combo 邏輯
  *
@@ -353,6 +353,64 @@ const legendary: Def[] = [
       stat('manaCostReduction', 0.07, 0.09),
       strong('閃電技能彈跳 +2', mods({ elements: ['Lightning'] }, { chainCount: 2 })),
       unique('閃電技能暴擊時回復 5% 魔力（冷卻 2 秒）', on('crit', [restore({ mp: 0.05 })], { when: { elements: ['Lightning'] }, cooldown: 2 })),
+    ],
+  },
+
+  // ── 盾牌（只能搭配劍、斧） ──
+  {
+    id: 'legendary.bastion',
+    name: '不落城牆',
+    rarity: 'legendary',
+    kind: 'shield',
+    role: '格擋 / 堅守',
+    lore: '城破了三次，這面盾一次也沒倒下。',
+    main: [2.6, 2.8],
+    lines: [
+      stat('blockChance', 0.06, 0.08),
+      inc('defense', 0.14, 0.18),
+      inc('maxHp', 0.08, 0.12),
+      strong('格擋時回復 2% 生命', on('block', [restore({ hp: 0.02 })], { cooldown: 0.5 })),
+      unique(
+        '格擋時「堅守」+1 層（最多 5 層、5 秒）：每層受到傷害 -3%',
+        on('block', [buff('bastion', '堅守', 5, 5, [{ stat: 'damageReduction', value: 0.03 }])]),
+      ),
+    ],
+  },
+  {
+    id: 'legendary.flame_ward',
+    name: '焰紋盾',
+    rarity: 'legendary',
+    kind: 'shield',
+    role: '火焰反擊',
+    lore: '盾面的紋路是一道從未熄滅的火。',
+    minItemLevel: 4,
+    main: [2.4, 2.6],
+    lines: [
+      stat('fireResist', 0.13, 0.17),
+      stat('blockChance', 0.05, 0.07),
+      flat('thorns', 8, 12),
+      strong('近身 2.5 格內有敵人時，火焰抗性 +15%', cond({ enemiesWithin: { radius: 2.5 } }, [{ stat: 'fireResist', value: 0.15 }])),
+      unique(
+        '格擋時對周圍敵人釋放火焰爆發（武器 60% 火焰傷害，冷卻 1 秒）',
+        on('block', [at('self', 'melee', [area(2.4, [hit('fire', 0.6)])])], { cooldown: 1 }),
+      ),
+    ],
+  },
+  {
+    id: 'legendary.frost_aegis',
+    name: '霜冠盾',
+    rarity: 'legendary',
+    kind: 'shield',
+    role: '冰霜控制',
+    lore: '敲在這面盾上的武器，會連同手指一起凍住。',
+    minItemLevel: 6,
+    main: [2.4, 2.6],
+    lines: [
+      stat('coldResist', 0.13, 0.17),
+      stat('blockChance', 0.05, 0.07),
+      stat('damageReduction', 0.03, 0.05),
+      strong('對緩速或凍結的敵人，近戰傷害 +20%', mods(MELEE, { vsStatus: { statuses: ['slow', 'freeze'], damage: 0.2 } })),
+      unique('格擋時凍結攻擊者 1.5 秒（冷卻 3 秒）', on('block', [at('target', 'melee', [status('freeze', 1.5)])], { cooldown: 3 })),
     ],
   },
 
@@ -892,6 +950,74 @@ const mythic: Def[] = [
         '擊殺凍結的敵人時碎裂，周圍受到 100% 法術強度的寒冰傷害並凍結 0.8 秒',
         on('kill', [at('target', 'magic', [area(2.5, [hit('cold', 1, 'spell'), status('freeze', 0.8)])])], { targetStatus: 'freeze' }),
       ),
+    ],
+  },
+
+  // ── 盾牌（只能搭配劍、斧） ──
+  {
+    id: 'mythic.world_wall',
+    name: '世界之壁',
+    rarity: 'mythic',
+    kind: 'shield',
+    role: '格擋疊層 / 重擊',
+    lore: '傳說世界的盡頭立著一面牆，這是從牆上剝下的一塊。',
+    minItemLevel: 10,
+    main: [3.6, 3.8],
+    lines: [
+      stat('blockChance', 0.09, 0.11),
+      inc('defense', 0.23, 0.27),
+      inc('maxHp', 0.18, 0.22),
+      stat('damageReduction', 0.04, 0.06),
+      unique(
+        '格擋時「壁壘」+1 層（最多 10 層、6 秒）：每層防禦 +3%',
+        on('block', [buff('wall', '壁壘', 10, 6, [{ stat: 'defense', modifier: 'increased', value: 0.03 }])]),
+      ),
+      unique('重擊類技能每層壁壘傷害 +4%', mods({ tags: ['Heavy'] }, { damage: 0.04 }, { scale: { by: 'buff', id: 'wall' } })),
+      unique('生命低於 30% 時，格擋率 +20%', cond({ hpBelow: 0.3 }, [{ stat: 'blockChance', value: 0.2 }])),
+    ],
+  },
+  {
+    id: 'mythic.thunder_bulwark',
+    name: '雷鳴壁壘',
+    rarity: 'mythic',
+    kind: 'shield',
+    role: '格擋放電 / 衝擊',
+    lore: '每一次撞擊都會被存起來，等著還給對方。',
+    minItemLevel: 12,
+    main: [3.4, 3.6],
+    lines: [
+      stat('lightningResist', 0.18, 0.22),
+      stat('blockChance', 0.07, 0.09),
+      inc('defense', 0.18, 0.22),
+      stat('critChance', 0.05, 0.07),
+      unique(
+        '格擋時引發連鎖閃電打向攻擊者（彈跳 4 次，每次武器 80% 閃電傷害，冷卻 0.8 秒）',
+        on('block', [at('target', 'melee', [{ type: 'chain', jumps: 4, radius: 4, effects: [hit('lightning', 0.8)] }])], { cooldown: 0.8 }),
+      ),
+      unique(
+        '近身 3 格內每有一名敵人，格擋率 +3%（最多 +12%）',
+        cond({ enemiesWithin: { radius: 3, perEnemy: true, max: 4 } }, [{ stat: 'blockChance', value: 0.03 }]),
+      ),
+      unique('衝擊類技能傷害 +25%、擊退 +40%', mods({ tags: ['Impact'] }, { damage: 0.25, knockback: 0.4 })),
+    ],
+  },
+  {
+    id: 'mythic.mirror_of_ruin',
+    name: '毀滅之鏡',
+    rarity: 'mythic',
+    kind: 'shield',
+    role: '反傷 / 反擊',
+    lore: '鏡面映出的不是你的臉，而是對方的下場。',
+    minItemLevel: 16,
+    main: [3.5, 3.7],
+    lines: [
+      stat('blockChance', 0.08, 0.1),
+      flat('thorns', 20, 26),
+      inc('maxHp', 0.2, 0.24),
+      stat('damageReduction', 0.04, 0.06),
+      unique('格擋時，把擋下的傷害 ×200% 反彈給攻擊者', on('block', [at('target', 'melee', [hit('physical')], 2)])),
+      unique('受到近身攻擊時 20% 機率：下一個近戰技能傷害 +40%', on('hurt', [arm('mirror', MELEE, { damage: 0.4 }, 5)], { near: 2, chance: 0.2 })),
+      unique('生命高於 70% 時，荊棘傷害 +100%', cond({ hpAbove: 0.7 }, [{ stat: 'thorns', modifier: 'increased', value: 1 }])),
     ],
   },
 

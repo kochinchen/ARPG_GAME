@@ -231,6 +231,17 @@ export const BalanceSchema = z.strictObject({
      * 飛昇：把裝備的基底換成同種類的下一階（名稱、詞綴、主倍率、傳奇效果都保留）。
      * 價格 = (base + perTier × 目標階級) × 稀有度倍率；目標階級的等級需求不可超過到過的最深樓層。
      */
+    /**
+     * 詞綴重鑄：把一條詞綴（橘 / 紅為固定屬性行的數值）重擲。
+     * 價格 = (base + perItemLevel × 物品等級) × 稀有度倍率 × 強屬性倍率 × (1 + perReroll × 這件物品已重鑄的次數)
+     */
+    reroll: z.strictObject({
+      base: z.int().nonnegative(),
+      perItemLevel: z.int().nonnegative(),
+      rarity: z.record(RaritySchema, z.number().positive()),
+      strong: z.number().min(1),
+      perReroll: z.number().nonnegative(),
+    }),
     ascend: z.strictObject({
       base: z.int().nonnegative(),
       perTier: z.int().nonnegative(),
@@ -261,6 +272,18 @@ export const BalanceSchema = z.strictObject({
     maxDodge: z.number().min(0).max(1),
     /** 控制抗性上限（緩速抗性、擊退抗性、暈眩時間減少） */
     maxControlResist: z.number().min(0).max(1),
+    /** 格擋率上限 */
+    maxBlock: z.number().min(0).max(1),
+    /** 格擋時減免的傷害比例 */
+    blockReduction: z.number().min(0).max(1),
+  }),
+  /**
+   * 洗點：重置技能點 / 屬性點的金幣 = round(base × 等級^exponent)。
+   * 等級越高越貴，避免隨意切換 Build；仍比重練便宜很多。
+   */
+  respec: z.strictObject({
+    skills: z.strictObject({ base: z.number().positive(), exponent: z.number().positive() }),
+    attributes: z.strictObject({ base: z.number().positive(), exponent: z.number().positive() }),
   }),
 });
 

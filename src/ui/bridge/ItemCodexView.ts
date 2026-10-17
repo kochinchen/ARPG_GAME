@@ -12,12 +12,13 @@ import { formatValue, SLOT_LABELS, STAT_LABELS } from '../../game/items/ItemDesc
  */
 
 /** 圖鑑的分組（依顯示順序） */
-export const KIND_ORDER: LegendaryKind[] = ['sword', 'axe', 'bow', 'staff', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
+export const KIND_ORDER: LegendaryKind[] = ['sword', 'axe', 'bow', 'staff', 'shield', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
 export const KIND_LABELS: Record<LegendaryKind, string> = {
   sword: '劍',
   axe: '斧',
   bow: '弓',
   staff: '法杖',
+  shield: SLOT_LABELS.shield,
   helmet: SLOT_LABELS.helmet,
   armor: SLOT_LABELS.armor,
   gloves: SLOT_LABELS.gloves,
@@ -25,7 +26,7 @@ export const KIND_LABELS: Record<LegendaryKind, string> = {
   ring: SLOT_LABELS.ring,
   amulet: SLOT_LABELS.amulet,
 };
-const GLYPHS: Record<LegendaryKind, string> = { sword: '劍', axe: '斧', bow: '弓', staff: '杖', helmet: '盔', armor: '甲', gloves: '手', boots: '靴', ring: '戒', amulet: '符' };
+const GLYPHS: Record<LegendaryKind, string> = { sword: '劍', axe: '斧', bow: '弓', staff: '杖', shield: '盾', helmet: '盔', armor: '甲', gloves: '手', boots: '靴', ring: '戒', amulet: '符' };
 
 export interface BaseCodexEntry {
   key: string;

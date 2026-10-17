@@ -14,7 +14,7 @@ import { EffectDefSchema, StatusKindSchema } from './effects';
  * 特殊效果由少數幾種「機制」組合而成（mods / trigger / conditional），全部是資料，不需要專屬程式。
  */
 
-export const LegendaryKindSchema = z.enum(['sword', 'axe', 'bow', 'staff', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet']);
+export const LegendaryKindSchema = z.enum(['sword', 'axe', 'bow', 'staff', 'shield', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet']);
 export type LegendaryKind = z.infer<typeof LegendaryKindSchema>;
 
 /** 技能條件：全部符合才算（省略的欄位不檢查） */
@@ -128,8 +128,8 @@ export const ItemMechanicSchema = z.discriminatedUnion('type', [
   /** 事件觸發 */
   z.strictObject({
     type: z.literal('trigger'),
-    /** hit 命中、crit 暴擊、kill 擊殺、hurt 受到傷害、dodge 閃避、cast 施放、comboComplete 完成 Combo、comboDiscovered 發現新 Combo */
-    on: z.enum(['hit', 'crit', 'kill', 'hurt', 'dodge', 'cast', 'comboComplete', 'comboDiscovered']),
+    /** hit 命中、crit 暴擊、kill 擊殺、hurt 受到傷害、dodge 閃避、block 格擋（目標 = 攻擊者）、cast 施放、comboComplete 完成 Combo、comboDiscovered 發現新 Combo */
+    on: z.enum(['hit', 'crit', 'kill', 'hurt', 'dodge', 'block', 'cast', 'comboComplete', 'comboDiscovered']),
     when: SkillFilterSchema.default({}),
     /** hurt：攻擊者在幾格內（近身） */
     near: z.number().positive().optional(),

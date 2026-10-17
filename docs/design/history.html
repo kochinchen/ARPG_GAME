@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">20</b> 個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">606</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">627</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -325,9 +325,14 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p class="why">GitHub Pages 另外放上設計文件（<span class="mono">docs/design/</span>）與 README（be78bea · 67101a1）。修正傳奇「分裂」效果沒有作用：分裂的箭與小火球原本從被打中的敵人中心生成，第一步就又打中同一個敵人而消失。現在從敵人身體邊緣飛出、不會再打同一個目標；並加上檢查，所有 50 件傳奇 / 神話效果的技能條件都至少有一個技能能觸發。</p>
           </div>
           <div class="item key">
-            <div class="item-head"><span class="ms">換裝：裝備直接穿在主角身上</span><span class="badge">尚未 commit</span></div>
+            <div class="item-head"><span class="ms">換裝：裝備直接穿在主角身上</span><span class="hash mono">74b2140</span></div>
             <p>武器、頭盔、盔甲、靴子依裝備改變外觀：四個部位各 8 階造型，外加 15 件橘 / 紅防具專屬外觀。詞綴決定主題：元素、吸血、法術等詞綴改變顏色、寶石、發光符文與光芒；防禦類詞綴讓裝備變厚重，敏捷類長出翅膀，荊棘加上尖刺。武器微光也改用主題色。</p>
             <p class="why">先畫物品圖示與換裝樣張確認外觀，再放進遊戲。外觀完全由裝備資料推導，存檔格式不變；換裝後主角面數只多約 7%。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">盾牌、金幣用途、角色預覽</span><span class="badge">尚未 commit</span><span class="badge">存檔 v12</span></div>
+            <p>新增盾牌欄位：8 階盾牌與 3 件橘、3 件紅，只能搭配劍或斧，主打格擋（最多 50%，格擋時傷害 -60%）、防禦與抗性，橘紅效果在格擋時發動。金幣新用途：商人的詞綴重鑄（越重鑄越貴，橘紅只重擲固定屬性的數值）、一鍵賣出白 / 白＋藍 / 白＋藍＋黃、技能點與屬性點洗點（費用隨等級提高）。角色頁旁加上大尺寸人物預覽（可轉向），選單可關掉頭盔外觀。</p>
+            <p class="why">人物預覽一開始用獨立的 PixiJS 畫布，反覆開關背包後瀏覽器丟掉了遊戲畫面的 WebGL 環境（畫面變黑），改成由遊戲畫面的 Renderer 直接畫在預留區域。</p>
           </div>
         </div>
       </div>

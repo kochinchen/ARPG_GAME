@@ -152,6 +152,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     // 賭博：比直接買一件魔法物品便宜一點，但可能拿到普通或稀有。
     // 史詩 / 傳奇只有一般怪物掉落的一半（0.3% / 0.05%，也沒有深層的 tierBonus）：可以用金幣一直賭，不能比打寶好拿
     gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 59.65, rare: 25, epic: 0.3, legendary: 0.05 } },
+    // 重鑄：第 20 層的黃裝第一次約 1,300、第二次約 1,900；紅裝約 5,000 起；強屬性 ×1.5；每重鑄一次再貴 50%
+    reroll: { base: 200, perItemLevel: 25, rarity: { normal: 1, magic: 0.8, rare: 1.8, epic: 2.8, legendary: 4.5, mythic: 7 }, strong: 1.5, perReroll: 0.5 },
     // 飛昇：越高階、越稀有越貴（紅裝升到第 8 階約 1 萬金幣）
     ascend: {
       base: 60,
@@ -180,5 +182,13 @@ export const balance: z.input<typeof BalanceSchema> = {
     maxResist: 0.75,
     maxDodge: 0.5,
     maxControlResist: 0.75,
+    // 盾牌格擋：最多 50% 的攻擊被格擋，格擋時傷害 -60%
+    maxBlock: 0.5,
+    blockReduction: 0.6,
+  },
+  // 洗點：Lv10 約 950 / 630、Lv30 約 4,900 / 3,300、Lv50 約 10,600 / 7,100 金幣
+  respec: {
+    skills: { base: 30, exponent: 1.5 },
+    attributes: { base: 20, exponent: 1.5 },
   },
 };

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { IdSchema, ModifierKindSchema, StatIdSchema } from './common';
 
-export const EquipSlotSchema = z.enum(['weapon', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet']);
+export const EquipSlotSchema = z.enum(['weapon', 'shield', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet']);
 export type EquipSlot = z.infer<typeof EquipSlotSchema>;
 
 /**

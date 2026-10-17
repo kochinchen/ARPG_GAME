@@ -2,8 +2,14 @@
 import { gameBridge } from '../bridge/GameBridge';
 import type { CharacterView } from '../bridge/CharacterView';
 
-defineProps<{ view: CharacterView }>();
+const props = defineProps<{ view: CharacterView }>();
 const emit = defineEmits<{ close: [] }>();
+
+/** 洗點：重置屬性點（確認後送出） */
+function respec(e: MouseEvent) {
+  (e.currentTarget as HTMLElement).blur();
+  if (window.confirm(`花 ${props.view.respec.cost} 金幣重置屬性點？所有屬性點會退回，可以重新分配。`)) gameBridge.send({ type: 'Respec', kind: 'attributes' });
+}
 
 /** 點一下 +1；按住 Shift 一次 +5 */
 function add(e: MouseEvent, attribute: string) {
@@ -35,7 +41,16 @@ function add(e: MouseEvent, attribute: string) {
         </div>
         <button type="button" class="add" :disabled="!a.canAdd" :title="`加 1 點（Shift：加 5 點）`" @click="add($event, a.id)">+</button>
       </div>
-      <p class="hint">每升一級得到 {{ view.pointsPerLevel }} 點。分配後無法退回。Shift + 點擊一次加 5 點。</p>
+      <p class="hint">每升一級得到 {{ view.pointsPerLevel }} 點。Shift + 點擊一次加 5 點。</p>
+      <button
+        type="button"
+        class="respec"
+        :disabled="!view.respec.available || !view.respec.affordable"
+        :title="view.respec.affordable ? '所有屬性點退回，可以重新分配' : '金幣不足'"
+        @click="respec"
+      >
+        重置屬性點 ● {{ view.respec.cost }}
+      </button>
     </section>
 
     <section class="attack">
@@ -208,5 +223,19 @@ h4 {
 .group .stat.zero,
 .group .stat.zero .value {
   color: #6a5e4e;
+}
+.respec {
+  margin-top: 6px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #e8c47a;
+  cursor: pointer;
+  background: #2a2016;
+  border: 1px solid #8a6a3a;
+}
+.respec:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 </style>

@@ -13,6 +13,7 @@ import {
   BLOOD_STEEL,
   BONE,
   BRONZE,
+  EMBER,
   DARK_STEEL,
   GOLD,
   ICE,
@@ -25,6 +26,7 @@ import {
   STEEL,
   STORM,
   VOID,
+  WOOD,
   type Tones,
 } from '../weapons/WeaponParts';
 import {
@@ -37,22 +39,25 @@ import {
   HIDE,
   HIDE_DARK,
   placeHelmet,
+  placeShield,
+  shieldMeshes,
   shoulderPiece,
   tassetPiece,
   waistPiece,
   type ArmorSpec,
   type BootSpec,
   type HelmetSpec,
+  type ShieldSpec,
 } from './ArmorPieces';
 import { hasRunes, itemThemes, RARITY_TINT, themeColors, THEMES, tintTones, type GearTheme } from './GearTheme';
 
 /**
- * 穿在主角身上的頭盔、盔甲、靴子：8 階基底造型 + 詞綴主題（染色、符文、翅膀、尖刺、厚重）+ 橘 / 紅專屬點綴。
+ * 穿在主角身上的頭盔、盔甲、靴子、盾牌：8 階基底造型 + 詞綴主題（染色、符文、翅膀、尖刺、厚重）+ 橘 / 紅專屬點綴。
  * 只在渲染層使用；外觀完全由裝備資料推導，不需要存檔。手套太小，不換外觀。
  */
 
-export type ArmorSlot = 'helmet' | 'armor' | 'boots';
-type Spec = { helmet: HelmetSpec; armor: ArmorSpec; boots: BootSpec };
+export type ArmorSlot = 'helmet' | 'armor' | 'boots' | 'shield';
+type Spec = { helmet: HelmetSpec; armor: ArmorSpec; boots: BootSpec; shield: ShieldSpec };
 
 const HELMETS: HelmetSpec[] = [
   { mat: HIDE, trim: HIDE_DARK, style: 'cap', height: 0.85 },
@@ -87,7 +92,18 @@ const BOOTS: BootSpec[] = [
   { mat: ABYSS, toe: VOID, shin: ABYSS, knee: VOID, spikes: 3, spikeColors: VOID, gem: 0xc070ff },
 ];
 
-const BASES: { [K in ArmorSlot]: Spec[K][] } = { helmet: HELMETS, armor: ARMORS, boots: BOOTS };
+const SHIELDS: ShieldSpec[] = [
+  { shape: 'round', size: 0.85, mat: WOOD, rim: IRON, boss: IRON },
+  { shape: 'round', size: 0.95, mat: IRON, rim: DARK_STEEL, boss: STEEL },
+  { shape: 'kite', size: 0.9, mat: STEEL, rim: GOLD, cross: GOLD },
+  { shape: 'tower', size: 0.9, mat: SILVER, rim: SILVER, gem: 0x4aa8ff, runes: 0x6fc8ff },
+  { shape: 'heater', size: 1, mat: BLACK_STEEL, rim: DARK_STEEL, spikes: 5 },
+  { shape: 'round', size: 1, mat: BLOOD_STEEL, rim: BONE, boss: BONE, rays: BONE, gem: 0xd02030 },
+  { shape: 'round', size: 1.05, mat: ANCIENT, rim: GOLD, boss: GOLD, rays: GOLD, gem: 0xffb040 },
+  { shape: 'kite', size: 1.05, mat: ABYSS, rim: VOID, rays: VOID, gem: 0xc070ff, spikes: 3, spikeColors: VOID },
+];
+
+const BASES: { [K in ArmorSlot]: Spec[K][] } = { helmet: HELMETS, armor: ARMORS, boots: BOOTS, shield: SHIELDS };
 
 /** 橘 / 紅防具：基底階級、主題與專屬點綴（染色較淡，保留專屬配色） */
 /** extra：覆寫該部位造型參數的欄位（頭盔 / 盔甲 / 靴子各自的欄位；null = 拿掉基底的零件） */
@@ -107,6 +123,12 @@ const UNIQUES: Record<string, { tier: number; themes: GearTheme[]; extra: Record
   'legendary.ice_walker': { tier: 4, themes: ['cold', 'speed'], extra: { mat: ICE } },
   'mythic.realm_walker': { tier: 8, themes: ['speed', 'arcane'], extra: {} },
   'mythic.phantom_step': { tier: 6, themes: ['speed', 'crit'], extra: { mat: SHADOW, toe: SHADOW } },
+  'legendary.bastion': { tier: 5, themes: ['guard', 'vital'], extra: { shape: 'tower', mat: STEEL, rim: GOLD, cross: GOLD, spikes: null } },
+  'legendary.flame_ward': { tier: 4, themes: ['fire'], extra: { shape: 'heater', mat: BRONZE, rim: DARK_STEEL, rays: EMBER } },
+  'legendary.frost_aegis': { tier: 4, themes: ['cold'], extra: { shape: 'round', mat: ICE, rim: SILVER, rays: ICE } },
+  'mythic.world_wall': { tier: 7, themes: ['guard'], extra: { shape: 'tower', size: 1.15, mat: STAR, rim: GOLD, cross: GOLD, rays: null, boss: null } },
+  'mythic.thunder_bulwark': { tier: 7, themes: ['lightning', 'crit'], extra: { shape: 'heater', mat: STORM, rim: SILVER, rays: STORM, boss: null } },
+  'mythic.mirror_of_ruin': { tier: 8, themes: ['thorns'], extra: { shape: 'round', mat: BLACK_STEEL, rim: VOID, face: SILVER, rays: null, gem: 0xff4060 } },
 };
 
 /** 有專屬外觀的橘 / 紅防具 ID（測試用） */
@@ -127,10 +149,11 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
   if (main) {
     const color = THEMES[main].color;
     const k = RARITY_TINT[rarity] * BODY_TINT * tintScale;
-    const keys = slot === 'helmet' ? ['mat'] : slot === 'armor' ? ['mat', 'pauldronMat'] : ['mat', 'shin'];
+    const keys = slot === 'armor' ? ['mat', 'pauldronMat'] : slot === 'boots' ? ['mat', 'shin'] : ['mat'];
     for (const key of keys) if (spec[key]) spec[key] = tintTones(spec[key] as Tones, color, k);
     spec.gem = accent ?? color;
     if (slot === 'armor') spec.emblem = color;
+    if (slot === 'shield') spec.gem = color;
     if (hasRunes(rarity)) spec.runes = color;
     else delete spec.runes;
   }
@@ -145,6 +168,10 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
         spec.pauldron = Math.max(1, (spec.pauldron as number) + 0.4);
         spec.tassets = true;
       }
+      if (slot === 'shield') {
+        spec.size = (spec.size as number) * 1.12;
+        spec.boss ??= spec.rim as Tones;
+      }
       if (slot === 'boots') {
         spec.shin ??= spec.mat as Tones;
         spec.knee ??= spec.mat as Tones;
@@ -153,6 +180,7 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
     }
     if (th === 'speed') {
       if (slot === 'helmet' || slot === 'boots') spec.wings = wing;
+      if (slot === 'shield') spec.size = (spec.size as number) * 0.9;
       if (slot === 'armor') {
         spec.pauldron = Math.max(0, (spec.pauldron as number) - 0.4);
         spec.tassets = false;
@@ -160,7 +188,7 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
     }
     if (th === 'thorns') {
       if (slot === 'armor') spec.spikes = true;
-      else spec.spikes = Math.max((spec.spikes as number | undefined) ?? 0, 4);
+      else spec.spikes = Math.max((spec.spikes as number | undefined) ?? 0, slot === 'shield' ? 5 : 4);
       spec.spikeColors ??= DARK_STEEL;
     }
   }
@@ -178,9 +206,11 @@ export function specForItem<K extends ArmorSlot>(slot: K, item: ItemInstance, da
 /** 主角身上被換掉的關節網格（沒穿的部位保留原本的皮甲、長靴與頭髮） */
 export type OutfitParts = ReadonlyMap<Joint, Mesh[]>;
 
-export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; boots?: BootSpec }): OutfitParts {
+export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; boots?: BootSpec; shield?: ShieldSpec }): OutfitParts {
   const parts = new Map<Joint, Mesh[]>();
-  const { helmet, armor, boots } = specs;
+  const { helmet, armor, boots, shield } = specs;
+  // 盾牌拿在左手（只會和劍、斧一起裝備；弓也在左手，但兩者不會同時出現）
+  if (shield) parts.set('weaponL', placeShield(shieldMeshes(shield)));
   if (helmet) {
     // 全罩頭盔蓋住臉與頭髮；帽子與開放式露出臉（頭髮收進頭盔，馬尾從後方垂下）
     const hat = placeHelmet(helmetMeshes(helmet));
@@ -206,16 +236,22 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; b
 
 const cache = new Map<string, OutfitParts>();
 
-/** 身上的頭盔、盔甲、靴子 → 換掉的網格（同一組裝備重複使用；換裝時才重建） */
-export function outfitFor(equipped: (slot: EquipmentSlot) => ItemInstance | undefined, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): OutfitParts {
-  const items = { helmet: equipped('helmet'), armor: equipped('armor'), boots: equipped('boots') };
-  const key = `${items.helmet?.uid ?? '-'}|${items.armor?.uid ?? '-'}|${items.boots?.uid ?? '-'}`;
+/** 身上的頭盔、盔甲、靴子、盾牌 → 換掉的網格（同一組裝備重複使用；換裝時才重建） */
+export function outfitFor(
+  equipped: (slot: EquipmentSlot) => ItemInstance | undefined,
+  data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>,
+  /** 關掉時不畫頭盔（屬性照常生效） */
+  showHelmet = true,
+): OutfitParts {
+  const items = { helmet: showHelmet ? equipped('helmet') : undefined, armor: equipped('armor'), boots: equipped('boots'), shield: equipped('shield') };
+  const key = `${items.helmet?.uid ?? '-'}|${items.armor?.uid ?? '-'}|${items.boots?.uid ?? '-'}|${items.shield?.uid ?? '-'}`;
   let parts = cache.get(key);
   if (!parts) {
     parts = heroineOutfit({
       ...(items.helmet ? { helmet: specForItem('helmet', items.helmet, data) } : {}),
       ...(items.armor ? { armor: specForItem('armor', items.armor, data) } : {}),
       ...(items.boots ? { boots: specForItem('boots', items.boots, data) } : {}),
+      ...(items.shield ? { shield: specForItem('shield', items.shield, data) } : {}),
     });
     if (cache.size > 32) cache.clear();
     cache.set(key, parts);

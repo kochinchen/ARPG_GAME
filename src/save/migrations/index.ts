@@ -152,8 +152,11 @@ const v10ToV11: Migration = (v10) => {
   return { ...v10, floor: { ...floor, bossGateActive: false, midwayFloors: floor.midwayActive && floor.current ? [floor.current] : [] } };
 };
 
+/** v11 → v12：新增盾牌欄位與重鑄次數，兩者都是選填（舊存檔沒有盾牌、沒有重鑄過），內容不需要轉換 */
+const v11ToV12: Migration = (v11) => v11;
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12];
 
 export class MigrationError extends Error {}
 

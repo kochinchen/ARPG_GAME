@@ -32,7 +32,7 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
   });
 
   it('8 階造型各不相同', () => {
-    for (const slot of ['helmet', 'armor', 'boots'] as const) {
+    for (const slot of ['helmet', 'armor', 'boots', 'shield'] as const) {
       const looks = [1, 2, 3, 4, 5, 6, 7, 8].map((tier) => JSON.stringify(armorSpec(slot, tier, 'normal', [])));
       expect(new Set(looks).size, slot).toBe(8);
     }
@@ -64,8 +64,10 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
     expect(specForItem('boots', item('boots.leather', 'rare', ['affix.thorned']), data).spikes).toBeGreaterThanOrEqual(4);
   });
 
-  it('每一件橘 / 紅頭盔、盔甲、靴子都有專屬外觀', () => {
-    const ids = data.legendaries.all.filter((d) => ['helmet', 'armor', 'boots'].includes(d.kind)).map((d) => d.id);
+  it('盾牌拿在左手；每一件橘 / 紅頭盔、盔甲、靴子、盾牌都有專屬外觀', () => {
+    const parts = outfitFor(equip({ weapon: item('weapon.short_sword', 'normal'), shield: item('shield.kite', 'normal') }), data);
+    expect([...parts.keys()]).toEqual(['weaponL']);
+    const ids = data.legendaries.all.filter((d) => ['helmet', 'armor', 'boots', 'shield'].includes(d.kind)).map((d) => d.id);
     expect([...UNIQUE_ARMOR_IDS].sort()).toEqual(ids.sort());
   });
 });

@@ -1,7 +1,7 @@
 import { distance, type Vec2 } from '../../core/math/Vec2';
 import type { Rng } from '../../core/Rng';
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { ItemBaseDef, MaterialId } from '../../data/schema/item';
+import { RARITIES, type ItemBaseDef, type MaterialId, type Rarity } from '../../data/schema/item';
 import type { LegendaryKind } from '../../data/schema/legendary';
 import type { Materials } from '../player/Materials';
 import type { Actor } from '../entities/Actor';
@@ -11,6 +11,7 @@ import type { Inventory, InventoryEntry } from './Inventory';
 import type { ItemCursor } from './ItemCursor';
 import { ItemGenerator } from './ItemGenerator';
 import type { ItemInstance } from './ItemInstance';
+import { epicTheme } from './ItemNamer';
 import { buyPrice, gamblePrice, sellPrice } from './Pricing';
 
 type ShopData = Pick<DataRegistry, 'balance' | 'items' | 'affixes' | 'legendaries' | 'potions'>;
@@ -34,6 +35,15 @@ export interface AscendInfo {
   /** 需要的材料（精華、碎片） */
   materials: Partial<Record<MaterialId, number>>;
   reason: 'jewelry' | 'maxTier' | null;
+}
+
+/** 重鑄的一行：一般詞綴（affix）或傳奇 / 神話的固定屬性（legendary）；locked = 不能重鑄（紫裝決定名稱的強屬性） */
+export interface RerollLine {
+  index: number;
+  kind: 'affix' | 'legendary';
+  strong: boolean;
+  locked: boolean;
+  price: number;
 }
 
 /**
@@ -146,18 +156,55 @@ export class ShopSystem {
     return true;
   }
 
-  /** 賣出背包裡所有普通（白色）裝備 */
-  sellNormals(): boolean {
+  /** 賣出背包裡所有稀有度不高於 maxRarity 的裝備（白 / 白＋藍 / 白＋藍＋黃） */
+  sellUpTo(maxRarity: Rarity): boolean {
     if (!this.canTrade()) return false;
+    const max = RARITIES.indexOf(maxRarity);
     let gold = 0;
     this.ctx.inventory.cells.forEach((entry, cell) => {
-      if (entry?.kind !== 'item' || entry.item.rarity !== 'normal') return;
+      if (entry?.kind !== 'item' || RARITIES.indexOf(entry.item.rarity) > max) return;
       this.ctx.inventory.take(cell);
       gold += sellPrice(entry, this.data);
     });
     if (gold === 0) return false;
     this.ctx.wallet.add(gold);
     this.events.emit('ShopTransaction', { kind: 'sell', gold });
+    return true;
+  }
+
+  /** 重鑄預覽：每一行可以重鑄的詞綴與價格（橘 / 紅的特殊效果不能重鑄，只有固定屬性行可以重擲數值） */
+  rerollLines(item: ItemInstance): RerollLine[] {
+    const r = this.data.balance.shop.reroll;
+    const price = (strong: boolean) =>
+      Math.round((r.base + r.perItemLevel * item.itemLevel) * r.rarity[item.rarity] * (strong ? r.strong : 1) * (1 + r.perReroll * (item.rerolls ?? 0)));
+    if (item.legendaryId && this.data.legendaries.has(item.legendaryId)) {
+      const stats = this.data.legendaries.get(item.legendaryId).lines.filter((l) => l.type === 'stat');
+      return stats.map((l, index) => ({ index, kind: 'legendary', strong: l.type === 'stat' && l.strong, locked: false, price: price(l.type === 'stat' && l.strong) }));
+    }
+    const base = this.data.items.get(item.baseId);
+    // 紫裝：名稱決定的那一條強屬性不能重鑄（名字會對不上）
+    const nameAffix = item.rarity === 'epic' ? epicTheme(item.uid, base)[1] : null;
+    return item.affixes.map((a, index) => {
+      const strong = this.data.affixes.has(a.id) && this.data.affixes.get(a.id).kind === 'strong';
+      return { index, kind: 'affix', strong, locked: a.id === nameAffix, price: price(strong) };
+    });
+  }
+
+  /** 重鑄飛昇格裡裝備的第 index 行：付金幣，詞綴重抽（橘 / 紅重擲固定屬性的數值），重鑄次數 +1 */
+  reroll(index: number): boolean {
+    if (!this.canTrade()) return false;
+    const current = this.ascendSlot;
+    const line = current ? this.rerollLines(current).find((l) => l.index === index) : undefined;
+    if (!current || !line || line.locked) {
+      this.fail('cannotReroll');
+      return false;
+    }
+    if (!this.pay(line.price)) return false;
+    const gen = this.ctx.generator;
+    const rerolled = line.kind === 'legendary' ? gen.rerollLegendaryLine(current, index) : gen.rerollAffix(current, index);
+    this.ascendSlot = { ...rerolled, rerolls: (current.rerolls ?? 0) + 1 };
+    this._version++;
+    this.events.emit('ShopTransaction', { kind: 'reroll', gold: -line.price, rarity: current.rarity });
     return true;
   }
 

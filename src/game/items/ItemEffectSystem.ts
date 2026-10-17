@@ -102,6 +102,11 @@ export class ItemEffectSystem {
     events.on('AttackDodged', (e) => {
       if (e.targetId === player.id) this.fire('dodge', { skillId: null, combo: null, target: null, amount: 0 });
     });
+    events.on('AttackBlocked', (e) => {
+      if (e.targetId !== player.id) return;
+      const attacker = e.sourceId === null ? null : (targeting.getActor(e.sourceId) ?? null);
+      this.fire('block', { skillId: null, combo: null, target: attacker, amount: e.prevented });
+    });
     events.on('SkillCast', (e) => {
       if (e.actorId !== player.id) return;
       const target = e.targetId === null ? null : (targeting.getActor(e.targetId) ?? null);
@@ -223,7 +228,7 @@ export class ItemEffectSystem {
     const p = this.player;
     if (!p.alive) return false;
     // 需要技能的事件：依技能條件判斷；受傷 / 閃避 / 發現 Combo 沒有技能
-    const needsSkill = on !== 'hurt' && on !== 'dodge' && on !== 'comboDiscovered';
+    const needsSkill = on !== 'hurt' && on !== 'dodge' && on !== 'block' && on !== 'comboDiscovered';
     if (needsSkill && !this.matches(m.when, e.skillId, e.combo)) return false;
     if (m.near !== undefined && (!e.target || distance(e.target.position, p.position) > m.near + e.target.radius + p.radius)) return false;
     if (m.targetStatus && !e.target?.hasStatus(m.targetStatus)) return false;

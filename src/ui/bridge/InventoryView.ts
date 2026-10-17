@@ -54,6 +54,7 @@ export interface InventoryView {
 
 export const EQUIPMENT_LABELS: Record<EquipmentSlot, string> = {
   weapon: '武器',
+  shield: '盾牌',
   helmet: '頭盔',
   armor: '盔甲',
   gloves: '手套',
@@ -69,6 +70,7 @@ const GLYPHS: Record<string, string> = {
   axe: '斧',
   bow: '弓',
   staff: '杖',
+  shield: '盾',
   helmet: '盔',
   armor: '甲',
   gloves: '手',

@@ -30,7 +30,7 @@ describe('傳奇 / 神話效果的條件都能成立', () => {
         if (line.type !== 'effect') continue;
         for (const m of line.mechanics) {
           if (m.type === 'conditional') continue;
-          if (m.type === 'trigger' && (m.on === 'hurt' || m.on === 'dodge' || m.on === 'comboDiscovered')) continue;
+          if (m.type === 'trigger' && (m.on === 'hurt' || m.on === 'dodge' || m.on === 'block' || m.on === 'comboDiscovered')) continue;
           expect(matchesSome(m.when), `${line.text}`).toBe(true);
           if (m.type === 'trigger')
             for (const a of m.actions) if (a.type === 'arm') expect(matchesSome(a.when), `${line.text}（預備）`).toBe(true);

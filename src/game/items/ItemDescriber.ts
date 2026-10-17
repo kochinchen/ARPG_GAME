@@ -51,6 +51,7 @@ export const STAT_LABELS: Record<StatId, string> = {
   poisonResist: '毒素抗性',
   physicalResist: '物理減傷',
   dodgeChance: '閃避',
+  blockChance: '格擋率',
   thorns: '荊棘傷害',
   potionEffect: '藥水效果',
   fireDamagePct: '附加火焰傷害',
@@ -85,6 +86,7 @@ const PERCENT_STATS: ReadonlySet<StatId> = new Set([
   'poisonResist',
   'physicalResist',
   'dodgeChance',
+  'blockChance',
   'slowResist',
   'knockbackResist',
   'stunResist',
@@ -105,6 +107,7 @@ const PERCENT_STATS: ReadonlySet<StatId> = new Set([
 
 export const SLOT_LABELS: Record<EquipSlot, string> = {
   weapon: '武器',
+  shield: '盾牌',
   helmet: '頭盔',
   armor: '盔甲',
   gloves: '手套',
@@ -175,6 +178,11 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
     legendary,
     lines: [...baseLines, ...(mainLine ? [mainLine] : []), ...(legendary ? legendary.lines.map((l) => l.text) : [...strongLines, ...affixLines])],
   };
+}
+
+/** 每一條詞綴（傳奇 / 神話為每一條固定屬性）的說明文字，順序與 item.affixes / legendaryRolls 相同 */
+export function affixLineTexts(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): string[] {
+  return itemStats(item, data).affixes.map(({ def, value }) => `${formatValue(def.stat, def.modifier, value, true)} ${STAT_LABELS[def.stat]}`);
 }
 
 export function formatValue(stat: StatId, kind: ModifierKind, value: number, signed: boolean): string {

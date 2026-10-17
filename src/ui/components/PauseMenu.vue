@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import type { GameView } from '../bridge/GameViewStore';
 import { systemBridge } from '../bridge/SystemBridge';
 import { audioBridge, volume, type VolumeState } from '../bridge/AudioBridge';
+import { display, displayBridge } from '../bridge/DisplayBridge';
 import Dialog from './Dialog.vue';
 
 defineProps<{ save: GameView['save']; devAvailable: boolean; devEnabled: boolean }>();
@@ -93,6 +94,9 @@ const CONTROLS: [string, string][] = [
         <span class="volume-value">{{ Math.round(volume[key] * 100) }}</span>
       </div>
       <label class="check"><input type="checkbox" :checked="volume.muted" @change="audioBridge.set({ muted: !volume.muted })" /> 靜音</label>
+
+      <h3>畫面</h3>
+      <label class="check"><input type="checkbox" :checked="display.showHelmet" @change="displayBridge.set({ showHelmet: !display.showHelmet })" /> 顯示頭盔</label>
 
       <h3>存檔（欄位 {{ save.slot }}）</h3>
       <p class="save-status">

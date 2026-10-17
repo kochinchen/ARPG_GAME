@@ -1,5 +1,5 @@
 import type { DataRegistry } from '../data/DataRegistry';
-import { slotsForBase } from '../game/items/Equipment';
+import { shieldAllowed, slotsForBase } from '../game/items/Equipment';
 import { xpToNext } from '../game/progression/ExperienceSystem';
 import { mapIdForFloor } from '../game/world/FloorManager';
 import type { SaveData, SavedEntry, SavedItem } from './schema';
@@ -163,6 +163,13 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
       continue;
     }
     save.equipment[key] = item;
+  }
+  // 盾牌只能和劍、斧一起裝備
+  const shield = save.equipment.shield;
+  if (shield && !shieldAllowed(save.equipment.weapon ? data.items.get(save.equipment.weapon.baseId).weaponType : undefined)) {
+    notes.push(`「${data.items.get(shield.baseId).name}」只能和劍、斧一起裝備，已放回背包`);
+    delete save.equipment.shield;
+    overflow.push({ kind: 'item', item: shield });
   }
 
   // overflow 優先放回背包空格

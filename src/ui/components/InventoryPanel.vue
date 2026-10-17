@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
 import type { EquipmentSlot, HoverTarget, InventoryView } from '../bridge/InventoryView';
+import HeroPreview from './HeroPreview.vue';
 import ItemCell from './ItemCell.vue';
 
 const props = defineProps<{ view: InventoryView; gold: number; shopOpen?: boolean }>();
@@ -43,6 +44,7 @@ const LAYOUT: { slot: EquipmentSlot; area: string }[] = [
   { slot: 'helmet', area: 'helmet' },
   { slot: 'amulet', area: 'amulet' },
   { slot: 'weapon', area: 'weapon' },
+  { slot: 'shield', area: 'shield' },
   { slot: 'armor', area: 'armor' },
   { slot: 'gloves', area: 'gloves' },
   { slot: 'ring1', area: 'ring1' },
@@ -54,6 +56,7 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
 </script>
 
 <template>
+  <HeroPreview />
   <aside class="panel" @pointerdown.stop @contextmenu.prevent @pointerleave="emit('hover', null)">
     <header>
       <span>角色 · 背包</span>
@@ -198,7 +201,7 @@ section {
   gap: 6px;
   grid-template-areas:
     '.      helmet helmet amulet'
-    'weapon armor  armor  .'
+    'weapon armor  armor  shield'
     'gloves ring1  ring2  boots';
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-rows: 42px 56px 40px;

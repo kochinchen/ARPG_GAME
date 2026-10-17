@@ -18,12 +18,15 @@ export interface ItemInstance {
   legendaryId?: string;
   /** 傳奇 / 神話：固定屬性行的擲骰結果（依 LegendaryDef 中 stat 行的順序，已含階級成長） */
   legendaryRolls?: number[];
+  /** 在商人那裡重鑄詞綴的次數（越多次越貴） */
+  rerolls?: number;
 }
 
-export type EquipmentSlot = 'weapon' | 'helmet' | 'armor' | 'gloves' | 'boots' | 'ring1' | 'ring2' | 'amulet';
+export type EquipmentSlot = 'weapon' | 'shield' | 'helmet' | 'armor' | 'gloves' | 'boots' | 'ring1' | 'ring2' | 'amulet';
 
 export const EQUIPMENT_SLOTS: readonly EquipmentSlot[] = [
   'weapon',
+  'shield',
   'helmet',
   'armor',
   'gloves',

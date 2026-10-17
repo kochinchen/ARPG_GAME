@@ -100,6 +100,8 @@ export interface GameEvents {
   MaterialPickedUp: { materialId: MaterialId; count: number; position: Vec2 };
   /** 攻擊被閃避 */
   AttackDodged: { targetId: ActorId; position: Vec2 };
+  /** 攻擊被盾牌格擋（prevented = 擋下的傷害） */
+  AttackBlocked: { targetId: ActorId; sourceId: ActorId | null; prevented: number; position: Vec2 };
   /** Boss 進入下一個階段（phase 從 1 開始） */
   BossPhaseChanged: { actorId: ActorId; name: string; phase: number; label: string };
   /** 進入某一層（含第一次進入遊戲） */
@@ -129,7 +131,8 @@ export interface GameEvents {
   ItemEquipped: { uid: string; slot: EquipmentSlot };
   ItemUnequipped: { uid: string; slot: EquipmentSlot };
   /** 手上的物品不能穿在這個欄位，或等級不足 */
-  EquipFailed: { slot: EquipmentSlot; reason: 'wrongSlot' | 'level' };
+  /** shield = 盾牌只能搭配劍、斧（拿弓 / 法杖時不能裝盾，或盾牌放不回背包） */
+  EquipFailed: { slot: EquipmentSlot; reason: 'wrongSlot' | 'level' | 'shield' };
   XpGained: { amount: number };
   PlayerLeveledUp: { level: number };
   SkillLearned: { skillId: string; rank: number };
@@ -141,8 +144,11 @@ export interface GameEvents {
   /** 點了商人（UI 開啟商店） */
   ShopOpened: Record<string, never>;
   /** 商店交易：gold 為金幣變化（買 / 賭博為負） */
-  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend'; gold: number; rarity?: Rarity };
-  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' };
+  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll'; gold: number; rarity?: Rarity };
+  /** 洗點完成（gold = 花費）或失敗（金幣不足、沒有點數可以重置） */
+  Respec: { kind: 'skills' | 'attributes'; gold: number };
+  RespecFailed: { kind: 'skills' | 'attributes'; reason: 'gold' | 'nothing' };
+  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }

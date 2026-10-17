@@ -3,7 +3,7 @@ import { MATERIAL_LABELS, RARITIES, RARITY_LABELS, WEAPON_TYPE_LABELS, type Equi
 import { LegendaryKindSchema, type LegendaryKind } from '../../data/schema/legendary';
 import { baseIsKind } from '../../game/items/ItemGenerator';
 import type { GameWorld } from '../../game/GameWorld';
-import { SLOT_LABELS } from '../../game/items/ItemDescriber';
+import { affixLineTexts, SLOT_LABELS } from '../../game/items/ItemDescriber';
 import type { ItemInstance } from '../../game/items/ItemInstance';
 import { itemStats } from '../../game/items/ItemStats';
 import { buyPrice, sellPrice } from '../../game/items/Pricing';
@@ -48,8 +48,15 @@ export interface ShopView {
     canAscend: boolean;
     note: string;
   } | null;
-  /** 背包裡普通（白色）裝備的件數與總價 */
-  normals: { count: number; gold: number };
+  /** 一鍵賣出：白 / 白＋藍 / 白＋藍＋黃 的件數與總價 */
+  sellTiers: { rarity: 'normal' | 'magic' | 'rare'; label: string; count: number; gold: number }[];
+  /** 重鑄：飛昇格裡裝備的每一行詞綴（沒放裝備時為 null） */
+  reroll: {
+    lines: { index: number; text: string; strong: boolean; locked: boolean; price: number; affordable: boolean }[];
+    /** 已重鑄的次數（每次都會更貴） */
+    rerolls: number;
+    note: string;
+  } | null;
   gold: number;
 }
 
@@ -65,13 +72,15 @@ export function emptyShopView(): ShopView {
     heldSellPrice: null,
     ascendSlot: null,
     ascend: null,
-    normals: { count: 0, gold: 0 },
+    sellTiers: [],
+    reroll: null,
     gold: 0,
   };
 }
 
 const GLYPHS: Record<EquipSlot, string> = {
   weapon: '劍',
+  shield: '盾',
   helmet: '盔',
   armor: '甲',
   gloves: '手',
@@ -110,7 +119,6 @@ export function shopSignature(world: GameWorld): string {
 export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
   const shop = world.shop;
   const gold = world.wallet.gold;
-  const normals = world.inventory.cells.filter((c) => c?.kind === 'item' && c.item.rarity === 'normal');
   const held = world.cursor.entry;
   return {
     near: shop.isNear(),
@@ -135,12 +143,34 @@ export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
     heldSellPrice: held ? sellPrice(held, data) : null,
     ascendSlot: shop.ascendSlot ? itemEntryView(shop.ascendSlot, data) : null,
     ascend: shop.ascendSlot ? ascendView(world, data, shop.ascendSlot, gold) : null,
-    normals: {
-      count: normals.length,
-      gold: normals.reduce((sum, c) => sum + (c ? sellPrice(c, data) : 0), 0),
-    },
+    sellTiers: SELL_TIERS.map(({ rarity, label }) => {
+      const max = RARITIES.indexOf(rarity);
+      const cells = world.inventory.cells.filter((c) => c?.kind === 'item' && RARITIES.indexOf(c.item.rarity) <= max);
+      return { rarity, label, count: cells.length, gold: cells.reduce((sum, c) => sum + (c ? sellPrice(c, data) : 0), 0) };
+    }),
+    reroll: shop.ascendSlot ? rerollView(world, data, shop.ascendSlot, gold) : null,
     gold,
   };
+}
+
+const SELL_TIERS: { rarity: 'normal' | 'magic' | 'rare'; label: string }[] = [
+  { rarity: 'normal', label: '白色' },
+  { rarity: 'magic', label: '白＋藍' },
+  { rarity: 'rare', label: '白＋藍＋黃' },
+];
+
+/** 重鑄預覽：每一行的文字、價格、能不能重鑄 */
+function rerollView(world: GameWorld, data: DataRegistry, item: ItemInstance, gold: number): ShopView['reroll'] {
+  const texts = affixLineTexts(item, data);
+  const legendary = item.legendaryId !== undefined;
+  const lines = world.shop.rerollLines(item).map((l) => ({ index: l.index, text: texts[l.index] ?? '', strong: l.strong, locked: l.locked, price: l.price, affordable: gold >= l.price }));
+  const note =
+    lines.length === 0
+      ? '這件裝備沒有詞綴可以重鑄'
+      : legendary
+        ? '橘 / 紅裝備的特殊效果固定，只能在設計範圍內重擲固定屬性的數值'
+        : '重抽一條詞綴（同一類：一般 / 強屬性），可能抽到同一條只換數值；其他詞綴不變';
+  return { lines, rerolls: item.rerolls ?? 0, note };
 }
 
 /** 飛昇預覽：基底名稱與基礎攻防（已含主倍率）的前後比較 */

@@ -19,6 +19,8 @@ export interface CharacterView {
   level: number;
   unspent: number;
   pointsPerLevel: number;
+  /** 洗點：重置屬性點的金幣（available = 有分配過的點數） */
+  respec: { cost: number; affordable: boolean; available: boolean };
   attributes: AttributeRowView[];
   /** 實際攻擊力：每一擊的傷害範圍（已套用所有加成，技能倍率 100% 時） */
   attack: { label: string; value: string }[];
@@ -29,12 +31,12 @@ export interface CharacterView {
 }
 
 export function emptyCharacterView(): CharacterView {
-  return { level: 1, unspent: 0, pointsPerLevel: 0, attributes: [], attack: [], stats: [], groups: [] };
+  return { level: 1, unspent: 0, pointsPerLevel: 0, respec: { cost: 0, affordable: false, available: false }, attributes: [], attack: [], stats: [], groups: [] };
 }
 
 /** 屬性點、等級、裝備、Support 改變時才重建 */
 export function characterSignature(world: GameWorld): string {
-  return `${world.progress.version}|${world.itemsVersion}|${world.loadout.supports.join(',')}`;
+  return `${world.progress.version}|${world.itemsVersion}|${world.loadout.supports.join(',')}|${world.wallet.gold}`;
 }
 
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
@@ -61,6 +63,10 @@ export function buildCharacterView(world: GameWorld, data: DataRegistry): Charac
     level: world.progress.level,
     unspent: world.progress.attributePoints,
     pointsPerLevel: data.balance.attributes.pointsPerLevel,
+    respec: (() => {
+      const cost = world.respecCost('attributes');
+      return { cost, affordable: world.wallet.gold >= cost, available: [...world.progress.attributes.values()].some((p) => p > 0) };
+    })(),
     attributes: attrs.defs.map((def) => {
       const points = attrs.points(def.id);
       return {

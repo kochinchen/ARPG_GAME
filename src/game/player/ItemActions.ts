@@ -44,12 +44,22 @@ export class ItemActions {
       return;
     }
     if (held.kind !== 'item' || !this.equipment.canEquip(held.item, slot)) {
-      this.events.emit('EquipFailed', { slot, reason: 'wrongSlot' });
+      const shield = held.kind === 'item' && slot === 'shield' && this.equipment.slotsFor(held.item).includes('shield');
+      this.events.emit('EquipFailed', { slot, reason: shield ? 'shield' : 'wrongSlot' });
       return;
     }
     if (!this.meetsLevel(held.item.baseId)) {
       this.events.emit('EquipFailed', { slot, reason: 'level' });
       return;
+    }
+    // 換成弓 / 法杖：盾牌放回背包（背包滿了就不換）
+    if (this.equipment.conflictsWithShield(held.item)) {
+      const shield = this.equipment.get('shield')!;
+      if (!this.inventory.addItem(shield)) {
+        this.events.emit('EquipFailed', { slot, reason: 'shield' });
+        return;
+      }
+      this.equipment.unequip('shield');
     }
     this.cursor.take();
     const replaced = this.equipment.equipTo(slot, held.item);

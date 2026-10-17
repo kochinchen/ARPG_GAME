@@ -125,7 +125,9 @@ export class PlayerController {
       case 'ShopBuyPotion':
       case 'ShopSell':
       case 'ShopSellHeld':
-      case 'ShopSellNormals':
+      case 'Respec':
+      case 'ShopSellUpTo':
+      case 'ShopReroll':
       case 'ShopGamble':
       case 'ShopAscendSlotClick':
       case 'ShopAscend':

@@ -2,7 +2,7 @@ import type { DataRegistry } from '../../data/DataRegistry';
 import type { StatId } from '../../data/schema/common';
 import type { Actor } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
-import type { EquipSlot } from '../../data/schema/item';
+import type { EquipSlot, WeaponType } from '../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from './ItemInstance';
 import { itemStats } from './ItemStats';
 
@@ -33,7 +33,21 @@ export class Equipment {
   }
 
   canEquip(item: ItemInstance, slot: EquipmentSlot): boolean {
-    return this.slotsFor(item).includes(slot);
+    if (!this.slotsFor(item).includes(slot)) return false;
+    // 盾牌只能和劍、斧一起裝備
+    return slot !== 'shield' || shieldAllowed(this.weaponType());
+  }
+
+  /** 換上這把武器時，身上的盾牌必須卸下（弓、法杖要用雙手） */
+  conflictsWithShield(item: ItemInstance): boolean {
+    const base = this.data.items.get(item.baseId);
+    return base.slot === 'weapon' && this.slots.has('shield') && !shieldAllowed(base.weaponType);
+  }
+
+  /** 目前武器的種類（空手 = undefined） */
+  weaponType(): WeaponType | undefined {
+    const weapon = this.slots.get('weapon');
+    return weapon ? this.data.items.get(weapon.baseId).weaponType : undefined;
   }
 
   /** 物品會放進哪一格：戒指優先放空的那一格 */
@@ -91,6 +105,11 @@ export class Equipment {
 }
 
 const sourceOf = (item: ItemInstance) => `item:${item.uid}`;
+
+/** 盾牌：只能和劍、斧一起裝備（近戰的好處） */
+export function shieldAllowed(weapon: WeaponType | undefined): boolean {
+  return weapon === 'sword' || weapon === 'axe';
+}
 
 export function slotsForBase(slot: EquipSlot): EquipmentSlot[] {
   return slot === 'ring' ? ['ring1', 'ring2'] : [slot];

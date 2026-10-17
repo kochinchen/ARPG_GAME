@@ -56,6 +56,8 @@ export type GameCommand =
   | { type: 'AllocateAttribute'; attribute: string; count: number }
   /** 背包「整理」：依裝備類別、物品等級（高到低）排列，藥水合併放最後 */
   | { type: 'SortInventory' }
+  /** 洗點：花金幣重置技能點 / 屬性點（費用隨等級提高） */
+  | { type: 'Respec'; kind: 'skills' | 'attributes' }
   /** 商人：購買第 index 件販賣物品 */
   | { type: 'ShopBuy'; index: number }
   /** 商人：購買藥水 */
@@ -65,7 +67,7 @@ export type GameCommand =
   /** 商人：賣出手上拿著的物品 */
   | { type: 'ShopSellHeld' }
   /** 商人：賣出背包裡所有普通（白色）物品 */
-  | { type: 'ShopSellNormals' }
+  | { type: 'ShopSellUpTo'; rarity: 'normal' | 'magic' | 'rare' }
   /** 商人：賭博，指定裝備種類（劍 / 斧 / 弓 / 法杖、防具與飾品部位） */
   | { type: 'ShopGamble'; kind: LegendaryKind }
   /** 拆解區：點格子（放下 / 互換 / 拿起） */
@@ -76,6 +78,8 @@ export type GameCommand =
   | { type: 'ShopAscendSlotClick' }
   /** 商人：飛昇飛昇格裡的裝備（基底升一階，結果留在飛昇格） */
   | { type: 'ShopAscend' }
+  /** 商人：重鑄飛昇格裡裝備的第 index 行詞綴 */
+  | { type: 'ShopReroll'; index: number }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 確認進入極限挑戰（第 31 層，之後回不到 1～30 層） */

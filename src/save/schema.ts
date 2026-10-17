@@ -13,10 +13,11 @@ import { SkillCategorySchema } from '../data/schema/skill';
  * v8：材料（materials）與拆解區（salvage）；地上的材料（飛昇碎片）。
  * v10：終局紀錄（endgame：已通關、已完成隱藏難關）。
  * v11：魔王門前的存檔點（floor.bossGateActive）、到過中途存檔點的樓層（floor.midwayFloors）。
+ * v12：盾牌欄位（equipment.shield）、裝備的重鑄次數（rerolls）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -33,6 +34,8 @@ export const ItemInstanceSchema = z.object({
   legendaryId: z.string().optional(),
   /** 傳奇 / 神話固定屬性的擲骰（v6） */
   legendaryRolls: z.array(finite).optional(),
+  /** 重鑄次數（v12） */
+  rerolls: nonNegInt.optional(),
 });
 
 export const SavedEntrySchema = z.discriminatedUnion('kind', [
@@ -49,7 +52,7 @@ const GroundContentSchema = z.discriminatedUnion('kind', [
 const skillSlot = z.string().nullable();
 const comboSlots = z.tuple([skillSlot, skillSlot, skillSlot]);
 
-export const EquipmentSlotSchema = z.enum(['weapon', 'helmet', 'armor', 'gloves', 'boots', 'ring1', 'ring2', 'amulet']);
+export const EquipmentSlotSchema = z.enum(['weapon', 'shield', 'helmet', 'armor', 'gloves', 'boots', 'ring1', 'ring2', 'amulet']);
 
 export const SaveDataSchema = z.object({
   meta: z.object({

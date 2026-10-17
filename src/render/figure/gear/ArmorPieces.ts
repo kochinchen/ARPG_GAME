@@ -1,5 +1,5 @@
 import { facetize, loft, tone, type Ring } from '../Facets';
-import { box, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
+import { box, lowSphere, orient, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
 import { BLACK_STEEL, chain, gem, taper, type Tones } from '../weapons/WeaponParts';
 
 /**
@@ -228,6 +228,89 @@ export function bootFootPiece(s: BootSpec): Mesh[] {
     t(box(3.5, 0.7, 7.6, SOLE[0]!, [0, -2.55, 1.4]), SOLE),
   ];
 }
+
+// ─────────────────────────── 盾牌 ───────────────────────────
+
+export interface ShieldSpec {
+  /** round = 圓盾、kite = 鳶盾（上寬下尖）、tower = 塔盾、heater = 騎士盾 */
+  shape: 'round' | 'kite' | 'tower' | 'heater';
+  size: number;
+  mat: Tones;
+  rim: Tones;
+  boss?: Tones;
+  /** 正面的十字紋章 */
+  cross?: Tones;
+  /** 盾緣的放射尖刺（日輪、深淵牙） */
+  rays?: Tones;
+  gem?: number | null;
+  runes?: number;
+  spikes?: number;
+  spikeColors?: Tones;
+  /** 鏡面（正面一層亮色） */
+  face?: Tones;
+}
+
+/** 盾面的輪廓（Y = 高、Z = 寬；盾面朝 +X） */
+function shieldOutline(shape: ShieldSpec['shape'], k: number): [number, number][] {
+  const scaled = (pts: [number, number][]) => pts.map(([y, z]) => [y * k, z * k] as [number, number]);
+  const ring = (n: number, ry: number, rz: number) => Array.from({ length: n }, (_, i) => [Math.cos((i / n) * Math.PI * 2) * ry, Math.sin((i / n) * Math.PI * 2) * rz] as [number, number]);
+  switch (shape) {
+    case 'round':
+      return ring(16, 3.4 * k, 3.4 * k);
+    case 'kite':
+      return scaled([[4.4, 0], [4, 2.5], [2.4, 3.2], [-0.5, 2.8], [-3.4, 1.4], [-5.6, 0], [-3.4, -1.4], [-0.5, -2.8], [2.4, -3.2], [4, -2.5]]);
+    case 'tower':
+      return scaled([[5, 2.2], [4.4, 3], [-4.4, 3], [-5, 2.2], [-5, -2.2], [-4.4, -3], [4.4, -3], [5, -2.2]]);
+    case 'heater':
+      return scaled([[3.8, 3.2], [-0.4, 3.1], [-2.8, 2.2], [-4.6, 0], [-2.8, -2.2], [-0.4, -3.1], [3.8, -3.2]]);
+  }
+}
+
+/** 輪廓擠出成盾牌（正面略為隆起） */
+function slab(outline: [number, number][], x0: number, x1: number, bulge: number, color: number): Mesh {
+  const n = outline.length;
+  const verts: V3[] = [...outline.map(([y, z]) => [x0, y, z] as V3), ...outline.map(([y, z]) => [x1, y, z] as V3), [x1 + bulge, 0, 0]];
+  const faces: Mesh['faces'] = [{ idx: Array.from({ length: n }, (_, i) => i), color }];
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    faces.push({ idx: [i, j, n + j, n + i], color });
+    faces.push({ idx: [n + i, n + j, 2 * n], color });
+  }
+  return orient({ verts, faces });
+}
+
+/** 盾牌（盾面朝 +X，原點 = 握把）；尖刺從盾面往外 */
+export function shieldMeshes(s: ShieldSpec): Mesh[] {
+  const outline = shieldOutline(s.shape, s.size);
+  const out: Mesh[] = [];
+  out.push(F(t(slab(outline.map(([y, z]) => [y * 1.07, z * 1.07]), -0.1, 0.45, 0, s.rim[0]!), s.rim, 1), 1, 0.06));
+  out.push(F(t(slab(outline, 0.3, 0.75, 0.6 * s.size, s.mat[0]!), s.mat, 2), 2, 0.08));
+  if (s.face) out.push(t(slab(outline.map(([y, z]) => [y * 0.78, z * 0.78]), 0.7, 0.95, 0.45 * s.size, s.face[0]!), s.face, 3));
+  const front = 1.35 + 0.6 * s.size;
+  if (s.cross) {
+    out.push(F(t(box(0.35, 6 * s.size, 0.9, s.cross[0]!, [front - 0.3, 0.3 * s.size, 0]), s.cross, 4), 4, 0.1));
+    out.push(F(t(box(0.35, 0.9, 4.4 * s.size, s.cross[0]!, [front - 0.3, 1.4 * s.size, 0]), s.cross, 5), 5, 0.1));
+  }
+  if (s.boss) out.push(F(t(lowSphere(1.1 * s.size, s.boss[0]!, [front - 0.2, 0, 0], 8, 5, [0.6, 1, 1]), s.boss, 6), 6, 0.08));
+  if (s.rays) {
+    const r = s.shape === 'round' ? 3.4 * s.size : 3 * s.size;
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      out.push(taper([0.3, Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95], [0.3, Math.cos(a) * r * 1.35, Math.sin(a) * r * 1.35], [0.4, 0.5], [0.05, 0.05], s.rays, 4, i, 0.3));
+    }
+  }
+  for (let i = 0; i < (s.spikes ?? 0); i++) {
+    const a = (i / Math.max(1, s.spikes!)) * Math.PI * 2 + 0.4;
+    const p: V3 = [front - 0.4, i === 0 ? 0 : Math.cos(a) * 1.9 * s.size, i === 0 ? 0 : Math.sin(a) * 1.9 * s.size];
+    out.push(spike(p, [1, 0, 0], 1.6 * s.size, 0.5, s.spikeColors ?? BLACK_STEEL, i));
+  }
+  if (s.gem) out.push(gem(0.8 * s.size, [front + 0.1, s.boss ? 2 * s.size : 0, 0], s.gem));
+  if (s.runes) for (const [y, z] of [[-2.2, 1.6], [-2.2, -1.6], [2.4, 1.8], [2.4, -1.8]] as [number, number][]) out.push(glowBox(0.5, 0.6, 0.6, s.runes, [front - 0.5, y * s.size, z * s.size]));
+  return out;
+}
+
+/** 盾牌拿在左手（weaponL 關節）：盾面朝外側偏前、在前臂旁 */
+export const placeShield = (meshes: Mesh[]): Mesh[] => scaleMeshes(meshes, 1.9, [0, 0, 0]).map((m) => placeMesh(m, [0, -1, 0], [2, 4.6, 1.3]));
 
 export function scaleMeshes(meshes: readonly Mesh[], s: number, [ox, oy, oz]: V3): Mesh[] {
   return meshes.map((m) => ({ ...m, verts: m.verts.map(([x, y, z]) => [x * s + ox, y * s + oy, z * s + oz] as V3) }));

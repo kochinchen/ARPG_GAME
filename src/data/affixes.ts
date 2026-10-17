@@ -1,7 +1,8 @@
 import type { z } from 'zod';
 import type { AffixDefSchema } from './schema/item';
 
-const ARMOR = ['helmet', 'armor', 'gloves', 'boots'] as const;
+/** 防具（含盾牌） */
+const ARMOR = ['helmet', 'armor', 'gloves', 'boots', 'shield'] as const;
 const JEWELRY = ['ring', 'amulet'] as const;
 /** 防具與飾品（抗性、藥水效果） */
 const DEFENSIVE = [...ARMOR, ...JEWELRY] as const;
@@ -38,8 +39,9 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'affix.vital', name: '活力的', kind: 'item', stat: 'maxHp', value: [5, 15], minItemLevel: 1, weight: 8, growth: FLAT },
   { id: 'affix.mind', name: '睿智的', kind: 'item', stat: 'maxMana', value: [5, 12], minItemLevel: 1, weight: 8, growth: FLAT },
   { id: 'affix.flow', name: '湧泉的', kind: 'item', stat: 'manaRegen', value: [0.5, 1.5], minItemLevel: 1, weight: 6, growth: 0.3, slots: [...JEWELRY] },
-  { id: 'affix.warded', name: '守護的', kind: 'item', stat: 'damageReduction', value: [0.02, 0.05], minItemLevel: 6, weight: 4, growth: PERCENT, slots: ['armor', 'helmet', 'amulet'] },
+  { id: 'affix.warded', name: '守護的', kind: 'item', stat: 'damageReduction', value: [0.02, 0.05], minItemLevel: 6, weight: 4, growth: PERCENT, slots: ['armor', 'helmet', 'amulet', 'shield'] },
   { id: 'affix.regen', name: '再生的', kind: 'item', stat: 'hpRegenPct', value: [0.003, 0.006], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['armor', 'helmet', ...JEWELRY] },
+  { id: 'affix.guarding', name: '格擋的', kind: 'item', stat: 'blockChance', value: [0.03, 0.06], minItemLevel: 1, weight: 8, growth: PERCENT, slots: ['shield'] },
   { id: 'affix.nimble', name: '靈巧的', kind: 'item', stat: 'dodgeChance', value: [0.02, 0.05], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['armor', 'gloves', 'boots'] },
   { id: 'affix.thorned', name: '荊棘的', kind: 'item', stat: 'thorns', value: [2, 6], minItemLevel: 1, weight: 5, growth: 0.6, slots: [...ARMOR] },
   { id: 'affix.alchemy', name: '煉金的', kind: 'item', stat: 'potionEffect', value: [0.08, 0.2], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['armor', 'boots', ...JEWELRY] },
@@ -50,8 +52,8 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
 
   // ── 控制抗性（上限 balance.combat.maxControlResist）──
   { id: 'affix.unhindered', name: '自在的', kind: 'item', stat: 'slowResist', value: [0.08, 0.2], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['boots', 'gloves', 'amulet'] },
-  { id: 'affix.steadfast', name: '穩健的', kind: 'item', stat: 'knockbackResist', value: [0.1, 0.25], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['armor', 'boots', 'ring'] },
-  { id: 'affix.lucid', name: '清醒的', kind: 'item', stat: 'stunResist', value: [0.08, 0.2], minItemLevel: 6, weight: 5, growth: PERCENT, slots: ['helmet', 'armor', 'amulet'] },
+  { id: 'affix.steadfast', name: '穩健的', kind: 'item', stat: 'knockbackResist', value: [0.1, 0.25], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['armor', 'boots', 'ring', 'shield'] },
+  { id: 'affix.lucid', name: '清醒的', kind: 'item', stat: 'stunResist', value: [0.08, 0.2], minItemLevel: 6, weight: 5, growth: PERCENT, slots: ['helmet', 'armor', 'amulet', 'shield'] },
 
   // ── 移動 ──
   { id: 'affix.swift', name: '迅捷的', kind: 'item', stat: 'moveSpeed', modifier: 'increased', value: [0.05, 0.1], minItemLevel: 1, weight: 6, growth: PERCENT, slots: ['boots'] },
@@ -72,12 +74,13 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'strong.poison', name: '劇毒', kind: 'strong', stat: 'poisonDamagePct', value: [0.16, 0.22], minItemLevel: 1, weight: 4, growth: BONUS, slots: ['weapon', 'gloves', ...JEWELRY] },
   { id: 'strong.bloodthirst', name: '嗜血', kind: 'strong', stat: 'lifeSteal', value: [0.035, 0.05], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['weapon', 'gloves', 'ring'] },
   // 防禦
-  { id: 'strong.bulwark', name: '堅壁', kind: 'strong', stat: 'damageReduction', value: [0.05, 0.07], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['armor', 'helmet', 'boots', 'amulet'] },
-  { id: 'strong.giant', name: '巨人', kind: 'strong', stat: 'maxHp', modifier: 'increased', value: [0.22, 0.28], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['armor', 'helmet', 'boots', ...JEWELRY] },
+  { id: 'strong.bulwark', name: '堅壁', kind: 'strong', stat: 'damageReduction', value: [0.05, 0.07], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['armor', 'helmet', 'boots', 'amulet', 'shield'] },
+  { id: 'strong.giant', name: '巨人', kind: 'strong', stat: 'maxHp', modifier: 'increased', value: [0.22, 0.28], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['armor', 'helmet', 'boots', ...JEWELRY, 'shield'] },
   { id: 'strong.fortress', name: '要塞', kind: 'strong', stat: 'defense', modifier: 'increased', value: [0.2, 0.26], minItemLevel: 1, weight: 5, growth: PERCENT, slots: [...ARMOR] },
   { id: 'strong.undying', name: '不朽', kind: 'strong', stat: 'hpRegenPct', value: [0.008, 0.012], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['armor', 'helmet', 'amulet'] },
+  { id: 'strong.aegis', name: '神盾', kind: 'strong', stat: 'blockChance', value: [0.08, 0.12], minItemLevel: 1, weight: 6, growth: PERCENT, slots: ['shield'] },
   { id: 'strong.phantom', name: '幻影', kind: 'strong', stat: 'dodgeChance', value: [0.07, 0.1], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['armor', 'gloves', 'boots'] },
-  { id: 'strong.ashen', name: '灰燼', kind: 'strong', stat: 'fireResist', value: [0.2, 0.28], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['armor', 'helmet', 'boots'] },
+  { id: 'strong.ashen', name: '灰燼', kind: 'strong', stat: 'fireResist', value: [0.2, 0.28], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['armor', 'helmet', 'boots', 'shield'] },
   // 資源與移動
   { id: 'strong.efficiency', name: '節能', kind: 'strong', stat: 'manaCostReduction', value: [0.12, 0.16], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['weapon', 'helmet', ...JEWELRY] },
   { id: 'strong.soul_drain', name: '汲魂', kind: 'strong', stat: 'manaSteal', value: [0.03, 0.04], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['weapon', 'ring'] },
@@ -85,6 +88,6 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'strong.windwalk', name: '疾行', kind: 'strong', stat: 'moveSpeed', modifier: 'increased', value: [0.12, 0.16], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['boots'] },
   // 控制抗性：一條強屬性約等於兩條一般詞綴；T5 紫裝約 45%～65%（上限 75%）
   { id: 'strong.unbound', name: '無羈', kind: 'strong', stat: 'slowResist', value: [0.25, 0.35], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['boots', 'amulet'] },
-  { id: 'strong.bedrock', name: '山岳', kind: 'strong', stat: 'knockbackResist', value: [0.3, 0.4], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['armor', 'boots'] },
+  { id: 'strong.bedrock', name: '山岳', kind: 'strong', stat: 'knockbackResist', value: [0.3, 0.4], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['armor', 'boots', 'shield'] },
   { id: 'strong.clarity', name: '明心', kind: 'strong', stat: 'stunResist', value: [0.25, 0.35], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['helmet', 'amulet'] },
 ];

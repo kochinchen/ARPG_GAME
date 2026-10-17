@@ -47,6 +47,20 @@ const armors = (slot: 'helmet' | 'armor' | 'gloves' | 'boots', rows: [string, st
     aliases: (aliases ?? []).map((a) => `${slot}.${a}`),
   }));
 
+/**
+ * 盾牌：只能和劍、斧一起裝備（近戰的好處）。基礎防禦約為盔甲的 6 成，另有固定的格擋率
+ * （格擋時傷害 -60%，上限見 balance.combat）。[ID, 名稱, 防禦, 格擋率]
+ */
+const shields = (rows: [string, string, number, number][]): BaseInput[] =>
+  rows.map(([id, name, defense, blockChance], i) => ({
+    id: `shield.${id}`,
+    name,
+    slot: 'shield',
+    tier: i + 1,
+    levelReq: TIER_LEVELS[i]!,
+    baseStats: { defense, blockChance },
+  }));
+
 /** 飾品：沒有基礎屬性，階級越高名稱越好（詞綴依物品等級） */
 const jewelry = (slot: 'ring' | 'amulet', rows: [string, string, number][]): BaseInput[] => rows.map(([id, name, levelReq]) => ({ id: `${slot}.${id}`, name, slot, levelReq }));
 
@@ -95,6 +109,16 @@ export const items: BaseInput[] = [
     ['elemental_staff', '血紋元素杖', 13, 22, { spellPower: 29 }],
     ['ancient_staff', '古代賢者杖', 17, 28, { spellPower: 37 }],
     ['abyss_staff', '深淵虛空杖', 22, 35, { spellPower: 47 }],
+  ]),
+  ...shields([
+    ['wood', '木盾', 5, 0.08],
+    ['iron', '鐵製圓盾', 8, 0.1],
+    ['kite', '騎士鳶盾', 12, 0.12],
+    ['rune', '符文塔盾', 17, 0.14],
+    ['blacksteel', '黑鋼刺盾', 24, 0.16],
+    ['bone', '血紋骨盾', 33, 0.18],
+    ['ancient', '古代日輪盾', 45, 0.2],
+    ['abyss', '深淵魔顎盾', 62, 0.22],
   ]),
   ...armors('helmet', [
     ['cap', '皮帽', 3],

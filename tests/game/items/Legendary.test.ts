@@ -19,7 +19,7 @@ import { createWorld, createWorldWithMap, run } from '../helpers';
 
 /** 傳奇（橘）/ 神話（紅）：固定設計與特殊效果 */
 const data = DataRegistry.load(gameData);
-const KINDS = ['sword', 'axe', 'bow', 'staff', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
+const KINDS = ['sword', 'axe', 'bow', 'staff', 'shield', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
 const ONLY = (rarity: 'legendary' | 'mythic') => ({ normal: 0, magic: 0, rare: 0, epic: 0, legendary: 0, mythic: 0, [rarity]: 1 });
 
 /** 讓玩家穿上一件指定的傳奇 / 神話 */
@@ -42,13 +42,13 @@ function damageLog(world: GameWorld, target: Actor) {
 }
 
 describe('傳奇 / 神話的設計', () => {
-  it('橘 30 件、紅 20 件；每種裝備橘 3、紅 2', () => {
+  it('橘 33 件、紅 23 件；每種裝備橘 3、紅 2，盾牌橘 3、紅 3', () => {
     const all = data.legendaries.all;
-    expect(all.filter((d) => d.rarity === 'legendary')).toHaveLength(30);
-    expect(all.filter((d) => d.rarity === 'mythic')).toHaveLength(20);
+    expect(all.filter((d) => d.rarity === 'legendary')).toHaveLength(33);
+    expect(all.filter((d) => d.rarity === 'mythic')).toHaveLength(23);
     for (const kind of KINDS) {
       expect(all.filter((d) => d.kind === kind && d.rarity === 'legendary'), kind).toHaveLength(3);
-      expect(all.filter((d) => d.kind === kind && d.rarity === 'mythic'), kind).toHaveLength(2);
+      expect(all.filter((d) => d.kind === kind && d.rarity === 'mythic'), kind).toHaveLength(kind === 'shield' ? 3 : 2);
     }
     expect(new Set(all.map((d) => d.name)).size).toBe(all.length);
   });

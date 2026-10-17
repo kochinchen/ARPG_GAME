@@ -74,6 +74,8 @@ export interface SkillTreeView {
   skillPoints: number;
   t4Charges: number;
   mastery: boolean;
+  /** 洗點：重置技能點的金幣（available = 有學過技能或開通過 T4） */
+  respec: { cost: number; affordable: boolean; available: boolean };
   categories: CategoryView[];
   left: SlotView | null;
   combos: ComboView[];
@@ -82,13 +84,13 @@ export interface SkillTreeView {
 }
 
 export function emptySkillTreeView(): SkillTreeView {
-  return { level: 1, skillPoints: 0, t4Charges: 0, mastery: false, categories: [], left: null, combos: [], supports: [], codex: [] };
+  return { level: 1, skillPoints: 0, t4Charges: 0, mastery: false, respec: { cost: 0, affordable: false, available: false }, categories: [], left: null, combos: [], supports: [], codex: [] };
 }
 
 /** 版本簽章：成長狀態或按鍵配置改變時才重建 */
 export function skillTreeSignature(world: GameWorld): string {
   const l = world.loadout;
-  return `${world.progress.version}|${world.codex.version}|${l.left}|${l.combos.map((c) => c.join(',')).join('/')}|${l.supports.join(',')}|${l.activeCombo}`;
+  return `${world.progress.version}|${world.codex.version}|${l.left}|${l.combos.map((c) => c.join(',')).join('/')}|${l.supports.join(',')}|${l.activeCombo}|${world.wallet.gold}`;
 }
 
 export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillTreeView {
@@ -149,6 +151,10 @@ export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillT
     skillPoints: world.progress.skillPoints,
     t4Charges: world.progress.t4Charges,
     mastery: tree.mastery,
+    respec: (() => {
+      const cost = world.respecCost('skills');
+      return { cost, affordable: world.wallet.gold >= cost, available: world.spentSkillPoints > 0 || world.progress.t4Unlocked.size > 0 };
+    })(),
     categories: SKILL_CATEGORIES.map((category) => {
       const unlock = tree.checkUnlock(category);
       return {

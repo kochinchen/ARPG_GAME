@@ -161,9 +161,16 @@ describe('商人', () => {
     world.inventory.place(60, { kind: 'item', item: n1 });
     world.inventory.place(61, { kind: 'item', item: n2 });
     world.inventory.place(62, { kind: 'item', item: g.create(base('boots'), 'magic', 2) });
-    send({ type: 'ShopSellNormals' });
+    send({ type: 'ShopSellUpTo', rarity: 'normal' });
     expect(world.wallet.gold).toBe(itemValue(n1, data) + itemValue(n2, data));
     expect(world.inventory.get(62)).not.toBeNull();
+    // 白＋藍：剩下的藍色也賣掉；黃色留著
+    world.inventory.place(63, { kind: 'item', item: g.create(base('boots'), 'rare', 2) });
+    send({ type: 'ShopSellUpTo', rarity: 'magic' });
+    expect(world.inventory.get(62)).toBeNull();
+    expect(world.inventory.get(63)).not.toBeNull();
+    send({ type: 'ShopSellUpTo', rarity: 'rare' });
+    expect(world.inventory.get(63)).toBeNull();
     expect(sellPrice({ kind: 'potion', potionId: 'potion.rejuvenation', count: 4 }, data)).toBe(4 * data.balance.shop.potionSellPrice);
   });
 
@@ -370,5 +377,70 @@ describe('拆解與材料', () => {
     SaveMapper.restore(fresh, repairSave(save, data));
     expect(fresh.materials.get('armorEssence')).toBe(7);
     expect(fresh.salvage.slots[2]?.uid).toBe('keep');
+  });
+});
+
+describe('詞綴重鑄', () => {
+  it('付金幣重抽一條詞綴：其他詞綴不變、重鑄次數 +1、下一次更貴；強屬性比較貴', () => {
+    const { world, send, approach } = setup(8);
+    approach();
+    world.wallet.gold = 1e6;
+    const item = world.itemGenerator.create(data.items.get('helmet.rune_helm'), 'epic', 20);
+    world.cursor.set({ kind: 'item', item });
+    send({ type: 'ShopAscendSlotClick' });
+    const lines = world.shop.rerollLines(item);
+    expect(lines).toHaveLength(item.affixes.length);
+    // 紫裝：名稱決定的那一條強屬性固定
+    expect(lines.filter((l) => l.locked)).toHaveLength(1);
+    const normal = lines.find((l) => !l.strong && !l.locked)!;
+    const r = data.balance.shop.reroll;
+    expect(normal.price).toBe(Math.round((r.base + r.perItemLevel * 20) * r.rarity.epic));
+    const strong = lines.find((l) => l.strong && !l.locked);
+    if (strong) expect(strong.price).toBeGreaterThan(normal.price);
+    const gold = world.wallet.gold;
+    send({ type: 'ShopReroll', index: normal.index });
+    const after = world.shop.ascendSlot!;
+    expect(world.wallet.gold).toBe(gold - normal.price);
+    expect(after.rerolls).toBe(1);
+    expect(after.affixes.filter((_, i) => i !== normal.index)).toEqual(item.affixes.filter((_, i) => i !== normal.index));
+    expect(new Set(after.affixes.map((a) => a.id)).size).toBe(after.affixes.length);
+    expect(world.shop.rerollLines(after).find((l) => l.index === normal.index)!.price).toBeGreaterThan(normal.price);
+    // 固定的那一條不能重鑄
+    const locked = lines.find((l) => l.locked)!;
+    send({ type: 'ShopReroll', index: locked.index });
+    expect(world.shop.ascendSlot!.rerolls).toBe(1);
+  });
+
+  it('橘 / 紅：特殊效果不能重鑄，只重擲固定屬性的數值（屬性種類不變、在設計範圍內）', () => {
+    const { world, send, approach } = setup(8);
+    approach();
+    world.wallet.gold = 1e6;
+    const def = data.legendaries.get('legendary.cold_moon');
+    const item = world.itemGenerator.createLegendary(def, 5);
+    world.cursor.set({ kind: 'item', item });
+    send({ type: 'ShopAscendSlotClick' });
+    const stats = def.lines.filter((l) => l.type === 'stat');
+    expect(world.shop.rerollLines(item)).toHaveLength(stats.length);
+    send({ type: 'ShopReroll', index: 0 });
+    const after = world.shop.ascendSlot!;
+    expect(after.legendaryId).toBe(def.id);
+    expect(after.legendaryRolls!.slice(1)).toEqual(item.legendaryRolls!.slice(1));
+    const line = stats[0]!;
+    if (line.type === 'stat') {
+      const grow = 1 + line.growth * 0;
+      expect(after.legendaryRolls![0]!).toBeGreaterThanOrEqual(line.value[0] * grow - 1e-6);
+      expect(after.legendaryRolls![0]!).toBeLessThanOrEqual(line.value[1] * grow + 1e-6);
+    }
+  });
+
+  it('金幣不足不能重鑄', () => {
+    const { world, send, approach } = setup(8);
+    approach();
+    world.wallet.gold = 0;
+    const item = world.itemGenerator.create(data.items.get('helmet.rune_helm'), 'rare', 20);
+    world.cursor.set({ kind: 'item', item });
+    send({ type: 'ShopAscendSlotClick' });
+    send({ type: 'ShopReroll', index: 0 });
+    expect(world.shop.ascendSlot).toEqual(item);
   });
 });

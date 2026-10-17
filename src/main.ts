@@ -43,6 +43,7 @@ import type { ISaveStorage } from './save/storage/ISaveStorage';
 import { AudioEngine } from './audio/AudioEngine';
 import { AudioDirector } from './audio/AudioDirector';
 import { audioBridge } from './ui/bridge/AudioBridge';
+import { displayBridge } from './ui/bridge/DisplayBridge';
 
 async function bootstrap(): Promise<void> {
   // 1. 資料驗證失敗就停止
@@ -123,6 +124,12 @@ async function bootstrap(): Promise<void> {
   const projection = new IsoProjection();
   const camera = new Camera(projection);
   const renderer = new Renderer(app, projection, world, camera, data);
+  displayBridge.connect((s) => (renderer.showHelmet = s.showHelmet));
+  // 預覽區是 UI 的畫面座標：換算成畫布座標
+  displayBridge.connectPreview((rect) => {
+    const canvas = app.canvas.getBoundingClientRect();
+    renderer.setPreview(rect && { ...rect, x: rect.x - canvas.left, y: rect.y - canvas.top });
+  });
   // 讀檔（含換層）之後才開始監聽，背景音樂依目前樓層
   const sound = new AudioDirector(audio, world, data, events);
   sound.playFloorMusic();

@@ -27,7 +27,7 @@ const RESIST: Record<Exclude<Element, 'physical'>, StatId> = {
 
 /**
  * 所有傷害的唯一入口。
- *   閃避 → 基礎傷害 → 傷害加成 → 標記 → 暴擊 → 防禦 + 物理減傷（物理）/ 抗性（元素）→ 減傷 → 防禦姿態 → 取整 → 扣血
+ *   閃避 → 基礎傷害 → 傷害加成 → 標記 → 暴擊 → 防禦 + 物理減傷（物理）/ 抗性（元素）→ 減傷 → 防禦姿態 → 格擋 → 取整 → 扣血
  *   → 吸血 / 吸魔 / 命中回魔 → 事件 → 反擊 / 荊棘
  * 死亡判定由 DeathSystem 在同一 Tick 稍後處理。
  */
@@ -73,6 +73,13 @@ export class DamagePipeline implements DamageDealer {
     if (!isDot) {
       const guard = this.statuses.consume(target, 'guard');
       if (guard) amount *= 1 - guard.magnitude;
+    }
+    // 格擋（盾牌）：持續傷害、反擊與荊棘不能格擋
+    const block = Math.min(this.balance.combat.maxBlock, target.stats.get('blockChance'));
+    if (!isDot && !request.noCounter && block > 0 && amount > 0 && this.rng.chance(block)) {
+      const prevented = amount * this.balance.combat.blockReduction;
+      amount -= prevented;
+      this.events.emit('AttackBlocked', { targetId: target.id, sourceId: source?.id ?? null, prevented: Math.round(prevented), position: target.position });
     }
 
     // 有傷害時至少 1 點

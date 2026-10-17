@@ -259,12 +259,13 @@ function toGroundContent(entry: SavedGroundItem['entry']): GroundContent {
 
 /** Schema 的 optional 欄位可能是 undefined；ItemInstance 不允許，沒有值時省略 */
 function toItem(saved: SavedItem): ItemInstance {
-  const { legendaryId, legendaryRolls, quality, ...rest } = clone(saved);
+  const { legendaryId, legendaryRolls, quality, rerolls, ...rest } = clone(saved);
   return {
     ...rest,
     ...(quality === undefined ? {} : { quality }),
     ...(legendaryId === undefined ? {} : { legendaryId }),
     ...(legendaryRolls === undefined ? {} : { legendaryRolls }),
+    ...(rerolls === undefined ? {} : { rerolls }),
   };
 }
 
