@@ -20,8 +20,8 @@ export class ProjectileEffect implements IEffect<'projectile'> {
       // 扇形：平均分布在 spread 內；環狀：360° 等分
       const offset = count === 1 ? 0 : ring ? (spread * i) / count : -spread / 2 + (spread * i) / (count - 1);
       const direction = rotate(base, offset);
-      // 從施放者身體邊緣發射
-      const start = add(ctx.origin, scale(direction, ctx.caster.radius));
+      // 從施放者（或分裂來源）身體邊緣發射
+      const start = add(ctx.origin, scale(direction, (ctx.spawnFrom ?? ctx.caster).radius));
       ctx.services.spawnProjectile({
         caster: ctx.caster,
         skill: ctx.skill,
@@ -33,7 +33,7 @@ export class ProjectileEffect implements IEffect<'projectile'> {
         radius: def.radius * (1 + mods.projectileSize),
         remaining: def.range,
         pierceLeft: def.pierce + mods.pierce,
-        hitIds: new Set(),
+        hitIds: new Set(ctx.spawnFrom ? [ctx.spawnFrom.id] : []),
         onHit: def.onHit,
         alive: true,
         mods,

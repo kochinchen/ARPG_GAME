@@ -85,7 +85,7 @@ writeFileSync(
     '<plist version="1.0"><dict>',
     '  <key>CFBundleExecutable</key><string>launch</string>',
     '  <key>CFBundleIdentifier</key><string>local.arpg.launcher</string>',
-    '  <key>CFBundleName</key><string>ARPG</string>',
+    '  <key>CFBundleName</key><string>Dungeon Adventure</string>',
     '  <key>CFBundlePackageType</key><string>APPL</string>',
     `  <key>CFBundleShortVersionString</key><string>${pkg.version}</string>`,
     '  <key>LSUIElement</key><true/>',
@@ -118,7 +118,7 @@ chmodSync(launcher, 0o755);
 writeFileSync(
   join(outDir, '說明.txt'),
   [
-    `ARPG ${version}（可攜版）`,
+    `地牢冒險 Dungeon Adventure ${version}（可攜版）`,
     '',
     '【開始遊戲】',
     '・Windows：雙擊「啟動遊戲（Windows）.bat」',

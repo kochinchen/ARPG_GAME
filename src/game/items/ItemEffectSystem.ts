@@ -245,6 +245,8 @@ export class ItemEffectSystem {
         const effects = action.hitFraction ? withFlatDamage(action.effects, e.amount * action.hitFraction) : action.effects;
         const skill = this.syntheticSkill(key, action.category);
         const ctx = this.executor.createContext(p, skill, 1, target && target.alive ? target : null, vec2(origin.x, origin.y), direction, NO_MODS);
+        // 在目標身上分裂的投射物：從目標邊緣飛出、不再打同一個目標
+        if (action.at === 'target' && target) ctx.spawnFrom = target;
         ctx.run(effects, ctx);
         break;
       }

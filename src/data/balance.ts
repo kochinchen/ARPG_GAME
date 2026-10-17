@@ -77,6 +77,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     maxDensityMultiplier: 1.4,
     // 前期怪物數量加成：第 1～5 層 +20%，之後逐層遞減，第 30 層起為 0（第 30 層以後的數量不變）
     earlyDensityBoost: { bonus: 0.2, fullUntil: 5, fadeTo: 30 },
+    // 怪物強化：一般怪 / 精英 HP ×1～8、魔王 HP ×1～20、攻擊 ×1～4、特殊技能範圍 ×1.5～3（第 1 → 35 層逐層提高）；經驗 ×0.7
+    monsterBoost: { toFloor: 35, hp: [1, 8], bossHp: [1, 20], damage: [1, 4], skillArea: [1.5, 3], xp: 0.7 },
   },
   floor: {
     // 樓梯口與出口：大於最遠的偵測距離（骷髏王 9），上下樓時附近一定沒有怪物

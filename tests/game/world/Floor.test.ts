@@ -42,16 +42,26 @@ describe('DifficultyScaler', () => {
   const d = data.balance.difficulty;
   it('第 1 層為基準；之後每層線性成長；密度有上限', () => {
     // 前期怪物數量加成：第 1～5 層 +20%，之後遞減，第 30 層起沒有加成
-    expect(scaleForFloor(1, d)).toEqual({ hp: 1, damage: 1, defense: 1, xp: 1, density: 1.2 });
+    // 怪物強化：第 1 層 HP / 攻擊與原本相同、技能範圍 ×1.5、經驗 ×0.7
+    expect(scaleForFloor(1, d)).toEqual({ hp: 1, bossHp: 1, damage: 1, skillArea: 1.5, defense: 1, xp: 0.7, density: 1.2 });
     expect(scaleForFloor(5, d).density).toBeCloseTo((1 + 4 * d.densityPerFloor) * 1.2);
     expect(scaleForFloor(30, d).density).toBe(d.maxDensityMultiplier);
     expect(scaleForFloor(20, d).density).toBeCloseTo(d.maxDensityMultiplier * (1 + 0.2 * (10 / 25)));
     const f10 = scaleForFloor(10, d);
-    expect(f10.hp).toBeCloseTo(1 + 9 * d.hpPerFloor);
-    expect(f10.damage).toBeCloseTo(1 + 9 * d.damagePerFloor);
-    expect(f10.xp).toBeCloseTo(1 + 9 * d.xpPerFloor);
+    const t10 = 9 / 34;
+    expect(f10.hp).toBeCloseTo((1 + 9 * d.hpPerFloor) * (1 + 7 * t10));
+    expect(f10.bossHp).toBeCloseTo((1 + 9 * d.hpPerFloor) * (1 + 19 * t10));
+    expect(f10.damage).toBeCloseTo((1 + 9 * d.damagePerFloor) * (1 + 3 * t10));
+    expect(f10.skillArea).toBeCloseTo(1.5 + 1.5 * t10);
+    expect(f10.xp).toBeCloseTo((1 + 9 * d.xpPerFloor) * 0.7);
+    // 第 35 層起強化到頂：HP ×8、魔王 ×20、攻擊 ×4、範圍 ×3
+    const f35 = scaleForFloor(35, d);
+    expect(f35.hp).toBeCloseTo((1 + 34 * d.hpPerFloor) * 8);
+    expect(f35.bossHp).toBeCloseTo((1 + 34 * d.hpPerFloor) * 20);
+    expect(f35.damage).toBeCloseTo((1 + 34 * d.damagePerFloor) * 4);
+    expect(f35.skillArea).toBeCloseTo(3);
     const f50 = scaleForFloor(50, d);
-    expect(f50.hp).toBeCloseTo(1 + 49 * d.hpPerFloor);
+    expect(f50.hp).toBeCloseTo((1 + 49 * d.hpPerFloor) * 8);
     expect(f50.density).toBe(d.maxDensityMultiplier);
   });
 });
@@ -190,7 +200,7 @@ describe('存檔點（M7）', () => {
     enemy.lastDamagedBy = world.player.id;
     enemy.hp = 0;
     run(world, 1 / 60);
-    expect(world.progress.xp).toBe(data.enemies.get(enemy.defId!).xp);
+    expect(world.progress.xp).toBe(Math.round(data.enemies.get(enemy.defId!).xp * 0.7));
 
     const deeper = floorWorld(11).world;
     const d = enemies(deeper)[0]!;

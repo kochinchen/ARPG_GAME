@@ -165,3 +165,23 @@ describe('樓層分布（minFloor）', () => {
     expect(() => DataRegistry.load({ ...gameData, floors })).toThrow(/沒有任何可生成的怪物/);
   });
 });
+
+describe('怪物強化：特殊技能範圍', () => {
+  it('特殊技能（重擊）的範圍 × skillArea；普通攻擊不變', () => {
+    const { world, events } = setup([at('enemy.armored_skeleton', 5.5, 4.5)]);
+    const brute = enemiesOf(world)[0]!;
+    // 自訂地圖沒有樓層倍率：直接設定（樓層上由 EnemyFactory 依 scaleForFloor 設定）
+    (brute as { skillArea: number }).skillArea = 2.5;
+    const radii = new Map<string, number>();
+    events.on('AreaTriggered', (e) => radii.set(e.skillId, e.radius));
+    const casts = new Set<string>();
+    events.on('SkillCast', (e) => {
+      if (e.actorId === brute.id) casts.add(e.skillId);
+    });
+    run(world, 8);
+    expect(casts).toContain('basic.attack');
+    expect(radii.get('enemy.brute_smash')).toBeCloseTo(2 * 2.5);
+    // 普通攻擊沒有範圍效果，也不會被放大
+    expect(radii.has('basic.attack')).toBe(false);
+  });
+});

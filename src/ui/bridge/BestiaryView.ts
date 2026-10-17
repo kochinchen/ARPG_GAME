@@ -106,7 +106,7 @@ export function buildBestiary(data: DataRegistry): BestiaryEntry[] {
 export function statsAtFloor(entry: BestiaryEntry, floor: number, data: DataRegistry): BestiaryStats {
   const s = scaleForFloor(floor, data.balance.difficulty);
   return {
-    hp: Math.round(entry.base.hp * s.hp),
+    hp: Math.round(entry.base.hp * (entry.boss ? s.bossHp : s.hp)),
     damage: [Math.round(entry.base.damage[0] * s.damage * 10) / 10, Math.round(entry.base.damage[1] * s.damage * 10) / 10],
     defense: Math.round(entry.base.defense * s.defense),
     xp: Math.round(entry.base.xp * s.xp),

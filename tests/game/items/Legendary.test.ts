@@ -15,7 +15,7 @@ import { describeItem } from '../../../src/game/items/ItemDescriber';
 import { ItemGenerator } from '../../../src/game/items/ItemGenerator';
 import { SaveMapper } from '../../../src/save/SaveMapper';
 import { repairSave } from '../../../src/save/SaveRepair';
-import { createWorld, run } from '../helpers';
+import { createWorld, createWorldWithMap, run } from '../helpers';
 
 /** 傳奇（橘）/ 神話（紅）：固定設計與特殊效果 */
 const data = DataRegistry.load(gameData);
@@ -259,19 +259,61 @@ describe('特殊效果', () => {
     expect(world.player.stats.get('damageReduction')).toBe(0);
   });
 
-  it('實戰：穿著焚星施放火球，火球命中後分裂成小火球（整合）', () => {
-    const { world, commands } = createWorld();
-    wear(world, 'legendary.star_burner');
+  /** 開闊房間：玩家在左、主目標在中間，旁邊放其他木樁接分裂出去的投射物 */
+  const OPEN_ROOM = ['############', '#..........#', '#S.........#', '#..........#', '#..........#', '############'];
+  function splitSetup(legendaryId: string, others: [number, number][]) {
+    const spawns = [[5.5, 2.5], ...others].map(([x, y]) => ({ enemyId: 'enemy.training_dummy', at: [x, y] as [number, number] }));
+    const { world, commands } = createWorldWithMap(OPEN_ROOM, spawns);
+    wear(world, legendaryId);
     world.player.mana = world.player.maxMana;
-    const target = dummy(world);
-    // 法杖主倍率放大法術強度後，火球會直接打倒 60 HP 的木樁；加厚才看得到分裂
-    target.stats.setBase('maxHp', 5000);
-    target.hp = 5000;
-    const log = damageLog(world, target);
+    world.player.stats.setBase('critChance', 0);
+    const dummies = world.actors.filter((a) => a.defId === 'enemy.training_dummy');
+    for (const d of dummies) {
+      d.stats.setBase('maxHp', 1e6);
+      d.hp = 1e6;
+    }
+    const [main, ...rest] = dummies;
+    return { world, commands, main: main!, rest };
+  }
+
+  it('實戰：焚星的火球命中後分裂成 3 顆小火球，飛向周圍的其他敵人（不會再打同一個目標）', () => {
+    const { world, commands, main, rest } = splitSetup('legendary.star_burner', [[8, 2.5]]);
+    const mainLog = damageLog(world, main);
+    const otherLog = damageLog(world, rest[0]!);
     world.loadout.left = 'magic.fireball';
-    commands.push({ type: 'PrimaryAction', worldPos: target.position, targetId: target.id, held: false }, { type: 'PrimaryRelease' });
-    run(world, 3);
-    // 火球本身 + 至少一顆小火球
-    expect(log.filter((l) => l.element === 'fire').length).toBeGreaterThanOrEqual(2);
+    commands.push({ type: 'PrimaryAction', worldPos: main.position, targetId: main.id, held: false }, { type: 'PrimaryRelease' });
+    run(world, 0.8);
+    // 主目標只吃到火球的爆炸；小火球從它身上飛出去打到後面的木樁
+    expect(mainLog.filter((l) => l.element === 'fire')).toHaveLength(1);
+    expect(otherLog.filter((l) => l.element === 'fire').length).toBe(1);
+  });
+
+  it('實戰：追風者的箭命中後分裂成左右兩支，打到兩側後方的敵人', () => {
+    const { world, commands, main, rest } = splitSetup('legendary.wind_chaser', [
+      [8.5, 1.1],
+      [8.5, 3.9],
+    ]);
+    const logs = rest.map((d) => damageLog(world, d));
+    const mainLog = damageLog(world, main);
+    world.loadout.left = 'ranged.quick_shot';
+    world.player.skillRanks.set('ranged.quick_shot', 1);
+    commands.push({ type: 'PrimaryAction', worldPos: main.position, targetId: main.id, held: false }, { type: 'PrimaryRelease' });
+    run(world, 0.8);
+    expect(mainLog.length).toBeGreaterThanOrEqual(1);
+    for (const log of logs) expect(log.length).toBe(1);
+  });
+
+  it('實戰：屠夫之頸 → 近戰擊殺疊「屠戮」，每層攻速 +8%', () => {
+    const { world } = createWorld();
+    wear(world, 'legendary.butcher');
+    const speed = world.player.stats.get('attackSpeed');
+    const target = dummy(world);
+    hit(world, target, 'melee.heavy_slash', 100, null, { killed: true });
+    hit(world, target, 'melee.heavy_slash', 100, null, { killed: true });
+    expect(world.itemEffects.activeBuffs).toEqual([expect.objectContaining({ id: 'butcher', stacks: 2 })]);
+    expect(world.player.stats.get('attackSpeed')).toBeCloseTo(speed * (1 + 0.16) / 1, 1);
+    // 遠程擊殺不疊
+    hit(world, target, 'ranged.quick_shot', 100, null, { killed: true });
+    expect(world.itemEffects.activeBuffs[0]!.stacks).toBe(2);
   });
 });

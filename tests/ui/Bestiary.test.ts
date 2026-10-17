@@ -75,6 +75,7 @@ describe('圖鑑內容', () => {
     const e = byId('enemy.skeleton');
     const f1 = statsAtFloor(e, 1, data);
     const f10 = statsAtFloor(e, 10, data);
+    // 第 1 層：怪物強化 HP ×1（與原本相同）
     expect(f1.hp).toBe(e.base.hp);
     expect(f10.hp).toBeGreaterThan(f1.hp);
     expect(f10.damage[1]).toBeGreaterThan(f1.damage[1]);

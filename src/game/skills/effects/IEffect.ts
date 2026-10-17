@@ -50,6 +50,11 @@ export interface EffectContext {
   services: EffectServices;
   /** Combo 加成（沒有 Combo 時為 NO_MODS） */
   mods: Readonly<StepMods>;
+  /**
+   * 效果從這個角色身上發出（裝備效果在被命中的敵人身上分裂）：
+   * 投射物從它的身體邊緣出發，而且不會再打到它。
+   */
+  spawnFrom?: Actor;
   /** 執行巢狀效果 */
   run: (effects: readonly EffectDef[], ctx: EffectContext) => void;
 }

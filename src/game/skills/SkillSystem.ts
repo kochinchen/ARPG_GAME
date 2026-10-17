@@ -13,6 +13,8 @@ import { combatCategory, type CombatCategory } from './skillCategory';
 import type { StatusEffectSystem } from '../combat/StatusEffectSystem';
 import type { StatusKind } from '../../data/schema/effects';
 
+/** 怪物的普通攻擊（範圍不隨樓層放大） */
+const BASIC_ATTACK = 'basic.attack';
 /** 追擊時重新尋路的間隔（秒） */
 const REPATH_INTERVAL = 0.25;
 
@@ -138,6 +140,8 @@ export class SkillSystem {
     const empowerKind = category ? EMPOWER[category] : undefined;
     const empower = empowerKind ? this.statuses.consume(actor, empowerKind) : null;
     if (empower) mods = { ...mods, damage: mods.damage + empower.magnitude };
+    // 怪物的特殊技能範圍隨樓層放大（普通攻擊不變；直線範圍不看 aoeRadius）
+    if (actor.skillArea !== 1 && skill.id !== BASIC_ATTACK) mods = { ...mods, aoeRadius: (1 + mods.aoeRadius) * actor.skillArea - 1 };
 
     actor.mana -= cost;
     if (skill.cooldown > 0) actor.cooldowns.set(skill.id, skill.cooldown);

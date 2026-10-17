@@ -79,8 +79,8 @@ function remove(s: SlotSummary) {
   <div class="title-screen" @contextmenu.prevent>
     <div class="glow" />
     <header>
-      <h1>ARPG</h1>
-      <p class="subtitle">深 淵 地 城</p>
+      <h1><span>Dungeon</span><span>Adventure</span></h1>
+      <p class="subtitle">地 牢 冒 險</p>
     </header>
 
     <nav v-if="page === 'main'" class="menu">
@@ -196,15 +196,18 @@ header {
 }
 h1 {
   margin: 0;
-  font: 88px/1 serif;
-  letter-spacing: 0.25em;
+  font: 72px/1.05 serif;
+  letter-spacing: 0.12em;
   color: #e8c47a;
   text-shadow:
     0 0 24px rgb(232 150 60 / 45%),
     0 4px 0 #3a2410;
 }
+h1 span {
+  display: block;
+}
 .subtitle {
-  margin: 10px 0 0;
+  margin: 14px 0 0;
   font: 20px/1 serif;
   letter-spacing: 0.4em;
   color: #b0876a;

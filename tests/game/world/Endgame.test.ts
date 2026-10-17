@@ -86,7 +86,7 @@ describe('第 31～34 層：中途小王', () => {
     for (const m of minis) {
       const def = data.enemies.get(m.defId!);
       expect(['enemy.crypt_guardian', 'enemy.fallen_priest']).toContain(def.id);
-      expect(m.maxHp).toBeCloseTo(def.hp * scaling.hp * cfg.miniBoss.hpMultiplier, 0);
+      expect(m.maxHp).toBeCloseTo(def.hp * scaling.bossHp * cfg.miniBoss.hpMultiplier, 0);
       const spot = w.map.subArenas.find((a) => distance(vec2(a.x, a.y), m.position) < 2);
       expect(spot, def.id).toBeDefined();
       // 空地裡沒有一般怪物
@@ -115,11 +115,11 @@ describe('第 35 層：王座廳', () => {
     // 樓梯口與中途存檔點都有商人，離魔王很遠
     expect(w.merchants).toHaveLength(2);
     expect(distance(w.spawnPoint, boss.position)).toBeGreaterThan(40);
-    // 全抗性 30%，HP 約 30,000
+    // 全抗性 30%，HP 約 600,000（原本約 30,000 × 魔王強化 20 倍）
     expect(boss.stats.get('fireResist')).toBeCloseTo(0.3);
     expect(boss.stats.get('physicalResist')).toBeCloseTo(0.3);
-    expect(boss.maxHp).toBeGreaterThan(29500);
-    expect(boss.maxHp).toBeLessThan(30500);
+    expect(boss.maxHp).toBeGreaterThan(590000);
+    expect(boss.maxHp).toBeLessThan(610000);
   });
 
   it('擊敗最終魔王 = 已完成隱藏難關；之後第 31 層可以往上', () => {

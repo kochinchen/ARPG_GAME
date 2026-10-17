@@ -116,6 +116,18 @@ export const BalanceSchema = z.strictObject({
     maxDensityMultiplier: z.number().min(1),
     /** 前期怪物數量加成：第 1～fullUntil 層 +bonus，之後線性遞減，第 fadeTo 層起為 0 */
     earlyDensityBoost: z.strictObject({ bonus: z.number().nonnegative(), fullUntil: z.int().positive(), fadeTo: z.int().positive() }),
+    /**
+     * 怪物強化（乘在每層成長之上）：[第 1 層, 第 toFloor 層] 之間線性增加，之後維持最高值。
+     * bossHp 給樓層魔王與挑戰樓層的魔王；skillArea 放大怪物特殊技能（普通攻擊以外）的圓形 / 扇形範圍，直線招式不變。
+     */
+    monsterBoost: z.strictObject({
+      toFloor: z.int().positive(),
+      hp: z.tuple([z.number().positive(), z.number().positive()]),
+      bossHp: z.tuple([z.number().positive(), z.number().positive()]),
+      damage: z.tuple([z.number().positive(), z.number().positive()]),
+      skillArea: z.tuple([z.number().positive(), z.number().positive()]),
+      xp: z.number().positive(),
+    }),
   }),
   floor: z.strictObject({
     /** 樓梯口與出口的安全範圍（Tile）：大於所有怪物的偵測距離 */

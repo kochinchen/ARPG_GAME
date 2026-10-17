@@ -8,7 +8,7 @@ import { Actor, type ActorId } from '../entities/Actor';
 import { StatBlock } from '../stats/StatBlock';
 import type { FloorScaling } from '../world/DifficultyScaler';
 
-const NO_SCALING: FloorScaling = { hp: 1, damage: 1, defense: 1, xp: 1, density: 1 };
+const NO_SCALING: FloorScaling = { hp: 1, bossHp: 1, damage: 1, skillArea: 1, defense: 1, xp: 1, density: 1 };
 /** 碰撞半徑上限（外觀可以更大）：一般怪物不超過 0.5，Boss 0.8 */
 const MAX_RADIUS = 0.5;
 const MAX_BOSS_RADIUS = 0.8;
@@ -73,7 +73,7 @@ export class EnemyFactory {
     miniBoss?: { hpMultiplier: number; damageMultiplier: number; xpMultiplier: number },
   ): Actor {
     const e = elite?.config;
-    const hpMult = scaling.hp * (e?.hpMultiplier ?? 1) * size.stat * (miniBoss?.hpMultiplier ?? 1);
+    const hpMult = (def.boss ? scaling.bossHp : scaling.hp) * (e?.hpMultiplier ?? 1) * size.stat * (miniBoss?.hpMultiplier ?? 1);
     const damageMult = scaling.damage * (e?.damageMultiplier ?? 1) * size.stat * (miniBoss?.damageMultiplier ?? 1);
     const stats = new StatBlock({
       maxHp: def.hp * hpMult,
@@ -110,6 +110,7 @@ export class EnemyFactory {
       skillRanks: new Map(def.skills.map((skillId) => [skillId, 1])),
       isBoss: def.boss,
       miniBoss: miniBoss !== undefined,
+      skillArea: scaling.skillArea,
       xpReward: Math.round(def.xp * scaling.xp * (e?.xpMultiplier ?? 1) * (miniBoss?.xpMultiplier ?? 1)),
     });
     return actor;

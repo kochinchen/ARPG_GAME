@@ -31,6 +31,8 @@ export interface ActorInit {
   summonedBy?: ActorId | null;
   /** 被擊殺時給予的經驗 */
   xpReward?: number;
+  /** 特殊技能（普通攻擊以外）的範圍倍率：怪物隨樓層提高；直線招式不受影響 */
+  skillArea?: number;
 }
 
 /** 身上的狀態（由 StatusEffectSystem 管理） */
@@ -90,6 +92,7 @@ export class Actor {
   readonly elite: boolean;
   readonly summonedBy: ActorId | null;
   readonly xpReward: number;
+  readonly skillArea: number;
   radius: number;
   /** 外觀大小（Render 依此縮放模型） */
   readonly visualRadius: number;
@@ -139,6 +142,7 @@ export class Actor {
     this.elite = init.elite ?? false;
     this.summonedBy = init.summonedBy ?? null;
     this.xpReward = init.xpReward ?? 0;
+    this.skillArea = init.skillArea ?? 1;
     this.skillRanks = new Map(init.skillRanks ?? []);
     this.hp = init.stats.get('maxHp');
     this.mana = init.stats.get('maxMana');

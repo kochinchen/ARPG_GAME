@@ -154,10 +154,10 @@ export const potions: z.input<typeof PotionDefSchema>[] = [
   {
     id: 'potion.rejuvenation',
     name: '回復藥水',
-    hpPct: 0.35,
-    mpPct: 0.35,
+    hpPct: 0.25,
+    mpPct: 0.25,
     maxStack: 20,
     maxCarry: 20,
-    cooldown: 1,
+    cooldown: 2,
   },
 ];
