@@ -164,6 +164,31 @@ export const comboRules: Rule[] = [
       { type: 'crit', value: 0.2, when: { targetHasStatus: ['slow', 'freeze', 'weakPoint', 'marked'] } },
     ],
   },
+  // v0.4.0 戰術技能：暈眩 / 弱化起手（SPEC_v0.4.0 §5）
+  {
+    id: 'combo.stun_opening',
+    name: '破綻一擊',
+    description: '暈眩露出破綻，物理追擊後重擊或處決。',
+    tier: 3,
+    order: 17,
+    match: { kind: 'pattern', steps: [{ anyTags: ['Stun'] }, { anyTags: ['Physical'] }, { anyTags: ['Heavy', 'Execute'] }] },
+    modifiers: [
+      { type: 'damage', value: 0.25 },
+      { type: 'crit', value: 0.15 },
+    ],
+  },
+  {
+    id: 'combo.exploit_weakness',
+    name: '乘虛而入',
+    description: '弱化敵人的抗性，任一傷害技能銜接，終結技加傷。',
+    tier: 3,
+    order: 18,
+    match: { kind: 'pattern', steps: [{ anyTags: ['Expose'] }, { hasDamage: true }, { role: ['Finisher'] }] },
+    modifiers: [
+      { type: 'damage', value: 0.2 },
+      { type: 'crit', value: 0.1 },
+    ],
+  },
 
   // ─────────── Tier 4：Range Transition ───────────
   {
@@ -207,6 +232,22 @@ export const comboRules: Rule[] = [
     modifiers: [
       { type: 'damage', value: 0.2 },
       { type: 'knockback', value: 0.3 },
+    ],
+  },
+  {
+    // v0.4.0 戰術技能：遠距佈置範圍機關 → 位移或拉近 → 爆發收尾（SPEC_v0.4.0 §5）
+    id: 'combo.trap_detonation',
+    name: '佈雷引爆',
+    description: '遠距佈下範圍陷阱，位移或把敵人拉進陷阱，再以爆發技能引爆。',
+    tier: 4,
+    order: 19,
+    match: {
+      kind: 'pattern',
+      steps: [{ range: ['Far'], role: ['Setup'], anyTags: ['AoE'] }, { anyTags: ['Advance', 'Retreat', 'Roll', 'Reposition', 'Pull'] }, { anyTags: ['Burst', 'Heavy', 'AoE'] }],
+    },
+    modifiers: [
+      { type: 'damage', value: 0.2 },
+      { type: 'aoeRadius', value: 0.3 },
     ],
   },
 

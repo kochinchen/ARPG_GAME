@@ -30,6 +30,7 @@ const TAG_LABELS = {
   Physical: '物理', Fire: '火焰', Ice: '冰霜', Lightning: '雷電',
   Advance: '突進', Retreat: '後撤', Roll: '翻滾', Reposition: '換位', Dash: '衝刺',
   Slow: '緩速', Freeze: '冰凍', Stun: '暈眩', Knockback: '擊退', ArmorBreak: '破甲', Mark: '標記', Shield: '護盾', Launch: '浮空',
+  Pull: '拉近', Expose: '弱化',
 };
 const RANGE_LABELS = { Near: '近', Mid: '中', Far: '遠' };
 const ROLE_LABELS = { Starter: '起手', Setup: '鋪墊', Bridge: '銜接', Amplifier: '增幅', Finisher: '終結', Defense: '防禦' };
@@ -104,7 +105,7 @@ try {
   const index = new ComboSkillIndex(data.skills);
   const resolver = new ComboResolver(data.comboRules, index, data.balance.combo.nearNearFarBonus);
   const tierLevels = data.balance.tierLevelReq;
-  const categoryOrder = ['melee', 'ranged', 'magic'];
+  const categoryOrder = ['melee', 'ranged', 'magic', 'utility'];
 
   const skillDefs = data.skills.all
     .filter((s) => index.get(s.id))
