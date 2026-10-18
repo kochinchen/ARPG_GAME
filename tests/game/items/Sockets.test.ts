@@ -133,7 +133,8 @@ describe('商人：鑿孔、鑲嵌、拆卸', () => {
     world.equipment.equip(item('weapon', 'normal', 12, { max: 1, cores: [] }));
     const before = world.player.stats.get('critChance');
     world.equipment.equip(item('weapon', 'normal', 12, { max: 1, cores: [core('c1')] }));
-    expect(world.player.stats.get('critChance')).toBeCloseTo(before + 0.04 * 1.2);
+    // 白裝：熔核數值 ×0.5
+    expect(world.player.stats.get('critChance')).toBeCloseTo(before + 0.04 * 1.2 * 0.5);
     world.equipment.unequip('weapon');
     expect(world.player.stats.get('critChance')).toBeLessThan(before);
   });

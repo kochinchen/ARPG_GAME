@@ -198,6 +198,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     removeGold: 20,
     bodyCap: 1.5,
     maxCores: 25,
+    // 熔核強度跟著裝備稀有度（2026-10-18 設計者定案）：白裝 5 孔 × 0.5 ≈ 2.5 孔，比不上紫裝 2 孔＋詞綴；紅裝沒有孔
+    hostPower: { normal: 0.5, magic: 0.6, rare: 0.75, epic: 1, legendary: 1.25, mythic: 1.25 },
   },
   // 融合（v0.5.0）：第四階約 3,000 金幣；精華約等於把同樣四把拆解的期望產出
   fusion: {

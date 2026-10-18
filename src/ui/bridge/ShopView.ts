@@ -8,7 +8,7 @@ import type { ItemInstance } from '../../game/items/ItemInstance';
 import { itemStats } from '../../game/items/ItemStats';
 import { buyPrice, sellPrice } from '../../game/items/Pricing';
 import { coreEntryView, itemEntryView, type EntryView } from './InventoryView';
-import { CORE_ELEMENT_LABELS, coreExtraTexts, coreRangeText } from '../../game/items/CoreDescriber';
+import { CORE_ELEMENT_LABELS, coreExtraTexts, coreRangeText, hostPowerText } from '../../game/items/CoreDescriber';
 import { coreGem, type CoreGem } from '../../render/icons/CoreIcons';
 import { describeItem, STAT_LABELS } from '../../game/items/ItemDescriber';
 import type { StatId } from '../../data/schema/common';
@@ -256,6 +256,7 @@ function fusionPanel(world: GameWorld, data: DataRegistry, pv: FusionPreview, go
     for (const c of pv.brand.candidates) chance.push(`可能印記：${data.legendaries.get(c.legendaryId).name}「${c.roll === undefined ? c.text : STAT_LABELS[c.text as StatId]}」× ${f}`);
   } else chance.push('沒有印記（投入橘武器才有機會傳入強屬性）');
   if (pv.secondary.length && pv.lineCount > 1) chance.push(`副屬性：從 ${pv.secondary.length} 條中抽 ${pv.lineCount - 1} 條，每條 ${pct(pv.secondary[0]!.chance)}`);
+  chance.push(`部位範圍以紫裝為準；鑲在${hostPowerText(data)}`);
   const slots = pv.slots.map((s) => ({
     label: `鑲${SLOT_LABELS[s.slot]}`,
     lines: s.options.map((o) => o.lines.map((l) => coreRangeText(l.line, l.range, pv.element)).join(' 或 ')),

@@ -46,7 +46,11 @@ export class Equipment {
 
   /** 目前裝備上所有鑲入的熔核（只有可鑲嵌的部位） */
   socketedCores(): SocketedCore[] {
-    return CORE_SLOTS.flatMap((slot) => (this.slots.get(slot)?.sockets?.cores ?? []).map((core) => ({ slot, core })));
+    return CORE_SLOTS.flatMap((slot) => {
+      const item = this.slots.get(slot);
+      const host = item ? this.data.balance.sockets.hostPower[item.rarity] : 1;
+      return (item?.sockets?.cores ?? []).map((core) => ({ slot, core, host }));
+    });
   }
 
   /**

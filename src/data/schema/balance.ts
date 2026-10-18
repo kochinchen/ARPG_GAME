@@ -281,6 +281,8 @@ export const BalanceSchema = z.strictObject({
     removeGold: z.int().nonnegative(),
     bodyCap: z.number().positive(),
     maxCores: z.int().positive(),
+    /** 熔核鑲在這個稀有度的裝備上時，數值（固定數值的屬性除外）× 倍率：好裝備讓熔核更強，白裝不能取代打寶 */
+    hostPower: z.record(RaritySchema, z.number().positive()),
   }),
   /**
    * 融合（v0.5.0）：2～4 把武器 → 一顆熔核；飾品區最多 2 件戒指 / 護身符，只提高印記機率。

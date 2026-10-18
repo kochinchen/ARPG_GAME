@@ -54,9 +54,15 @@ describe('熔核說明', () => {
   it('裝備的孔位列：熔核在這個部位的效果與空孔', () => {
     const helmet = data.items.all.find((b) => b.slot === 'helmet')!.id;
     const item: ItemInstance = { uid: 'h', baseId: helmet, rarity: 'magic', itemLevel: 5, affixes: [], sockets: { max: 2, cores: [core({ main: { ...EMPTY, helmet: [{ lineId: 'core.sharp.cast_speed', roll: 0 }] } })] } };
-    expect(socketLines(item, data)).toEqual([
+    expect(socketLines({ ...item, rarity: 'epic' }, data)).toEqual([
       { text: '◆ 銳核 T1：+6% 施法速度、+9% 生命上限', rarity: 'epic' },
       { text: '◇ 空孔', rarity: null },
+    ]);
+    // 藍裝：數值 ×0.6，並註明倍率
+    expect(socketLines(item, data)).toEqual([
+      { text: '◆ 銳核 T1：+3.6% 施法速度、+5.4% 生命上限', rarity: 'epic' },
+      { text: '◇ 空孔', rarity: null },
+      { text: '魔法裝備：熔核數值 ×0.6', rarity: null },
     ]);
     expect(socketLines({ ...item, sockets: undefined } as never, data)).toEqual([]);
   });

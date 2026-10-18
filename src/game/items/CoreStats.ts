@@ -9,7 +9,8 @@ import { STAT_LABELS } from './ItemDescriber';
 
 /**
  * 熔核的數值（v0.5.0，SPEC §1.3、§1.6、§2.3）。純函式：
- * - 每條屬性 = T1 範圍擲骰 × 核階倍率（T5 有 t5Value 時改用它）× 核色倍率（core.power）；混核的主屬性再 × mixedMultiplier
+ * - 每條屬性 = T1 範圍擲骰 × 核階倍率（T5 有 t5Value 時改用它）× 核色倍率（core.power）；混核的主屬性再 × mixedMultiplier；
+ *   再 × 裝備稀有度倍率（白 0.5 … 橘 1.25；固定數值的屬性如穿透 +1 不乘）
  * - 全身上限：同一條屬性全身合計 ≤ 一顆 T5 橘核的最高值 × bodyCap；同一條印記 ≤ 單顆 × bodyCap（超過的部分不生效）
  * - 印記：投入的橘武器的強屬性（◆）× brand.valueMultiplier；整數（箭數、穿透…）四捨五入、至少 1；永遠不傳效果（✦）
  */
@@ -31,10 +32,11 @@ export interface CoreEffects {
   capped: string[];
 }
 
-/** 鑲在某個部位的一顆熔核 */
+/** 鑲在某個部位的一顆熔核；host = 那件裝備的稀有度倍率（balance.sockets.hostPower，省略 = 1） */
 export interface SocketedCore {
   slot: CoreSlot;
   core: CoreInstance;
+  host?: number;
 }
 
 const ELEMENT_STATS: Record<CoreElement, { damage: StatId; resist: StatId }> = {
@@ -109,21 +111,23 @@ export function coreEffects(sockets: readonly SocketedCore[], data: Data): CoreE
     g.total += value;
     groups.set(key, g);
   };
-  for (const { slot, core } of sockets) {
+  for (const { slot, core, host = 1 } of sockets) {
     const mixed = core.types.length === 2;
+    const lineValue = (line: CoreLine, roll: number, m: boolean) => coreLineValue(line, core, roll, data.balance, m) * (line.scaling === 'none' ? 1 : host);
     for (const r of core.main[slot] ?? []) {
-      if (data.cores.lines.has(r.lineId)) add(data.cores.lines.get(r.lineId), coreLineValue(data.cores.lines.get(r.lineId), core, r.roll, data.balance, mixed), core.element);
+      if (data.cores.lines.has(r.lineId)) add(data.cores.lines.get(r.lineId), lineValue(data.cores.lines.get(r.lineId), r.roll, mixed), core.element);
     }
     for (const r of core.secondary) {
-      if (data.cores.lines.has(r.lineId)) add(data.cores.lines.get(r.lineId), coreLineValue(data.cores.lines.get(r.lineId), core, r.roll, data.balance), core.element);
+      if (data.cores.lines.has(r.lineId)) add(data.cores.lines.get(r.lineId), lineValue(data.cores.lines.get(r.lineId), r.roll, false), core.element);
     }
     const brand = brandLine(core, data);
     if (brand) {
       const key = `${core.brand!.legendaryId}:${core.brand!.line}`;
       const b = brands.get(key) ?? { ...brand, count: 0, rolls: [] };
-      b.count++;
+      // 份量：每顆印記依所在裝備的稀有度倍率計算
+      b.count += host;
       // 數值行：各顆用投入那件傳奇擲到的數值（沒有記錄時用上限）
-      if (brand.line.type === 'stat') b.rolls.push(core.brand!.roll ?? brand.line.value[1]);
+      if (brand.line.type === 'stat') b.rolls.push((core.brand!.roll ?? brand.line.value[1]) * host);
       brands.set(key, b);
     }
   }
@@ -145,11 +149,11 @@ export function coreEffects(sockets: readonly SocketedCore[], data: Data): CoreE
   // 印記：同一條全身合計 ≤ 單顆 × bodyCap（單顆 = 強屬性 × brandFactor）
   for (const [key, b] of brands) {
     const copies = Math.min(b.count, bodyCap);
-    if (b.count > bodyCap) result.capped.push(b.line.type === 'effect' ? b.line.text : b.def.name);
+    if (b.count > bodyCap + 1e-9) result.capped.push(b.line.type === 'effect' ? b.line.text : b.def.name);
     const factor = brandFactor * copies;
     if (b.line.type === 'stat') {
-      // 數值行：合計再夾到「單顆最高 × bodyCap」
-      const single = Math.max(...b.rolls) * brandFactor;
+      // 數值行：合計再夾到「單顆（強屬性上限）× bodyCap」
+      const single = b.line.value[1] * brandFactor;
       const total = b.rolls.reduce((sum, r) => sum + r * brandFactor, 0);
       result.stats.push({ stat: b.line.stat, kind: b.line.modifier, value: Math.min(total, single * bodyCap) });
     } else {

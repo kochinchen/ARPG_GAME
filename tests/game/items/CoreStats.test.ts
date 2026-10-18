@@ -111,7 +111,8 @@ describe('印記', () => {
 });
 
 describe('裝備上的熔核', () => {
-  const socketed = (baseId: string, cores: CoreInstance[]): ItemInstance => ({ uid: baseId, baseId, rarity: 'normal', itemLevel: 10, affixes: [], sockets: { max: 2, cores } });
+  // 紫裝：熔核倍率 1（白 0.5 … 橘 1.25 另有測試）
+  const socketed = (baseId: string, cores: CoreInstance[], rarity: ItemInstance['rarity'] = 'epic'): ItemInstance => ({ uid: baseId, baseId, rarity, itemLevel: 10, affixes: [], sockets: { max: 2, cores } });
 
   it('穿上帶熔核的頭盔：射擊距離加到角色身上，投射物技能施放距離變長；脫下後移除', () => {
     const { world, data } = createWorld();
@@ -143,4 +144,25 @@ describe('裝備上的熔核', () => {
     world.equipment.refreshCores();
     expect(modsOf('melee.heavy_slash')).toBe(0);
   });
+
+  it('熔核強度跟著裝備稀有度：白 ×0.5、藍 ×0.6、黃 ×0.75、紫 ×1、橘 ×1.25（固定數值的穿透不乘）', () => {
+    const helmetOf = (rarity: ItemInstance['rarity']) => {
+      const { world, data } = createWorld();
+      const helmet = data.items.all.find((b) => b.slot === 'helmet')!.id;
+      const c = core({ types: ['pierce'], main: { ...EMPTY_MAIN, helmet: [{ lineId: 'core.pierce.range', roll: 1 }] } });
+      world.equipment.equip(socketed(helmet, [c], rarity));
+      return world.player.stats.get('projectileRange');
+    };
+    expect([helmetOf('normal'), helmetOf('magic'), helmetOf('rare'), helmetOf('epic'), helmetOf('legendary')].map((v) => +v.toFixed(3))).toEqual([0.5, 0.6, 0.75, 1, 1.25]);
+    const pierce = core({ types: ['pierce'], main: { ...EMPTY_MAIN, weapon: [{ lineId: 'core.pierce.pierce', roll: 1 }] } });
+    expect(coreEffects([{ slot: 'weapon', core: pierce, host: 0.5 }], data).mechanics[0]!.mechanic).toMatchObject({ mods: { pierce: 1 } });
+  });
+
+  it('白裝 5 孔 × 0.5 比不上紫裝 2 孔：同樣的熔核，白裝的合計約為紫裝的 1.25 倍而非 2.5 倍', () => {
+    // T1 白核：不會撞到全身上限
+    const c = core({ types: ['sharp'], main: { ...EMPTY_MAIN, boots: [{ lineId: 'core.sharp.move_speed', roll: 0.5 }] } });
+    const total = (n: number, host: number) => coreEffects(Array.from({ length: n }, () => ({ slot: 'boots' as const, core: c, host })), data).stats[0]!.value;
+    expect(total(5, 0.5) / total(2, 1)).toBeCloseTo(1.25);
+  });
 });
+

@@ -47,28 +47,29 @@ export function coreRangeText(line: CoreLine, [lo, hi]: [number, number], elemen
   return highText.replace(/^\+?[\d.]+/, `+${num(lowText)}～${num(highText)}`);
 }
 
-function rollText(r: CoreRoll, core: CoreInstance, data: Data, mixed: boolean): string | null {
+/** host = 裝備稀有度倍率（熔核單獨看時為 1，以紫裝為準） */
+function rollText(r: CoreRoll, core: CoreInstance, data: Data, mixed: boolean, host: number): string | null {
   if (!data.cores.lines.has(r.lineId)) return null;
   const line = data.cores.lines.get(r.lineId);
-  return coreLineText(line, coreLineValue(line, core, r.roll, data.balance, mixed), core.element);
+  return coreLineText(line, coreLineValue(line, core, r.roll, data.balance, mixed) * (line.scaling === 'none' ? 1 : host), core.element);
 }
 
 /** 熔核鑲在某個部位時的主屬性文字 */
-export function coreMainTexts(core: CoreInstance, slot: CoreSlot, data: Data): string[] {
-  return (core.main[slot] ?? []).flatMap((r) => rollText(r, core, data, core.types.length === 2) ?? []);
+export function coreMainTexts(core: CoreInstance, slot: CoreSlot, data: Data, host = 1): string[] {
+  return (core.main[slot] ?? []).flatMap((r) => rollText(r, core, data, core.types.length === 2, host) ?? []);
 }
 
 /** 副屬性與印記的文字 */
-export function coreExtraTexts(core: CoreInstance, data: Data): { secondary: string[]; brand: string | null } {
-  const secondary = core.secondary.flatMap((r) => rollText(r, core, data, false) ?? []);
+export function coreExtraTexts(core: CoreInstance, data: Data, host = 1): { secondary: string[]; brand: string | null } {
+  const secondary = core.secondary.flatMap((r) => rollText(r, core, data, false, host) ?? []);
   const b = brandLine(core, data);
   let brand: string | null = null;
   if (b) {
     const f = data.balance.fusion.brand.valueMultiplier;
     brand =
       b.line.type === 'stat'
-        ? `印記（${b.def.name}）：${formatValue(b.line.stat, b.line.modifier, (core.brand!.roll ?? b.line.value[1]) * f, true)} ${STAT_LABELS[b.line.stat]}`
-        : `印記（${b.def.name}）：${b.line.text} × ${f}`;
+        ? `印記（${b.def.name}）：${formatValue(b.line.stat, b.line.modifier, (core.brand!.roll ?? b.line.value[1]) * f * host, true)} ${STAT_LABELS[b.line.stat]}`
+        : `印記（${b.def.name}）：${b.line.text} × ${+(f * host).toFixed(3)}`;
   }
   return { secondary, brand };
 }
@@ -88,6 +89,7 @@ export function describeCore(core: CoreInstance, data: Data): CoreDescription {
   const notes: string[] = [];
   if (core.pure) notes.push('純核（四把同種類）');
   if (core.types.length === 2) notes.push(`混核：每個部位兩個核種各一條，數值 ×${data.balance.fusion.mixedMultiplier}`);
+  notes.push(`數值以紫裝為準；鑲在${hostPowerText(data)}`);
   return {
     name: coreName(core, data),
     subtitle: `${RARITY_LABELS[core.rarity]}熔核 · T${core.tier}`,
@@ -98,16 +100,25 @@ export function describeCore(core: CoreInstance, data: Data): CoreDescription {
   };
 }
 
+/** 「白裝 ×0.5、藍裝 ×0.6 …」 */
+export function hostPowerText(data: Pick<DataRegistry, 'balance'>): string {
+  const p = data.balance.sockets.hostPower;
+  const color = { normal: '白', magic: '藍', rare: '黃', epic: '紫', legendary: '橘' } as const;
+  return (['normal', 'magic', 'rare', 'epic', 'legendary'] as const).map((r) => `${color[r]}裝 ×${p[r]}`).join('、');
+}
+
 /** 裝備的孔位列：已鑲入的熔核（在這個部位的效果）與空孔 */
 export function socketLines(item: ItemInstance, data: Data & Pick<DataRegistry, 'items'>): { text: string; rarity: CoreInstance['rarity'] | null }[] {
   const sockets = item.sockets;
   if (!sockets || sockets.max === 0) return [];
   const slot = data.items.get(item.baseId).slot as CoreSlot;
+  const host = data.balance.sockets.hostPower[item.rarity];
   const lines: { text: string; rarity: CoreInstance['rarity'] | null }[] = sockets.cores.map((core) => {
-    const { secondary, brand } = coreExtraTexts(core, data);
-    const parts = [...coreMainTexts(core, slot, data), ...secondary, ...(brand ? [brand] : [])];
+    const { secondary, brand } = coreExtraTexts(core, data, host);
+    const parts = [...coreMainTexts(core, slot, data, host), ...secondary, ...(brand ? [brand] : [])];
     return { text: `◆ ${coreName(core, data)} T${core.tier}：${parts.join('、')}`, rarity: core.rarity };
   });
   for (let i = sockets.cores.length; i < sockets.max; i++) lines.push({ text: '◇ 空孔', rarity: null });
+  if (host !== 1) lines.push({ text: `${RARITY_LABELS[item.rarity]}裝備：熔核數值 ×${host}`, rarity: null });
   return lines;
 }
