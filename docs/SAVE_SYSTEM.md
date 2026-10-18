@@ -21,6 +21,8 @@
 - **v11（魔王門前存檔點、傳送口）**：`floor.bossGateActive`（魔王門前的存檔點已啟動；只在本次進入樓層有效）、`floor.midwayFloors`（到過中途存檔點的樓層，跨層永久保留）。Migration v10 → v11：魔王門前一律未啟動；目前這一層的中途已啟動時記為到過中途。規則見 4.9 與 4.10。
 - **v12（盾牌、詞綴重鑄）**：`equipment.shield`（盾牌欄位，只能搭配劍、斧）、物品的 `rerolls`（在商人重鑄詞綴的次數，越多次越貴）。兩者都是選填，Migration v11 → v12 不需要轉換內容；SaveRepair 會把「拿弓 / 法杖卻裝著盾牌」的盾牌放回背包。
 - **v13（七組連段）**：`loadout.combos` 從 3 組（Q / W / E）變成 7 組（Q / W / E / R / A / S / D），`activeCombo` 範圍 0～6。Migration v12 → v13 保留原本三組、補上四組空的連段 `[null, null, null]`；按鍵依等級解鎖（`balance.player.comboKeyLevels`），不存在存檔裡。
+- **v14（盾擊）**：雙重斬（`melee.double_slash`）換成盾擊（`melee.shield_bash`）。Migration v13 → v14 把技能等級、左鍵與連段格轉給盾擊；組合技圖鑑中含雙重斬的組合移除。
+- **v15（鑲嵌與融合）**：物品的 `sockets`（`max` 孔數、`cores` 已鑲入的熔核）；背包、手上、地上的新格子種類 `{ kind: 'core', core }`；拆解區可以放熔核（以有無 `baseId` 區分裝備與熔核）；商人的融合格 `fusion { inputs[4], jewelry[2] }`。熔核只存 ID 與擲骰值（`types`、`tier`、`rarity`、`power`、`itemLevel`、`element?`、`pure?`、`main[部位]`、`secondary`、`brand?`），數值由 `data/cores.ts` 與 `balance.fusion` 推導。Migration v14 → v15 補上空的融合格；舊物品沒有孔。新增亂數序列 `sockets`、`fusion`，舊存檔沒有時由種子重新推得。
 - 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---

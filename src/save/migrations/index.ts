@@ -183,8 +183,14 @@ const v13ToV14: Migration = (v13) => {
   };
 };
 
+/**
+ * v14 → v15：鑲嵌與融合。新欄位（裝備的 sockets、熔核格、拆解區的熔核）都是選填，舊物品視為沒有孔；
+ * 商人的融合格補上空的格子。孔數與融合的亂數序列沒有存檔時，讀檔會由種子重新推得。
+ */
+const v14ToV15: Migration = (v14) => ({ ...v14, fusion: v14.fusion ?? { inputs: [null, null, null, null], jewelry: [null, null] } });
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15];
 
 export class MigrationError extends Error {}
 

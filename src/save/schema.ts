@@ -15,10 +15,13 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v10：終局紀錄（endgame：已通關、已完成隱藏難關）。
  * v11：魔王門前的存檔點（floor.bossGateActive）、到過中途存檔點的樓層（floor.midwayFloors）。
  * v12：盾牌欄位（equipment.shield）、裝備的重鑄次數（rerolls）。
+ * v13：連段增加為七組（Q / W / E / R / A / S / D）。
+ * v14：雙重斬換成盾擊（技能等級、左鍵、連段格轉移）。
+ * v15：鑲嵌與融合——裝備的孔位與熔核（sockets）、背包 / 地上 / 拆解區的熔核、商人的融合格（fusion）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);

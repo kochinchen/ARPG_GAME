@@ -196,6 +196,23 @@ describe('Migration v10 → v11（魔王門前存檔點、到過中途的樓層�
   });
 });
 
+describe('Migration v14 → v15（鑲嵌與融合）', () => {
+  it('舊存檔補上空的融合格；舊物品沒有孔，讀得進來且修復後不變', () => {
+    const v14 = sample(30) as unknown as Record<string, unknown>;
+    (v14.inventory as SaveData['inventory']).cells[1] = { kind: 'item', item: { uid: '1-a', baseId: data.items.all[0]!.id, rarity: 'magic', itemLevel: 3, affixes: [] } };
+    const v15 = SaveDataSchema.parse(migrate(v14, 14));
+    expect(v15.fusion).toEqual({ inputs: [null, null, null, null], jewelry: [null, null] });
+    const cell = v15.inventory.cells[1];
+    expect(cell?.kind === 'item' && cell.item.sockets).toBeUndefined();
+    expect(repairSave(v15, data).data.inventory.cells[1]).toEqual(cell);
+  });
+
+  it('已有融合格的資料不被覆蓋', () => {
+    const v14 = { ...sample(1), fusion: { inputs: [null, null, null, null], jewelry: [null, null] } };
+    expect((migrate(v14, 14) as SaveData).fusion).toBe(v14.fusion);
+  });
+});
+
 describe('SaveService', () => {
   it('沒有存檔：empty', async () => {
     expect((await setup().service.load()).status).toBe('empty');
