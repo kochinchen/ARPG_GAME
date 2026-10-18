@@ -161,7 +161,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     <h1>角色成長與戰鬥模擬</h1>
     <p>上半部是 Lv1～70 的成長表。下半部有兩個可以點的模擬器：屬性點（HP / MP / 防禦等）與技能點（技能樹與攻擊力），並可測試三段 Combo。所有數值都會拿來跟你選的怪物比較，可以對照怪物頁確認難度。</p>
     <p class="small muted">頁面開啟時載入的是示範配置（Lv30、近戰重擊路線），不是任何存檔的資料。玩家沒有普通攻擊：開局免費送的重砍就是預設左鍵。</p>
-    <nav class="toc"><a href="#levels">成長表</a><a href="#attrs">屬性點模擬</a><a href="#skills">技能與攻擊力</a><a href="#combo">Combo 測試</a></nav>
+    <nav class="toc"><a href="#levels">成長表</a><a href="#attrs">屬性點模擬</a><a href="#skills">技能與攻擊力</a><a href="#combo">Combo 測試</a><a href="#fusion">融合試算</a></nav>
     <p id="loadErr" hidden>模擬程式沒有載入成功，請重新整理頁面。</p>
   </header>
 
@@ -299,10 +299,38 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     </details>
   </section>
 
+  <section id="fusion">
+    <div class="sec-head">
+      <div class="eyebrow">FusionResolver.preview · v0.5.0 鑲嵌與融合</div>
+      <h2>融合試算</h2>
+      <p>放 2～4 件裝備（飾品以外：武器 → 攻核、防具與盾牌 → 護核；四件同一類 = 純核，屬性多一條）與 0～2 件飾品，用遊戲的融合判定算出按下融合前就確定的部分：核種、核階、核色、元素、條數、印記機率，以及鑲在各部位的主屬性範圍與費用。數值以紫裝為準；鑲在白 / 藍 / 黃 / 橘裝上再乘 ×0.5 / 0.6 / 0.75 / 1.25。</p>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-head"><b>合成區（飾品以外的裝備）</b><span class="small muted">橘 / 紅可以選設計；法杖、頭盔可以選元素詞綴</span></div>
+        <div class="fuse-inputs" id="fuseInputs"></div>
+        <div class="panel-head"><b>飾品區（戒指 / 護身符）</b><span class="small muted">只提高印記機率</span></div>
+        <div class="fuse-jewels" id="fuseJewels"></div>
+      </div>
+      <div class="panel" id="fuseResult" aria-live="polite"></div>
+    </div>
+  </section>
+
   <footer>資料與規則取自專案 src/data/ 與 src/game/（MasteryRule、ComboResolver、SkillDescriber 直接打包進本頁）。傷害是期望值估算：不含隨機體型、精英詞綴、樓層抗性、裝備詞綴與傳奇效果。</footer>
 </div>
 
 <script src="sim.js"></script>
+<style>
+.fuse-inputs, .fuse-jewels { display: grid; gap: 8px; }
+.fuse-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fuse-row select, .fuse-row input { max-width: 100%; }
+.fuse-row input[type=number] { width: 4.5em; }
+.fuse-head { display: flex; gap: 12px; align-items: center; }
+.fuse-head img { width: 64px; height: 64px; flex: none; }
+.fuse-head b { font-size: 18px; }
+.fuse-list { margin: 0; padding-left: 1.2em; display: grid; gap: 3px; font-size: 14px; }
+.fuse-warn { color: var(--bad, #b5462f); }
+</style>
 <script>
 (function () {
   if (!window.Sim) { document.getElementById('loadErr').hidden = false; return; }
@@ -856,4 +884,95 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
 })();
 </script>
 
+<script>
+// ── 融合試算（v0.5.0）──
+(function () {
+  if (!window.Sim || !window.Sim.fusionPreview) return;
+  const S = window.Sim;
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const W = [['', '（不放）'], ['sword', '劍'], ['axe', '斧'], ['bow', '弓'], ['staff', '法杖'], ['helmet', '頭盔'], ['armor', '盔甲'], ['gloves', '手套'], ['boots', '鞋子'], ['shield', '盾牌']];
+  const R = [['normal', '白'], ['magic', '藍'], ['rare', '黃'], ['epic', '紫'], ['legendary', '橘'], ['mythic', '紅']];
+  const E = [['', '無元素詞綴'], ['fire', '火焰詞綴'], ['cold', '冰寒詞綴'], ['lightning', '閃電詞綴']];
+  const ER = [['', '無抗性詞綴'], ['fire', '抗火詞綴'], ['cold', '抗寒詞綴'], ['lightning', '絕緣詞綴']];
+  const RN = Object.fromEntries(R);
+  const opt = (list, v) => list.map(([k, l]) => `<option value="${k}"${k === v ? ' selected' : ''}>${l}</option>`).join('');
+  // 預設：SPEC §2.4 的例子
+  const state = {
+    inputs: [
+      { kind: 'sword', rarity: 'rare', itemLevel: 12 },
+      { kind: 'axe', rarity: 'magic', itemLevel: 12 },
+      { kind: 'axe', rarity: 'legendary', itemLevel: 18, legendaryId: 'legendary.mountain_splitter' },
+      { kind: 'staff', rarity: 'normal', itemLevel: 1 },
+    ],
+    jewelry: ['rare', ''],
+  };
+  function drawInputs() {
+    $('fuseInputs').innerHTML = state.inputs.map((x, i) => {
+      const uniques = S.uniqueWeapons.filter((u) => u.kind === x.kind && u.rarity === x.rarity);
+      const showUnique = x.kind && uniques.length && (x.rarity === 'legendary' || x.rarity === 'mythic');
+      return `<div class="fuse-row">
+        <select data-i="${i}" data-k="kind" aria-label="第 ${i + 1} 件裝備">${opt(W, x.kind || '')}</select>
+        <select data-i="${i}" data-k="rarity" aria-label="稀有度"${x.kind ? '' : ' disabled'}>${opt(R, x.rarity)}</select>
+        <label class="small">Lv <input type="number" min="1" max="70" data-i="${i}" data-k="itemLevel" value="${x.itemLevel}"${x.kind ? '' : ' disabled'}></label>
+        ${showUnique ? `<select data-i="${i}" data-k="legendaryId" aria-label="設計">${opt(uniques.map((u) => [u.id, u.name]), x.legendaryId)}</select>` : ''}
+        ${x.kind === 'staff' ? `<select data-i="${i}" data-k="element" aria-label="元素詞綴">${opt(E, x.element || '')}</select>` : ''}
+        ${x.kind === 'helmet' ? `<select data-i="${i}" data-k="element" aria-label="抗性詞綴">${opt(ER, x.element || '')}</select>` : ''}
+      </div>`;
+    }).join('');
+    $('fuseJewels').innerHTML = state.jewelry.map((r, i) => `<div class="fuse-row"><select data-j="${i}" aria-label="第 ${i + 1} 件飾品">${opt([['', '（不放）'], ...R.slice(1)], r)}</select></div>`).join('');
+  }
+  function drawResult() {
+    const inputs = state.inputs.filter((x) => x.kind).map((x) => {
+      const o = { kind: x.kind, rarity: x.rarity, itemLevel: Number(x.itemLevel) || 1 };
+      if ((x.rarity === 'legendary' || x.rarity === 'mythic') && x.legendaryId) o.legendaryId = x.legendaryId;
+      if ((x.kind === 'staff' || x.kind === 'helmet') && x.element) o.element = x.element;
+      return o;
+    });
+    const jewelry = state.jewelry.filter(Boolean);
+    const pv = S.fusionPreview(inputs, jewelry);
+    const box = $('fuseResult');
+    if (pv.problems.length || !pv.types.length) {
+      box.innerHTML = `<b>還不能融合</b><ul class="fuse-list">${pv.problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`;
+      return;
+    }
+    const name = pv.mixed ? `混核（${pv.typeNames.map((n) => n.replace('核', '')).join('＋')}）` : pv.typeNames[0];
+    const votes = Object.entries(pv.votes).map(([w, n]) => `${Object.fromEntries(W)[w]} ${n}`).join('、');
+    const slotNames = { weapon: '武器', helmet: '頭盔', armor: '衣裝', gloves: '手套', boots: '鞋子' };
+    const pct = (v) => `${Math.round(v * 100)}%`;
+    box.innerHTML = `
+      <div class="fuse-head">${pv.icon ? `<img src="${pv.icon}" alt="">` : ''}<div><b>${esc(name)}${pv.elementLabel ? `（${pv.elementLabel}）` : pv.hasElement ? '（元素隨機）' : ''}</b><div class="small muted">${RN[pv.rarity]}核 · T${pv.tier} · ${pv.lineCount} 條${pv.pure ? ' · 純核' : ''}</div></div></div>
+      <ul class="fuse-list">
+        <li>核種：${esc(votes)}${pv.mixed ? '（平手 → 混核，主屬性 ×0.7）' : ''}</li>
+        <li>核階：平均物品等級 ${Math.round(pv.avgItemLevel * 10) / 10}</li>
+        <li>核色：權重 ${pv.weight}${pv.next ? `，距${RN[pv.next.rarity]}還差 ${pv.next.gap}` : ''}</li>
+        <li>印記：${pv.brandLines.length ? `${pct(pv.brand.chance)}（每件橘裝 ${pct(pv.brand.baseChance)}${pv.brand.jewelryBoost ? ` ＋ 飾品 ${pct(pv.brand.jewelryBoost)}` : ''}${pv.brand.capped ? '，已達上限' : ''}）` : '沒有（要投入橘色裝備）'}</li>
+        ${pv.brandLines.map((b) => `<li class="small">可能印記：${esc(b.name)}「${esc(b.text)}」× 0.7</li>`).join('')}
+      </ul>
+      <div class="tbl"><table><thead><tr><th>鑲在</th><th>主屬性範圍（紫裝）</th></tr></thead><tbody>${pv.slotLines.map((s) => `<tr><td class="rowh">${slotNames[s.slot]}</td><td class="small">${s.lines.map(esc).join('<br>＋ ')}</td></tr>`).join('')}</tbody></table></div>
+      <p class="small muted">副屬性（${pv.lineCount - 1} 條，從 ${pv.secondaryLines.length} 條中均等抽、不重複）：${pv.secondaryLines.map(esc).join('、')}</p>
+      ${pv.warnings.length ? `<ul class="fuse-list fuse-warn">${pv.warnings.map((w) => `<li>⚠ ${esc(w)}</li>`).join('')}</ul>` : ''}
+      <p><b>費用</b>：金幣 ${pv.cost.gold.toLocaleString()}${pv.cost.materials.weaponEssence ? `・武器精華 ${pv.cost.materials.weaponEssence}` : ''}${pv.cost.materials.armorEssence ? `・防具精華 ${pv.cost.materials.armorEssence}` : ''}</p>`;
+  }
+  function onChange(e) {
+    const t = e.target;
+    if (t.dataset.j !== undefined) state.jewelry[Number(t.dataset.j)] = t.value;
+    else if (t.dataset.i !== undefined) {
+      const x = state.inputs[Number(t.dataset.i)];
+      x[t.dataset.k] = t.dataset.k === 'itemLevel' ? Number(t.value) : t.value;
+      if (t.dataset.k === 'kind' || t.dataset.k === 'rarity') {
+        const first = S.uniqueWeapons.find((u) => u.kind === x.kind && u.rarity === x.rarity);
+        x.legendaryId = first ? first.id : '';
+        drawInputs();
+      }
+    }
+    drawResult();
+  }
+  $('fuseInputs').addEventListener('change', onChange);
+  $('fuseInputs').addEventListener('input', (e) => { if (e.target.dataset.k === 'itemLevel') onChange(e); });
+  $('fuseJewels').addEventListener('change', onChange);
+  drawInputs();
+  drawResult();
+})();
+</script>
 </body></html>

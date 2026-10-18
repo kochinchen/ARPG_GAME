@@ -76,7 +76,9 @@ try {
   html = html.replace(`<p class="small muted">精華：武器用武器精華，其他部位用防具精華。第 5 階起另需飛昇碎片`, `<p class="small muted">v0.5.0 起金幣與精華是原本的 2 倍（鑲好熔核的裝備是長期投資；飛昇後孔與熔核保留）。精華：武器用武器精華，其他部位用防具精華。第 5 階起另需飛昇碎片`);
   // 熔核頁的樣式（只加一次）
   if (!html.includes('/* 熔核（v0.5.0） */')) {
-    html = html.replace('</style>', `/* 熔核（v0.5.0） */
+    // 插進頁面自己的樣式表（<title> 之後的那一個；第一行是本機版的外框）
+    const styleEnd = html.indexOf('</style>', html.indexOf('<title>'));
+    html = html.slice(0, styleEnd) + `/* 熔核（v0.5.0） */
 .gem-row { display: grid; gap: 6px; margin: 4px 0 14px; }
 .gem-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .gem-label { width: 8.5em; font-size: 13px; color: var(--muted); }
@@ -85,7 +87,7 @@ try {
 .core-name { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .core-name small { color: var(--muted); font-weight: 400; }
 ul.rules { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
-</style>`);
+` + html.slice(styleEnd);
   }
   // 3. 目錄與熔核頁
   html = html.replace(`<a href="#economy">賣價、拆解、飛昇、光芒</a></nav>`, `<a href="#cores">熔核（鑲嵌與融合）</a><a href="#economy">賣價、拆解、飛昇、光芒</a></nav>`);
