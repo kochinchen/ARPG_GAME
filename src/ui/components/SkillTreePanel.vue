@@ -225,7 +225,8 @@ function respec(e: MouseEvent) {
       <section v-if="category.kind === 'active'" class="loadout">
         <div class="left-slot">
           <h3>左鍵 <small>點技能格上的「左」指定</small></h3>
-          <span class="slot left-current">{{ view.left?.name ?? '—' }}</span>
+          <span class="slot left-current" :class="{ denied: view.left?.denied }">{{ view.left?.name ?? '—' }}</span>
+          <span v-if="view.left?.denied" class="blocked">無法使用：{{ view.left.denied }}</span>
         </div>
         <h3>Q / W / E / R / A / S / D 連段 <small>右鍵依序施放 · 右鍵點格子清空</small></h3>
         <div v-for="combo in view.combos" :key="combo.key" class="combo-block">
@@ -238,7 +239,8 @@ function respec(e: MouseEvent) {
                 v-if="combo.unlocked[step]"
                 type="button"
                 class="slot"
-                :class="{ empty: !combo.steps[step], target: placeable?.kind === 'active' }"
+                :class="{ empty: !combo.steps[step], target: placeable?.kind === 'active', denied: combo.steps[step]?.denied }"
+                :title="combo.steps[step]?.denied ?? undefined"
                 @click="placeCombo(combo.key, step, placeable?.id ?? null)"
                 @contextmenu.prevent="gameBridge.send({ type: 'SetComboSlot', combo: combo.key, step, skillId: null })"
                 @dragover.prevent
@@ -249,8 +251,9 @@ function respec(e: MouseEvent) {
               <span v-else class="slot locked">🔒 Lv {{ combo.unlockLevels[step] }}</span>
             </template>
           </div>
-          <div v-if="combo.keyLevel === null" class="combo-status" :class="combo.status">
-            <template v-if="combo.status === 'known'">
+          <div v-if="combo.keyLevel === null" class="combo-status" :class="combo.denied ? 'denied' : combo.status">
+            <template v-if="combo.denied">整組無法施放 · {{ combo.denied }}</template>
+            <template v-else-if="combo.status === 'known'">
               ✦ {{ combo.name }}<span class="combo-effects"> · {{ combo.description.join('；') }}</span>
             </template>
             <template v-else-if="combo.status === 'unknown'">Combo：???</template>
@@ -616,6 +619,15 @@ small {
 .combo-status.unknown {
   color: #8a7c68;
   letter-spacing: 0.05em;
+}
+.combo-status.denied {
+  color: #b0776a;
+}
+/* 被目前的武器禁用的技能（配置保留，換回武器即恢復） */
+.slot.denied {
+  color: #b0776a;
+  text-decoration: line-through;
+  opacity: 0.7;
 }
 .combo-status.known {
   color: #ffb347;

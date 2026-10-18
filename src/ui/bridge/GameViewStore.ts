@@ -10,6 +10,8 @@ export interface SkillSlotView {
   name: string;
   /** 魔力足夠施放 */
   affordable: boolean;
+  /** 目前的武器禁用此技能的原因；可以用為 null */
+  denied: string | null;
 }
 
 export interface ComboBarView {
@@ -24,6 +26,8 @@ export interface ComboBarView {
   running: number;
   /** 已發現的 Combo 名稱；有 Combo 但未發現為 '???'；沒有 Combo 為 null */
   comboName: string | null;
+  /** 有一招被目前的武器禁用時整組停用：「重砍：法杖無法使用近戰技能」；可以施放為 null */
+  denied: string | null;
 }
 
 export interface LeaveFloorPrompt {

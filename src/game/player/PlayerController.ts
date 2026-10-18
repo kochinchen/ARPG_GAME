@@ -13,6 +13,7 @@ import type { DataTable } from '../../data/DataRegistry';
 import type { SkillDef } from '../../data/schema/skill';
 import type { ComboKey, PlayerLoadout } from './PlayerLoadout';
 import type { PotionBelt } from './PotionBelt';
+import type { GameEventBus } from '../GameEvents';
 
 /** 觸控搖桿：每次指令往前看幾格（每 0.1 秒重送一次，要比這段時間走的距離長） */
 const STICK_LOOKAHEAD = 2;
@@ -30,6 +31,7 @@ const AIR_SWING_DISTANCE = 2;
  * - 點地上物品 / 寶箱：走過去撿起 / 開啟
  * - 手上拿著物品時點地面：丟在腳下
  * 右鍵：依序施放目前 Q / W / E 選中的連段；按住則連段結束後再施放一次
+ * 武器禁用（允許矩陣）：左鍵技能被禁用時不出手；連段裡只要有一招被禁用，整組都不施放（配置保留）
  *
  * 觸控（iPad）：
  * - 搖桿：朝方向持續移動；攻擊或連段進行中不會被搖桿打斷
@@ -57,6 +59,9 @@ export class PlayerController {
     /** 目前解鎖的連段組數（Q / W / E / R / A / S / D 依序） */
     private readonly unlockedKeys: () => number,
     private readonly attributes: AttributeSystem,
+    private readonly events: GameEventBus,
+    /** 目前的武器禁用此技能時回傳原因 */
+    private readonly weaponDenial: (skillId: string) => string | null,
   ) {}
 
   handle(command: GameCommand): void {
@@ -150,6 +155,7 @@ export class PlayerController {
     this.holdMode = 'attack';
     this.interaction.clear();
     this.combos.cancel(this.player);
+    if (this.denied([this.loadout.left])) return;
     const target = this.resolveTarget(worldPos, targetId);
     this.player.path = [];
     this.player.intent = {
@@ -249,7 +255,7 @@ export class PlayerController {
     const steps = (this.loadout.combos[this.loadout.activeCombo] ?? [])
       .slice(0, this.unlockedSlots())
       .filter((id): id is string => id !== null && this.isLearned(id, 'active'));
-    if (steps.length === 0) return;
+    if (steps.length === 0 || this.denied(steps)) return;
     const target = this.resolveTarget(worldPos, targetId);
     // 游標在敵人身上時瞄準敵人腳下：角色有高度，游標下的地面點其實在敵人後方
     const point = target?.position ?? worldPos;
@@ -271,8 +277,21 @@ export class PlayerController {
   private attack(target: Actor, hold: boolean): void {
     this.interaction.clear();
     this.combos.cancel(this.player);
+    if (this.denied([this.loadout.left])) return;
     this.player.intent = { skillId: this.loadout.left, targetId: target.id, point: target.position, hold };
     this.player.repathCooldown = 0;
+  }
+
+  /** 有技能被目前的武器禁用：清掉意圖、發出提示（顯示原因），回傳 true */
+  private denied(skillIds: readonly string[]): boolean {
+    for (const skillId of skillIds) {
+      const text = this.weaponDenial(skillId);
+      if (text === null) continue;
+      this.player.intent = null;
+      this.events.emit('SkillFailed', { actorId: this.player.id, skillId, reason: 'weapon', text });
+      return true;
+    }
+    return false;
   }
 
   private moveTo(target: Vec2): void {

@@ -13,6 +13,7 @@ function select(e: MouseEvent, combo: ComboBarView) {
 
 function comboTitle(combo: ComboBarView): string {
   if (combo.unlockLevel !== null) return `${combo.key} 連段：等級 ${combo.unlockLevel} 解鎖`;
+  if (combo.denied) return `${combo.key} 連段無法施放\n${combo.denied}`;
   const steps = combo.steps.map((s, i) => `${i + 1}. ${s.locked ? '（未解鎖）' : (s.skill?.name ?? '（空）')}`).join('\n');
   const name = combo.comboName === null ? '' : `\nCombo：${combo.comboName}`;
   return `${combo.key} 連段（右鍵施放）\n${steps}${name}`;
@@ -21,7 +22,11 @@ function comboTitle(combo: ComboBarView): string {
 
 <template>
   <div class="skill-bar" @pointerdown.stop>
-    <div class="slot left" :class="{ dim: bar.left && !bar.left.affordable }" title="左鍵技能（在技能樹 T 更換）">
+    <div
+      class="slot left"
+      :class="{ dim: bar.left && !bar.left.affordable, denied: bar.left?.denied }"
+      :title="bar.left?.denied ? `左鍵無法使用：${bar.left.denied}` : '左鍵技能（在技能樹 T 更換）'"
+    >
       <span class="key">左</span>
       <span class="name">{{ bar.left?.name ?? '—' }}</span>
     </div>
@@ -30,7 +35,7 @@ function comboTitle(combo: ComboBarView): string {
       :key="combo.key"
       type="button"
       class="slot combo"
-      :class="{ active: combo.active, locked: combo.unlockLevel !== null, extra: combo.index >= 4 }"
+      :class="{ active: combo.active, locked: combo.unlockLevel !== null, extra: combo.index >= 4, denied: combo.denied }"
       :title="comboTitle(combo)"
       @click="select($event, combo)"
     >
@@ -40,7 +45,7 @@ function comboTitle(combo: ComboBarView): string {
         <span
           v-for="(step, i) in combo.steps"
           :key="i"
-          :class="{ running: combo.running === i + 1, empty: !step.skill, dim: step.skill && !step.skill.affordable }"
+          :class="{ running: combo.running === i + 1, empty: !step.skill, dim: step.skill && !step.skill.affordable, 'step-denied': step.skill?.denied }"
         >
           {{ step.locked ? '🔒' : (step.skill?.name ?? '—') }}
         </span>
@@ -116,6 +121,14 @@ function comboTitle(combo: ComboBarView): string {
 }
 .dim {
   color: #5a6a8a !important;
+}
+/* 目前的武器禁用：整格變暗，被禁用的那一招劃線 */
+.slot.denied {
+  opacity: 0.45;
+}
+.step-denied {
+  color: #b0776a !important;
+  text-decoration: line-through;
 }
 .key {
   position: absolute;

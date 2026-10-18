@@ -23,6 +23,7 @@ import { sortInventory } from './items/InventorySort';
 import type { Projectile } from './entities/Projectile';
 import { ChestSystem } from './items/ChestSystem';
 import { Equipment } from './items/Equipment';
+import { weaponDenial } from './skills/skillCategory';
 import { Inventory } from './items/Inventory';
 import { ItemCursor } from './items/ItemCursor';
 import { ItemGenerator } from './items/ItemGenerator';
@@ -325,6 +326,8 @@ export class GameWorld {
       () => this.comboSlotsUnlocked,
       () => this.comboKeysUnlocked,
       this.attributes,
+      this.events,
+      (skillId) => this.weaponDenial(skillId),
     );
     this.support = new SupportSystem(this.player, this.loadout, data.skills);
     this.support.update();
@@ -787,6 +790,12 @@ export class GameWorld {
   /** 目前等級已解鎖的連段格數（1～3） */
   get comboSlotsUnlocked(): number {
     return this.comboSlotLevels.filter((level) => this.progress.level >= level).length;
+  }
+
+  /** 目前的武器禁用這個技能時回傳原因（「法杖無法使用近戰技能」），可以用回傳 null */
+  weaponDenial(skillId: string): string | null {
+    if (!this.data.skills.has(skillId)) return null;
+    return weaponDenial(this.data.skills.get(skillId), this.equipment.weaponType(), this.data.balance.weaponRules);
   }
 
   /** 由 GameWorld 直接處理的指令（樓層確認、開發用指令）；回傳是否已處理 */

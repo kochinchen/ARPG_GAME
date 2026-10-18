@@ -66,7 +66,7 @@ describe('describeItem', () => {
     expect(name.name).toBe('鋒利的短劍');
     expect(name.subtitle).toBe('魔法 劍 · 短劍');
     // 劍的內建加成：近戰 +8%、暴擊 +2%
-    expect(name.lines).toEqual(['傷害 3–7', '+8% 近戰傷害', '+2% 暴擊率', '-20% 遠程傷害', '-20% 法術傷害', '+2 最小傷害']);
+    expect(name.lines).toEqual(['傷害 3–7', '+8% 近戰傷害', '+2% 暴擊率', '-20% 法術傷害', '+2 最小傷害']);
   });
 
   it('百分比類詞綴以 % 顯示', () => {
@@ -228,11 +228,11 @@ describe('主倍率與強屬性', () => {
     expect(staff.mainLine).toBe('法術強度 +150%');
   });
 
-  it('拿錯類型的武器：內建扣其他類別的傷害（與詞綴直接相加）', () => {
+  it('武器內建：只有劍斧弓的魔法 −20%（近戰 / 遠程改由允許矩陣禁用，不再扣分）', () => {
     const bow = describeItem({ uid: 'b', baseId: 'weapon.long_bow', rarity: 'normal', itemLevel: 12, affixes: [] }, data);
-    expect(bow.baseLines).toEqual(['傷害 9–17', '+15% 遠程傷害', '-15% 近戰傷害', '-20% 法術傷害']);
+    expect(bow.baseLines).toEqual(['傷害 9–17', '+15% 遠程傷害', '-20% 法術傷害']);
     const staff = describeItem({ uid: 's', baseId: 'weapon.rune_staff', rarity: 'normal', itemLevel: 18, affixes: [] }, data);
-    expect(staff.baseLines).toEqual(['傷害 7–13', '+15% 法術傷害', '-20% 近戰傷害', '-20% 遠程傷害', '法術強度 16']);
+    expect(staff.baseLines).toEqual(['傷害 7–13', '+15% 法術傷害', '法術強度 16']);
   });
 
   it('防具：主倍率乘在基礎防禦；飾品：乘在所有詞綴', () => {

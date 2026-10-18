@@ -147,9 +147,16 @@ export class Renderer {
       });
     });
     world.events.on('ChainTriggered', (e) => this.effects.spawnChain(e.points, ELEMENT_COLORS[e.element] ?? 0xffffff, e.special));
+    let lastFailure = { text: '', at: 0 };
     world.events.on('SkillFailed', (e) => {
       const actor = world.targeting.getActor(e.actorId);
-      if (actor === world.player) this.floatingText.spawnText(projection.toScreen(actor.position), '魔力不足', PALETTE.manaText);
+      if (actor !== world.player) return;
+      const text = e.reason === 'weapon' ? e.text : '魔力不足';
+      // 按住右鍵 / 左鍵時每幀都會失敗：同一句話 1 秒內只顯示一次
+      const now = performance.now();
+      if (text === lastFailure.text && now - lastFailure.at < 1000) return;
+      lastFailure = { text, at: now };
+      this.floatingText.spawnText(projection.toScreen(actor.position), text, PALETTE.manaText);
     });
     const say = (position: Vec2, text: string, color: number) =>
       this.floatingText.spawnText(projection.toScreen(position), text, color);

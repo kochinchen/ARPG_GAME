@@ -5,7 +5,7 @@ import type { ActorId } from '../../game/entities/Actor';
 import { buildCharacterView, characterSignature } from './CharacterView';
 import { gameView, type ComboBarView, type SkillSlotView } from './GameViewStore';
 import { buildInventoryView } from './InventoryView';
-import { buildSkillTreeView, skillTreeSignature } from './SkillTreeView';
+import { buildSkillTreeView, comboDenial, skillTreeSignature } from './SkillTreeView';
 import { buildShopView, shopSignature } from './ShopView';
 
 const BANNER_SECONDS = 2.5;
@@ -142,7 +142,7 @@ export class ViewSync {
       if (id === null || !this.data.skills.has(id)) return null;
       const skill = this.data.skills.get(id);
       const rank = player.skillRanks.get(id) ?? 1;
-      return { id, name: skill.name, affordable: player.mana >= world.skills.manaCost(skill, rank, player) };
+      return { id, name: skill.name, affordable: player.mana >= world.skills.manaCost(skill, rank, player), denied: world.weaponDenial(id) };
     };
     const unlocked = world.comboSlotsUnlocked;
     const keysUnlocked = world.comboKeysUnlocked;
@@ -164,6 +164,7 @@ export class ViewSync {
         active: loadout.activeCombo === i,
         running: loadout.activeCombo === i ? running : 0,
         comboName,
+        denied: comboDenial(world, sequence, this.data),
       };
     });
     bar.supports = loadout.supports.flatMap((id) => (id === null || !this.data.skills.has(id) ? [] : [this.data.skills.get(id).name]));

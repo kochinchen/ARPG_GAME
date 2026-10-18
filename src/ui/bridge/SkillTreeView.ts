@@ -46,6 +46,8 @@ export interface CategoryView {
 export interface SlotView {
   id: string;
   name: string;
+  /** 目前的武器禁用此技能的原因；可以用為 null */
+  denied: string | null;
 }
 
 export interface ComboView {
@@ -62,6 +64,17 @@ export interface ComboView {
   status: 'none' | 'unknown' | 'known';
   name: string | null;
   description: string[];
+  /** 有一招被目前的武器禁用時整組停用（原因）；可以施放為 null */
+  denied: string | null;
+}
+
+/** 連段裡第一個被目前的武器禁用的技能：「重砍：法杖無法使用近戰技能」；都可以用回傳 null */
+export function comboDenial(world: GameWorld, sequence: readonly string[], data: DataRegistry): string | null {
+  for (const id of sequence) {
+    const text = world.weaponDenial(id);
+    if (text !== null) return `${data.skills.has(id) ? data.skills.get(id).name : id}：${text}`;
+  }
+  return null;
 }
 
 export interface CodexEntryView {
@@ -93,7 +106,7 @@ export function emptySkillTreeView(): SkillTreeView {
 /** 版本簽章：成長狀態或按鍵配置改變時才重建 */
 export function skillTreeSignature(world: GameWorld): string {
   const l = world.loadout;
-  return `${world.progress.version}|${world.codex.version}|${l.left}|${l.combos.map((c) => c.join(',')).join('/')}|${l.supports.join(',')}|${l.activeCombo}|${world.wallet.gold}`;
+  return `${world.progress.version}|${world.codex.version}|${l.left}|${l.combos.map((c) => c.join(',')).join('/')}|${l.supports.join(',')}|${l.activeCombo}|${world.wallet.gold}|${world.equipment.weaponType() ?? ''}`;
 }
 
 export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillTreeView {
@@ -101,7 +114,8 @@ export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillT
   const { balance } = data;
   const loadout = world.loadout;
   const player = world.player;
-  const slot = (id: string | null): SlotView | null => (id && data.skills.has(id) ? { id, name: data.skills.get(id).name } : null);
+  const slot = (id: string | null): SlotView | null =>
+    id && data.skills.has(id) ? { id, name: data.skills.get(id).name, denied: world.weaponDenial(id) } : null;
 
   const blockedText = (reason: LearnBlock, skill: SkillDef): string => {
     const t = skill.tree!;
@@ -196,6 +210,7 @@ export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillT
         status: resolution.status === 'none' ? 'none' : known ? 'known' : 'unknown',
         name: known && resolution.status === 'combo' ? resolution.displayName : null,
         description: known && resolution.status === 'combo' ? resolution.description : [],
+        denied: comboDenial(world, sequence, data),
       };
     }),
     supports: loadout.supports.map(slot),

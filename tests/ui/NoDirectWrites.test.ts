@@ -12,7 +12,7 @@ const WRITE_PATTERNS = [
   /\bworld\.[\w.[\]'"]+\s*(?:[-+*/]?=(?!=)|\+\+|--)/,
   /\bworld\.[\w.[\]'"]+\.(?:push|pop|shift|unshift|splice|sort|reverse|set|delete|clear|add|fill)\(/,
   /\bworld\.(?:update|enterFloor|spawnGroundItem|spawnChestsNear|useExit|useStairsUp|restoreResources)\(/,
-  /\bworld\.(?:inventory|equipment|cursor|skillTree|attributes|experience|potions|loadout|codex|floors|checkpoints)\.(?!get\b|has\b|all\b|version\b|points\b|check\b|rank\b|defs\b|count\b|cells\b|items\b|entry\b|mastery\b|index\b|xpForNextLevel\b|floor\b|killed\b|total\b|exitOpen\b|remainingToOpen\b|respawn\b|checkpoints\b|left\b|combos\b|supports\b|activeCombo\b|nextOrder\b|slotsFor\b|canEquip\b|state\b|checkUnlock\b)\w+\(/,
+  /\bworld\.(?:inventory|equipment|cursor|skillTree|attributes|experience|potions|loadout|codex|floors|checkpoints)\.(?!get\b|has\b|all\b|version\b|points\b|check\b|rank\b|defs\b|count\b|cells\b|items\b|entry\b|mastery\b|index\b|xpForNextLevel\b|floor\b|killed\b|total\b|exitOpen\b|remainingToOpen\b|respawn\b|checkpoints\b|left\b|combos\b|supports\b|activeCombo\b|nextOrder\b|slotsFor\b|canEquip\b|weaponType\b|state\b|checkUnlock\b)\w+\(/,
 ];
 
 describe('UI 不直接寫入遊戲狀態', () => {
