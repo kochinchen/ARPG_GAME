@@ -10,6 +10,7 @@ import { affixes } from './affixes';
 import { lootTables } from './lootTables';
 import { eliteAffixes } from './eliteAffixes';
 import { legendaries } from './legendaries';
+import { cores } from './cores';
 
 /**
  * 所有遊戲資料的集合，交給 DataRegistry.load() 驗證。
@@ -27,4 +28,5 @@ export const gameData: RawGameData = {
   comboRules,
   eliteAffixes,
   legendaries,
+  cores,
 };

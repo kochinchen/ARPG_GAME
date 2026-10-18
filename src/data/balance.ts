@@ -187,6 +187,30 @@ export const balance: z.input<typeof BalanceSchema> = {
     magic: { manaCost: 1, lifeSteal: 0.8 },
     utility: { manaCost: 1, lifeSteal: 1 },
   },
+  // 鑲嵌（v0.5.0）：孔數與稀有度反向；紅裝不打洞
+  sockets: {
+    max: { normal: 5, magic: 4, rare: 3, epic: 2, legendary: 1, mythic: 0 },
+    // 掉落時 0 / 1 / 2 孔的權重；紫以上掉落時沒有孔（要鑿）
+    dropWeights: { normal: [60, 30, 10], magic: [60, 30, 10], rare: [65, 25, 10], epic: [1], legendary: [1], mythic: [1] },
+    drillGold: 30,
+    drillEssence: 3,
+    insertGold: 10,
+    removeGold: 20,
+    bodyCap: 1.5,
+    maxCores: 25,
+  },
+  // 融合（v0.5.0）：第四階約 3,000 金幣；精華約等於把同樣四把拆解的期望產出
+  fusion: {
+    inputs: { min: 2, max: 4 },
+    jewelrySlots: 2,
+    tierMultiplier: [1, 1.15, 1.32, 1.52, 1.75],
+    rarityFrom: { magic: 2, rare: 5, epic: 9, legendary: 15 },
+    lineCount: { normal: 1, magic: 2, rare: 2, epic: 3, legendary: 3 },
+    mixedMultiplier: 0.7,
+    brand: { chance: 0.35, chanceCap: 0.85, valueMultiplier: 0.7 },
+    jewelryBoost: { normal: 0, magic: 0.05, rare: 0.1, epic: 0.15, legendary: 0.2, mythic: 0.25 },
+    cost: { goldBase: 120, goldPerItemLevel: 25, essenceBase: 12, essenceLevelDivisor: 3 },
+  },
   // 武器決定可用的技能類別：劍斧＝近戰＋魔法、弓＝遠程＋魔法、法杖＝魔法；戰術任何武器都能用
   // 魔法的加減分（劍斧弓 −20%、法杖 +15%）在 items.ts 的武器內建屬性
   weaponRules: {

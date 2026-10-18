@@ -57,6 +57,11 @@ describe('吸血 / 吸魔硬上限', () => {
     }
   });
 
+  it('熔核（v0.5.0）：所有核種與通用池都沒有吸血 / 吸魔 / 回魔', () => {
+    expect(data.cores.lines.all.length).toBeGreaterThan(0);
+    for (const line of data.cores.lines.all) expect(JSON.stringify(line), line.id).not.toMatch(/lifeSteal|manaSteal|manaOnHit|manaRegen|hpOfDamage/);
+  });
+
   it('舊物品（數值超過上限）以上限計算', () => {
     const old = { uid: 'x', baseId: 'ring.gold', rarity: 'epic' as const, itemLevel: 40, quality: 0.6, affixes: [{ id: 'strong.bloodthirst', rolls: [0.05] }] };
     expect(itemStats(old, data).affixes[0]!.value).toBe(STEAL_CAP.perSource);

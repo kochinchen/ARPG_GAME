@@ -25,6 +25,8 @@ export const StatIdSchema = z.enum([
   /** 施法速度加成（施放時間 ÷ (1 + castSpeed)） */
   'castSpeed',
   'attackRange',
+  /** 射擊距離（格）：加在所有投射物（弓、法術投射物、投擲技能）的飛行距離上；attackRange 只影響近戰與普通攻擊 */
+  'projectileRange',
   'critChance',
   'defense',
   /** 所有傷害加成（比例） */

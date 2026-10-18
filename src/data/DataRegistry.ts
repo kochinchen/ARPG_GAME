@@ -16,6 +16,8 @@ import { MapDefSchema, type MapDef } from './schema/map';
 import { ComboRuleSchema, isRangeSequenceValid, type ComboRuleDef } from './schema/combo';
 import { EliteAffixDefSchema, type EliteAffixDef } from './schema/elite';
 import { LegendaryDefSchema, type LegendaryDef, type SkillFilter } from './schema/legendary';
+import { CORE_SLOTS, CoreDataSchema, type CoreLine, type CoreTypeDef } from './schema/core';
+import { WeaponTypeSchema } from './schema/item';
 import { checkComboTags, flattenEffects } from './skillAnalysis';
 import { findMarker, reachableTiles } from './mapAnalysis';
 import { MAP_TILES } from './schema/map';
@@ -35,7 +37,18 @@ export interface RawGameData {
   comboRules: readonly unknown[];
   eliteAffixes: readonly unknown[];
   legendaries: readonly unknown[];
+  cores: unknown;
 }
+
+/** 熔核資料：核種、所有屬性行（含通用池，依 ID 查詢）、通用副屬性池 */
+export interface CoreTables {
+  types: DataTable<CoreTypeDef>;
+  lines: DataTable<CoreLine>;
+  shared: readonly CoreLine[];
+}
+
+/** 熔核不可出現的屬性：吸血 / 吸魔（吸取硬上限守則）、回魔（由 Support 被動負責） */
+export const CORE_EXCLUDED_STATS: readonly string[] = ['lifeSteal', 'manaSteal', 'manaOnHit', 'manaRegen', 'manaRegenPct'];
 
 export class DataValidationError extends Error {
   constructor(readonly problems: string[]) {
@@ -84,6 +97,7 @@ export class DataRegistry {
     readonly comboRules: DataTable<ComboRuleDef>,
     readonly eliteAffixes: DataTable<EliteAffixDef>,
     readonly legendaries: DataTable<LegendaryDef>,
+    readonly cores: CoreTables,
   ) {}
 
   static load(raw: RawGameData): DataRegistry {
@@ -101,6 +115,10 @@ export class DataRegistry {
     const comboRules = parseTable('comboRule', ComboRuleSchema, raw.comboRules, problems);
     const eliteAffixes = parseTable('eliteAffix', EliteAffixDefSchema, raw.eliteAffixes, problems);
     const legendaries = parseTable('legendary', LegendaryDefSchema, raw.legendaries, problems);
+    const cores = parseCores(raw.cores, problems);
+    for (const line of cores.lines.all) {
+      if (line.type === 'mods') for (const id of line.when.skills ?? []) if (!skills.has(id)) problems.push(`core line '${line.id}' 引用不存在的 skill '${id}'`);
+    }
     // 基底的舊版 ID：不可與現有 ID 或其他別名重複；同種類的階級不可重複
     const aliasSeen = new Set<string>();
     const tierSeen = new Set<string>();
@@ -271,7 +289,7 @@ export class DataRegistry {
     }
 
     if (problems.length > 0 || !balance) throw new DataValidationError(problems);
-    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules, eliteAffixes, legendaries);
+    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules, eliteAffixes, legendaries, cores);
   }
 }
 
@@ -302,6 +320,43 @@ function parseTable<T extends { id: string }>(
     parsed.push(entry);
   });
   return new DataTable(kind, parsed);
+}
+
+/** 熔核：核種、屬性行 ID 不重複；啟用的核種五個部位都有；每種武器剛好一種攻核；不得有吸取 / 回魔 */
+function parseCores(value: unknown, problems: string[]): CoreTables {
+  const data = parseOne('cores', CoreDataSchema, value, problems);
+  const types = new DataTable<CoreTypeDef>('coreType', []);
+  if (!data) return { types, lines: new DataTable<CoreLine>('coreLine', []), shared: [] };
+  const typeIds = new Set<string>();
+  const lines: CoreLine[] = [];
+  const lineIds = new Set<string>();
+  const addLine = (line: CoreLine, where: string) => {
+    if (lineIds.has(line.id)) problems.push(`熔核屬性 ID 重複：'${line.id}'（${where}）`);
+    lineIds.add(line.id);
+    lines.push(line);
+    if (line.type === 'stat' && CORE_EXCLUDED_STATS.includes(line.stat)) problems.push(`熔核屬性 '${line.id}' 不可使用 ${line.stat}`);
+    if (line.scaling === 'none' && line.t5Value) problems.push(`熔核屬性 '${line.id}' 固定數值（scaling: none）不可設定 t5Value`);
+  };
+  for (const type of data.types) {
+    if (typeIds.has(type.id)) problems.push(`熔核核種重複：'${type.id}'`);
+    typeIds.add(type.id);
+    if (type.family === 'attack' && !type.weapon) problems.push(`攻核 '${type.id}' 沒有設定來源武器 weapon`);
+    if (type.family === 'defense' && !type.sourceSlots?.length) problems.push(`護核 '${type.id}' 沒有設定來源部位 sourceSlots`);
+    for (const slot of CORE_SLOTS) {
+      const slotLines = type.slots[slot];
+      if (!slotLines) {
+        if (type.enabled) problems.push(`熔核 '${type.id}' 已啟用，但沒有「${slot}」部位的屬性`);
+        continue;
+      }
+      for (const line of slotLines) addLine(line, `${type.id}.${slot}`);
+    }
+  }
+  for (const weapon of WeaponTypeSchema.options) {
+    const n = data.types.filter((t) => t.enabled && t.family === 'attack' && t.weapon === weapon).length;
+    if (n !== 1) problems.push(`武器 '${weapon}' 應剛好對應一種啟用的攻核（目前 ${n} 種）`);
+  }
+  for (const line of data.shared) addLine(line, 'shared');
+  return { types: new DataTable('coreType', data.types), lines: new DataTable('coreLine', lines), shared: data.shared };
 }
 
 function describeId(value: unknown): string {

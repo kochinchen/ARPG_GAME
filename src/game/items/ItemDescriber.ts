@@ -39,6 +39,7 @@ export const STAT_LABELS: Record<StatId, string> = {
   attackSpeed: '攻擊速度',
   castSpeed: '施法速度',
   attackRange: '攻擊距離',
+  projectileRange: '射擊距離',
   critChance: '暴擊率',
   defense: '防禦',
   damageBonus: '傷害',

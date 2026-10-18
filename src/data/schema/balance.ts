@@ -266,6 +266,56 @@ export const BalanceSchema = z.strictObject({
     magic: CategoryTraitsSchema,
     utility: CategoryTraitsSchema,
   }),
+  /**
+   * 鑲嵌（v0.5.0）：孔數上限（與稀有度反向）、掉落時的孔數權重（index = 孔數）、商人的鑿孔 / 鑲嵌 / 拆卸費用、
+   * 全身上限（同一條屬性全身熔核合計 ≤ 一顆 T5 橘核最高值 × bodyCap；同一條印記 ≤ 單顆 × bodyCap）。
+   */
+  sockets: z.strictObject({
+    max: z.record(RaritySchema, z.int().min(0).max(5)),
+    dropWeights: z.record(RaritySchema, z.array(z.number().nonnegative()).min(1)),
+    /** 鑿第 n 孔：金幣 drillGold × 物品等級 × n、防具精華 drillEssence × n */
+    drillGold: z.int().nonnegative(),
+    drillEssence: z.int().nonnegative(),
+    /** 鑲嵌 / 拆卸：金幣 × 物品等級（拆卸時熔核毀掉、孔保留） */
+    insertGold: z.int().nonnegative(),
+    removeGold: z.int().nonnegative(),
+    bodyCap: z.number().positive(),
+    maxCores: z.int().positive(),
+  }),
+  /**
+   * 融合（v0.5.0）：2～4 把武器 → 一顆熔核；飾品區最多 2 件戒指 / 護身符，只提高印記機率。
+   * 核階 = 平均物品等級依 affixPower.levelsPerTier 分階（最高 affixPower.maxTier）；核色 = gearAura.weights 加總對照 rarityFrom；
+   * 數值 = T1 擲骰 × tierMultiplier × affixPower.rarity（核色倍率）。
+   */
+  fusion: z.strictObject({
+    inputs: z.strictObject({ min: z.int().positive(), max: z.int().positive() }),
+    jewelrySlots: z.int().nonnegative(),
+    /** 核階倍率（index = 核階 − 1） */
+    tierMultiplier: z.array(z.number().positive()).min(1),
+    /** 核色：權重加總 ≥ 門檻即為該核色（沒有紅核） */
+    rarityFrom: z.strictObject({ magic: z.number(), rare: z.number(), epic: z.number(), legendary: z.number() }),
+    /** 屬性條數（含主屬性；印記不佔條數） */
+    lineCount: z.strictObject({ normal: z.int().positive(), magic: z.int().positive(), rare: z.int().positive(), epic: z.int().positive(), legendary: z.int().positive() }),
+    /** 混核：兩個核種各取一條，數值 × mixedMultiplier */
+    mixedMultiplier: z.number().positive(),
+    brand: z.strictObject({
+      /** 每把橘武器的基礎機率（再加飾品區加成） */
+      chance: z.number().min(0).max(1),
+      /** 總機率上限：1 − Π(1 − p) 不超過這個值 */
+      chanceCap: z.number().min(0).max(1),
+      /** 傳入的數值倍率（整數四捨五入、至少 1） */
+      valueMultiplier: z.number().positive(),
+    }),
+    /** 飾品區：每件依稀有度提高印記機率（白飾品不能放） */
+    jewelryBoost: z.record(RaritySchema, z.number().nonnegative()),
+    /** 費用：金幣 goldBase + goldPerItemLevel × Σ物品等級；武器精華 essenceBase + Σ ceil(物品等級 ÷ essenceLevelDivisor) */
+    cost: z.strictObject({
+      goldBase: z.int().nonnegative(),
+      goldPerItemLevel: z.int().nonnegative(),
+      essenceBase: z.int().nonnegative(),
+      essenceLevelDivisor: z.int().positive(),
+    }),
+  }),
   /** 武器允許矩陣：每種武器可以使用的主動技能類別（不在清單內 = 禁用） */
   weaponRules: z.record(WeaponTypeSchema, z.array(ActiveCategorySchema).min(1)),
   /** 機關（戰術技能佈置的有血量物件） */
