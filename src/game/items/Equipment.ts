@@ -5,6 +5,11 @@ import type { GameEventBus } from '../GameEvents';
 import type { EquipSlot, WeaponType } from '../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from './ItemInstance';
 import { itemStats } from './ItemStats';
+import { CORE_SLOTS } from '../../data/schema/core';
+import { coreEffects, type CoreEffects, type SocketedCore } from './CoreStats';
+
+const CORE_SOURCE = 'cores';
+const NO_CORES: CoreEffects = { stats: [], mechanics: [], capped: [] };
 
 /**
  * 裝備欄位。穿上時把基底屬性與詞綴轉成 StatModifier 加到角色身上，脫下時整批移除。
@@ -12,10 +17,12 @@ import { itemStats } from './ItemStats';
 export class Equipment {
   private readonly slots = new Map<EquipmentSlot, ItemInstance>();
   private _version = 0;
+  private _cores: CoreEffects = NO_CORES;
+  private _coreVersion = 0;
 
   constructor(
     private readonly owner: Actor,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'balance' | 'cores'>,
     private readonly events: GameEventBus,
   ) {}
 
@@ -25,6 +32,33 @@ export class Equipment {
 
   get version(): number {
     return this._version;
+  }
+
+  /** 全身熔核的效果（屬性已加到角色身上；技能加成與印記由 ItemEffectSystem 讀取） */
+  get cores(): CoreEffects {
+    return this._cores;
+  }
+
+  /** 熔核效果每次重算就增加（ItemEffectSystem 據此重建機制） */
+  get coreVersion(): number {
+    return this._coreVersion;
+  }
+
+  /** 目前裝備上所有鑲入的熔核（只有可鑲嵌的部位） */
+  socketedCores(): SocketedCore[] {
+    return CORE_SLOTS.flatMap((slot) => (this.slots.get(slot)?.sockets?.cores ?? []).map((core) => ({ slot, core })));
+  }
+
+  /**
+   * 重算全身熔核：全身上限要看所有部位，所以整批移除再加回（穿脫裝備、鑲嵌、拆卸後呼叫）。
+   */
+  refreshCores(): void {
+    this.owner.stats.removeBySource(CORE_SOURCE);
+    const cores = this.socketedCores();
+    this._cores = cores.length === 0 ? NO_CORES : coreEffects(cores, this.data);
+    for (const { stat, kind, value } of this._cores.stats) this.owner.stats.addModifier({ stat, kind, value, source: CORE_SOURCE });
+    this._coreVersion++;
+    this.clampResources();
   }
 
   /** 物品可以穿在哪些欄位（戒指有兩格） */
@@ -70,6 +104,7 @@ export class Equipment {
     const replaced = this.unequip(slot);
     this.slots.set(slot, item);
     this.applyModifiers(item);
+    if (item.sockets?.cores.length) this.refreshCores();
     this._version++;
     this.events.emit('ItemEquipped', { uid: item.uid, slot });
     return replaced;
@@ -80,6 +115,7 @@ export class Equipment {
     if (!item) return null;
     this.slots.delete(slot);
     this.owner.stats.removeBySource(sourceOf(item));
+    if (item.sockets?.cores.length) this.refreshCores();
     this.clampResources();
     this._version++;
     this.events.emit('ItemUnequipped', { uid: item.uid, slot });

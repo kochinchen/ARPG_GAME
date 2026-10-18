@@ -31,7 +31,8 @@ export class ProjectileEffect implements IEffect<'projectile'> {
         direction,
         speed: def.speed * (1 + mods.projectileSpeed),
         radius: def.radius * (1 + mods.projectileSize),
-        remaining: def.range,
+        // 射擊距離（熔核）加在飛行距離上
+        remaining: def.range + ctx.caster.stats.get('projectileRange'),
         pierceLeft: Math.round(rankValue(def.pierce, ctx.rank)) + mods.pierce,
         hitIds: new Set(ctx.spawnFrom ? [ctx.spawnFrom.id] : []),
         onHit: def.onHit,

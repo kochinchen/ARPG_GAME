@@ -17,11 +17,17 @@ import { combatCategory } from '../skills/skillCategory';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { EquipmentSlot, ItemInstance } from './ItemInstance';
 import { EQUIPMENT_SLOTS } from './ItemInstance';
+import type { CoreEffects } from './CoreStats';
 
-/** 目前啟用的一條機制（屬於哪件裝備的哪一行） */
+/** 熔核的技能加成與印記（由 Equipment 計算，已套用全身上限） */
+export interface CoreMechanicsSource {
+  readonly coreVersion: number;
+  readonly cores: Pick<CoreEffects, 'mechanics'>;
+}
+
+/** 目前啟用的一條機制（屬於哪件裝備的哪一行，或熔核） */
 interface ActiveMechanic {
   key: string;
-  def: LegendaryDef;
   mechanic: ItemMechanic;
 }
 
@@ -80,6 +86,7 @@ export class ItemEffectSystem {
     private readonly player: Actor,
     private readonly data: Pick<DataRegistry, 'legendaries' | 'skills'>,
     private readonly equipped: (slot: EquipmentSlot) => ItemInstance | undefined,
+    private readonly cores: CoreMechanicsSource,
     private readonly index: ComboSkillIndex,
     private readonly codex: ComboCodex,
     private readonly executor: SkillExecutor,
@@ -187,7 +194,7 @@ export class ItemEffectSystem {
   /** 裝備改變時重建啟用的機制（清除舊的增益與條件加成） */
   private refresh(): void {
     const items = EQUIPMENT_SLOTS.map((slot) => this.equipped(slot)).filter((i): i is ItemInstance => i?.legendaryId !== undefined);
-    const signature = items.map((i) => i.uid).join('|');
+    const signature = `${items.map((i) => i.uid).join('|')}#${this.cores.coreVersion}`;
     if (signature === this.signature) return;
     this.signature = signature;
     for (const id of [...this.buffs.keys()]) this.clearBuff(id);
@@ -200,9 +207,11 @@ export class ItemEffectSystem {
       const def = this.data.legendaries.get(item.legendaryId!);
       def.lines.forEach((line, i) => {
         if (line.type !== 'effect') return;
-        line.mechanics.forEach((mechanic, j) => this.active.push({ key: `${n}:${def.id}:${i}:${j}`, def, mechanic }));
+        line.mechanics.forEach((mechanic, j) => this.active.push({ key: `${n}:${def.id}:${i}:${j}`, mechanic }));
       });
     });
+    // 熔核：技能加成（重擊類技能傷害、投射物速度…）與印記（傳入的強屬性）
+    for (const { key, mechanic } of this.cores.cores.mechanics) this.active.push({ key, mechanic });
   }
 
   // ─────────────────────────── 觸發 ───────────────────────────

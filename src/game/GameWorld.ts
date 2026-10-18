@@ -294,6 +294,7 @@ export class GameWorld {
       this.player,
       data,
       (slot) => this.equipment.get(slot),
+      this.equipment,
       comboIndex,
       this.codex,
       executor,

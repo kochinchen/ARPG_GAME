@@ -12,6 +12,7 @@ import type { Balance } from '../../data/schema/balance';
 import { combatCategory, type CombatCategory } from './skillCategory';
 import type { StatusEffectSystem } from '../combat/StatusEffectSystem';
 import type { StatusKind } from '../../data/schema/effects';
+import { flattenEffects } from '../../data/skillAnalysis';
 
 /** 怪物的普通攻擊（範圍不隨樓層放大） */
 const BASIC_ATTACK = 'basic.attack';
@@ -111,7 +112,7 @@ export class SkillSystem {
         break;
       }
       case 'ground': {
-        const range = skill.range ?? actor.stats.get('attackRange');
+        const range = castRange(actor, skill);
         const offset = sub(intent.point, actor.position);
         const d = Math.hypot(offset.x, offset.y);
         point = d <= range ? intent.point : add(actor.position, scale(offset, range / d));
@@ -207,7 +208,24 @@ export class SkillSystem {
 
 /** 對單一敵人施放的有效距離（從雙方邊緣算起，不含目標半徑） */
 export function skillReach(actor: Actor, skill: SkillDef): number {
-  return (skill.range ?? actor.stats.get('attackRange')) + actor.radius;
+  return castRange(actor, skill) + actor.radius;
+}
+
+/** 施放距離：技能自己的距離（沒有就用攻擊距離）；投射物與投擲技能再加射擊距離（熔核） */
+export function castRange(actor: Actor, skill: SkillDef): number {
+  const base = skill.range ?? actor.stats.get('attackRange');
+  return usesProjectileRange(skill) ? base + actor.stats.get('projectileRange') : base;
+}
+
+const projectileSkills = new WeakMap<SkillDef, boolean>();
+/** 吃射擊距離的技能：效果裡有投射物，或戰術的投擲分支（霜凍瓶、閃光粉等拋投） */
+export function usesProjectileRange(skill: SkillDef): boolean {
+  let uses = projectileSkills.get(skill);
+  if (uses === undefined) {
+    uses = (skill.tree?.category === 'utility' && skill.tree.branch === 'C') || flattenEffects(skill.effects).some((e) => e.type === 'projectile');
+    projectileSkills.set(skill, uses);
+  }
+  return uses;
 }
 
 function tickCooldowns(actor: Actor, dt: number): void {
