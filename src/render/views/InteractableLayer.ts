@@ -1,3 +1,4 @@
+import { coreName } from '../../game/items/CoreDescriber';
 import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
@@ -80,7 +81,7 @@ export class InteractableLayer {
   constructor(
     private readonly projection: IsoProjection,
     private readonly objectLayer: Container,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores'>,
   ) {}
 
   setHovered(id: number | null): void {
@@ -445,6 +446,8 @@ export class InteractableLayer {
         const name = this.data.potions.get(g.content.potionId).name;
         return { text: g.content.count > 1 ? `${name} ×${g.content.count}` : name, color: LOOT_COLORS.potion };
       }
+      case 'core':
+        return { text: coreName(g.content.core, this.data), color: RARITY_COLORS[g.content.core.rarity] ?? 0xffffff };
       case 'gold':
         return { text: `${g.content.amount} 金幣`, color: LOOT_COLORS.gold };
       case 'material':

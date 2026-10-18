@@ -1,10 +1,13 @@
 import type { MaterialId } from '../../data/schema/item';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { ItemInstance } from '../items/ItemInstance';
+import type { CoreInstance } from '../items/CoreInstance';
 
 export type GroundContent =
   | { kind: 'item'; item: ItemInstance }
   | { kind: 'potion'; potionId: string; count: number }
+  /** 熔核（v0.5.0）：要點擊才撿 */
+  | { kind: 'core'; core: CoreInstance }
   | { kind: 'gold'; amount: number }
   /** 材料（飛昇碎片）：走過去自動撿 */
   | { kind: 'material'; materialId: MaterialId; count: number };

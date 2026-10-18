@@ -4,9 +4,10 @@ import type { ComboCodexEntry } from '../game/combo/ComboCodex';
 import type { GroundContent } from '../game/entities/Interactable';
 import type { InventoryEntry } from '../game/items/Inventory';
 import { EQUIPMENT_SLOTS, type ItemInstance } from '../game/items/ItemInstance';
+import type { CoreInstance } from '../game/items/CoreInstance';
 import type { ComboKey } from '../game/player/PlayerLoadout';
 import type { RepairResult } from './SaveRepair';
-import type { SaveData, SavedEntry, SavedGroundItem, SavedItem } from './schema';
+import type { SaveData, SavedCore, SavedEntry, SavedGroundItem, SavedItem } from './schema';
 
 /** 地上物品最多存幾件（避免存檔無限膨脹） */
 export const MAX_SAVED_GROUND_ITEMS = 200;
@@ -83,7 +84,7 @@ export const SaveMapper = {
       bestiary: Object.fromEntries(progress.bestiary),
       collection: [...progress.collection].sort(),
       materials: world.materials.snapshot(),
-      salvage: world.salvage.slots.map((item) => (item ? clone(item) : null)),
+      salvage: world.salvage.slots.map((e) => (e === null ? null : clone(e.kind === 'item' ? e.item : e.core))),
       ascendSlot: world.shop.ascendSlot ? clone(world.shop.ascendSlot) : null,
       counters: { itemUidCounter: world.itemGenerator.uidCounter },
       rng: Object.fromEntries(RNG_STREAMS.map((name) => [name, world.rngStreams[name].getState()])),
@@ -117,7 +118,7 @@ export const SaveMapper = {
     progress.collection.clear();
     for (const key of save.collection) progress.collection.add(key);
     world.materials.restore(save.materials);
-    world.salvage.restore(save.salvage.map((item) => (item ? toItem(item) : null)));
+    world.salvage.restore(save.salvage.map((s) => (s === null ? null : 'baseId' in s ? { kind: 'item', item: toItem(s) } : { kind: 'core', core: toCore(s) })));
     world.shop.ascendSlot = save.ascendSlot ? toItem(save.ascendSlot) : null;
     world.attributes.apply();
 
@@ -251,22 +252,37 @@ function toSavedEntry(entry: InventoryEntry): SavedEntry {
 }
 
 function toInventoryEntry(entry: SavedEntry): InventoryEntry {
-  return entry.kind === 'item' ? { kind: 'item', item: toItem(entry.item) } : { ...entry };
+  if (entry.kind === 'item') return { kind: 'item', item: toItem(entry.item) };
+  if (entry.kind === 'core') return { kind: 'core', core: toCore(entry.core) };
+  return { ...entry };
 }
 
 function toGroundContent(entry: SavedGroundItem['entry']): GroundContent {
-  return entry.kind === 'item' ? { kind: 'item', item: toItem(entry.item) } : { ...entry };
+  if (entry.kind === 'item') return { kind: 'item', item: toItem(entry.item) };
+  if (entry.kind === 'core') return { kind: 'core', core: toCore(entry.core) };
+  return { ...entry };
 }
 
 /** Schema 的 optional 欄位可能是 undefined；ItemInstance 不允許，沒有值時省略 */
 function toItem(saved: SavedItem): ItemInstance {
-  const { legendaryId, legendaryRolls, quality, rerolls, ...rest } = clone(saved);
+  const { legendaryId, legendaryRolls, quality, rerolls, sockets, ...rest } = clone(saved);
   return {
     ...rest,
     ...(quality === undefined ? {} : { quality }),
     ...(legendaryId === undefined ? {} : { legendaryId }),
     ...(legendaryRolls === undefined ? {} : { legendaryRolls }),
     ...(rerolls === undefined ? {} : { rerolls }),
+    ...(sockets === undefined ? {} : { sockets: { max: sockets.max, cores: sockets.cores.map(toCore) } }),
+  };
+}
+
+function toCore(saved: SavedCore): CoreInstance {
+  const { element, pure, brand, ...rest } = clone(saved);
+  return {
+    ...rest,
+    ...(element === undefined ? {} : { element }),
+    ...(pure === undefined ? {} : { pure }),
+    ...(brand === undefined ? {} : { brand: brand.roll === undefined ? { legendaryId: brand.legendaryId, line: brand.line } : { legendaryId: brand.legendaryId, line: brand.line, roll: brand.roll } }),
   };
 }
 

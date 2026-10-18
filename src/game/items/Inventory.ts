@@ -1,7 +1,11 @@
+import type { CoreInstance } from './CoreInstance';
 import type { ItemInstance } from './ItemInstance';
 
-/** 背包中一格的內容：一件物品，或一疊藥水 */
-export type InventoryEntry = { kind: 'item'; item: ItemInstance } | { kind: 'potion'; potionId: string; count: number };
+/** 背包中一格的內容：一件物品、一疊藥水，或一顆熔核（v0.5.0） */
+export type InventoryEntry =
+  | { kind: 'item'; item: ItemInstance }
+  | { kind: 'potion'; potionId: string; count: number }
+  | { kind: 'core'; core: CoreInstance };
 
 /**
  * 背包：cols × rows 格，每格放一件物品或一疊同種藥水。
@@ -52,6 +56,15 @@ export class Inventory {
     const cell = this.firstEmpty();
     if (cell < 0) return false;
     this.cells[cell] = { kind: 'item', item };
+    this.changed();
+    return true;
+  }
+
+  /** 熔核放進第一個空格；背包滿時回傳 false */
+  addCore(core: CoreInstance): boolean {
+    const cell = this.firstEmpty();
+    if (cell < 0) return false;
+    this.cells[cell] = { kind: 'core', core };
     this.changed();
     return true;
   }

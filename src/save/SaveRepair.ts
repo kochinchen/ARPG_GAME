@@ -124,6 +124,7 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
       const item = fixItem(entry.item);
       return item ? [{ kind: 'item', item }] : [];
     }
+    if (entry.kind === 'core') return [entry];
     if (!data.potions.has(entry.potionId)) return [];
     // 超過上限的藥水疊拆成多疊
     const max = data.potions.get(entry.potionId).maxStack;
@@ -224,7 +225,7 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   save.counters.itemUidCounter = Math.max(save.counters.itemUidCounter, maxUidCounter(save, overflow));
 
   // ---- 拆解區：修正物品（已刪除的基底移除） ----
-  save.salvage = save.salvage.map((item) => (item ? fixItem(item) : null));
+  save.salvage = save.salvage.map((s) => (s === null ? null : 'baseId' in s ? fixItem(s) : s));
   if (save.ascendSlot) save.ascendSlot = fixItem(save.ascendSlot);
 
   // ---- 怪物圖鑑：移除已刪除的怪物 ----

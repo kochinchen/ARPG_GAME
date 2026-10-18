@@ -82,7 +82,7 @@ export interface FloorRestore {
 }
 
 /** 需要存檔的亂數序列名稱（存檔的 key，改名需寫 Migration） */
-export const RNG_STREAMS = ['combat', 'scheduler', 'effects', 'items', 'loot', 'ai', 'legendary', 'salvage'] as const;
+export const RNG_STREAMS = ['combat', 'scheduler', 'effects', 'items', 'loot', 'ai', 'legendary', 'salvage', 'sockets', 'fusion'] as const;
 export type RngStream = (typeof RNG_STREAMS)[number];
 
 export interface GameWorldOptions {
@@ -205,6 +205,9 @@ export class GameWorld {
       ai: new Rng(options.seed).fork('ai'),
       legendary: new Rng(options.seed).fork('legendary'),
       salvage: new Rng(options.seed).fork('salvage'),
+      // 掉落時的孔數、融合（v0.5.0）：獨立的序列，不改變既有的掉落結果
+      sockets: new Rng(options.seed).fork('sockets'),
+      fusion: new Rng(options.seed).fork('fusion'),
     };
     this.rngStreams = streams;
     const pathfinder = new Pathfinder(this.nav);
@@ -336,7 +339,7 @@ export class GameWorld {
     );
     this.support = new SupportSystem(this.player, this.loadout, data.skills);
     this.support.update();
-    this.itemGenerator = new ItemGenerator(data, streams.items);
+    this.itemGenerator = new ItemGenerator(data, streams.items, streams.sockets);
     new LootSystem(
       data,
       streams.loot,
@@ -865,6 +868,15 @@ export class GameWorld {
         return true;
       case 'ShopReroll':
         this.shop.reroll(command.index);
+        return true;
+      case 'ShopDrill':
+        this.shop.drill();
+        return true;
+      case 'ShopInsertCore':
+        this.shop.insertCore(command.cell);
+        return true;
+      case 'ShopRemoveCore':
+        this.shop.removeCore(command.index);
         return true;
       case 'ShopGamble':
         this.shop.gamble(command.kind);

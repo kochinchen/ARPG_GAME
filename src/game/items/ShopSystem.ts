@@ -1,5 +1,5 @@
 import { distance, type Vec2 } from '../../core/math/Vec2';
-import type { Rng } from '../../core/Rng';
+import { Rng } from '../../core/Rng';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { RARITIES, type ItemBaseDef, type MaterialId, type Rarity } from '../../data/schema/item';
 import type { LegendaryKind } from '../../data/schema/legendary';
@@ -13,6 +13,7 @@ import { ItemGenerator } from './ItemGenerator';
 import type { ItemInstance } from './ItemInstance';
 import { epicTheme } from './ItemNamer';
 import { buyPrice, gamblePrice, sellPrice } from './Pricing';
+import { CORE_SLOTS, type CoreSlot } from '../../data/schema/core';
 
 type ShopData = Pick<DataRegistry, 'balance' | 'items' | 'affixes' | 'legendaries' | 'potions'>;
 
@@ -35,6 +36,17 @@ export interface AscendInfo {
   /** 需要的材料（精華、碎片） */
   materials: Partial<Record<MaterialId, number>>;
   reason: 'jewelry' | 'maxTier' | null;
+}
+
+/** 鑿孔 / 鑲嵌 / 拆卸的預覽（v0.5.0）：limit = 這個稀有度的孔數上限；drill = 下一孔的費用（不能鑿時為 null） */
+export interface SocketInfo {
+  socketable: boolean;
+  limit: number;
+  holes: number;
+  cores: number;
+  drill: { gold: number; essence: number } | null;
+  insertPrice: number;
+  removePrice: number;
 }
 
 /** 重鑄的一行：一般詞綴（affix）或傳奇 / 神話的固定屬性（legendary）；locked = 不能重鑄（紫裝決定名稱的強屬性） */
@@ -93,7 +105,8 @@ export class ShopSystem {
     this.floor = floor;
     this._positions = positions;
     const shop = this.data.balance.shop;
-    const generator = new ItemGenerator(this.data, rng);
+    // 貨架的孔數用另一條序列（由貨架種子推得，不改變貨架原本的內容）
+    const generator = new ItemGenerator(this.data, rng, new Rng(rng.getState() ^ 0x50c4e7));
     this.stock = positions.length === 0 ? [] : Array.from({ length: shop.stockSize }, () => generator.generate(Math.max(1, floor), shop.stockRarityWeights));
     for (const i of bought) if (i < this.stock.length) this.stock[i] = null;
     this._version++;
@@ -145,6 +158,10 @@ export class ShopSystem {
     if (!this.canTrade()) return false;
     const entry = this.ctx.inventory.get(cell);
     if (!entry) return false;
+    if (entry.kind === 'core') {
+      this.fail('cannotSell');
+      return false;
+    }
     this.ctx.inventory.take(cell);
     this.receive(entry);
     return true;
@@ -152,6 +169,10 @@ export class ShopSystem {
 
   sellHeld(): boolean {
     if (!this.canTrade() || !this.ctx.cursor.entry) return false;
+    if (this.ctx.cursor.entry.kind === 'core') {
+      this.fail('cannotSell');
+      return false;
+    }
     this.receive(this.ctx.cursor.take()!);
     return true;
   }
@@ -268,6 +289,80 @@ export class ShopSystem {
     this.ascendSlot = item;
     this._version++;
     this.events.emit('ShopTransaction', { kind: 'ascend', gold: -info.price, rarity: item.rarity });
+    return true;
+  }
+
+  // ─────────────────────────── 鑲嵌（v0.5.0）───────────────────────────
+
+  /** 鍛造格裡裝備的孔位資訊與費用 */
+  socketInfo(item: ItemInstance): SocketInfo {
+    const s = this.data.balance.sockets;
+    const socketable = CORE_SLOTS.includes(this.data.items.get(item.baseId).slot as CoreSlot);
+    const limit = socketable ? s.max[item.rarity] : 0;
+    const holes = item.sockets?.max ?? 0;
+    const n = holes + 1;
+    return {
+      socketable,
+      limit,
+      holes,
+      cores: item.sockets?.cores.length ?? 0,
+      drill: n <= limit ? { gold: s.drillGold * item.itemLevel * n, essence: s.drillEssence * n } : null,
+      insertPrice: s.insertGold * item.itemLevel,
+      removePrice: s.removeGold * item.itemLevel,
+    };
+  }
+
+  /** 鑿孔：第 n 孔付金幣 drillGold × 物品等級 × n 與防具精華 drillEssence × n；不超過稀有度上限（紅裝不可） */
+  drill(): boolean {
+    if (!this.canTrade()) return false;
+    const item = this.ascendSlot;
+    const info = item ? this.socketInfo(item) : null;
+    if (!item || !info?.drill) {
+      this.fail('cannotDrill');
+      return false;
+    }
+    const materials = { armorEssence: info.drill.essence };
+    if (!this.ctx.materials.has(materials)) {
+      this.fail('materials');
+      return false;
+    }
+    if (!this.pay(info.drill.gold)) return false;
+    this.ctx.materials.spend(materials);
+    this.ascendSlot = { ...item, sockets: { max: info.holes + 1, cores: [...(item.sockets?.cores ?? [])] } };
+    this._version++;
+    this.events.emit('ShopTransaction', { kind: 'drill', gold: -info.drill.gold, rarity: item.rarity });
+    return true;
+  }
+
+  /** 鑲嵌：把背包某一格的熔核鑲進空孔（付金幣 insertGold × 物品等級）；鑲入後不能換，只能拆 */
+  insertCore(cell: number): boolean {
+    if (!this.canTrade()) return false;
+    const item = this.ascendSlot;
+    const entry = this.ctx.inventory.get(cell);
+    const info = item ? this.socketInfo(item) : null;
+    if (!item || !info || entry?.kind !== 'core' || info.cores >= info.holes) {
+      this.fail('cannotInsert');
+      return false;
+    }
+    if (!this.pay(info.insertPrice)) return false;
+    this.ctx.inventory.take(cell);
+    this.ascendSlot = { ...item, sockets: { max: info.holes, cores: [...item.sockets!.cores, entry.core] } };
+    this._version++;
+    this.events.emit('ShopTransaction', { kind: 'insert', gold: -info.insertPrice, rarity: item.rarity });
+    return true;
+  }
+
+  /** 拆卸：付金幣 removeGold × 物品等級；熔核毀掉、孔保留 */
+  removeCore(index: number): boolean {
+    if (!this.canTrade()) return false;
+    const item = this.ascendSlot;
+    const cores = item?.sockets?.cores ?? [];
+    if (!item || index < 0 || index >= cores.length) return false;
+    const price = this.socketInfo(item).removePrice;
+    if (!this.pay(price)) return false;
+    this.ascendSlot = { ...item, sockets: { max: item.sockets!.max, cores: cores.filter((_, i) => i !== index) } };
+    this._version++;
+    this.events.emit('ShopTransaction', { kind: 'remove', gold: -price, rarity: item.rarity });
     return true;
   }
 

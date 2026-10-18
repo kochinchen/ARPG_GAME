@@ -83,6 +83,12 @@ export type GameCommand =
   | { type: 'ShopClosed' }
   /** 商人：重鑄飛昇格裡裝備的第 index 行詞綴 */
   | { type: 'ShopReroll'; index: number }
+  /** 商人：鍛造格裡的裝備鑿一個孔（v0.5.0） */
+  | { type: 'ShopDrill' }
+  /** 商人：把背包第 cell 格的熔核鑲進鍛造格裡裝備的空孔 */
+  | { type: 'ShopInsertCore'; cell: number }
+  /** 商人：拆下鍛造格裡裝備的第 index 顆熔核（熔核毀掉、孔保留） */
+  | { type: 'ShopRemoveCore'; index: number }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 確認進入極限挑戰（第 31 層，之後回不到 1～30 層） */

@@ -48,7 +48,7 @@ describe('背包自動整理', () => {
     inv.place(40, { kind: 'item', item: g.create(base('helmet'), 'normal', 4) });
     sortInventory(inv, data);
     const summary = inv.cells.slice(0, 7).map((c) =>
-      c === null ? null : c.kind === 'item' ? `${data.items.get(c.item.baseId).slot}:${c.item.itemLevel}` : `potion:${c.count}`,
+      c === null ? null : c.kind === 'item' ? `${data.items.get(c.item.baseId).slot}:${c.item.itemLevel}` : c.kind === 'potion' ? `potion:${c.count}` : 'core',
     );
     expect(summary).toEqual(['weapon:7', 'weapon:2', 'helmet:4', 'boots:3', 'potion:20', 'potion:5', null]);
   });
@@ -398,7 +398,7 @@ describe('拆解與材料', () => {
     const fresh = setup(1, save.meta.runSeed).world;
     SaveMapper.restore(fresh, repairSave(save, data));
     expect(fresh.materials.get('armorEssence')).toBe(7);
-    expect(fresh.salvage.slots[2]?.uid).toBe('keep');
+    expect(fresh.salvage.slots[2]).toMatchObject({ kind: 'item', item: { uid: 'keep' } });
   });
 });
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { MaterialIdSchema, RaritySchema } from '../data/schema/item';
 import { SkillCategorySchema } from '../data/schema/skill';
+import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
 
 /**
  * 存檔格式（目前 v2；規格見 docs/SAVE_SYSTEM.md 第 2 節）。
@@ -23,6 +24,24 @@ const int = z.number().int();
 const nonNegInt = int.min(0);
 const finite = z.number().finite();
 
+const CoreRollSchema = z.object({ lineId: z.string(), roll: finite.min(0).max(1) });
+const coreSlots = z.array(CoreRollSchema);
+
+/** 熔核（v0.5.0）：只存 ID 與擲骰值 */
+export const CoreInstanceSchema = z.object({
+  uid: z.string().min(1),
+  types: z.union([z.tuple([CoreTypeIdSchema]), z.tuple([CoreTypeIdSchema, CoreTypeIdSchema])]),
+  tier: int.min(1).max(5),
+  rarity: z.enum(['normal', 'magic', 'rare', 'epic', 'legendary']),
+  power: finite.positive(),
+  itemLevel: int.min(1),
+  element: CoreElementSchema.optional(),
+  pure: z.boolean().optional(),
+  main: z.object({ weapon: coreSlots, helmet: coreSlots, armor: coreSlots, gloves: coreSlots, boots: coreSlots }),
+  secondary: coreSlots,
+  brand: z.object({ legendaryId: z.string(), line: nonNegInt, roll: finite.optional() }).optional(),
+});
+
 export const ItemInstanceSchema = z.object({
   uid: z.string().min(1),
   baseId: z.string(),
@@ -36,11 +55,14 @@ export const ItemInstanceSchema = z.object({
   legendaryRolls: z.array(finite).optional(),
   /** 重鑄次數（v12） */
   rerolls: nonNegInt.optional(),
+  /** 孔位與鑲入的熔核（v15） */
+  sockets: z.object({ max: int.min(0).max(5), cores: z.array(CoreInstanceSchema) }).optional(),
 });
 
 export const SavedEntrySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('item'), item: ItemInstanceSchema }),
   z.object({ kind: z.literal('potion'), potionId: z.string(), count: int.min(1) }),
+  z.object({ kind: z.literal('core'), core: CoreInstanceSchema }),
 ]);
 
 const GroundContentSchema = z.discriminatedUnion('kind', [
@@ -124,7 +146,8 @@ export const SaveDataSchema = z.object({
   /** 材料：武器精華、防具精華、飛昇碎片（v8） */
   materials: z.partialRecord(MaterialIdSchema, nonNegInt),
   /** 拆解區的裝備（v8；空格為 null） */
-  salvage: z.array(ItemInstanceSchema.nullable()),
+  /** 拆解區：裝備或熔核（v15 起可以放熔核，以有無 baseId 區分） */
+  salvage: z.array(z.union([ItemInstanceSchema, CoreInstanceSchema]).nullable()),
   /** 商人飛昇格裡的裝備（v8，選填） */
   ascendSlot: ItemInstanceSchema.nullable().optional(),
   counters: z.object({
@@ -141,3 +164,4 @@ export type SaveData = z.infer<typeof SaveDataSchema>;
 export type SavedEntry = z.infer<typeof SavedEntrySchema>;
 export type SavedGroundItem = SaveData['floor']['groundItems'][number];
 export type SavedItem = z.infer<typeof ItemInstanceSchema>;
+export type SavedCore = z.infer<typeof CoreInstanceSchema>;

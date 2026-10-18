@@ -145,11 +145,11 @@ export interface GameEvents {
   /** 點了商人（UI 開啟商店） */
   ShopOpened: Record<string, never>;
   /** 商店交易：gold 為金幣變化（買 / 賭博為負） */
-  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll'; gold: number; rarity?: Rarity };
+  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll' | 'drill' | 'insert' | 'remove'; gold: number; rarity?: Rarity };
   /** 洗點完成（gold = 花費）或失敗（金幣不足、沒有點數可以重置） */
   Respec: { kind: 'skills' | 'attributes'; gold: number };
   RespecFailed: { kind: 'skills' | 'attributes'; reason: 'gold' | 'nothing' };
-  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' };
+  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotInsert' | 'cannotSell' };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }

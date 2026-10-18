@@ -76,5 +76,6 @@ export class ItemActions {
 }
 
 function toGround(entry: InventoryEntry): GroundContent {
-  return entry.kind === 'item' ? entry : { kind: 'potion', potionId: entry.potionId, count: entry.count };
+  if (entry.kind === 'item' || entry.kind === 'core') return entry;
+  return { kind: 'potion', potionId: entry.potionId, count: entry.count };
 }

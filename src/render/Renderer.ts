@@ -61,7 +61,7 @@ export class Renderer {
     private readonly projection: IsoProjection,
     private readonly world: GameWorld,
     private readonly camera: Camera,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'skills' | 'balance'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'skills' | 'balance' | 'cores'>,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
     this.effects = new EffectLayer(projection, this.objectLayer);
@@ -173,7 +173,8 @@ export class Renderer {
       this.floatingText.spawnText(projection.toScreen(world.player.position), `升級！Lv ${e.level}`, PALETTE.marker, 20);
     });
     world.events.on('ShopTransaction', (e) => {
-      const text = e.kind === 'sell' ? `+${e.gold} 金幣` : e.kind === 'ascend' ? `飛昇！${e.gold} 金幣` : e.kind === 'reroll' ? `重鑄！${e.gold} 金幣` : `${e.gold} 金幣`;
+      const label = { ascend: '飛昇！', reroll: '重鑄！', drill: '鑿孔！', insert: '鑲嵌！', remove: '拆下熔核 ' }[e.kind as string] ?? '';
+      const text = e.kind === 'sell' ? `+${e.gold} 金幣` : `${label}${e.gold} 金幣`;
       say(world.player.position, text, PALETTE.marker);
     });
     world.events.on('Respec', (e) => say(world.player.position, `${e.kind === 'skills' ? '技能點' : '屬性點'}已重置（-${e.gold} 金幣）`, PALETTE.marker));
@@ -187,6 +188,9 @@ export class Renderer {
         cannotAscend: '無法飛昇',
         materials: '材料不足',
         cannotReroll: '無法重鑄',
+        cannotDrill: '無法再鑿孔',
+        cannotInsert: '沒有空孔或沒有熔核',
+        cannotSell: '熔核不能賣',
       }[e.reason];
       say(world.player.position, text, PALETTE.manaText);
     });

@@ -63,8 +63,10 @@ export type CoreLine = z.infer<typeof CoreLineSchema>;
 /** 每個部位的主屬性候選（兩條時擲骰選一條） */
 const SlotLinesSchema = z.array(CoreLineSchema).min(1).max(2);
 
+export const CoreTypeIdSchema = z.enum(['sharp', 'heavy', 'pierce', 'arcane', 'wall', 'swift', 'grip', 'crown']);
+
 export const CoreTypeDefSchema = z.strictObject({
-  id: z.enum(['sharp', 'heavy', 'pierce', 'arcane', 'wall', 'swift', 'grip', 'crown']),
+  id: CoreTypeIdSchema,
   name: z.string(),
   /** attack 攻核（武器融合）；defense 護核（防具融合，v0.5.1 啟用） */
   family: z.enum(['attack', 'defense']),

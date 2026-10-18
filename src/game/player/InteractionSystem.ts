@@ -109,7 +109,7 @@ export class InteractionSystem {
 
   private autoPickup(): void {
     for (const item of [...this.world.groundItems]) {
-      if (item.content.kind === 'item' || item.droppedByPlayer) continue;
+      if (item.content.kind === 'item' || item.content.kind === 'core' || item.droppedByPlayer) continue;
       if (distance(this.player.position, item.position) <= AUTO_PICKUP_RANGE) this.pickUp(item, false);
     }
   }
@@ -127,6 +127,13 @@ export class InteractionSystem {
           uid: content.item.uid,
           position: ground.position,
         });
+        break;
+      case 'core':
+        if (!this.inventory.addCore(content.core)) {
+          this.events.emit('PickupFailed', { reason: 'inventoryFull' });
+          return;
+        }
+        this.events.emit('ItemPickedUp', { uid: content.core.uid, position: ground.position });
         break;
       case 'potion': {
         const added = this.inventory.addPotions(content.potionId, content.count);

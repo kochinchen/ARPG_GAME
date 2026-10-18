@@ -1,3 +1,5 @@
+import { coreName } from '../../game/items/CoreDescriber';
+import type { CoreInstance } from '../../game/items/CoreInstance';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { MATERIAL_IDS, MATERIAL_LABELS, type MaterialId, type Rarity, type WeaponType } from '../../data/schema/item';
 import { SKILL_CATEGORY_LABELS } from '../../data/skillTree';
@@ -14,7 +16,7 @@ export type { EquipmentSlot };
 
 /** 格子裡顯示的內容（有模型的裝備用圖示，其他用單字代表） */
 export interface EntryView {
-  kind: 'item' | 'potion';
+  kind: 'item' | 'potion' | 'core';
   name: string;
   rarity: Rarity;
   glyph: string;
@@ -140,6 +142,28 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
     };
 }
 
+/** 熔核（v0.5.0）：完整說明在 P7 補上 */
+export function coreEntryView(core: CoreInstance, data: DataRegistry): EntryView {
+  return {
+    kind: 'core',
+    name: coreName(core, data),
+    rarity: core.rarity,
+    glyph: '核',
+    icon: null,
+    slotLabel: `熔核 · T${core.tier}`,
+    baseLines: ['鑲進裝備的孔（商人）', '不能賣，可以拆解成武器精華'],
+    mainLine: null,
+    strongLines: [],
+    legendary: null,
+    affixLines: [],
+    equipSlots: [],
+    count: 1,
+    itemLevel: core.itemLevel,
+    tier: core.tier,
+    sellPrice: 0,
+  };
+}
+
 function weaponSkillsLine(weapon: WeaponType | undefined, data: DataRegistry): string | undefined {
   return weapon ? `可用技能：${data.balance.weaponRules[weapon].map((c) => SKILL_CATEGORY_LABELS[c]).join('、')}` : undefined;
 }
@@ -150,6 +174,7 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
   const entryView = (entry: InventoryEntry | null): EntryView | null => {
     if (!entry) return null;
     if (entry.kind === 'item') return itemView(entry.item);
+    if (entry.kind === 'core') return coreEntryView(entry.core, data);
     const potion = data.potions.get(entry.potionId);
     return {
       kind: 'potion',
@@ -194,7 +219,7 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
       { label: STAT_LABELS.critChance, value: formatValue('critChance', 'flat', stats.get('critChance'), false) },
       { label: STAT_LABELS.moveSpeed, value: stats.get('moveSpeed').toFixed(2) },
     ],
-    salvage: world.salvage.slots.map((item) => (item ? itemView(item) : null)),
+    salvage: world.salvage.slots.map((entry) => (entry ? entryView(entry) : null)),
     salvagePreview: (Object.entries(world.salvage.preview()) as [MaterialId, [number, number]][])
       .map(([id, [min, max]]) => `${MATERIAL_LABELS[id]} ${min === max ? min : `${min}～${max}`}`)
       .join('、'),

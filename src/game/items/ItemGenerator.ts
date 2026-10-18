@@ -4,6 +4,7 @@ import { AFFIX_COUNT, RARITIES, STRONG_COUNT, type AffixDef, type EquipSlot, typ
 import type { LegendaryDef, LegendaryKind } from '../../data/schema/legendary';
 import type { LootTableDef } from '../../data/schema/loot';
 import type { ItemInstance } from './ItemInstance';
+import { CORE_SLOTS, type CoreSlot } from '../../data/schema/core';
 import { epicTheme } from './ItemNamer';
 import { mainTargetOf } from './ItemStats';
 
@@ -19,6 +20,8 @@ export class ItemGenerator {
   constructor(
     private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'balance' | 'legendaries'>,
     private readonly rng: Rng,
+    /** 掉落時的孔數（獨立序列，不影響其他擲骰）；省略 = 不帶孔 */
+    private readonly socketRng?: Rng,
   ) {}
 
   /** 流水號（存檔用）：讀檔後從這裡接續，避免 uid 與已存在的物品重複 */
@@ -129,7 +132,16 @@ export class ItemGenerator {
     // 主倍率：武器傷害（法杖為法術強度）/ 防具防禦 / 飾品所有詞綴 +X%
     const main = this.data.balance.mainRoll[mainTargetOf(base) === 'affixes' ? 'jewelry' : 'base'][rarity];
     const quality = main[1] > 0 ? Math.round(this.rng.range(main[0], main[1]) * 100) / 100 : 0;
-    return { uid, baseId: base.id, rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes };
+    const sockets = this.rollSockets(base, rarity);
+    return { uid, baseId: base.id, rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes, ...(sockets > 0 ? { sockets: { max: sockets, cores: [] } } : {}) };
+  }
+
+  /** 掉落時的孔數：白 / 藍 / 黃依權重 0～2 孔，紫以上 0 孔；只有可鑲嵌的部位 */
+  private rollSockets(base: ItemBaseDef, rarity: Rarity): number {
+    if (!this.socketRng || !CORE_SLOTS.includes(base.slot as CoreSlot)) return 0;
+    const weights = this.data.balance.sockets.dropWeights[rarity];
+    const { n } = this.socketRng.weighted(weights.map((weight, n) => ({ n, weight })));
+    return Math.min(n, this.data.balance.sockets.max[rarity]);
   }
 
   /** 產生一件指定的傳奇 / 神話裝備：基底階級依偏態分布（樓層階 −1 ～ +2）；固定屬性在小範圍內擲骰並隨階級成長 */
