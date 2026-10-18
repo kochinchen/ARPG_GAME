@@ -1,7 +1,7 @@
 {
   "name": "arpg",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "package": "npm run typecheck && node scripts/package-portable.mjs",
     "docs:models": "node scripts/render-monster-models.mjs",
     "docs:combos": "node scripts/render-combo-doc.mjs",
+    "docs:icons": "vite build -c scripts/vite.item-icons.config.ts",
     "docs:pages": "node scripts/publish-design-docs.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

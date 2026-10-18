@@ -1,4 +1,5 @@
 import type { DataRegistry } from '../../data/DataRegistry';
+import { STEAL_CAP } from '../../data/balance';
 import type { StatId } from '../../data/schema/common';
 import type { AffixDef, ItemBaseDef } from '../../data/schema/item';
 import type { LegendaryDef } from '../../data/schema/legendary';
@@ -50,9 +51,9 @@ export function itemStats(item: ItemInstance, data: Pick<DataRegistry, 'items' |
   const affixes = item.affixes.map((a) => {
     const def = data.affixes.get(a.id);
     const raw = a.rolls[0] ?? 0;
-    if (mainTarget !== 'affixes' || quality === 0) return { def, value: raw };
+    if (mainTarget !== 'affixes' || quality === 0) return { def, value: capSteal(def.stat, raw) };
     const scaled = raw * mult;
-    return { def, value: Number.isInteger(raw) ? Math.round(scaled) : Math.round(scaled * 10000) / 10000 };
+    return { def, value: capSteal(def.stat, Number.isInteger(raw) ? Math.round(scaled) : Math.round(scaled * 10000) / 10000) };
   });
   return { base, baseStats, affixes, quality, mainTarget };
 }
@@ -78,8 +79,13 @@ function legendaryAffixes(def: LegendaryDef, item: ItemInstance): ItemStats['aff
         weight: 1,
         growth: line.growth,
       },
-      value,
+      value: capSteal(line.stat, value),
     });
   });
   return out;
+}
+
+/** 吸血 / 吸魔：每一個來源最高 STEAL_CAP.perSource（硬上限，舊物品也適用） */
+function capSteal(stat: StatId, value: number): number {
+  return stat === 'lifeSteal' || stat === 'manaSteal' ? Math.min(value, STEAL_CAP.perSource) : value;
 }

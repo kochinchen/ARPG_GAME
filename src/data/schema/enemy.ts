@@ -32,8 +32,8 @@ export const EnemyDefSchema = z
   attackSpeed: z.number().positive().default(1),
   /** 偵測範圍（Tile）：範圍內且視線未被牆擋住才會發現玩家 */
   detectRange: z.number().nonnegative(),
-  /** 離出生點超過此距離就放棄追擊、走回原位 */
-  leashRange: z.number().positive().default(14),
+  /** 離出生點超過此距離就放棄追擊、走回原位（剛被打中時不放棄） */
+  leashRange: z.number().positive().default(28),
   /** none = 不行動（訓練木樁）；melee = 貼身攻擊；ranged = 保持距離攻擊，被貼身時後退 */
   ai: z.enum(['none', 'melee', 'ranged']),
   /** ranged：目標比這個距離近時後退（Tile） */

@@ -12,6 +12,9 @@ import { ChaseState } from './states/ChaseState';
 import { IdleState } from './states/IdleState';
 import { ReturnState } from './states/ReturnState';
 
+/** 被打中後持續追擊的秒數（超過 Leash 也不回家） */
+const ANGER_SECONDS = 4;
+
 /**
  * 對每個有 AiBrain 的 Actor 執行狀態機。怪物與（未來的）召喚物共用，只是敵對陣營不同。
  */
@@ -33,7 +36,10 @@ export class AiSystem {
     // 被攻擊時記錄仇恨來源
     events.on('ActorDamaged', (e) => {
       const target = targeting.getActor(e.targetId);
-      if (target?.ai && e.sourceId !== null) target.ai.provokedBy = e.sourceId;
+      if (target?.ai && e.sourceId !== null) {
+        target.ai.provokedBy = e.sourceId;
+        target.ai.angerTimer = ANGER_SECONDS;
+      }
     });
   }
 
@@ -41,6 +47,7 @@ export class AiSystem {
     for (const self of actors) {
       const brain = self.ai;
       if (!brain || !self.alive || self.isDisabled) continue;
+      brain.angerTimer = Math.max(0, brain.angerTimer - dt);
       const ctx: AiContext = {
         self,
         brain,

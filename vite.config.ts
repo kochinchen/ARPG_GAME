@@ -1,8 +1,11 @@
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
+import pkg from './package.json' with { type: 'json' };
 
 export default defineConfig({
   plugins: [vue()],
+  // 標題畫面顯示的版本（package.json 的 version）
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',

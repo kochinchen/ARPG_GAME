@@ -274,7 +274,7 @@ async function bootstrap(): Promise<void> {
 }
 
 /** 顯示在標題畫面右下角 */
-const VERSION = 'v0.1.0';
+const VERSION = `v${__APP_VERSION__}`;
 const LAST_SLOT_KEY = 'arpg-last-slot';
 
 function rememberSlot(slot: number): void {

@@ -42,13 +42,13 @@ function damageLog(world: GameWorld, target: Actor) {
 }
 
 describe('傳奇 / 神話的設計', () => {
-  it('橘 33 件、紅 23 件；每種裝備橘 3、紅 2，盾牌橘 3、紅 3', () => {
+  it('每種裝備（11 種）橘 12 件、紅 6 件：共橘 132、紅 66；名稱不重複', () => {
     const all = data.legendaries.all;
-    expect(all.filter((d) => d.rarity === 'legendary')).toHaveLength(33);
-    expect(all.filter((d) => d.rarity === 'mythic')).toHaveLength(23);
+    expect(all.filter((d) => d.rarity === 'legendary')).toHaveLength(132);
+    expect(all.filter((d) => d.rarity === 'mythic')).toHaveLength(66);
     for (const kind of KINDS) {
-      expect(all.filter((d) => d.kind === kind && d.rarity === 'legendary'), kind).toHaveLength(3);
-      expect(all.filter((d) => d.kind === kind && d.rarity === 'mythic'), kind).toHaveLength(kind === 'shield' ? 3 : 2);
+      expect(all.filter((d) => d.kind === kind && d.rarity === 'legendary'), kind).toHaveLength(12);
+      expect(all.filter((d) => d.kind === kind && d.rarity === 'mythic'), kind).toHaveLength(6);
     }
     expect(new Set(all.map((d) => d.name)).size).toBe(all.length);
   });

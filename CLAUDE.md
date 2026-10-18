@@ -19,6 +19,10 @@
 7. 存檔只存 ID / 數值 / 狀態，不存可推導資料；格式變動必須寫 Migration。
 8. 不為「未來可能需要」建立抽象層；Interface 只用在 ARCHITECTURE.md 第 F 節列出的地方。
 
+## 平衡硬規則（改動前必須先與設計者討論）
+
+- 吸血 / 吸魔（含「回復造成傷害的一部分」）：技能最高 +0.5%（1～5 級 0.1%～0.5%），其他每一個來源（詞綴、傳奇 / 神話屬性、條件效果）最高 +0.3%；例外：「暴擊時回復傷害的一部分」最高 +0.5%（鼓勵提升暴擊率）。近戰的吸血倍率（1.3 倍）與多個來源累加不受限（設計者同意）。上限在 `STEAL_CAP`（`src/data/balance.ts`），由 `tests/data/StealCap.test.ts` 把關。新版本也受此限制；要往上調，先提出理由並與設計者討論，同意後才能改。
+
 ## 指令
 
 - `npm run dev`：開發伺服器（http://localhost:5173）；角色樣態預覽 http://localhost:5173/viewer.html
@@ -28,6 +32,7 @@
 - `npm run package`：可攜版遊戲包（單一 HTML + Windows / Mac 啟動檔 + 說明）→ `release/ARPG-遊戲包/` 與 `.zip`
 - `npm run docs:models`：重新產生設計文件的怪物模型圖（每隻怪物旁邊站著女主角當比例尺）→ `release/設計文件/models/`
 - `npm run docs:combos`：用遊戲的 Combo 判定重新產生組合技圖鑑 → `release/設計文件/組合技圖鑑.html`（頁面樣式在 `scripts/combo-doc.template.html`）
+- `npm run docs:icons`：重新產生裝備圖鑑的物品圖示產生器（與遊戲背包相同的圖示）→ `release/設計文件/item-icons.js`；改到裝備資料或外觀時執行
 - `npm run docs:pages`：把 `release/設計文件/` 複製到 `docs/design/`（GitHub Pages：https://kochinchen.github.io/ARPG_GAME/design/）
 
 ## 開發用快捷鍵（只在 `npm run dev` 有效）

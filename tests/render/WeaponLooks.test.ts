@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gameData } from '../../src/data';
 import { DataRegistry } from '../../src/data/DataRegistry';
-import { tierLook, UNIQUE_WEAPON_IDS, uniqueLook, weaponLookFor } from '../../src/render/figure/weapons/WeaponLooks';
+import { mountFor, tierLook, UNIQUE_WEAPON_IDS, uniqueLook, weaponLookFor } from '../../src/render/figure/weapons/WeaponLooks';
 
 const data = DataRegistry.load(gameData);
 
@@ -35,5 +35,12 @@ describe('手上的武器造型', () => {
     expect(weaponLookFor({ ...base, baseId: 'weapon.abyss_soul_sword', rarity: 'mythic', legendaryId: 'mythic.world_rift' }, data)!.look).toBe(uniqueLook('mythic.world_rift'));
     expect(weaponLookFor({ ...base, baseId: 'armor.quilted' }, data)).toBeNull();
     expect(weaponLookFor(undefined, data)).toBeNull();
+  });
+
+  it('平常拿法：劍照握點角度；斧柄橫拿、法杖前傾、弓直立（攻擊時轉回）', () => {
+    expect(mountFor(tierLook('sword', 3)).rest).toBeUndefined();
+    expect(mountFor(tierLook('axe', 3)).rest![0]).toBeLessThan(0);
+    expect(mountFor(tierLook('staff', 3)).rest![0]).toBeGreaterThan(0);
+    expect(mountFor(tierLook('bow', 3))).toMatchObject({ joint: 'weaponL', rest: [expect.any(Number), 0, 0] });
   });
 });

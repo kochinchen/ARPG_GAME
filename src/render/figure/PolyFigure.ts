@@ -39,6 +39,8 @@ export interface WeaponMount {
   tip: V3;
   axis: [V3, V3];
   focus?: V3;
+  /** 不攻擊時（待機、走路、受傷）武器關節額外轉的角度：斧頭橫拿、弓直立在身前；攻擊時漸漸轉回 */
+  rest?: V3;
 }
 
 type ScreenPoint = { x: number; y: number };
@@ -177,7 +179,7 @@ export class PolyFigure {
       return samplePoses([this.death.from, ...poses.deathKeys], this.death.elapsed / DEATH_TIME);
     }
     this.death = null;
-    const base = state.moving ? (walking ? poses.walk!(this.runPhase) : poses.run(this.runPhase)) : poses.ready(this.time);
+    const base = this.withRest(state.moving ? (walking ? poses.walk!(this.runPhase) : poses.run(this.runPhase)) : poses.ready(this.time));
     if (this.action) {
       const a = this.action;
       a.elapsed += dt;
@@ -204,6 +206,15 @@ export class PolyFigure {
       return lerpPose(base, poses.hit, Math.sin((this.hitTime / HIT_TIME) * Math.PI));
     }
     return base;
+  }
+
+  /** 平常拿武器的角度（WeaponMount.rest）疊加到武器關節 */
+  private withRest(pose: Pose): Pose {
+    const rest = this.mount?.rest;
+    if (!rest) return pose;
+    const joint = this.mount!.joint;
+    const b = pose.angles[joint] ?? [0, 0, 0];
+    return { ...pose, angles: { ...pose.angles, [joint]: [b[0] + rest[0], b[1] + rest[1], b[2] + rest[2]] } };
   }
 
   /**

@@ -43,6 +43,13 @@ import {
   type StaffOptions,
   type Tones,
 } from './WeaponParts';
+import { axeSpec, bowSpec, staffSpec, sword, type GlowParticle, type Spec, type SwordSpec, type UniqueWeapon, type WeaponGlowStyle } from './WeaponSpec';
+import { swordUniques } from './uniques/sword';
+import { axeUniques } from './uniques/axe';
+import { bowUniques } from './uniques/bow';
+import { staffUniques } from './uniques/staff';
+
+export type { GlowParticle, WeaponGlowStyle };
 
 /**
  * 手上的武器外觀：每種武器（劍 / 斧 / 弓 / 法杖）的 8 階基底各有自己的造型，
@@ -50,18 +57,6 @@ import {
  * 模型只在渲染層使用；新增基底或傳奇沒有對應造型時，用同種類同階級的基底造型。
  */
 
-/** 武器光芒的粒子種類（橘 / 紅專屬） */
-export type GlowParticle = 'ember' | 'frost' | 'spark' | 'blood' | 'shadow' | 'holy' | 'void' | 'wind' | 'star' | 'rock' | 'prism';
-
-export interface WeaponGlowStyle {
-  /** 光芒主色 */
-  color: number;
-  /** 內核（靠近武器的亮色） */
-  core?: number;
-  particle: GlowParticle;
-  /** 神話：環繞武器的符文 / 碎片 / 星星 */
-  orbit?: 'runes' | 'shards' | 'stars';
-}
 
 export interface WeaponLook {
   kind: WeaponType;
@@ -80,14 +75,6 @@ export interface WeaponLook {
 
 // ─────────────────────────── 各種類的造型 ───────────────────────────
 
-interface SwordSpec extends Omit<BladeOptions, 'start'> {
-  guard: GuardShape;
-  guardWidth?: number;
-  guardColors: Tones;
-  pommel: PommelShape;
-  grip?: Tones;
-  gem?: number;
-}
 
 function swordLook(s: SwordSpec): Omit<WeaponLook, 'hand' | 'kind'> {
   const b = blade(s);
@@ -113,12 +100,6 @@ function staffLook(s: StaffOptions): Omit<WeaponLook, 'hand' | 'kind'> {
   return { meshes: st.meshes, tip: st.focus, axis: [[0, -s.length * 0.55, 0], st.focus], focus: st.focus };
 }
 
-type Spec = { kind: 'sword'; spec: SwordSpec } | { kind: 'axe'; spec: AxeOptions } | { kind: 'bow'; spec: BowOptions } | { kind: 'staff'; spec: StaffOptions };
-
-const sword = (spec: SwordSpec): Spec => ({ kind: 'sword', spec });
-const axeSpec = (spec: AxeOptions): Spec => ({ kind: 'axe', spec });
-const bowSpec = (spec: BowOptions): Spec => ({ kind: 'bow', spec });
-const staffSpec = (spec: StaffOptions): Spec => ({ kind: 'staff', spec });
 
 /** 基底造型（依階級 1～8） */
 const TIERS: Record<WeaponType, Spec[]> = {
@@ -165,7 +146,7 @@ const TIERS: Record<WeaponType, Spec[]> = {
 };
 
 /** 傳奇（橘）與神話（紅）：每一件獨一無二的造型與光芒 */
-const UNIQUES: Record<string, { look: Spec; glow: WeaponGlowStyle }> = {
+const UNIQUES: Record<string, UniqueWeapon> = {
   // ── 劍 ──
   'legendary.cold_moon': {
     look: sword({ shape: 'curved', length: 22, width: 1.25, curve: 3.2, colors: ICE, guard: 'crescent', guardWidth: 2.8, guardColors: SILVER, pommel: 'gem', gem: 0x9fe8ff }),
@@ -250,6 +231,11 @@ const UNIQUES: Record<string, { look: Spec; glow: WeaponGlowStyle }> = {
     look: staffSpec({ head: 'cluster', length: 38, butt: 5, shaft: SILVER, metal: ICE, focus: 0xbff0ff, bands: true }),
     glow: { color: 0xbfeeff, core: 0xffffff, particle: 'frost', orbit: 'shards' },
   },
+  // 擴充的橘 / 紅（uniques/ 各種類檔案）
+  ...swordUniques,
+  ...axeUniques,
+  ...bowUniques,
+  ...staffUniques,
 };
 
 // ─────────────────────────── 轉到手上的角度 ───────────────────────────
@@ -283,9 +269,16 @@ function build(spec: Spec): WeaponLook {
   };
 }
 
+/**
+ * 平常拿武器的方式（攻擊時轉回 HOLD 的角度）：劍尖朝前下；斧柄與前臂垂直、斧頭朝前；
+ * 法杖杖頭往前傾；弓直立在身前（上弓臂朝前、弓背朝外）。
+ */
+const REST: Partial<Record<WeaponType, V3>> = { axe: [-1, 0, 0], staff: [0.35, 0, 0], bow: [0.8, 0, 0] };
+
 /** 造型 → 掛到角色手上的資料（PolyFigure.setWeapon） */
 export function mountFor(look: WeaponLook): WeaponMount {
-  return { joint: look.hand === 'left' ? 'weaponL' : 'weapon', meshes: look.meshes, tip: look.tip, axis: look.axis, ...(look.focus ? { focus: look.focus } : {}) };
+  const rest = REST[look.kind];
+  return { joint: look.hand === 'left' ? 'weaponL' : 'weapon', meshes: look.meshes, tip: look.tip, axis: look.axis, ...(look.focus ? { focus: look.focus } : {}), ...(rest ? { rest } : {}) };
 }
 
 /** 預覽用：'bow:5'（種類:階級）或傳奇 ID */

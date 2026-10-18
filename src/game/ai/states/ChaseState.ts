@@ -25,7 +25,7 @@ export class ChaseState implements IAiState {
     const { self, brain, targeting } = ctx;
     const target = brain.targetId === null ? null : targeting.getValidTarget(self, brain.targetId);
     if (!target) return 'return' as const;
-    if (distance(self.position, brain.home) > brain.leashRange) return 'return' as const;
+    if (brain.angerTimer <= 0 && distance(self.position, brain.home) > brain.leashRange) return 'return' as const;
     this.act(ctx, target);
     return null;
   }

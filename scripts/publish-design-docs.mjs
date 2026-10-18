@@ -18,7 +18,7 @@ const PAGES = [
   { from: '組合技圖鑑.html', to: 'combos.html', title: '組合技圖鑑', text: 'Q / W / E 連段的組合技規則、所有會觸發的排列與連段試算。' },
   { from: '開發歷程.html', to: 'history.html', title: '開發歷程', text: '開發方法與時間軸。' },
 ];
-const ASSETS = ['sim.js', 'models'];
+const ASSETS = ['sim.js', 'item-icons.js', 'models'];
 
 for (const name of [...PAGES.map((p) => p.from), ...ASSETS]) {
   if (!existsSync(join(src, name))) throw new Error(`找不到 release/設計文件/${name}`);

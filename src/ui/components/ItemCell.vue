@@ -5,7 +5,7 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
 </script>
 
 <template>
-  <span v-if="entry" class="glyph" :class="[`r-${entry.rarity}`, entry.kind, size ?? 'cell']">
+  <span v-if="entry" class="glyph" :class="[`r-${entry.rarity}`, `kind-${entry.kind}`, `size-${size ?? 'cell'}`]">
     <img v-if="entry.icon" class="icon" :src="entry.icon" alt="" draggable="false" />
     <template v-else>{{ entry.glyph }}</template>
     <span v-if="entry.kind === 'potion'" class="count">{{ entry.count }}</span>
@@ -36,10 +36,10 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
   object-fit: contain;
   pointer-events: none;
 }
-.glyph.slot {
+.glyph.size-slot {
   font-size: 18px;
 }
-.glyph.slot .icon {
+.glyph.size-slot .icon {
   width: 92%;
   height: 92%;
 }
@@ -87,7 +87,7 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
       0 0 12px rgb(255 90 70 / 75%);
   }
 }
-.glyph.potion {
+.glyph.kind-potion {
   --rc: #8a3a30;
   --rbg: rgb(176 42 30 / 16%);
   color: #e0574b;

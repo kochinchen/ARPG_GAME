@@ -1,18 +1,18 @@
-import type { z } from 'zod';
-import type { EffectDefSchema } from './schema/effects';
-import type { ItemActionSchema, ItemMechanicSchema, LegendaryDefSchema, ModsInputSchema, SkillFilterSchema } from './schema/legendary';
-
-type Def = z.input<typeof LegendaryDefSchema>;
-type Line = Def['lines'][number];
-type Mechanic = z.input<typeof ItemMechanicSchema>;
-type Action = z.input<typeof ItemActionSchema>;
-type Filter = z.input<typeof SkillFilterSchema>;
-type Mods = z.input<typeof ModsInputSchema>;
-type Effect = z.input<typeof EffectDefSchema>;
-type StatId = Extract<Line, { type: 'stat' }>['stat'];
+import { stat, inc, flat, strongStat, line, strong, unique, mods, on, cond, at, restore, buff, arm, clear, BLADE_ART, hit, area, status, ring, fan, rain, MELEE, RANGED, MAGIC, FINISHER, type Def } from './uniqueItems/parts';
+import { swordItems } from './uniqueItems/sword';
+import { axeItems } from './uniqueItems/axe';
+import { bowItems } from './uniqueItems/bow';
+import { staffItems } from './uniqueItems/staff';
+import { shieldItems } from './uniqueItems/shield';
+import { helmetItems } from './uniqueItems/helmet';
+import { armorItems } from './uniqueItems/armor';
+import { glovesItems } from './uniqueItems/gloves';
+import { bootsItems } from './uniqueItems/boots';
+import { ringItems } from './uniqueItems/ring';
+import { amuletItems } from './uniqueItems/amulet';
 
 /**
- * 傳奇（橘）33 件、神話（紅）23 件：每種裝備（劍、斧、弓、杖、頭盔、盔甲、手套、鞋子、戒指、護身符）
+ * 第一批傳奇（橘）33 件、神話（紅）23 件（後來每種裝備擴充到橘 12 件、紅 6 件，新增的放在 uniqueItems/ 各種類檔案）：每種裝備（劍、斧、弓、杖、頭盔、盔甲、手套、鞋子、戒指、護身符）
  * 橘 3 件、紅 2 件；盾牌橘 3 件、紅 3 件。設計原則：
  * - 橘讓玩家說「這招變得好好用」：強化一個技能或一種玩法
  * - 紅讓玩家說「我想為了這件裝重新配 Q / W / E」：改變整個 Build 或 Combo 邏輯
@@ -21,107 +21,6 @@ type StatId = Extract<Line, { type: 'stat' }>['stat'];
  * 目前以擊退、暈眩與裝備自己的「層數」代替，M10 完成後再換成正式的硬直。
  * 數值為 T1（1～9 層）的範圍；固定屬性隨階級成長，效果的數值固定。
  */
-
-// ─────────────────────────── 寫法輔助 ───────────────────────────
-
-const stat = (s: StatId, min: number, max: number, o: { modifier?: 'flat' | 'increased'; strong?: boolean; growth?: number } = {}): Line => ({
-  type: 'stat',
-  stat: s,
-  value: [min, max],
-  ...o,
-});
-/** 「提高 X%」類（生命、魔力、防禦、攻速、移速） */
-const inc = (s: StatId, min: number, max: number, strong = false): Line => stat(s, min, max, { modifier: 'increased', strong });
-/** 固定值類（荊棘、魔力回復）成長較快 */
-const flat = (s: StatId, min: number, max: number): Line => stat(s, min, max, { growth: 0.5 });
-const strongStat = (s: StatId, min: number, max: number): Line => stat(s, min, max, { strong: true });
-
-/** 一般效果行（例如「火系技能傷害 +25%」） */
-const line = (text: string, ...mechanics: Mechanic[]): Line => ({ type: 'effect', text, mechanics });
-/** 強屬性（◆） */
-const strong = (text: string, ...mechanics: Mechanic[]): Line => ({ type: 'effect', text, strong: true, mechanics });
-/** 傳奇 / 神話效果（✦） */
-const unique = (text: string, ...mechanics: Mechanic[]): Line => ({ type: 'effect', text, unique: true, mechanics });
-
-const mods = (when: Filter, m: Mods, extra: Partial<Extract<Mechanic, { type: 'mods' }>> = {}): Mechanic => ({ type: 'mods', when, mods: m, ...extra });
-const on = (event: Extract<Mechanic, { type: 'trigger' }>['on'], actions: Action[], extra: Partial<Extract<Mechanic, { type: 'trigger' }>> = {}): Mechanic => ({
-  type: 'trigger',
-  on: event,
-  actions,
-  ...extra,
-});
-const cond = (extra: Partial<Extract<Mechanic, { type: 'conditional' }>>, stats: { stat: StatId; modifier?: 'flat' | 'increased'; value: number }[]): Mechanic => ({
-  type: 'conditional',
-  ...extra,
-  stats,
-});
-
-// 動作
-const at = (where: 'target' | 'self', category: 'melee' | 'ranged' | 'magic', effects: Effect[], hitFraction?: number): Action => ({
-  type: 'effects',
-  at: where,
-  category,
-  effects,
-  ...(hitFraction ? { hitFraction } : {}),
-});
-const restore = (r: { hp?: number; mp?: number; hpOfDamage?: number }): Action => ({ type: 'restore', ...r });
-const buff = (id: string, label: string, max: number, duration: number, stats: { stat: StatId; modifier?: 'flat' | 'increased'; value: number }[] = [], add = 1): Action => ({
-  type: 'buff',
-  id,
-  label,
-  max,
-  duration,
-  stats,
-  add,
-});
-const arm = (id: string, when: Filter, m: Mods, duration = 5): Action => ({ type: 'arm', id, when, mods: m, duration });
-const clear = (id: string): Action => ({ type: 'clearBuff', id });
-
-/** 近戰 C 路線「刃術」 */
-const BLADE_ART = ['melee.dash_slash', 'melee.quake_slash', 'melee.launch_slash', 'melee.execution_slash'];
-
-// 效果
-type DamageElement = 'physical' | 'fire' | 'cold' | 'lightning' | 'poison';
-const hit = (element: DamageElement, multiplier = 1, scaling: 'weapon' | 'spell' = 'weapon'): Effect => ({ type: 'damage', element, scaling, multiplier });
-const area = (radius: number, effects: Effect[], angleDeg?: number): Effect => ({ type: 'area', radius, effects, ...(angleDeg ? { angleDeg } : {}) });
-const status = (s: 'slow' | 'freeze' | 'stun' | 'armorBreak' | 'weakPoint' | 'guard' | 'ironWill', duration: number, magnitude = 0, extra: { chance?: number; target?: 'self' | 'target' } = {}): Effect => ({
-  type: 'status',
-  status: s,
-  duration,
-  magnitude,
-  ...extra,
-});
-const ring = (count: number, element: DamageElement, speed = 8, range = 4.5, scaling: 'weapon' | 'spell' = 'weapon'): Effect => ({
-  type: 'projectile',
-  speed,
-  radius: 0.2,
-  range,
-  count,
-  spreadDeg: 360,
-  onHit: [hit(element, 1, scaling)],
-});
-const fan = (count: number, spreadDeg: number, element: DamageElement, speed = 11, range = 7): Effect => ({
-  type: 'projectile',
-  speed,
-  radius: 0.18,
-  range,
-  count,
-  spreadDeg,
-  onHit: [hit(element)],
-});
-const rain = (repeat: number, scatter: number, radius: number, element: DamageElement, multiplier: number, scaling: 'weapon' | 'spell' = 'weapon'): Effect => ({
-  type: 'delayed',
-  delay: 0.3,
-  repeat,
-  interval: 0.15,
-  scatter,
-  effects: [area(radius, [hit(element, multiplier, scaling)])],
-});
-
-const MELEE: Filter = { categories: ['melee'] };
-const RANGED: Filter = { categories: ['ranged'] };
-const MAGIC: Filter = { categories: ['magic'] };
-const FINISHER: Filter = { step: 3, comboOnly: true };
 
 // ═══════════════════════════ 橘 · 傳奇 ═══════════════════════════
 
@@ -176,10 +75,10 @@ const legendary: Def[] = [
     main: [2.25, 2.45],
     lines: [
       inc('attackSpeed', 0.1, 0.14),
-      stat('lifeSteal', 0.025, 0.035),
+      stat('lifeSteal', 0.0015, 0.0025, { growth: 0 }),
       stat('critDamageBonus', 0.18, 0.24),
       strong('快速技能傷害 +20%', mods({ tags: ['Fast'] }, { damage: 0.2 })),
-      unique('近戰暴擊時，回復造成傷害 15% 的生命', on('crit', [restore({ hpOfDamage: 0.15 })], { when: MELEE })),
+      unique('近戰暴擊時，回復造成傷害 0.5% 的生命', on('crit', [restore({ hpOfDamage: 0.005 })], { when: MELEE })),
     ],
   },
 
@@ -215,7 +114,7 @@ const legendary: Def[] = [
     lines: [
       stat('critChance', 0.05, 0.07),
       stat('meleeDamageBonus', 0.13, 0.17),
-      stat('lifeSteal', 0.025, 0.035),
+      stat('lifeSteal', 0.0015, 0.0025, { growth: 0 }),
       strong('對生命低於 30% 的敵人，近戰傷害 +35%', mods(MELEE, { vsLowHp: { below: 0.3, damage: 0.35 } })),
       unique(
         '近戰擊殺時「屠戮」+1 層（最多 5 層、6 秒）：每層攻擊速度 +8%',
@@ -677,11 +576,11 @@ const legendary: Def[] = [
     lore: '簽下契約的那一滴血，至今還在戒面上流動。',
     lines: [
       inc('maxHp', 0.13, 0.17),
-      stat('lifeSteal', 0.035, 0.045),
+      stat('lifeSteal', 0.002, 0.003, { growth: 0 }),
       stat('meleeDamageBonus', 0.13, 0.17),
       inc('attackSpeed', 0.07, 0.09),
-      strong('近戰吸血效率提高：近戰命中額外回復傷害 1.5% 的生命', on('hit', [restore({ hpOfDamage: 0.015 })], { when: MELEE })),
-      unique('生命低於 40% 時，生命吸取 +3%', cond({ hpBelow: 0.4 }, [{ stat: 'lifeSteal', value: 0.03 }])),
+      strong('近戰吸血效率提高：近戰命中額外回復傷害 0.3% 的生命', on('hit', [restore({ hpOfDamage: 0.003 })], { when: MELEE })),
+      unique('生命低於 40% 時，生命吸取 +0.3%', cond({ hpBelow: 0.4 }, [{ stat: 'lifeSteal', value: 0.003 }])),
     ],
   },
   {
@@ -731,7 +630,7 @@ const legendary: Def[] = [
       inc('maxHp', 0.1, 0.14),
       stat('meleeDamageBonus', 0.1, 0.14),
       inc('attackSpeed', 0.05, 0.07),
-      stat('lifeSteal', 0.015, 0.025),
+      stat('lifeSteal', 0.001, 0.002, { growth: 0 }),
       strong('三招皆為近身的 Combo 傷害 +15%', mods({ comboOnly: true, allRange: 'Near' }, { damage: 0.15 })),
       unique(
         '以近身技能結尾的 Combo 完成後 4 秒內，受到傷害 -10%',
@@ -773,7 +672,7 @@ const mythic: Def[] = [
     lines: [
       stat('meleeDamageBonus', 0.28, 0.32),
       inc('attackSpeed', 0.12, 0.16),
-      stat('lifeSteal', 0.045, 0.055),
+      stat('lifeSteal', 0.0025, 0.003, { growth: 0 }),
       stat('critDamageBonus', 0.22, 0.28),
       unique('重擊類技能命中時產生震波，造成該擊 50% 傷害', on('hit', [at('target', 'melee', [area(2.2, [hit('physical')])], 0.5)], { when: { tags: ['Heavy'] }, cooldown: 0.3 })),
       unique(
@@ -824,7 +723,7 @@ const mythic: Def[] = [
     main: [3.8, 4],
     lines: [
       stat('meleeDamageBonus', 0.28, 0.34),
-      stat('lifeSteal', 0.055, 0.065),
+      stat('lifeSteal', 0.003, 0.003, { growth: 0 }),
       inc('moveSpeed', 0.1, 0.14),
       inc('attackSpeed', 0.07, 0.09),
       unique(
@@ -1110,7 +1009,7 @@ const mythic: Def[] = [
     main: [3.3, 3.5],
     lines: [
       inc('maxHp', 0.28, 0.32),
-      stat('lifeSteal', 0.035, 0.045),
+      stat('lifeSteal', 0.002, 0.003, { growth: 0 }),
       stat('hpRegenPct', 0.007, 0.009),
       flat('thorns', 18, 22),
       unique(
@@ -1275,11 +1174,11 @@ const mythic: Def[] = [
     minItemLevel: 10,
     lines: [
       inc('maxHp', 0.33, 0.37),
-      stat('lifeSteal', 0.055, 0.065),
+      stat('lifeSteal', 0.003, 0.003, { growth: 0 }),
       stat('meleeDamageBonus', 0.23, 0.27),
       inc('attackSpeed', 0.1, 0.14),
       stat('potionEffect', 0.13, 0.17),
-      unique('近戰吸血效率提高：近戰命中額外回復傷害 2% 的生命', on('hit', [restore({ hpOfDamage: 0.02 })], { when: MELEE })),
+      unique('近戰吸血效率提高：近戰命中額外回復傷害 0.3% 的生命', on('hit', [restore({ hpOfDamage: 0.003 })], { when: MELEE })),
       unique(
         '生命已滿時，溢出的吸血轉為護盾：下一次受到的傷害 -30%（冷卻 3 秒）',
         on('hit', [at('self', 'melee', [status('guard', 6, 0.3, { target: 'self' })])], { when: MELEE, hpAbove: 0.99, cooldown: 3 }),
@@ -1311,4 +1210,4 @@ const mythic: Def[] = [
   },
 ];
 
-export const legendaries: Def[] = [...legendary, ...mythic];
+export const legendaries: Def[] = [...legendary, ...mythic, ...[swordItems, axeItems, bowItems, staffItems, shieldItems, helmetItems, armorItems, glovesItems, bootsItems, ringItems, amuletItems].flat()];

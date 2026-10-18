@@ -1,6 +1,13 @@
 import type { z } from 'zod';
 import type { BalanceSchema } from './schema/balance';
 
+/**
+ * 吸血 / 吸魔的硬上限（玩家）：技能最高 +0.5%（1～5 級 0.1%～0.5%），其他每一個來源（詞綴、傳奇 / 神話屬性、條件效果）最高 +0.3%；
+ * 例外：「暴擊時回復傷害的一部分」最高 +0.5%（鼓勵提升暴擊率）。近戰的吸血倍率（categoryTraits）不受限（設計者同意）。
+ * 物品數值超過時一律以上限計算（舊存檔也一樣）。要往上調必須先提出理由並與設計者討論。
+ */
+export const STEAL_CAP = { skill: 0.005, perSource: 0.003, critHeal: 0.005 } as const;
+
 /** 全域平衡數值。調整手感優先改這裡。 */
 export const balance: z.input<typeof BalanceSchema> = {
   maxLevel: 70,

@@ -6,6 +6,12 @@ import type { Mesh } from '../Poly3D';
 import { pelvisArmor } from '../heroine/HeroineArmor';
 import { heroineForearm, heroineHand, heroineHead, heroineThigh, heroineUpperArm } from '../heroine/HeroineBody';
 import { scarfWrap } from '../heroine/HeroineHair';
+import type { UniqueArmor } from './uniques/types';
+import { helmetUniques } from './uniques/helmet';
+import { armorUniques } from './uniques/armor';
+import { glovesUniques } from './uniques/gloves';
+import { bootsUniques } from './uniques/boots';
+import { shieldUniques } from './uniques/shield';
 import {
   ABYSS,
   ANCIENT,
@@ -121,7 +127,7 @@ const BASES: { [K in ArmorSlot]: Spec[K][] } = { helmet: HELMETS, armor: ARMORS,
 
 /** 橘 / 紅防具：基底階級、主題與專屬點綴（染色較淡，保留專屬配色） */
 /** extra：覆寫該部位造型參數的欄位（頭盔 / 盔甲 / 靴子各自的欄位；null = 拿掉基底的零件） */
-const UNIQUES: Record<string, { tier: number; themes: GearTheme[]; extra: Record<string, unknown> }> = {
+const UNIQUES: Record<string, UniqueArmor> = {
   'legendary.seer_crown': { tier: 4, themes: ['arcane'], extra: { style: 'cap', height: 0.6, crown: SILVER, gem: 0x7a8cff, crest: null } },
   'legendary.berserker_helm': { tier: 5, themes: ['blood', 'vital'], extra: { horns: { kind: 'up', size: 1, colors: BONE } } },
   'legendary.hawkeye': { tier: 3, themes: ['crit', 'speed'], extra: { style: 'cap', height: 0.9, plume: [0xe8dcc0, 0xcfc0a0], wings: [0xe8dcc0, 0xcfc0a0] } },
@@ -148,6 +154,12 @@ const UNIQUES: Record<string, { tier: number; themes: GearTheme[]; extra: Record
   'mythic.world_wall': { tier: 7, themes: ['guard'], extra: { shape: 'tower', size: 1.15, mat: STAR, rim: GOLD, cross: GOLD, rays: null, boss: null } },
   'mythic.thunder_bulwark': { tier: 7, themes: ['lightning', 'crit'], extra: { shape: 'heater', mat: STORM, rim: SILVER, rays: STORM, boss: null } },
   'mythic.mirror_of_ruin': { tier: 8, themes: ['thorns'], extra: { shape: 'round', mat: BLACK_STEEL, rim: VOID, face: SILVER, rays: null, gem: 0xff4060 } },
+  // 擴充的橘 / 紅（uniques/ 各部位檔案）
+  ...helmetUniques,
+  ...armorUniques,
+  ...glovesUniques,
+  ...bootsUniques,
+  ...shieldUniques,
 };
 
 /** 有專屬外觀的橘 / 紅防具 ID（測試用） */

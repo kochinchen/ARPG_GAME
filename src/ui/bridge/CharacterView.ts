@@ -39,7 +39,7 @@ export function characterSignature(world: GameWorld): string {
   return `${world.progress.version}|${world.itemsVersion}|${world.loadout.supports.join(',')}|${world.wallet.gold}`;
 }
 
-const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
+const pct = (v: number) => `${+(v * 100).toFixed(Math.abs(v) < 0.01 ? 2 : 1)}%`;
 /** 帶正負號的百分比（負值不要顯示成「+-4%」） */
 const signedPct = (v: number) => `${v >= 0 ? '+' : ''}${pct(v)}`;
 const num = (v: number) => `${+v.toFixed(1)}`;

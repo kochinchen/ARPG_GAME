@@ -14,8 +14,10 @@ export interface AiBrain {
   leashRange: number;
   /** 目前追擊的目標 */
   targetId: ActorId | null;
-  /** 最近一次被誰打；閒置時會對其反擊 */
+  /** 最近一次被誰打；閒置或走回家途中會對其反擊 */
   provokedBy: ActorId | null;
+  /** 被打中後的憤怒秒數：期間超過 Leash 也不放棄追擊（避免在範圍外被活活射死） */
+  angerTimer: number;
   /** 主要攻擊（追擊時使用） */
   skillId: string;
   /** 特殊技能：冷卻結束且目標在範圍內時優先使用（依順序） */
@@ -46,6 +48,7 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     leashRange: options.leashRange,
     targetId: null,
     provokedBy: null,
+    angerTimer: 0,
     skillId: primary!,
     specialSkills: special,
     keepDistance: options.keepDistance ?? 0,

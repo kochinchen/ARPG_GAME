@@ -7,7 +7,7 @@ import { HIDE_DARK, helmetMeshes, scaleMeshes, shieldMeshes, type ArmorSpec, typ
 import { itemThemes, THEMES, themeColors } from '../figure/gear/GearTheme';
 import { apply, box, dot, faceNormal, jointRotation, lowSphere, mul, normalize, placeMesh, prism, rotX, rotY, rotZ, type M3, type Mesh, type V3 } from '../figure/Poly3D';
 import { HOLD, weaponLookFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
-import { ABYSS, BLACK_STEEL, BONE, BRONZE, chain, darken, gem, GOLD, LEATHER, lighten, SILVER, taper, WOOD, type Tones } from '../figure/weapons/WeaponParts';
+import { ABYSS, BLACK_STEEL, BLOOD_STEEL, BONE, BRONZE, chain, CRIMSON, darken, EMBER, gem, GOLD, ICE, JADE, LEATHER, lighten, SHADOW, SILVER, STAR, STORM, taper, VOID, WOOD, type Tones } from '../figure/weapons/WeaponParts';
 
 /**
  * 物品圖示：用遊戲裡的裝備模型（與主角身上相同的造型、染色、專屬外觀）投影成 SVG，
@@ -126,36 +126,59 @@ const JEWEL: Record<string, { metal: Tones; gem: number | null; runes?: number }
   'amulet.rune': { metal: ABYSS, gem: 0xb070ff, runes: 0xc8a0ff },
 };
 
-const JEWEL_SHAPES = ['plain', 'silver', 'gold', 'rune'];
 const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+const pick = <T>(list: readonly T[], key: string, salt: number): T => list[(hash(key) >>> salt) % list.length]!;
 
-/** 傳奇：金、神話：深淵（有發光符文），外形仍依基底 */
-function jewelFor(baseId: string, rarity: Rarity): (typeof JEWEL)[string] {
+/** 橘 / 紅飾品：外形、材質、寶石、戒指款式都依傳奇 ID 固定挑選（同一件永遠一樣，不同件看得出差別） */
+const UNIQUE_SHAPES = { ring: ['plain', 'silver', 'gold', 'rune'], amulet: ['plain', 'bone', 'silver', 'rune'] } as const;
+const LEGENDARY_METALS: Tones[] = [GOLD, SILVER, BRONZE, BONE, JADE, ICE, EMBER, STAR];
+const MYTHIC_METALS: Tones[] = [ABYSS, CRIMSON, VOID, SHADOW, BLOOD_STEEL, STORM];
+const GEMS = [0xffb040, 0x4aa8ff, 0xd02030, 0x7ee08a, 0xc070ff, 0xfff0b0, 0x40e0d0, 0xff6ab0];
+const RUNES = [0xff9a7a, 0xc8a0ff, 0x9fe8ff, 0xffe08a];
+type RingStyle = 'solitaire' | 'twin' | 'crown' | 'band';
+const RING_STYLES: RingStyle[] = ['solitaire', 'twin', 'crown', 'band'];
+
+function jewelFor(baseId: string, rarity: Rarity, key?: string): (typeof JEWEL)[string] {
   const j = JEWEL[baseId] ?? JEWEL[baseId.startsWith('ring') ? 'ring.plain' : 'amulet.plain']!;
-  if (rarity === 'legendary') return { ...j, metal: GOLD, gem: j.gem ?? 0xffb040 };
-  if (rarity === 'mythic') return { ...j, metal: ABYSS, gem: j.gem ?? 0xc070ff, runes: j.runes ?? 0xff9a7a };
-  return j;
+  if (!key) return j;
+  if (rarity === 'mythic') return { ...j, metal: pick(MYTHIC_METALS, key, 0), gem: pick(GEMS, key, 3), runes: pick(RUNES, key, 7) };
+  return { ...j, metal: pick(LEGENDARY_METALS, key, 0), gem: pick(GEMS, key, 3) };
 }
 
 /** 戒指：一圈戒身、戒台與寶石（主題色） */
-function ringIcon(baseId: string, gemColor: number | null, rarity: Rarity): Mesh[] {
-  const j = jewelFor(baseId, rarity);
+function ringIcon(baseId: string, gemColor: number | null, rarity: Rarity, key?: string): Mesh[] {
+  const j = jewelFor(baseId, rarity, key);
+  const style: RingStyle = key ? pick(RING_STYLES, key, 5) : 'solitaire';
   const pts: V3[] = Array.from({ length: 15 }, (_, i) => {
     const a = (i / 14) * Math.PI * 2;
     return [Math.sin(a) * 3, Math.cos(a) * 3, 0];
   });
-  const out: Mesh[] = [...chain(pts, [0.75, 0.6], [0.75, 0.6], j.metal, false)];
+  const band: [number, number] = style === 'band' ? [1.1, 0.55] : [0.75, 0.6];
+  const out: Mesh[] = [...chain(pts, band, band, j.metal, false)];
   const color = gemColor ?? j.gem;
-  out.push(F(t(prism(6, 2.6, 3.6, [1.3, 1.3], [1.6, 1.6], j.metal[0]!), j.metal, 3), 3, 0.06));
-  if (color) out.push(gem(1.25, [0, 4.3, 0], color, [1, 0.8, 1]));
-  else out.push(F(t(lowSphere(1, j.metal[1]!, [0, 4, 0], 6, 4, [1, 0.6, 1]), j.metal, 4), 4, 0.06));
+  if (style === 'band') {
+    // 寬戒身、三顆鑲嵌的小寶石
+    for (const a of [-0.45, 0, 0.45]) out.push(gem(0.55, [Math.sin(a) * 3.1, Math.cos(a) * 3.1, 0.7], color ?? 0xfff0b0));
+  } else if (style === 'twin') {
+    out.push(F(t(box(3.4, 1, 1.6, j.metal[0]!, [0, 3.1, 0]), j.metal, 3), 3, 0.06));
+    for (const x of [-0.9, 0.9]) out.push(gem(0.85, [x, 3.9, 0], color ?? 0xfff0b0, [1, 0.8, 1]));
+  } else {
+    out.push(F(t(prism(6, 2.6, 3.6, [1.3, 1.3], [1.6, 1.6], j.metal[0]!), j.metal, 3), 3, 0.06));
+    if (color) out.push(gem(1.25, [0, 4.3, 0], color, [1, 0.8, 1]));
+    else out.push(F(t(lowSphere(1, j.metal[1]!, [0, 4, 0], 6, 4, [1, 0.6, 1]), j.metal, 4), 4, 0.06));
+    // 皇冠爪：寶石四周的尖爪
+    if (style === 'crown') for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      out.push(taper([Math.cos(a) * 1.4, 3.4, Math.sin(a) * 1.4], [Math.cos(a) * 1.7, 5.2, Math.sin(a) * 1.7], [0.3, 0.3], [0.04, 0.04], j.metal, 4, i, 0.3));
+    }
+  }
   if (j.runes) for (const a of [1.6, 2.4, 3.9, 4.7]) out.push(glowBox(0.45, 0.45, 0.5, j.runes, [Math.sin(a) * 3, Math.cos(a) * 3, 0.65]));
   return out;
 }
 
 /** 護符：繩 / 鏈、墜子（木片、獸牙、銀牌、符文石）與寶石 */
-function amuletIcon(baseId: string, gemColor: number | null, rarity: Rarity): Mesh[] {
-  const j = jewelFor(baseId, rarity);
+function amuletIcon(baseId: string, gemColor: number | null, rarity: Rarity, key?: string): Mesh[] {
+  const j = jewelFor(baseId, rarity, key);
   const cord = baseId === 'amulet.plain' || baseId === 'amulet.bone' ? LEATHER : GOLD;
   const out: Mesh[] = [...chain([[-2.6, 3.2, -0.4], [-2.5, 5.4, -0.6], [-1.3, 6.9, -0.8], [0, 7.3, -0.8], [1.3, 6.9, -0.8], [2.5, 5.4, -0.6], [2.6, 3.2, -0.4], [1, 2.6, 0]], [0.3, 0.3], [0.3, 0.3], cord, false)];
   out.push(...chain([[-2.6, 3.2, -0.4], [-1, 2.6, 0]], [0.3, 0.3], [0.3, 0.3], cord, false));
@@ -438,11 +461,12 @@ function buildIcon(item: ItemInstance, slot: string, themes: ReturnType<typeof i
       break;
     case 'ring':
     case 'amulet': {
-      // 寶石換成主題色（普通：基底的預設寶石）
-      const color = style && !style.shape ? style.color : null;
-      // 橘 / 紅飾品：外形依傳奇 ID 固定挑一種（同一件永遠一樣）
-      const shape = item.legendaryId ? `${slot}.${JEWEL_SHAPES[hash(item.legendaryId) % 4]!}` : item.baseId;
-      const jewel = slot === 'ring' ? ringIcon(shape, color, item.rarity) : amuletIcon(shape, color, item.rarity);
+      // 寶石換成主題色（元素、吸血、法術；生命 / 暴擊等用基底或該件的寶石色）
+      const elemental = main === 'fire' || main === 'cold' || main === 'lightning' || main === 'poison' || main === 'blood' || main === 'arcane';
+      const color = style && elemental ? style.color : null;
+      const key = item.legendaryId;
+      const shape = key ? `${slot}.${pick(UNIQUE_SHAPES[slot], key, 0)}` : item.baseId;
+      const jewel = slot === 'ring' ? ringIcon(shape, color, item.rarity, key) : amuletIcon(shape, color, item.rarity, key);
       return svgIcon(project(jewel, JEWEL_VIEW), item.rarity, themeFx, false);
     }
     default:

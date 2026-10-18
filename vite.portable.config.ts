@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import pkg from './package.json' with { type: 'json' };
 
 /**
  * 可攜版（整包帶著走）的建置：相對路徑、所有程式合併成一個檔案（不做 code splitting），
@@ -8,6 +9,7 @@ import vue from '@vitejs/plugin-vue';
 export default defineConfig({
   plugins: [vue()],
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   build: {
     outDir: 'release/.build',
     emptyOutDir: true,

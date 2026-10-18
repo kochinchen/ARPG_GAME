@@ -81,7 +81,7 @@ describe('怪物 AI（M3）', () => {
     // 玩家往走廊深處跑（玩家比骷髏快）
     commands.push({ type: 'PrimaryAction', worldPos: vec2(42.5, 2.5), targetId: null, held: false });
     let sawReturn = false;
-    run(world, 20, () => {
+    run(world, 35, () => {
       if (skeleton.ai!.state === 'return') sawReturn = true;
     });
 
@@ -89,6 +89,27 @@ describe('怪物 AI（M3）', () => {
     expect(skeleton.ai!.state).toBe('idle');
     // 回到家附近（回到閒置後會在出生點附近小範圍走動）
     expect(distance(skeleton.position, vec2(6.5, 2.5))).toBeLessThan(2.7);
+  });
+
+  it('Leash 是 28 格；走回家途中被攻擊會回頭追擊，被打中後短時間內超過 Leash 也不放棄', () => {
+    const { world, events } = createWorldWithMap(CORRIDOR, [skeletonAt(6.5, 2.5)]);
+    const skeleton = enemiesOf(world)[0]!;
+    expect(skeleton.ai!.leashRange).toBe(28);
+    const hit = () =>
+      events.emit('ActorDamaged', { targetId: skeleton.id, sourceId: world.player.id, amount: 1, isCrit: false, element: 'physical', position: skeleton.position });
+    // 走回家途中被打：回頭追擊
+    skeleton.ai!.state = 'return';
+    hit();
+    run(world, DT);
+    expect(skeleton.ai!.state).toBe('chase');
+    // 已經離家很遠，但剛被打中：繼續追
+    skeleton.ai!.home = vec2(40.5, 2.5);
+    hit();
+    run(world, 1);
+    expect(skeleton.ai!.state).toBe('chase');
+    // 憤怒時間過了才放棄
+    run(world, 4);
+    expect(skeleton.ai!.state).not.toBe('chase');
   });
 
   it('5 隻同時追擊時不會疊成一點', () => {

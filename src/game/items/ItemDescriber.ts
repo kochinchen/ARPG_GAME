@@ -187,6 +187,7 @@ export function affixLineTexts(item: ItemInstance, data: Pick<DataRegistry, 'ite
 
 export function formatValue(stat: StatId, kind: ModifierKind, value: number, signed: boolean): string {
   const sign = signed && value >= 0 ? '+' : '';
-  if (kind !== 'flat' || PERCENT_STATS.has(stat)) return `${sign}${Math.round(value * 1000) / 10}%`;
+  // 1% 以下（吸血、吸魔）顯示到小數第二位
+  if (kind !== 'flat' || PERCENT_STATS.has(stat)) return `${sign}${Math.abs(value) < 0.01 ? Math.round(value * 10000) / 100 : Math.round(value * 1000) / 10}%`;
   return `${sign}${Number.isInteger(value) ? value : value.toFixed(1)}`;
 }

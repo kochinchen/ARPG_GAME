@@ -158,7 +158,8 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
   position: absolute;
   top: 12px;
   right: 12px;
-  width: min(340px, calc(100vw - 32px));
+  /* 背包格約 46px（10 欄） */
+  width: min(510px, calc(100vw - 32px));
   max-height: calc(100vh - 170px);
   overflow-x: hidden;
   overflow-y: auto;
@@ -204,7 +205,7 @@ section {
     'weapon armor  armor  shield'
     'gloves ring1  ring2  boots';
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: 42px 56px 40px;
+  grid-template-rows: 58px 76px 56px;
 }
 .equip,
 .cell {

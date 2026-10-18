@@ -120,7 +120,9 @@ const OUTFIT = OUTFIT_TIER
     })()
   : null;
 const armed = (figure: PolyFigure): PolyFigure => {
-  if (WEAPON) figure.setWeapon(mountFor(WEAPON));
+  // ?rest=x,y,z：試調平常拿武器的角度
+  const restParam = params.get('rest')?.split(',').map(Number) as [number, number, number] | undefined;
+  if (WEAPON) figure.setWeapon({ ...mountFor(WEAPON), ...(restParam ? { rest: restParam } : {}) });
   if (OUTFIT) figure.setOutfit(OUTFIT);
   return figure;
 };

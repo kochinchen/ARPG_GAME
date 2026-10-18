@@ -27,7 +27,7 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'affix.hunter', name: '獵手的', kind: 'item', stat: 'rangedDamageBonus', value: [0.04, 0.1], minItemLevel: 3, weight: 6, growth: BONUS, slots: ['weapon', 'gloves', 'ring'] },
   { id: 'affix.mystic', name: '秘法的', kind: 'item', stat: 'spellDamageBonus', value: [0.04, 0.1], minItemLevel: 3, weight: 6, growth: BONUS, slots: ['weapon', 'helmet', 'amulet'] },
   { id: 'affix.focus', name: '專注的', kind: 'item', stat: 'castSpeed', value: [0.04, 0.1], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['weapon', 'gloves', 'amulet'] },
-  { id: 'affix.vampiric', name: '吸血的', kind: 'item', stat: 'lifeSteal', value: [0.01, 0.03], minItemLevel: 6, weight: 4, growth: PERCENT, slots: ['weapon', 'ring'] },
+  { id: 'affix.vampiric', name: '吸血的', kind: 'item', stat: 'lifeSteal', value: [0.001, 0.002], minItemLevel: 6, weight: 4, growth: 0, slots: ['weapon', 'ring'] },
   // 元素附加傷害：每次命中額外造成該次傷害一定比例的元素傷害
   { id: 'affix.burning', name: '灼熱的', kind: 'item', stat: 'fireDamagePct', value: [0.05, 0.1], minItemLevel: 5, weight: 5, growth: BONUS, slots: ['weapon', 'gloves', ...JEWELRY] },
   { id: 'affix.frozen', name: '寒霜的', kind: 'item', stat: 'coldDamagePct', value: [0.05, 0.1], minItemLevel: 5, weight: 5, growth: BONUS, slots: ['weapon', 'gloves', ...JEWELRY] },
@@ -72,7 +72,7 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'strong.cold', name: '寒霜', kind: 'strong', stat: 'coldDamagePct', value: [0.16, 0.22], minItemLevel: 1, weight: 4, growth: BONUS, slots: ['weapon', 'gloves', ...JEWELRY] },
   { id: 'strong.lightning', name: '雷霆', kind: 'strong', stat: 'lightningDamagePct', value: [0.16, 0.22], minItemLevel: 1, weight: 4, growth: BONUS, slots: ['weapon', 'gloves', ...JEWELRY] },
   { id: 'strong.poison', name: '劇毒', kind: 'strong', stat: 'poisonDamagePct', value: [0.16, 0.22], minItemLevel: 1, weight: 4, growth: BONUS, slots: ['weapon', 'gloves', ...JEWELRY] },
-  { id: 'strong.bloodthirst', name: '嗜血', kind: 'strong', stat: 'lifeSteal', value: [0.035, 0.05], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['weapon', 'gloves', 'ring'] },
+  { id: 'strong.bloodthirst', name: '嗜血', kind: 'strong', stat: 'lifeSteal', value: [0.002, 0.003], minItemLevel: 1, weight: 4, growth: 0, slots: ['weapon', 'gloves', 'ring'] },
   // 防禦
   { id: 'strong.bulwark', name: '堅壁', kind: 'strong', stat: 'damageReduction', value: [0.05, 0.07], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['armor', 'helmet', 'boots', 'amulet', 'shield'] },
   { id: 'strong.giant', name: '巨人', kind: 'strong', stat: 'maxHp', modifier: 'increased', value: [0.22, 0.28], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['armor', 'helmet', 'boots', ...JEWELRY, 'shield'] },
@@ -83,7 +83,7 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'strong.ashen', name: '灰燼', kind: 'strong', stat: 'fireResist', value: [0.2, 0.28], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['armor', 'helmet', 'boots', 'shield'] },
   // 資源與移動
   { id: 'strong.efficiency', name: '節能', kind: 'strong', stat: 'manaCostReduction', value: [0.12, 0.16], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['weapon', 'helmet', ...JEWELRY] },
-  { id: 'strong.soul_drain', name: '汲魂', kind: 'strong', stat: 'manaSteal', value: [0.03, 0.04], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['weapon', 'ring'] },
+  { id: 'strong.soul_drain', name: '汲魂', kind: 'strong', stat: 'manaSteal', value: [0.002, 0.003], minItemLevel: 1, weight: 4, growth: 0, slots: ['weapon', 'ring'] },
   { id: 'strong.sage', name: '賢者', kind: 'strong', stat: 'maxMana', modifier: 'increased', value: [0.2, 0.25], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['armor', 'helmet', ...JEWELRY] },
   { id: 'strong.windwalk', name: '疾行', kind: 'strong', stat: 'moveSpeed', modifier: 'increased', value: [0.12, 0.16], minItemLevel: 1, weight: 5, growth: PERCENT, slots: ['boots'] },
   // 控制抗性：一條強屬性約等於兩條一般詞綴；T5 紫裝約 45%～65%（上限 75%）

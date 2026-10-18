@@ -49,7 +49,7 @@ onBeforeUnmount(() => {
 .hero {
   position: absolute;
   top: 12px;
-  right: calc(12px + min(340px, 100vw - 32px) + 8px);
+  right: calc(12px + min(510px, 100vw - 32px) + 8px);
   width: 240px;
   height: 360px;
   pointer-events: auto;
@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
   right: 8px;
 }
 /* 畫面太窄時不顯示（避免蓋住遊戲） */
-@media (max-width: 760px) {
+@media (max-width: 820px) {
   .hero {
     display: none;
   }

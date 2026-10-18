@@ -97,11 +97,11 @@ describe('裝備圖鑑', () => {
     expect(fresh.progress.collection.has('base:weapon.iron_longsword')).toBe(true);
   });
 
-  it('圖鑑內容：所有白色基底、33 件橘、23 件紅，數值範圍與效果文字', () => {
+  it('圖鑑內容：所有白色基底、132 件橘、66 件紅，數值範圍與效果文字', () => {
     const codex = buildItemCodex(data);
     expect(codex.bases).toHaveLength(data.items.all.length);
-    expect(codex.uniques.filter((u) => u.rarity === 'legendary')).toHaveLength(33);
-    expect(codex.uniques.filter((u) => u.rarity === 'mythic')).toHaveLength(23);
+    expect(codex.uniques.filter((u) => u.rarity === 'legendary')).toHaveLength(132);
+    expect(codex.uniques.filter((u) => u.rarity === 'mythic')).toHaveLength(66);
     const coldMoon = codex.uniques.find((u) => u.id === 'legendary.cold_moon')!;
     expect(coldMoon.main).toBe('武器傷害 +235%～255%');
     expect(coldMoon.lines[0]!.text).toBe('+14%～18% 攻擊速度');

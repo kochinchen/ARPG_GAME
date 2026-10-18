@@ -1,6 +1,7 @@
 import type { Rng } from '../../core/Rng';
 import { distance, normalize, sub, vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
+import { STEAL_CAP } from '../../data/balance';
 import type { StatId } from '../../data/schema/common';
 import type { EffectDef } from '../../data/schema/effects';
 import type { ItemAction, ItemMechanic, LegendaryDef, ModsInput, SkillFilter } from '../../data/schema/legendary';
@@ -220,7 +221,7 @@ export class ItemEffectSystem {
       if (m.chance !== undefined && !this.rng.chance(m.chance)) continue;
       if (m.cooldown > 0) this.cooldowns.set(key, m.cooldown);
       if (m.consumeBuff) this.clearBuff(m.consumeBuff);
-      for (const action of m.actions) this.run(key, action, event);
+      for (const action of m.actions) this.run(key, action, event, on);
     }
   }
 
@@ -239,7 +240,7 @@ export class ItemEffectSystem {
     return true;
   }
 
-  private run(key: string, action: ItemAction, e: TriggerEvent): void {
+  private run(key: string, action: ItemAction, e: TriggerEvent, on?: Extract<ItemMechanic, { type: 'trigger' }>['on']): void {
     const p = this.player;
     switch (action.type) {
       case 'effects': {
@@ -258,7 +259,8 @@ export class ItemEffectSystem {
       case 'restore':
         if (action.hp) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * action.hp);
         if (action.mp) p.mana = Math.min(p.maxMana, p.mana + p.maxMana * action.mp);
-        if (action.hpOfDamage) p.hp = Math.min(p.maxHp, p.hp + e.amount * action.hpOfDamage);
+        // 回復傷害的一部分 = 吸血類：硬上限 STEAL_CAP（暴擊時觸發的上限較高）
+        if (action.hpOfDamage) p.hp = Math.min(p.maxHp, p.hp + e.amount * Math.min(action.hpOfDamage, on === 'crit' ? STEAL_CAP.critHeal : STEAL_CAP.perSource));
         break;
       case 'buff': {
         const b = this.buffs.get(action.id);
