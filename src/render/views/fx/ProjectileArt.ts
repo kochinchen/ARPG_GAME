@@ -5,11 +5,12 @@ import { mix, type FxParticleKind } from './FxColors';
  * 投射物的外觀（畫在本地座標：往 +X 飛，原點為投射物中心）。
  * - 箭：箭桿、箭頭、箭羽，依技能有不同的長度、顏色與拖尾（穿透的螺旋、蓄力的能量、幻影的殘影…）
  * - 魔法：有稜有角的元素造型（火球是翻騰的火舌、冰球是多面水晶、電球是跳動的電弧、冰槍是細長的水晶）
+ * - 戰術：淬毒飛刀（滴毒的刀刃）、鉤索（鐵鉤拖著繩子）、擲斧（旋轉的斧頭）、圖騰閃電（鋸齒電光）
  * special（成功組成 Combo 的招式）換成金色調並加亮。
  */
 
-export type ArrowKind = 'plain' | 'pierce' | 'wind' | 'charge' | 'small' | 'dust' | 'weak' | 'rapid' | 'spin' | 'execute' | 'phantom' | 'bone';
-export type OrbKind = 'fire' | 'ice' | 'spark' | 'lance' | 'frostBolt' | 'poison' | 'spore' | 'glob' | 'shard';
+export type ArrowKind = 'plain' | 'pierce' | 'wind' | 'charge' | 'small' | 'dust' | 'weak' | 'rapid' | 'spin' | 'execute' | 'phantom' | 'bone' | 'knife' | 'hook';
+export type OrbKind = 'fire' | 'ice' | 'spark' | 'lance' | 'frostBolt' | 'poison' | 'spore' | 'glob' | 'shard' | 'axe' | 'bolt';
 
 export interface ProjectileArt {
   type: 'arrow' | 'orb';
@@ -50,6 +51,10 @@ const ARTS: Record<string, ProjectileArt> = {
   'enemy.poison_spit': orb('poison', 0x7ed957, 0xd8ffb0, 'drop', 0.85, 20),
   'enemy.frost_spores': orb('spore', 0x8fe8ff, 0xe8ffff, 'flake', 0.8, 18),
   'enemy.fire_glob': orb('glob', 0xff7a2a, 0xffd080, 'ember', 0.9, 30),
+  'utility.poison_knife': arrow('knife', 0x7ed957, 0xdfe6ea, 'drop', 1, 14),
+  'utility.grapple_hook': arrow('hook', 0xc8a878, 0xc8ccd4),
+  'utility.throwing_axe': orb('axe', 0xd84848, 0xc8ccd4, 'dust', 1, 10),
+  'utility.storm_totem': orb('bolt', 0xf5e663, 0xffffff, 'spark', 1, 50),
 };
 
 const ELEMENT_ART: Record<string, ProjectileArt> = {
@@ -83,6 +88,8 @@ export function drawProjectile(g: Graphics, art: ProjectileArt, t: number, speci
 }
 
 function drawArrow(g: Graphics, art: ProjectileArt, t: number): void {
+  if (art.kind === 'knife') return drawKnife(g, art);
+  if (art.kind === 'hook') return drawHook(g, art);
   const k = art.size;
   const L = (art.kind === 'rapid' ? 16 : art.kind === 'pierce' ? 24 : 20) * k;
   const tail = -L * 0.55;
@@ -166,6 +173,30 @@ function drawArrow(g: Graphics, art: ProjectileArt, t: number): void {
     }
     g.poly(pts).stroke({ color: c, width: 1.2, alpha: 0.8 });
   }
+}
+
+/** 淬毒飛刀：鋼刃兩面（亮 / 暗）、纏布刀柄，刀刃滴著毒 */
+function drawKnife(g: Graphics, art: ProjectileArt): void {
+  const k = art.size;
+  g.moveTo(-8 * k, 0).lineTo(-20 * k, 0).stroke({ color: art.color, width: 1.2, alpha: 0.35 });
+  g.poly([10 * k, 0, -1 * k, -2.6 * k, -2 * k, 0]).fill({ color: art.core });
+  g.poly([10 * k, 0, -1 * k, 2.6 * k, -2 * k, 0]).fill({ color: mix(art.core, 0x2a3036, 0.45) });
+  g.poly([-2 * k, -3.4 * k, -1 * k, -3.4 * k, -1 * k, 3.4 * k, -2 * k, 3.4 * k]).fill({ color: 0x6a6a72 });
+  g.poly([-2 * k, -1.4 * k, -8 * k, -1.2 * k, -8 * k, 1.2 * k, -2 * k, 1.4 * k]).fill({ color: 0x4a3a2a });
+  g.ellipse(4 * k, 0, 6 * k, 2.4 * k).fill({ color: art.color, alpha: 0.35 });
+}
+
+/** 鉤索：三爪鐵鉤，後方拖著一段繩子 */
+function drawHook(g: Graphics, art: ProjectileArt): void {
+  const k = art.size;
+  const rope: number[] = [];
+  for (let i = 0; i <= 8; i++) rope.push(-4 * k - i * 6 * k, Math.sin(i * 1.3) * 1.5 * k);
+  g.poly(rope, false).stroke({ color: art.color, width: 1.6 * k });
+  g.moveTo(-4 * k, 0).lineTo(5 * k, 0).stroke({ color: 0x6a6a72, width: 2.2 * k });
+  for (const side of [-1, 1]) {
+    g.poly([5 * k, 0, 9 * k, side * 1.5 * k, 7 * k, side * 6 * k, 4 * k, side * 4.5 * k, 6 * k, side * 1.5 * k]).fill({ color: side < 0 ? art.core : mix(art.core, 0x2a3036, 0.4) });
+  }
+  g.poly([5 * k, -1.2 * k, 11 * k, 0, 5 * k, 1.2 * k]).fill({ color: art.core });
 }
 
 /** 不規則多邊形（每幀重算：火焰翻騰、電弧跳動） */
@@ -255,6 +286,33 @@ function drawOrb(g: Graphics, art: ProjectileArt, t: number): void {
         [-r * 1.6, -r * 0.6],
         [-r * 2.3, r * 0.4],
       ] as const) g.circle(x, y, r * 0.3).fill({ color: c, alpha: 0.8 });
+      break;
+    }
+    case 'axe': {
+      // 擲斧：整把斧頭旋轉，斧刃兩面亮暗、後方帶紅色殘影
+      const r = 7 * k;
+      const a = t * 22;
+      const rot = (x: number, y: number): [number, number] => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
+      const pts = (list: [number, number][]) => list.flatMap(([x, y]) => rot(x, y));
+      g.circle(0, 0, r * 1.6).fill({ color: c, alpha: 0.12 });
+      g.poly(pts([[-r, -0.5], [r * 0.6, -0.5], [r * 0.6, 0.5], [-r, 0.5]])).fill({ color: 0x6a4a2e });
+      g.poly(pts([[r * 0.3, -0.6], [r * 1.1, -r * 0.9], [r * 1.3, 0], [r * 0.3, 0]])).fill({ color: core });
+      g.poly(pts([[r * 0.3, 0], [r * 1.3, 0], [r * 1.1, r * 0.9], [r * 0.3, 0.6]])).fill({ color: mix(core, 0x2a3036, 0.45) });
+      g.poly(pts([[r * 1.1, -r * 0.9], [r * 1.35, 0], [r * 1.1, r * 0.9]]), false).stroke({ color: c, width: 1.2, alpha: 0.8 });
+      break;
+    }
+    case 'bolt': {
+      // 圖騰閃電：沿飛行方向的鋸齒電光（每幀重新跳動）
+      const L = 26 * k;
+      const pts: number[] = [];
+      for (let i = 0; i <= 7; i++) {
+        const noise = Math.sin((flicker + i) * 12.9898) * 43758.5453;
+        const f = noise - Math.floor(noise);
+        pts.push(L * 0.5 - (i / 7) * L, (i === 0 || i === 7 ? 0 : (f - 0.5) * 8) * k);
+      }
+      g.poly(pts, false).stroke({ color: c, width: 4 * k, alpha: 0.35 });
+      g.poly(pts, false).stroke({ color: core, width: 1.6 * k });
+      g.circle(L * 0.5, 0, 4 * k).fill({ color: core, alpha: 0.9 });
       break;
     }
     case 'spore': {

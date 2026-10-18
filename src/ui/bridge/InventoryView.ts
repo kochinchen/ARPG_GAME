@@ -1,5 +1,6 @@
 import type { DataRegistry } from '../../data/DataRegistry';
-import { MATERIAL_IDS, MATERIAL_LABELS, type MaterialId, type Rarity } from '../../data/schema/item';
+import { MATERIAL_IDS, MATERIAL_LABELS, type MaterialId, type Rarity, type WeaponType } from '../../data/schema/item';
+import { SKILL_CATEGORY_LABELS } from '../../data/skillTree';
 import type { GameWorld } from '../../game/GameWorld';
 import { slotsForBase } from '../../game/items/Equipment';
 import type { InventoryEntry } from '../../game/items/Inventory';
@@ -20,6 +21,8 @@ export interface EntryView {
   /** 物品圖示（data URI）；沒有時顯示 glyph */
   icon: string | null;
   slotLabel: string;
+  /** 武器：可以使用的技能類別（武器允許矩陣），例如「可用技能：魔法、戰術」 */
+  skillsLine?: string | undefined;
   baseLines: string[];
   /** 主倍率（例如「武器傷害 +180%」） */
   mainLine: string | null;
@@ -123,6 +126,7 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       icon: itemIcon(item, data),
       // 例如「史詩 劍 · 短劍」
       slotLabel: d.subtitle,
+      skillsLine: weaponSkillsLine(data.items.get(item.baseId).weaponType, data),
       baseLines: d.baseLines,
       mainLine: d.mainLine,
       strongLines: d.strongLines,
@@ -134,6 +138,10 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       tier: affixTier(item.itemLevel, data.balance),
       sellPrice: itemValue(item, data),
     };
+}
+
+function weaponSkillsLine(weapon: WeaponType | undefined, data: DataRegistry): string | undefined {
+  return weapon ? `可用技能：${data.balance.weaponRules[weapon].map((c) => SKILL_CATEGORY_LABELS[c]).join('、')}` : undefined;
 }
 
 /** 由 GameWorld 產生背包面板的唯讀快照（world.itemsVersion 變動時才重建） */

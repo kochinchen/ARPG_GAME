@@ -46,6 +46,7 @@ export function skillSound(skill: SkillDef): SkillSound {
   const spell = SPELL[t.element];
 
   if (has('summon')) return { release: ['summon'] };
+  if (tags.has('utility')) return utilitySound(has, spell, t.element);
   if (tags.has('defense')) return { release: ['parry'] };
   if (has('chain')) return { windup: 'lightningCast', release: ['zap'], impact: 'zap' };
 
@@ -76,4 +77,16 @@ export function skillSound(skill: SkillDef): SkillSound {
   // 只有持續區域（火牆）：沒有 AreaTriggered，出現時就爆開
   if (has('zone')) return { windup: spell.cast, release: [spell.burst] };
   return { release: [spell.bolt] };
+}
+
+/**
+ * 戰術技能（沿用現有音效）：機關放下時一聲落地、爆炸時元素爆裂；位移是衝刺；投擲是揮手的風聲，
+ * 拋投的瓶子 / 粉末落地時爆開（閃光粉沒有元素，用傳送的閃光聲）。
+ */
+function utilitySound(has: (type: EffectDef['type']) => boolean, spell: { burst: SfxName }, element: Element): SkillSound {
+  if (has('device')) return has('area') ? { release: ['drop'], impact: spell.burst } : { release: ['drop'] };
+  if (has('dash')) return { release: has('damage') ? ['dash', 'swingQuick'] : ['dash'] };
+  if (has('projectile')) return { release: ['swingQuick'] };
+  if (has('area')) return { release: ['swingQuick'], impact: element === 'physical' ? 'teleport' : spell.burst };
+  return { release: ['swingQuick'] };
 }

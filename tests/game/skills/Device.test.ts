@@ -102,6 +102,28 @@ describe('機關的共通規則', () => {
   });
 });
 
+describe('觸控（iPad）', () => {
+  it('招式鈕：自動瞄準最近的敵人，地面機關放在敵人腳下；沒有敵人時放在面前', () => {
+    const { world, commands } = setup([dummyAt(6, 3.5)]);
+    const dummy = enemiesOf(world)[0]!;
+    world.player.position = vec2(3, 3.5);
+    world.player.skillRanks.set('utility.powder_keg', 1);
+    world.loadout.combos[0] = ['utility.powder_keg', null, null];
+    commands.push({ type: 'AutoCastRight' });
+    run(world, 0.6);
+    expect(distance(devicesOf(world)[0]!.position, dummy.position)).toBeLessThan(0.1);
+
+    const empty = setup();
+    empty.world.player.position = vec2(10, 3.5);
+    empty.world.player.facing = vec2(1, 0);
+    empty.world.player.skillRanks.set('utility.powder_keg', 1);
+    empty.world.loadout.combos[0] = ['utility.powder_keg', null, null];
+    empty.commands.push({ type: 'AutoCastRight' });
+    run(empty.world, 0.6);
+    expect(devicesOf(empty.world)[0]!.position.x).toBeGreaterThan(10.5);
+  });
+});
+
 describe('怪物與機關', () => {
   it('3 格內的怪物改打機關；打壞火藥桶會爆炸，之後怪物改回追玩家', () => {
     const { world, commands } = setup([skeletonAt(14, 3.5), dummyAt(13, 5)]);

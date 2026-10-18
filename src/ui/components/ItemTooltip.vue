@@ -16,6 +16,7 @@ defineProps<{
     <div class="name" :class="`r-${entry.rarity}`">{{ entry.name }}</div>
     <div v-if="entry.legendary" class="role" :class="`r-${entry.rarity}`">{{ entry.legendary.role }}</div>
     <div class="slot">{{ entry.slotLabel }}<template v-if="entry.itemLevel > 0"> · 物品等級 {{ entry.itemLevel }} · T{{ entry.tier }}</template></div>
+    <div v-if="entry.skillsLine" class="skills">{{ entry.skillsLine }}</div>
     <ul>
       <li v-for="line in entry.baseLines" :key="`b-${line}`" class="base">{{ line }}</li>
       <li v-if="entry.mainLine" class="main" :class="`r-${entry.rarity}`">{{ entry.mainLine }}</li>
@@ -71,6 +72,11 @@ defineProps<{
   margin-bottom: 4px;
   font-size: 11px;
   color: #6a5e4e;
+}
+.skills {
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: #a89a7e;
 }
 ul {
   margin: 0;
