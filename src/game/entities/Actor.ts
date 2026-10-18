@@ -41,9 +41,11 @@ export interface StatusInstance {
   remaining: number;
   magnitude: number;
   source: Actor | null;
-  /** 燃燒：每秒傷害（施加時依施放者 Spell Power 計算） */
+  /** 持續傷害（燃燒 / 中毒 / 流血）：每秒傷害，施加時依施放者的屬性計算 */
   dps: number;
   tickTimer: number;
+  /** 弱化：物理抗性降低（magnitude 為元素抗性降低） */
+  physicalMagnitude?: number;
 }
 
 /** 想要施放的技能（由 PlayerController / AI 設定，SkillSystem 執行） */

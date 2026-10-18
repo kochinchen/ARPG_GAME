@@ -23,7 +23,7 @@ const SELF_EXPLAINED = new Set<StatusKind>(['meleeEmpower', 'rangedEmpower']);
 
 const pctText = (v: number) => `${Math.round(v * 1000) / 10}%`;
 
-function statusText(kind: StatusKind, duration: number, magnitude: number, chance: number): string {
+function statusText(kind: StatusKind, duration: number, magnitude: number, chance: number, physical = 0): string {
   const chanceText = chance < 1 ? `（機率 ${pctText(chance)}）` : '';
   switch (kind) {
     case 'slow':
@@ -54,6 +54,12 @@ function statusText(kind: StatusKind, duration: number, magnitude: number, chanc
       return `命中後 ${duration} 秒內，下一個近戰技能傷害 +${pctText(magnitude)}`;
     case 'rangedEmpower':
       return `${duration} 秒內，下一個遠程技能傷害 +${pctText(magnitude)}`;
+    case 'poison':
+      return `中毒：${duration} 秒內共 ${pctText(magnitude)} 武器傷害（毒素，每秒結算，最多疊 3 層）${chanceText}`;
+    case 'bleed':
+      return `流血：${duration} 秒內共 ${pctText(magnitude)} 武器傷害（物理，每秒結算，可暴擊；重新命中刷新）${chanceText}`;
+    case 'expose':
+      return `弱化 ${duration} 秒：火焰 / 冰霜 / 雷電抗性 -${pctText(magnitude)}${physical > 0 ? `、物理抗性 -${pctText(physical)}` : ''}（最低到 0）`;
   }
 }
 
@@ -77,7 +83,7 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
       case 'status':
         lines.push(
           (e.target === 'self' && !SELF_EXPLAINED.has(e.status) ? '自身：' : '') +
-            statusText(e.status, rankValue(e.duration, rank), rankValue(e.magnitude, rank), rankValue(e.chance, rank)),
+            statusText(e.status, rankValue(e.duration, rank), rankValue(e.magnitude, rank), rankValue(e.chance, rank), rankValue(e.physicalMagnitude, rank)),
         );
         break;
       case 'knockback':
@@ -133,6 +139,9 @@ function statusName(kind: StatusKind): string {
     marked: '標記',
     meleeEmpower: '近戰強化',
     rangedEmpower: '遠程強化',
+    poison: '中毒',
+    bleed: '流血',
+    expose: '弱化',
   }[kind];
 }
 

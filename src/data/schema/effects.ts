@@ -35,6 +35,12 @@ export const StatusKindSchema = z.enum([
   'meleeEmpower',
   /** 下一個遠程技能傷害 +magnitude，施放時消耗 */
   'rangedEmpower',
+  /** 中毒：總量 = 施放者武器傷害 × magnitude ×（1 + 附加毒素傷害），在持續時間內每秒結算；毒素元素、不暴擊、最多 3 層 */
+  'poison',
+  /** 流血：總量 = 施放者武器傷害 × magnitude，在持續時間內每秒結算；物理、每跳可暴擊、不疊層（重新命中刷新） */
+  'bleed',
+  /** 弱化：火焰 / 冰寒 / 閃電抗性 −magnitude、物理抗性 −physicalMagnitude（抗性最低到 0） */
+  'expose',
 ]);
 export type StatusKind = z.infer<typeof StatusKindSchema>;
 
@@ -71,6 +77,8 @@ export const StatusEffectSchema = z.strictObject({
   target: z.enum(['target', 'self']).default('target'),
   duration: RankNumberSchema,
   magnitude: RankNumberSchema.default(0),
+  /** 弱化（expose）的物理抗性降低；其他狀態不使用 */
+  physicalMagnitude: RankNumberSchema.default(0),
   /** 觸發機率 */
   chance: RankNumberSchema.default(1),
 });

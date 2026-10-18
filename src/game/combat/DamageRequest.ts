@@ -8,13 +8,13 @@ export interface DamageRequest {
   min: number;
   max: number;
   element: Element;
-  /** 預設 true */
+  /** 預設 true；持續傷害預設 false，設為 true 時每跳可暴擊（流血） */
   canCrit?: boolean;
   /** 額外暴擊率（技能條件加成、Combo） */
   extraCritChance?: number;
   /** 無視目標防禦的比例（Combo 穿甲） */
   armorPenetration?: number;
-  /** 持續傷害（燃燒）：不暴擊、不觸發命中效果、不觸發反擊、不消耗防禦姿態 */
+  /** 持續傷害（燃燒 / 中毒 / 流血）：不閃避、不格擋、不觸發命中效果與反擊、不消耗防禦姿態、不吸血吸魔 */
   isDot?: boolean;
   /** 反擊造成的傷害不會再觸發反擊 */
   noCounter?: boolean;

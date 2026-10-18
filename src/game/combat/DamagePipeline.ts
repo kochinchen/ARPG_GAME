@@ -57,8 +57,9 @@ export class DamagePipeline implements DamageDealer {
     const mark = target.statuses.find((s) => s.kind === 'marked');
     if (mark) amount *= 1 + mark.magnitude;
 
-    const critChance =
-      request.canCrit === false || isDot || !source ? 0 : source.stats.get('critChance') + (request.extraCritChance ?? 0);
+    // 持續傷害預設不暴擊；明確設定 canCrit 的（流血）每跳可以暴擊
+    const canCrit = isDot ? request.canCrit === true : request.canCrit !== false;
+    const critChance = !canCrit || !source ? 0 : source.stats.get('critChance') + (request.extraCritChance ?? 0);
     const isCrit = this.rng.chance(critChance);
     if (isCrit) amount *= this.balance.combat.critMultiplier + target.stats.get('critDamageTaken') + (source?.stats.get('critDamageBonus') ?? 0);
 
@@ -89,10 +90,11 @@ export class DamagePipeline implements DamageDealer {
     target.hp = Math.max(0, target.hp - amount);
     target.lastDamagedBy = source?.id ?? null;
 
-    if (source?.alive) {
+    // 吸血 / 吸魔 / 命中回魔：持續傷害（燃燒、中毒、流血）都不觸發（v0.4.0 設計者決定）
+    if (source?.alive && !isDot) {
       source.hp = Math.min(source.maxHp, source.hp + amount * source.stats.get('lifeSteal') * (request.lifeStealMultiplier ?? 1));
       source.mana = Math.min(source.maxMana, source.mana + amount * source.stats.get('manaSteal'));
-      if (!isDot) source.mana = Math.min(source.maxMana, source.mana + source.stats.get('manaOnHit'));
+      source.mana = Math.min(source.maxMana, source.mana + source.stats.get('manaOnHit'));
     }
 
     this.events.emit('ActorDamaged', {

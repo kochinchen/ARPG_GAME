@@ -75,6 +75,9 @@ export const STATUS_TINTS: [string, number][] = [
   ['airborne', 0xf5e663],
   ['marked', 0xff8a8a],
   ['burn', 0xff9a5a],
+  ['poison', 0x9be06a],
+  ['bleed', 0xd8484a],
+  ['expose', 0xe8b4ff],
   ['slow', 0xa8c8ff],
   ['ironWill', 0xc8c8c8],
 ];
