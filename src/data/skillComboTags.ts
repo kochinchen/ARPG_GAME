@@ -4,7 +4,7 @@ import type { SkillComboInfoSchema } from './schema/combo';
 type ComboInfo = z.input<typeof SkillComboInfoSchema>;
 
 /**
- * 36 個主動技能的 Combo 標籤（規格：docs/COMBO_SYSTEM.md 第 1.2 節）。
+ * 主動技能的 Combo 標籤（規格：docs/COMBO_SYSTEM.md 第 1.2 節；戰術 12 招見 SPEC_v0.4.0）。
  * 標籤必須與技能效果一致，載入時由 DataRegistry 檢查。
  */
 export const skillComboTags: Record<string, ComboInfo> = {
@@ -57,4 +57,14 @@ export const skillComboTags: Record<string, ComboInfo> = {
   'magic.chain_lightning': { range: 'Far', action: ['MultiHit', 'Burst'], damage: ['Lightning'], element: ['Lightning'], role: 'Amplifier' },
   'magic.thunder_strike': { range: 'Far', action: ['AoE', 'Heavy', 'Burst'], damage: ['Lightning'], element: ['Lightning'], role: 'Finisher' },
   'magic.storm_core': { range: 'Far', action: ['AoE', 'MultiHit', 'Burst'], damage: ['Lightning'], element: ['Lightning'], role: 'Finisher' },
+  // ── Utility · 身法 ──
+  'utility.roll': { range: 'Mid', action: ['Fast'], movement: ['Retreat', 'Roll'], role: 'Bridge' },
+  'utility.shadow_step': { range: 'Mid', action: ['Fast'], movement: ['Advance', 'Reposition'], role: 'Starter' },
+  'utility.grapple_hook': { range: 'Mid', action: ['Projectile'], damage: ['Physical'], control: ['Pull'], role: 'Bridge' },
+  'utility.phantom_rush': { range: 'Mid', action: ['Fast', 'Burst'], damage: ['Physical'], movement: ['Advance', 'Reposition'], control: ['Stun'], role: 'Starter' },
+  // ── Utility · 投擲 ──
+  'utility.poison_knife': { range: 'Mid', action: ['Fast', 'Projectile'], damage: ['Physical'], role: 'Starter' },
+  'utility.frost_flask': { range: 'Mid', action: ['AoE'], damage: ['Ice'], element: ['Ice'], control: ['Slow'], role: 'Setup' },
+  'utility.throwing_axe': { range: 'Mid', action: ['Heavy', 'Projectile', 'Pierce'], damage: ['Physical'], role: 'Amplifier' },
+  'utility.flash_powder': { range: 'Mid', action: ['AoE'], control: ['Expose'], role: 'Setup' },
 };

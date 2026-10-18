@@ -12,6 +12,8 @@ const selectedId = ref<string | null>(null);
 
 const category = computed(() => props.view.categories.find((c) => c.category === active.value));
 const showCodex = computed(() => active.value === 'codex');
+/** 依路線固定欄位（第 1 欄是階層標籤）：某一格沒有技能時，其他路線不會往左移 */
+const BRANCH_COLUMN: Record<string, number> = { A: 2, B: 3, C: 4 };
 const allNodes = computed(() => props.view.categories.flatMap((c) => c.tiers.flatMap((t) => t.nodes)));
 const selected = computed(() => allNodes.value.find((n) => n.id === selectedId.value) ?? null);
 /** 已選取、可放進連段 / Support 欄位的技能 */
@@ -151,6 +153,7 @@ function respec(e: MouseEvent) {
             v-for="node in row.nodes"
             :key="node.id"
             class="node"
+            :style="{ gridColumn: BRANCH_COLUMN[node.branch] }"
             :class="{
               learned: node.rank > 0,
               learnable: node.canLearn,

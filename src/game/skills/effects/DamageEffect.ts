@@ -1,4 +1,4 @@
-import { rankValue, type Element, type StatId } from '../../../data/schema/common';
+import { rankRange, rankValue, type Element, type StatId } from '../../../data/schema/common';
 import type { DamageEffectDef } from '../../../data/schema/effects';
 import type { Actor } from '../../entities/Actor';
 import type { EffectContext, IEffect } from './IEffect';
@@ -27,7 +27,7 @@ export class DamageEffect implements IEffect<'damage'> {
         ? [stats.get('damageMin'), stats.get('damageMax')]
         : def.scaling === 'spell'
           ? [stats.get('spellPower') * (1 - SPELL_SPREAD), stats.get('spellPower') * (1 + SPELL_SPREAD)]
-          : (def.base ?? [0, 0]);
+          : def.base ? rankRange(def.base, ctx.rank) : [0, 0];
 
     const mods = ctx.mods;
     let multiplier = rankValue(def.multiplier, ctx.rank);

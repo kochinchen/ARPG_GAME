@@ -19,10 +19,10 @@ import { LegendaryDefSchema, type LegendaryDef, type SkillFilter } from './schem
 import { checkComboTags, flattenEffects } from './skillAnalysis';
 import { findMarker, reachableTiles } from './mapAnalysis';
 import { MAP_TILES } from './schema/map';
-import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS, type SkillCategory } from './schema/skill';
+import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS, type SkillBranch, type SkillCategory } from './schema/skill';
 
-/** 開發中、尚未放入技能的類別 */
-const PENDING_CATEGORIES: ReadonlySet<SkillCategory> = new Set(['utility']);
+/** v0.4.0 開發中、尚未放入技能的路線（戰術 B 機關在 P5 加入）；機關完成後移除 */
+const PENDING_BRANCHES: Partial<Record<SkillCategory, readonly SkillBranch[]>> = { utility: ['B'] };
 
 /** 尚未驗證的原始資料（來自 data/*.ts） */
 export interface RawGameData {
@@ -236,10 +236,9 @@ export class DataRegistry {
     }
     if (skills.all.length > 0) {
       for (const category of SKILL_CATEGORIES) {
-        // v0.4.0 開發中：戰術 12 招尚未加入前允許整欄為空（只要有一招就必須 12 格齊全）；12 招完成後移除
-        if (PENDING_CATEGORIES.has(category) && !skills.all.some((s) => s.tree?.category === category)) continue;
         for (const tier of SKILL_TIERS) {
           for (const branch of SKILL_BRANCHES) {
+            if (PENDING_BRANCHES[category]?.includes(branch)) continue;
             const key = `${category} T${tier}-${branch}`;
             if (!treeSlots.has(key)) problems.push(`技能樹位置 ${key} 沒有技能`);
           }

@@ -91,6 +91,17 @@ export const RankNumberSchema = z.union([
 ]);
 export type RankNumber = z.infer<typeof RankNumberSchema>;
 
+/** 固定範圍，或依技能等級 Lv1～Lv5 分別指定（投擲物的固定傷害） */
+export const RankRangeSchema = z.union([RangeSchema, z.tuple([RangeSchema, RangeSchema, RangeSchema, RangeSchema, RangeSchema])]);
+export type RankRange = z.infer<typeof RankRangeSchema>;
+
+/** 取某等級的範圍 */
+export function rankRange(value: RankRange, rank: number): [number, number] {
+  if (typeof value[0] === 'number') return value as [number, number];
+  const ranks = value as [number, number][];
+  return ranks[Math.min(Math.max(rank, 1), ranks.length) - 1]!;
+}
+
 /** 取某等級的值（Lv 超出範圍時取最接近的一級） */
 export function rankValue(value: RankNumber, rank: number): number {
   if (typeof value === 'number') return value;

@@ -59,7 +59,9 @@ export function checkComboTags(skill: SkillDef): string[] {
   if (!info) return [];
   const all = flattenEffects(skill.effects);
   const statuses = new Set(all.flatMap((e) => (e.type === 'status' ? [e.status] : [])));
-  const dashes = all.flatMap((e) => (e.type === 'dash' ? [e.direction] : []));
+  const dashEffects = all.flatMap((e) => (e.type === 'dash' ? [e] : []));
+  const dashes = dashEffects.map((e) => e.direction);
+  const knockbacks = all.flatMap((e) => (e.type === 'knockback' ? [rankValue(e.distance, 1)] : []));
   const projectiles = all.flatMap((e) => (e.type === 'projectile' ? [e] : []));
   const damages = all.flatMap((e) => (e.type === 'damage' ? [e] : []));
   const problems: string[] = [];
@@ -79,7 +81,9 @@ export function checkComboTags(skill: SkillDef): string[] {
     if (tag === 'Guard') need(statuses.has('guard') || statuses.has('ironWill'), tag, '防禦類狀態');
   }
   for (const tag of info.control) {
-    if (tag === 'Knockback') need(all.some((e) => e.type === 'knockback'), tag, '擊退效果');
+    if (tag === 'Knockback') need(knockbacks.some((d) => d > 0), tag, '擊退效果');
+    if (tag === 'Pull') need(knockbacks.some((d) => d < 0), tag, '拉近效果（負距離擊退）');
+    if (tag === 'Expose') need(statuses.has('expose'), tag, '弱化狀態');
     if (tag === 'Shield') need(statuses.has('guard') || statuses.has('ironWill'), tag, '防禦類狀態');
     if (tag === 'Mark') need(statuses.has('weakPoint') || statuses.has('marked'), tag, '弱點或標記狀態');
     const status = { Slow: 'slow', Freeze: 'freeze', Stun: 'stun', ArmorBreak: 'armorBreak', Launch: 'airborne' }[tag as string];
@@ -89,6 +93,7 @@ export function checkComboTags(skill: SkillDef): string[] {
     if (tag === 'Advance') need(dashes.includes('forward'), tag, '向前位移');
     if (tag === 'Retreat') need(dashes.includes('backward'), tag, '向後位移');
     if (tag === 'Roll' || tag === 'Dash') need(dashes.length > 0, tag, '位移');
+    if (tag === 'Reposition') need(dashEffects.some((d) => d.passThrough), tag, '穿越敵人的位移');
   }
   for (const tag of info.damage) {
     const element = ELEMENT_OF[tag];

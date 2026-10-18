@@ -79,10 +79,11 @@ describe('DataRegistry', () => {
     ]);
   });
 
-  it('技能樹 4 類 × 12 個位置都必須有技能；Support 為被動、其他為主動', () => {
+  it('技能樹 5 類 × 12 個位置都必須有技能；Support 為被動、其他為主動', () => {
     const data = DataRegistry.load(gameData);
     const tree = data.skills.all.filter((s) => s.tree);
-    expect(tree).toHaveLength(48);
+    // v0.4.0 開發中：戰術 B 機關（4 招）在 P5 加入後為 60
+    expect(tree).toHaveLength(56);
     expect(tree.filter((s) => s.tree!.category === 'support').every((s) => s.kind === 'passive')).toBe(true);
     expect(tree.filter((s) => s.tree!.category !== 'support').every((s) => s.kind === 'active')).toBe(true);
 

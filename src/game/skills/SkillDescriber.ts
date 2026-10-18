@@ -1,4 +1,4 @@
-import { rankValue } from '../../data/schema/common';
+import { rankRange, rankValue } from '../../data/schema/common';
 import type { EffectDef, StatusKind } from '../../data/schema/effects';
 import type { SkillDef, TargetType } from '../../data/schema/skill';
 import { formatValue, STAT_LABELS } from '../items/ItemDescriber';
@@ -70,7 +70,8 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
       case 'damage': {
         const m = rankValue(e.multiplier, rank);
         const scale = e.scaling === 'weapon' ? '武器傷害' : e.scaling === 'spell' ? '法術強度' : '';
-        const amount = e.scaling === 'flat' ? `${e.base?.[0]}–${e.base?.[1]}` : `${pctText(m)}${e.hits > 1 ? ` × ${e.hits}` : ''} ${scale}`;
+        const flat = e.base ? rankRange(e.base, rank) : [0, 0];
+        const amount = e.scaling === 'flat' ? `${flat[0]}–${flat[1]}` : `${pctText(m)}${e.hits > 1 ? ` × ${e.hits}` : ''} ${scale}`;
         lines.push(`${ELEMENT_LABELS[e.element]}傷害 ${amount}`);
         if (e.bonus) {
           const when = 'status' in e.bonus.when ? `對${statusName(e.bonus.when.status)}目標` : `目標生命低於 ${pctText(e.bonus.when.hpBelow)} 時，`;
@@ -81,6 +82,8 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
         break;
       }
       case 'status':
+        // 指定等級才有的效果（機率 0 的等級不顯示）
+        if (rankValue(e.chance, rank) <= 0) break;
         lines.push(
           (e.target === 'self' && !SELF_EXPLAINED.has(e.status) ? '自身：' : '') +
             statusText(e.status, rankValue(e.duration, rank), rankValue(e.magnitude, rank), rankValue(e.chance, rank), rankValue(e.physicalMagnitude, rank)),
@@ -90,7 +93,7 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
         lines.push(`擊退 ${rankValue(e.distance, rank)} 格`);
         break;
       case 'dash':
-        lines.push(`${e.direction === 'forward' ? '突進' : '後跳'} ${e.distance} 格`, ...effectLines(e.onPath, rank));
+        lines.push(`${e.direction === 'forward' ? (e.passThrough ? '穿越' : '突進') : '後跳'} ${e.distance} 格`, ...effectLines(e.onPath, rank));
         break;
       case 'projectile': {
         const count = rankValue(e.count, rank);

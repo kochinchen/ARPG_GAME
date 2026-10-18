@@ -16,7 +16,7 @@ export class DashEffect implements IEffect<'dash'> {
     const forward = target ? directionBetween(caster.position, target.position, ctx.direction) : ctx.direction;
     const direction = def.direction === 'forward' ? forward : scale(forward, -1);
     const stop =
-      def.direction === 'forward' && target
+      def.direction === 'forward' && target && !def.passThrough
         ? () => distance(caster.position, target.position) <= caster.radius + target.radius + 0.3
         : undefined;
     const start = caster.position;

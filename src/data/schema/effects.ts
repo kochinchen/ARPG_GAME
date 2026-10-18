@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ElementSchema, RangeSchema, RankNumberSchema } from './common';
+import { ElementSchema, RankNumberSchema, RankRangeSchema } from './common';
 
 /**
  * 技能效果的資料格式。技能由多個 Effect 組合而成，Effect 可以巢狀
@@ -51,7 +51,8 @@ export const DamageEffectSchema = z
     element: ElementSchema,
     /** weapon：% 武器傷害；spell：% Spell Power；flat：使用 base */
     scaling: z.enum(['weapon', 'spell', 'flat']),
-    base: RangeSchema.optional(),
+    /** flat 的傷害範圍（可依等級分別指定） */
+    base: RankRangeSchema.optional(),
     /** 每一擊的倍率（1.2 = 120%） */
     multiplier: RankNumberSchema.default(1),
     /** 連續命中次數（例如 65% × 2） */
@@ -86,6 +87,7 @@ export const StatusEffectSchema = z.strictObject({
 /** 把目標往遠離效果中心的方向推開 */
 export const KnockbackEffectSchema = z.strictObject({
   type: z.literal('knockback'),
+  /** 負值 = 拉向施放者（鉤索），停在施放者面前 */
   distance: RankNumberSchema,
 });
 
@@ -95,6 +97,8 @@ export const DashEffectSchema = z.strictObject({
   distance: z.number().positive(),
   /** forward：朝施放方向（對敵技能會停在目標前）；backward：反方向 */
   direction: z.enum(['forward', 'backward']),
+  /** 穿越：向前衝時不停在目標前，穿過敵人走完全程（影步、幻影突襲） */
+  passThrough: z.boolean().default(false),
   /** 對位移路徑上的每個敵人執行（突進斬） */
   get onPath() {
     return z.array(EffectDefSchema).default([]);
