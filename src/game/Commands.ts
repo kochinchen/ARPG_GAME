@@ -107,7 +107,7 @@ export type GameCommand =
   | { type: 'DebugNextFloor' }
   /** 開發用：在玩家周圍掉落每種稀有度各一件裝備（檢查光柱、名稱與光芒） */
   | { type: 'DebugSpawnLoot'; uniques?: boolean }
-  /** 開發用：融合測試包（金幣、武器 / 防具精華、四把武器含一把傳奇、一件帶孔的頭盔） */
-  | { type: 'DebugFusionKit' };
+  /** 開發用：融合測試包（金幣、武器 / 防具精華、四把武器含一把傳奇、一件帶孔的頭盔）；highLevel = 物品等級 45（融出 T5） */
+  | { type: 'DebugFusionKit'; highLevel?: boolean };
 
 export type GameCommandType = GameCommand['type'];

@@ -44,14 +44,37 @@ defineProps<{
     <div v-if="entry.legendary" class="lore">「{{ entry.legendary.lore }}」</div>
     <div v-if="entry.kind === 'core'" class="price">不能賣 · 可以拆解成武器精華</div>
     <div v-else class="price">賣出 {{ entry.sellPrice }} 金幣<template v-if="price !== undefined"> · 購買 {{ price }} 金幣</template></div>
+    <div v-if="entry.sockets" class="socket-row" :aria-label="`孔位 ${entry.sockets.length}`">
+      <span v-for="(s, i) in entry.sockets" :key="i" class="socket" :class="{ empty: !s.name }" :title="s.name ?? '空孔'">
+        <img :src="s.icon" alt="" />
+      </span>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.socket {
+/* 孔位列：空孔是空心六角，鑲好的孔是熔核圖示 */
+.socket-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0 2px;
+  padding-top: 6px;
+  border-top: 1px solid #3d342c;
+}
+.socket-row .socket img {
+  display: block;
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 0 3px rgb(0 0 0 / 80%));
+}
+.socket-row .socket.empty img {
+  opacity: 0.85;
+}
+li.socket {
   font-size: 11px;
 }
-.socket.empty {
+li.socket.empty {
   color: #6a5e4e;
 }
 .core-slot {

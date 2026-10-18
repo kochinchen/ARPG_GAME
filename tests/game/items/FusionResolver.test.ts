@@ -42,25 +42,27 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(crit.range[1]).toBeCloseTo(0.04 * 0.7);
   });
 
-  it('#2 四把弓（白 5、藍 8、黃 9、藍 13）→ 穿核 純 / T1 / 藍 2＋1 條（純核多一條）；頭盔欄射擊距離 0.5～1.0 格', () => {
+  it('#2 四把弓（白 5、藍 8、黃 9、藍 13）→ 穿核 純 / T2 / 藍 2＋1 條（純核多一條）；頭盔欄射擊距離 0.58～1.15 格', () => {
     const pv = previewFusion([weapon('bow', 'normal', 5), weapon('bow', 'magic', 8), weapon('bow', 'rare', 9), weapon('bow', 'magic', 13)], [], data);
     expect(pv.types).toEqual(['pierce']);
-    expect([pv.pure, pv.tier, pv.weight, pv.rarity, pv.lineCount]).toEqual([true, 1, 4, 'magic', 3]);
+    expect([pv.pure, pv.tier, pv.weight, pv.rarity, pv.lineCount]).toEqual([true, 2, 4, 'magic', 3]);
     expect(pv.next).toEqual({ rarity: 'rare', gap: 1 });
     expect(pv.cost).toMatchObject({ gold: 498, essence: 14, materials: { weaponEssence: 14 } });
     const helmet = pv.slots.find((s) => s.slot === 'helmet')!.options[0]!.lines[0]!;
     expect(helmet.line.id).toBe('core.pierce.range');
-    expect(helmet.range).toEqual([0.5, 1]);
+    // T2：0.5～1.0 格 × 1.15
+    expect(helmet.range[0]).toBeCloseTo(0.5 * 1.15);
+    expect(helmet.range[1]).toBeCloseTo(1 * 1.15);
     // 藍核抽不到「穿透 +1」（紫以上）
     expect(pv.slots.find((s) => s.slot === 'weapon')!.options[0]!.lines.map((l) => l.line.id)).toEqual(['core.pierce.projectile_speed']);
     expect(pv.secondary.map((s) => s.line.id)).not.toContain('core.pierce.pierce');
     expect(pv.secondary.map((s) => s.line.id)).not.toContain('core.pierce.projectile_speed');
   });
 
-  it('#3 裂山（橘 18）＋鐵斧（黃 17）＋月刃斧（藍 19）→ 重核 / T2 / 紫 3 條；印記 35%；735 / 16', () => {
+  it('#3 裂山（橘 18）＋鐵斧（黃 17）＋月刃斧（藍 19）→ 重核 / T3 / 紫 3 條；印記 35%；735 / 16', () => {
     const pv = previewFusion([legendary('axe', MOUNTAIN, 18), weapon('axe', 'rare', 17), weapon('axe', 'magic', 19)], [], data);
     expect(pv.types).toEqual(['heavy']);
-    expect([pv.pure, pv.tier, pv.weight, pv.rarity, pv.lineCount]).toEqual([false, 2, 10, 'epic', 3]);
+    expect([pv.pure, pv.tier, pv.weight, pv.rarity, pv.lineCount]).toEqual([false, 3, 10, 'epic', 3]);
     expect(pv.brand.candidates).toHaveLength(1);
     expect(pv.brand.candidates[0]!.text).toMatch(/^重擊類技能傷害 \+25%/);
     expect(pv.brand.chance).toBeCloseTo(0.35);
@@ -76,7 +78,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.cost).toMatchObject({ gold: 1135, essence: 22, materials: { weaponEssence: 22 } });
   });
 
-  it('#5 紅弓＋焚星＋寒月＋水晶杖（火焰詞綴）＋紫戒指＋橘護身符 → 靈核（火）/ T3 / 橘；印記 91% 夾到 85%；1,523 / 26', () => {
+  it('#5 紅弓＋焚星＋寒月＋水晶杖（火焰詞綴）＋紫戒指＋橘護身符 → 靈核（火）/ T4 / 橘；印記 91% 夾到 85%；1,523 / 26', () => {
     const inputs = [
       legendary('bow', 'mythic.sky_rending_string', 30, 'mythic'),
       legendary('staff', 'legendary.star_burner', 28),
@@ -86,7 +88,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     const pv = previewFusion(inputs, [jewel('ring', 'epic'), jewel('amulet', 'legendary')], data);
     expect(pv.problems).toEqual([]);
     expect(pv.types).toEqual(['arcane']);
-    expect([pv.tier, pv.weight, pv.rarity, pv.lineCount, pv.element]).toEqual([3, 28, 'legendary', 3, 'fire']);
+    expect([pv.tier, pv.weight, pv.rarity, pv.lineCount, pv.element]).toEqual([4, 28, 'legendary', 3, 'fire']);
     expect(pv.brand.jewelryBoost).toBeCloseTo(0.35);
     expect(pv.brand.candidates.map((c) => [c.legendaryId, c.chance])).toEqual([
       ['legendary.star_burner', 0.7],
@@ -96,10 +98,10 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.brand.capped).toBe(true);
     expect(pv.warnings).toContain('印記機率已達上限 85%');
     expect(pv.cost).toMatchObject({ gold: 1523, essence: 26, materials: { weaponEssence: 26 } });
-    // 武器欄：附加火焰 11.9～26.4%（6～10% × 1.32 × 1.5～2.0）
+    // 武器欄：附加火焰 13.7～30.4%（6～10% × T4 1.52 × 1.5～2.0）
     const wpn = pv.slots.find((s) => s.slot === 'weapon')!.options[0]!.lines[0]!;
-    expect(wpn.range[0]).toBeCloseTo(0.06 * 1.32 * 1.5);
-    expect(wpn.range[1]).toBeCloseTo(0.1 * 1.32 * 2);
+    expect(wpn.range[0]).toBeCloseTo(0.06 * 1.52 * 1.5);
+    expect(wpn.range[1]).toBeCloseTo(0.1 * 1.52 * 2);
   });
 
   it('SPEC §2.4：騎士長劍（黃 12）＋月刃斧（藍 12）＋裂山（橘 18）＋短杖（白 1）＋黃戒指 → 重核 T2 紫；印記 45%；598 / 14', () => {
@@ -126,9 +128,10 @@ describe('融合預覽：規則', () => {
     expect(four.types).toEqual(['pierce', 'heavy']);
   });
 
-  it('核階：平均物品等級每 10 級一階，最高 T5', () => {
+  it('核階：平均物品等級每 8 級一階（32 以上 T5），最高 T5；與詞綴階級（每 10 級）分開', () => {
     const tierOf = (lv: number) => previewFusion([weapon('sword', 'normal', lv), weapon('sword', 'normal', lv)], [], data).tier;
-    expect([tierOf(9), tierOf(10), tierOf(39), tierOf(40), tierOf(80)]).toEqual([1, 2, 4, 5, 5]);
+    expect([tierOf(7), tierOf(8), tierOf(31), tierOf(32), tierOf(80)]).toEqual([1, 2, 4, 5, 5]);
+    expect(data.balance.affixPower.levelsPerTier).toBe(10);
   });
 
   it('不能融合：數量不對、合成區放了飾品、白飾品', () => {
@@ -161,7 +164,7 @@ describe('融合擲骰', () => {
     const secondaryIds = new Map<string, number>();
     for (let i = 0; i < 1000; i++) {
       const core = fuse(inputs, [], data, rng, `c${i}`);
-      expect(core).toMatchObject({ types: ['heavy'], tier: 2, rarity: 'epic', itemLevel: 18 });
+      expect(core).toMatchObject({ types: ['heavy'], tier: 3, rarity: 'epic', itemLevel: 18 });
       expect(core.power).toBeGreaterThanOrEqual(1.2);
       expect(core.power).toBeLessThanOrEqual(1.5);
       expect(core.secondary).toHaveLength(2);

@@ -205,6 +205,8 @@ export const balance: z.input<typeof BalanceSchema> = {
   fusion: {
     inputs: { min: 2, max: 4 },
     jewelrySlots: 2,
+    // 核階：平均物品等級每 8 級一階（32 以上 T5，35 層以內拿得到；2026-10-18）；詞綴階級仍是每 10 級
+    levelsPerTier: 8,
     tierMultiplier: [1, 1.15, 1.32, 1.52, 1.75],
     rarityFrom: { magic: 2, rare: 5, epic: 9, legendary: 15 },
     lineCount: { normal: 1, magic: 2, rare: 2, epic: 3, legendary: 3 },

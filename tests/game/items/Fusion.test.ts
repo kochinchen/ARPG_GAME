@@ -9,6 +9,7 @@ import type { GameEvents } from '../../../src/game/GameEvents';
 import { GameWorld } from '../../../src/game/GameWorld';
 import type { ItemInstance } from '../../../src/game/items/ItemInstance';
 import { SaveMapper } from '../../../src/save/SaveMapper';
+import { previewFusion } from '../../../src/game/items/FusionResolver';
 import { repairSave } from '../../../src/save/SaveRepair';
 import { run } from '../helpers';
 
@@ -54,13 +55,13 @@ function setup(seed = 5) {
 const example3 = () => [weapon('axe', 'legendary', 18, { legendaryId: 'legendary.mountain_splitter' }), weapon('axe', 'rare', 17), weapon('axe', 'magic', 19)];
 
 describe('融合流程', () => {
-  it('範例 #3：投入裂山與兩把斧 → 二次確認後融合，扣 735 金幣 / 16 武器精華，得到重核 T2 紫', () => {
+  it('範例 #3：投入裂山與兩把斧 → 二次確認後融合，扣 735 金幣 / 16 武器精華，得到重核 T3 紫', () => {
     const { world, send, place, failures, fused } = setup();
     world.wallet.gold = 2000;
     world.materials.add('weaponEssence', 40);
     example3().forEach((item, i) => place('inputs', i, item));
     expect(world.shop.fusionInputs.filter(Boolean)).toHaveLength(3);
-    expect(world.shop.fusionPreview()).toMatchObject({ types: ['heavy'], tier: 2, rarity: 'epic' });
+    expect(world.shop.fusionPreview()).toMatchObject({ types: ['heavy'], tier: 3, rarity: 'epic' });
 
     send({ type: 'ShopFuse', confirm: false });
     expect(failures.at(-1)).toBe('needsConfirm');
@@ -71,9 +72,9 @@ describe('融合流程', () => {
     expect(world.materials.get('weaponEssence')).toBe(40 - 16);
     expect(world.shop.fusionInputs.every((s) => s === null)).toBe(true);
     const entry = world.inventory.cells.find((c) => c?.kind === 'core');
-    expect(entry?.kind === 'core' && entry.core).toMatchObject({ types: ['heavy'], tier: 2, rarity: 'epic' });
+    expect(entry?.kind === 'core' && entry.core).toMatchObject({ types: ['heavy'], tier: 3, rarity: 'epic' });
     expect(fused).toHaveLength(1);
-    expect(fused[0]).toMatchObject({ rarity: 'epic', tier: 2 });
+    expect(fused[0]).toMatchObject({ rarity: 'epic', tier: 3 });
   });
 
   it('合成區不能放飾品、飾品區只能放非白的戒指 / 護身符（放錯時留在手上）；防具可以放進合成區', () => {
@@ -161,4 +162,15 @@ describe('融合流程', () => {
     const next = fresh.itemGenerator.newUid();
     expect(coreUid.kind === 'core' && coreUid.core.uid).not.toBe(next);
   });
+
+  it('開發用 Shift + H：物品等級 45 的測試包，三把武器融合出 T5', () => {
+    const { world, send } = setup();
+    const before = world.groundItems.length;
+    send({ type: 'DebugFusionKit', highLevel: true });
+    const items = world.groundItems.slice(before).flatMap((g) => (g.content.kind === 'item' ? [g.content.item] : []));
+    expect(items.every((i) => i.itemLevel === 45)).toBe(true);
+    const weapons = items.filter((i) => data.items.get(i.baseId).slot === 'weapon');
+    expect(previewFusion(weapons.slice(0, 3), [], data).tier).toBe(5);
+  });
 });
+

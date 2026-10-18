@@ -90,6 +90,8 @@ ul.rules { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
 ` + html.slice(styleEnd);
   }
   // 3. 目錄與熔核頁
+  // 目錄：重複執行時不要再加一次（清掉舊的再加一個）
+  html = html.replaceAll(`<a href="#cores">熔核（鑲嵌與融合）</a>`, '');
   html = html.replace(`<a href="#economy">賣價、拆解、飛昇、光芒</a></nav>`, `<a href="#cores">熔核（鑲嵌與融合）</a><a href="#economy">賣價、拆解、飛昇、光芒</a></nav>`);
   const section = readFileSync(join(root, 'scripts', 'core-codex', 'section.html'), 'utf8');
   if (html.includes('<section id="cores">')) html = html.replace(/<section id="cores">[\s\S]*?<\/section>\n\n/, '');

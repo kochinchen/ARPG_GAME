@@ -249,3 +249,11 @@ export function coreIcon(core: GemSource): string {
   }
   return uri;
 }
+
+/** 空孔（空心六角，與寶石同一個外框形狀） */
+export const EMPTY_SOCKET_ICON = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="${Array.from({ length: 6 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / 3;
+    return `${(50 + Math.cos(a) * 42).toFixed(1)},${(50 + Math.sin(a) * 42).toFixed(1)}`;
+  }).join(' ')}" fill="rgba(10,8,6,0.75)" stroke="#c8b48a" stroke-width="7" stroke-linejoin="round"/></svg>`,
+)}`;

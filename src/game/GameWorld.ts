@@ -828,7 +828,7 @@ export class GameWorld {
         else this.spawnLootSamples();
         return true;
       case 'DebugFusionKit':
-        this.spawnFusionKit();
+        this.spawnFusionKit(command.highLevel ? 45 : undefined);
         return true;
       case 'SortInventory':
         sortInventory(this.inventory, this.data);
@@ -988,8 +988,8 @@ export class GameWorld {
   }
 
   /** 開發用：融合測試包——金幣、精華、四把武器（劍、劍、弓、傳奇斧）、一件 2 孔頭盔 */
-  private spawnFusionKit(): void {
-    const level = Math.max(1, this.itemLevel);
+  private spawnFusionKit(itemLevel?: number): void {
+    const level = itemLevel ?? Math.max(1, this.itemLevel);
     this.wallet.add(20000);
     this.materials.add('weaponEssence', 200);
     this.materials.add('armorEssence', 100);

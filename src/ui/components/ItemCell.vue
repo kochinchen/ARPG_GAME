@@ -9,9 +9,8 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
     <img v-if="entry.icon" class="icon" :src="entry.icon" alt="" draggable="false" />
     <template v-else>{{ entry.glyph }}</template>
     <span v-if="entry.kind === 'potion'" class="count">{{ entry.count }}</span>
-    <span v-if="entry.socketBadge" class="sockets">
-      <i v-for="(c, i) in entry.socketBadge.filled" :key="`f${i}`" class="hex" :style="{ background: c }" />
-      <i v-for="i in entry.socketBadge.empty" :key="`e${i}`" class="hex empty" />
+    <span v-if="entry.sockets" class="sockets">
+      <img v-for="(s, i) in entry.sockets" :key="i" class="socket" :src="s.icon" :alt="s.name ?? '空孔'" draggable="false" />
     </span>
   </span>
 </template>
@@ -99,18 +98,29 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
 .sockets {
   position: absolute;
   left: 2px;
+  right: 2px;
   bottom: 2px;
   display: flex;
   gap: 1px;
 }
-.hex {
-  width: 6px;
-  height: 7px;
-  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+.socket {
+  flex: 0 1 13px;
+  min-width: 0;
+  width: 13px;
+  height: 13px;
+  filter: drop-shadow(0 0 1px #000);
+  pointer-events: none;
 }
-.hex.empty {
-  background: #8a7c68;
-  opacity: 0.55;
+/* 裝備欄（較大的格子）：孔放大，看得到熔核縮圖 */
+.glyph.size-slot .sockets {
+  left: 3px;
+  bottom: 3px;
+  gap: 2px;
+}
+.glyph.size-slot .socket {
+  flex-basis: 24px;
+  width: 24px;
+  height: 24px;
 }
 .glyph.kind-core {
   --rbg: rgb(255 255 255 / 6%);

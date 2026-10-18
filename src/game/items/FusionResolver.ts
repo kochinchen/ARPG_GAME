@@ -133,7 +133,7 @@ export function previewFusion(inputs: readonly ItemInstance[], jewelry: readonly
   // 核階：平均物品等級；核色：稀有度權重加總
   const levels = inputs.map((i) => i.itemLevel);
   const avgItemLevel = levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : 0;
-  const tier = Math.min(balance.affixPower.maxTier, Math.floor(avgItemLevel / balance.affixPower.levelsPerTier) + 1);
+  const tier = Math.min(balance.affixPower.maxTier, Math.floor(avgItemLevel / f.levelsPerTier) + 1);
   const weightOf = (r: Rarity) => balance.gearAura.weights[r];
   const weight = inputs.reduce((sum, i) => sum + weightOf(i.rarity), 0);
   const rarity = coreRarityFor(weight, f.rarityFrom);

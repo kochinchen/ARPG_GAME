@@ -286,12 +286,14 @@ export const BalanceSchema = z.strictObject({
   }),
   /**
    * 融合（v0.5.0）：2～4 把武器 → 一顆熔核；飾品區最多 2 件戒指 / 護身符，只提高印記機率。
-   * 核階 = 平均物品等級依 affixPower.levelsPerTier 分階（最高 affixPower.maxTier）；核色 = gearAura.weights 加總對照 rarityFrom；
+   * 核階 = 平均物品等級每 levelsPerTier 一階（最高 affixPower.maxTier；與詞綴階級分開設定）；核色 = gearAura.weights 加總對照 rarityFrom；
    * 數值 = T1 擲骰 × tierMultiplier × affixPower.rarity（核色倍率）。
    */
   fusion: z.strictObject({
     inputs: z.strictObject({ min: z.int().positive(), max: z.int().positive() }),
     jewelrySlots: z.int().nonnegative(),
+    /** 核階：投入裝備的平均物品等級每幾級一階 */
+    levelsPerTier: z.int().positive(),
     /** 核階倍率（index = 核階 − 1） */
     tierMultiplier: z.array(z.number().positive()).min(1),
     /** 核色：權重加總 ≥ 門檻即為該核色（沒有紅核） */

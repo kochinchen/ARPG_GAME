@@ -29,7 +29,7 @@
   // 核階、核色
   const f = C.fusion;
   $('tierTable').innerHTML = `<thead><tr><th>核階</th>${f.tierMultiplier.map((_, i) => `<th class="n">T${i + 1}</th>`).join('')}</tr></thead><tbody>
-    <tr><td class="rowh">平均物品等級</td>${f.tierMultiplier.map((_, i) => `<td class="n">${i === 0 ? '1～9' : i === f.tierMultiplier.length - 1 ? i * 10 + ' 以上' : `${i * 10}～${i * 10 + 9}`}</td>`).join('')}</tr>
+    <tr><td class="rowh">平均物品等級</td>${f.tierMultiplier.map((_, i) => { const L = f.levelsPerTier; return `<td class="n">${i === 0 ? `1～${L - 1}` : i === f.tierMultiplier.length - 1 ? i * L + ' 以上' : `${i * L}～${i * L + L - 1}`}</td>`; }).join('')}</tr>
     <tr><td class="rowh">數值倍率</td>${f.tierMultiplier.map((m) => `<td class="n">×${m}</td>`).join('')}</tr></tbody>`;
   const colors = ['normal', 'magic', 'rare', 'epic', 'legendary'];
   const from = { normal: 0, ...f.rarityFrom };

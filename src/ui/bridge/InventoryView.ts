@@ -1,5 +1,5 @@
-import { describeCore, socketLines } from '../../game/items/CoreDescriber';
-import { coreIcon, coreTypeColor, hexColor } from '../../render/icons/CoreIcons';
+import { coreName, describeCore, socketLines } from '../../game/items/CoreDescriber';
+import { coreIcon, EMPTY_SOCKET_ICON } from '../../render/icons/CoreIcons';
 import type { CoreInstance } from '../../game/items/CoreInstance';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { MATERIAL_IDS, MATERIAL_LABELS, type MaterialId, type Rarity, type WeaponType } from '../../data/schema/item';
@@ -36,8 +36,8 @@ export interface EntryView {
   affixLines: string[];
   /** 孔位（v0.5.0）：已鑲入的熔核在這個部位的效果、空孔 */
   socketLines?: { text: string; rarity: Rarity | null }[] | undefined;
-  /** 格子角落的孔位標記：已鑲熔核的顏色（核種）與空孔數量 */
-  socketBadge?: { filled: string[]; empty: number } | undefined;
+  /** 孔位圖示（依孔的順序）：鑲好的孔是熔核縮圖、空孔是空心六角；格子角落與說明框底部都會顯示 */
+  sockets?: { icon: string; name: string | null }[] | undefined;
   /** 熔核：鑲在各部位的主屬性 */
   coreSlots?: { label: string; texts: string[] }[] | undefined;
   /** 物品可以穿在哪些裝備欄（比較用） */
@@ -142,7 +142,12 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       legendary: d.legendary,
       affixLines: d.affixLines,
       socketLines: socketLines(item, data),
-      socketBadge: item.sockets?.max ? { filled: item.sockets.cores.map((c) => hexColor(coreTypeColor(c.types[0], c.element))), empty: item.sockets.max - item.sockets.cores.length } : undefined,
+      sockets: item.sockets?.max
+        ? Array.from({ length: item.sockets.max }, (_, i) => {
+            const core = item.sockets!.cores[i];
+            return core ? { icon: coreIcon(core), name: `${coreName(core, data)} T${core.tier}` } : { icon: EMPTY_SOCKET_ICON, name: null };
+          })
+        : undefined,
       equipSlots: slotsForBase(d.slot),
       count: 1,
       itemLevel: item.itemLevel,
