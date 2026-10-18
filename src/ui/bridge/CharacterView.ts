@@ -28,15 +28,17 @@ export interface CharacterView {
   stats: { label: string; value: string; sub?: boolean }[];
   /** 抗性與特殊屬性（分組）；zero = 目前沒有加成（畫面上變暗，但仍顯示，讓玩家知道有這項屬性） */
   groups: { title: string; rows: { label: string; value: string; zero: boolean }[] }[];
+  /** 達到熔核全身上限的屬性（超過的部分不生效） */
+  coreCapped: string[];
 }
 
 export function emptyCharacterView(): CharacterView {
-  return { level: 1, unspent: 0, pointsPerLevel: 0, respec: { cost: 0, affordable: false, available: false }, attributes: [], attack: [], stats: [], groups: [] };
+  return { level: 1, unspent: 0, pointsPerLevel: 0, respec: { cost: 0, affordable: false, available: false }, attributes: [], attack: [], stats: [], groups: [], coreCapped: [] };
 }
 
 /** 屬性點、等級、裝備、Support 改變時才重建 */
 export function characterSignature(world: GameWorld): string {
-  return `${world.progress.version}|${world.itemsVersion}|${world.loadout.supports.join(',')}|${world.wallet.gold}`;
+  return `${world.progress.version}|${world.itemsVersion}|${world.equipment.coreVersion}|${world.loadout.supports.join(',')}|${world.wallet.gold}`;
 }
 
 const pct = (v: number) => `${+(v * 100).toFixed(Math.abs(v) < 0.01 ? 2 : 1)}%`;
@@ -111,6 +113,7 @@ export function buildCharacterView(world: GameWorld, data: DataRegistry): Charac
       { label: '防禦', value: `${num(stats.get('defense'))}（減傷 ${pct(mitigation)}）` },
     ],
     groups: specialGroups(world, data),
+    coreCapped: [...new Set(world.equipment.cores.capped)],
   };
 }
 
@@ -163,6 +166,7 @@ function specialGroups(world: GameWorld, data: DataRegistry): CharacterView['gro
         row('附加冰寒傷害', stats.get('coldDamagePct'), signedPct(stats.get('coldDamagePct'))),
         row('附加閃電傷害', stats.get('lightningDamagePct'), signedPct(stats.get('lightningDamagePct'))),
         row('附加毒素傷害', stats.get('poisonDamagePct'), signedPct(stats.get('poisonDamagePct'))),
+        row('射擊距離', stats.get('projectileRange'), `+${num(stats.get('projectileRange'))} 格`),
       ],
     },
     {

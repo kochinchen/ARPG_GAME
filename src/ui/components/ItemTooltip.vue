@@ -30,16 +30,45 @@ defineProps<{
         </li>
       </template>
       <template v-else>
+        <template v-if="entry.coreSlots">
+          <li v-for="s in entry.coreSlots" :key="`c-${s.label}`" class="core-slot">
+            <span class="core-label">{{ s.label }}</span>{{ s.texts.join('、') }}
+          </li>
+          <li v-if="entry.affixLines.length" class="core-sub">副屬性（任何部位）</li>
+        </template>
         <li v-for="line in entry.strongLines" :key="`s-${line}`" class="strong" :class="`r-${entry.rarity}`">◆ {{ line }}</li>
         <li v-for="line in entry.affixLines" :key="`a-${line}`" class="affix">{{ line }}</li>
       </template>
+      <li v-for="(s, i) in entry.socketLines ?? []" :key="`k-${i}`" class="socket" :class="s.rarity ? `r-${s.rarity}` : 'empty'">{{ s.text }}</li>
     </ul>
     <div v-if="entry.legendary" class="lore">「{{ entry.legendary.lore }}」</div>
-    <div class="price">賣出 {{ entry.sellPrice }} 金幣<template v-if="price !== undefined"> · 購買 {{ price }} 金幣</template></div>
+    <div v-if="entry.kind === 'core'" class="price">不能賣 · 可以拆解成武器精華</div>
+    <div v-else class="price">賣出 {{ entry.sellPrice }} 金幣<template v-if="price !== undefined"> · 購買 {{ price }} 金幣</template></div>
   </div>
 </template>
 
 <style scoped>
+.socket {
+  font-size: 11px;
+}
+.socket.empty {
+  color: #6a5e4e;
+}
+.core-slot {
+  text-align: left;
+  font-size: 11px;
+}
+.core-label {
+  display: inline-block;
+  min-width: 40px;
+  margin-right: 4px;
+  color: #a89a7e;
+}
+.core-sub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #6a5e4e;
+}
 .tooltip {
   min-width: 170px;
   max-width: 290px;

@@ -7,7 +7,11 @@ import { affixLineTexts, SLOT_LABELS } from '../../game/items/ItemDescriber';
 import type { ItemInstance } from '../../game/items/ItemInstance';
 import { itemStats } from '../../game/items/ItemStats';
 import { buyPrice, sellPrice } from '../../game/items/Pricing';
-import { itemEntryView, type EntryView } from './InventoryView';
+import { coreEntryView, itemEntryView, type EntryView } from './InventoryView';
+import { CORE_ELEMENT_LABELS, coreRangeText } from '../../game/items/CoreDescriber';
+import { describeItem, STAT_LABELS } from '../../game/items/ItemDescriber';
+import type { StatId } from '../../data/schema/common';
+import type { FusionPreview } from '../../game/items/FusionResolver';
 
 export interface ShopView {
   /** 站在商人附近（離開後 UI 自動關閉商店） */
@@ -57,7 +61,38 @@ export interface ShopView {
     rerolls: number;
     note: string;
   } | null;
+  /** 鑲嵌：鍛造格裡裝備的孔位、費用；背包裡可以鑲的熔核（沒放裝備時為 null） */
+  sockets: {
+    socketable: boolean;
+    limit: number;
+    holes: number;
+    cores: { index: number; entry: EntryView }[];
+    drill: { gold: number; essence: number; affordable: boolean } | null;
+    insertPrice: number;
+    removePrice: number;
+    /** 背包裡的熔核（點一下鑲進空孔） */
+    available: { cell: number; entry: EntryView }[];
+    note: string;
+  } | null;
+  /** 融合：4 格合成區、2 格飾品區與確認面板 */
+  fusion: {
+    inputs: (EntryView | null)[];
+    jewelry: (EntryView | null)[];
+    preview: FusionPanel | null;
+  };
   gold: number;
+}
+
+/** 融合確認面板（SPEC §2.5）：一定會是 / 有機會 / 部位預覽 / 提醒 / 費用 */
+export interface FusionPanel {
+  problems: string[];
+  certain: string[];
+  chance: string[];
+  slots: { label: string; lines: string[] }[];
+  warnings: string[];
+  cost: { gold: number; essence: number; haveGold: number; haveEssence: number };
+  canFuse: boolean;
+  needsConfirm: boolean;
 }
 
 export function emptyShopView(): ShopView {
@@ -74,6 +109,8 @@ export function emptyShopView(): ShopView {
     ascend: null,
     sellTiers: [],
     reroll: null,
+    sockets: null,
+    fusion: { inputs: [], jewelry: [], preview: null },
     gold: 0,
   };
 }
@@ -113,7 +150,7 @@ function gambleOdds(data: DataRegistry): string {
 
 /** 貨架、金幣、背包改變時重建 */
 export function shopSignature(world: GameWorld): string {
-  return `${world.shop.version}|${world.wallet.gold}|${world.itemsVersion}|${world.shop.isNear()}|${world.floors.floor}|${world.progress.highestFloor}`;
+  return `${world.shop.version}|${world.wallet.gold}|${world.itemsVersion}|${world.materials.version}|${world.shop.isNear()}|${world.floors.floor}|${world.progress.highestFloor}`;
 }
 
 export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
@@ -149,8 +186,76 @@ export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
       return { rarity, label, count: cells.length, gold: cells.reduce((sum, c) => sum + (c ? sellPrice(c, data) : 0), 0) };
     }),
     reroll: shop.ascendSlot ? rerollView(world, data, shop.ascendSlot, gold) : null,
+    sockets: shop.ascendSlot ? socketsView(world, data, shop.ascendSlot, gold) : null,
+    fusion: {
+      inputs: shop.fusionInputs.map((i) => (i ? itemEntryView(i, data) : null)),
+      jewelry: shop.fusionJewelry.map((i) => (i ? itemEntryView(i, data) : null)),
+      preview: shop.fusionInputs.some(Boolean) || shop.fusionJewelry.some(Boolean) ? fusionPanel(world, data, shop.fusionPreview(), gold) : null,
+    },
     gold,
   };
+}
+
+/** 鑲嵌：鍛造格裡裝備的孔位與費用 */
+function socketsView(world: GameWorld, data: DataRegistry, item: ItemInstance, gold: number): ShopView['sockets'] {
+  const info = world.shop.socketInfo(item);
+  const cores = (item.sockets?.cores ?? []).map((core, index) => ({ index, entry: coreEntryView(core, data) }));
+  const available = world.inventory.cells.flatMap((c, cell) => (c?.kind === 'core' ? [{ cell, entry: coreEntryView(c.core, data) }] : []));
+  const note = !info.socketable
+    ? '只有武器、頭盔、盔甲、手套、鞋子可以鑲嵌'
+    : info.limit === 0
+      ? '神話裝備不能打孔'
+      : `${RARITY_LABELS[item.rarity]}裝備最多 ${info.limit} 孔；鑲入後不能換，拆下時熔核會毀掉（孔保留）`;
+  return {
+    socketable: info.socketable,
+    limit: info.limit,
+    holes: info.holes,
+    cores,
+    drill: info.drill ? { ...info.drill, affordable: gold >= info.drill.gold && world.materials.get('armorEssence') >= info.drill.essence } : null,
+    insertPrice: info.insertPrice,
+    removePrice: info.removePrice,
+    available,
+    note,
+  };
+}
+
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+/** 融合確認面板的文字 */
+function fusionPanel(world: GameWorld, data: DataRegistry, pv: FusionPreview, gold: number): FusionPanel {
+  const haveEssence = world.materials.get('weaponEssence');
+  const cost = { gold: pv.cost.gold, essence: pv.cost.essence, haveGold: gold, haveEssence };
+  const empty = { problems: pv.problems, certain: [], chance: [], slots: [], warnings: [], cost, canFuse: false, needsConfirm: false };
+  if (pv.types.length === 0) return empty;
+  const typeName = (t: string) => data.cores.types.get(t as never).name;
+  const votes = (Object.entries(pv.votes) as [WeaponType, number][]).map(([w, n]) => `${WEAPON_TYPE_LABELS[w]} ${n}`).join('、');
+  const certain = [
+    `核種：${pv.mixed ? `混核（${pv.types.map(typeName).join('＋')}）` : typeName(pv.types[0]!)}（${votes}）`,
+    `核階：T${pv.tier}（平均物品等級 ${Math.round(pv.avgItemLevel * 10) / 10}）`,
+    `核色：${RARITY_LABELS[pv.rarity]}（權重 ${pv.weight}${pv.next ? `，距${RARITY_LABELS[pv.next.rarity]}還差 ${pv.next.gap}` : ''}）`,
+    ...(pv.hasElement ? [`元素：${pv.element ? CORE_ELEMENT_LABELS[pv.element] : '隨機（火 / 冰 / 雷）'}`] : []),
+    `屬性：${pv.lineCount} 條（主屬性＋${pv.lineCount - 1} 條副屬性）${pv.pure ? '・純核' : ''}`,
+  ];
+  const chance: string[] = [];
+  if (pv.brand.candidates.length) {
+    const base = `每把橘武器 ${pct(pv.brand.baseChance)}${pv.brand.jewelryBoost > 0 ? ` ＋ 飾品 ${pct(pv.brand.jewelryBoost)}` : ''}`;
+    chance.push(`印記機率 ${pct(pv.brand.chance)}（${base}${pv.brand.capped ? '，已達上限' : ''}）`);
+    const f = data.balance.fusion.brand.valueMultiplier;
+    for (const c of pv.brand.candidates) chance.push(`可能印記：${data.legendaries.get(c.legendaryId).name}「${c.roll === undefined ? c.text : STAT_LABELS[c.text as StatId]}」× ${f}`);
+  } else chance.push('沒有印記（投入橘武器才有機會傳入強屬性）');
+  if (pv.secondary.length && pv.lineCount > 1) chance.push(`副屬性：從 ${pv.secondary.length} 條中抽 ${pv.lineCount - 1} 條，每條 ${pct(pv.secondary[0]!.chance)}`);
+  const slots = pv.slots.map((s) => ({
+    label: `鑲${SLOT_LABELS[s.slot]}`,
+    lines: s.options.map((o) => o.lines.map((l) => coreRangeText(l.line, l.range, pv.element)).join(' 或 ')),
+  }));
+  const nameOf = (uid: string) => {
+    const item = [...world.shop.fusionInputs].find((i) => i?.uid === uid);
+    return item ? describeItem(item, data).name : uid;
+  };
+  const warnings = [...pv.warnings, ...pv.rarityCritical.map((uid) => `拿掉「${nameOf(uid)}」會降低核色`)];
+  if (haveEssence < pv.cost.essence) warnings.push('武器精華不足（在背包的拆解區拆武器）');
+  const canFuse = pv.problems.length === 0 && gold >= pv.cost.gold && haveEssence >= pv.cost.essence;
+  return { problems: pv.problems, certain, chance, slots, warnings, cost, canFuse, needsConfirm: world.shop.fusionNeedsConfirm };
 }
 
 const SELL_TIERS: { rarity: 'normal' | 'magic' | 'rare'; label: string }[] = [

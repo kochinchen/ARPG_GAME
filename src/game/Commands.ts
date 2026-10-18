@@ -104,6 +104,8 @@ export type GameCommand =
   /** 開發用：不需清怪，直接前往下一層 */
   | { type: 'DebugNextFloor' }
   /** 開發用：在玩家周圍掉落每種稀有度各一件裝備（檢查光柱、名稱與光芒） */
-  | { type: 'DebugSpawnLoot'; uniques?: boolean };
+  | { type: 'DebugSpawnLoot'; uniques?: boolean }
+  /** 開發用：融合測試包（金幣、武器 / 防具精華、四把武器含一把傳奇、一件帶孔的頭盔） */
+  | { type: 'DebugFusionKit' };
 
 export type GameCommandType = GameCommand['type'];

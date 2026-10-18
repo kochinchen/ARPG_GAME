@@ -153,6 +153,9 @@ export class InputManager {
         // Shift + L：隨機 5 件傳奇 + 5 件神話
         this.commands.push({ type: 'DebugSpawnLoot', uniques: shift });
         break;
+      case 'KeyH':
+        this.commands.push({ type: 'DebugFusionKit' });
+        break;
     }
   }
 

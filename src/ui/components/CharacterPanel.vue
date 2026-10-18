@@ -79,12 +79,20 @@ function add(e: MouseEvent, attribute: string) {
           <span class="value">{{ r.value }}</span>
         </div>
       </section>
+      <p v-if="view.coreCapped.length" class="core-cap" title="同一條屬性全身熔核合計，最多一顆 T5 橘核最高值的 1.5 倍；超過的部分不生效">
+        已達熔核上限：{{ view.coreCapped.join('、') }}
+      </p>
     </div>
     </div>
   </aside>
 </template>
 
 <style scoped>
+.core-cap {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #e8a05a;
+}
 .panel {
   /* 位置由 App 的左側欄（left-dock）決定，與技能頁並排 */
   position: relative;

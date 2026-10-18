@@ -1,4 +1,4 @@
-import { coreName } from '../../game/items/CoreDescriber';
+import { describeCore, socketLines } from '../../game/items/CoreDescriber';
 import type { CoreInstance } from '../../game/items/CoreInstance';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { MATERIAL_IDS, MATERIAL_LABELS, type MaterialId, type Rarity, type WeaponType } from '../../data/schema/item';
@@ -33,6 +33,10 @@ export interface EntryView {
   /** 傳奇 / 神話：定位、固定行、介紹 */
   legendary: { role: string; lore: string; lines: { text: string; kind: 'normal' | 'strong' | 'unique' }[] } | null;
   affixLines: string[];
+  /** 孔位（v0.5.0）：已鑲入的熔核在這個部位的效果、空孔 */
+  socketLines?: { text: string; rarity: Rarity | null }[] | undefined;
+  /** 熔核：鑲在各部位的主屬性 */
+  coreSlots?: { label: string; texts: string[] }[] | undefined;
   /** 物品可以穿在哪些裝備欄（比較用） */
   equipSlots: EquipmentSlot[];
   count: number;
@@ -134,6 +138,7 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       strongLines: d.strongLines,
       legendary: d.legendary,
       affixLines: d.affixLines,
+      socketLines: socketLines(item, data),
       equipSlots: slotsForBase(d.slot),
       count: 1,
       itemLevel: item.itemLevel,
@@ -142,20 +147,22 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
     };
 }
 
-/** 熔核（v0.5.0）：完整說明在 P7 補上 */
+/** 熔核（v0.5.0）：各部位的主屬性、副屬性、印記 */
 export function coreEntryView(core: CoreInstance, data: DataRegistry): EntryView {
+  const d = describeCore(core, data);
   return {
     kind: 'core',
-    name: coreName(core, data),
+    name: d.name,
     rarity: core.rarity,
     glyph: '核',
     icon: null,
-    slotLabel: `熔核 · T${core.tier}`,
-    baseLines: ['鑲進裝備的孔（商人）', '不能賣，可以拆解成武器精華'],
+    slotLabel: d.subtitle,
+    baseLines: [...d.notes, '在商人的鍛造格鑲進裝備的孔'],
+    coreSlots: d.slots.map((s) => ({ label: `鑲${s.label}`, texts: s.texts })),
     mainLine: null,
-    strongLines: [],
+    strongLines: d.brand ? [d.brand] : [],
     legendary: null,
-    affixLines: [],
+    affixLines: d.secondary,
     equipSlots: [],
     count: 1,
     itemLevel: core.itemLevel,

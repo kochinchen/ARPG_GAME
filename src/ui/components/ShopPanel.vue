@@ -9,7 +9,8 @@ import ItemTooltip from './ItemTooltip.vue';
 defineProps<{ view: ShopView }>();
 const emit = defineEmits<{ close: [] }>();
 
-const tab = ref<'buy' | 'gamble' | 'ascend'>('buy');
+const tab = ref<'buy' | 'gamble' | 'ascend' | 'fusion'>('buy');
+const slotTab = ref(0);
 const hovered = ref<{ entry: EntryView; price: number; compare: EntryView[]; top: number } | null>(null);
 
 function blur(e: MouseEvent) {
@@ -46,6 +47,30 @@ function sellTier(e: MouseEvent, t: ShopView['sellTiers'][number]) {
 function reroll(e: MouseEvent, index: number) {
   blur(e);
   gameBridge.send({ type: 'ShopReroll', index });
+}
+function drill(e: MouseEvent) {
+  blur(e);
+  gameBridge.send({ type: 'ShopDrill' });
+}
+function insertCore(e: MouseEvent, cell: number) {
+  blur(e);
+  gameBridge.send({ type: 'ShopInsertCore', cell });
+}
+function removeCore(e: MouseEvent, index: number, price: number) {
+  blur(e);
+  if (window.confirm(`拆下這顆熔核？熔核會毀掉（孔保留），費用 ${price} 金幣。`)) gameBridge.send({ type: 'ShopRemoveCore', index });
+}
+function fusionSlot(e: MouseEvent, zone: 'inputs' | 'jewelry', index: number) {
+  blur(e);
+  gameBridge.send({ type: 'ShopFusionSlotClick', zone, index });
+}
+function fuse(e: MouseEvent, view: ShopView) {
+  blur(e);
+  const p = view.fusion.preview;
+  if (!p) return;
+  const confirm = p.needsConfirm ? window.confirm('投入了傳奇 / 神話裝備，融合後無法復原。確定要融合嗎？') : false;
+  if (p.needsConfirm && !confirm) return;
+  gameBridge.send({ type: 'ShopFuse', confirm });
 }
 function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryView[]) {
   const top = Math.min((e.currentTarget as HTMLElement).getBoundingClientRect().top, window.innerHeight - 300);
@@ -85,7 +110,8 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
     <nav class="tabs">
       <button type="button" :class="{ on: tab === 'buy' }" @click="tab = 'buy'">購買</button>
       <button type="button" :class="{ on: tab === 'gamble' }" @click="tab = 'gamble'">賭博</button>
-      <button type="button" :class="{ on: tab === 'ascend' }" @click="tab = 'ascend'">飛昇・重鑄</button>
+      <button type="button" :class="{ on: tab === 'ascend' }" @click="tab = 'ascend'">鍛造</button>
+      <button type="button" :class="{ on: tab === 'fusion' }" @click="tab = 'fusion'">融合</button>
     </nav>
 
     <section v-if="tab === 'buy'" class="list">
@@ -117,7 +143,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
     </section>
 
     <section v-else-if="tab === 'ascend'" class="list">
-      <p class="note">把裝備放進鍛造格：飛昇（基底升到下一階，名稱、詞綴、主倍率與傳奇效果保留），或重鑄其中一條詞綴。</p>
+      <p class="note">把裝備放進鍛造格：飛昇（基底升到下一階，名稱、詞綴、主倍率與傳奇效果保留）、重鑄其中一條詞綴，或鑿孔、鑲嵌熔核。</p>
       <div class="ascend-slot-row">
         <button
           type="button"
@@ -164,7 +190,110 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
           </li>
         </ul>
       </template>
+      <template v-if="view.sockets">
+        <h4 class="sub">鑲嵌<small>{{ view.sockets.holes }} / {{ view.sockets.limit }} 孔</small></h4>
+        <p class="note">{{ view.sockets.note }}</p>
+        <ul class="sockets">
+          <li v-for="c in view.sockets.cores" :key="c.index" @pointerenter="hover($event, c.entry, 0, [])" @pointerleave="hovered = null">
+            <span class="line" :class="`t-${c.entry.rarity}`">◆ {{ c.entry.name }} T{{ c.entry.tier }}</span>
+            <button type="button" :disabled="view.gold < view.sockets.removePrice" :title="`拆下（熔核毀掉）：${view.sockets.removePrice} 金幣`" @click="removeCore($event, c.index, view.sockets.removePrice)">拆下 ● {{ view.sockets.removePrice }}</button>
+          </li>
+          <li v-for="n in view.sockets.holes - view.sockets.cores.length" :key="`e-${n}`" class="empty-hole"><span class="line">◇ 空孔</span></li>
+        </ul>
+        <button v-if="view.sockets.drill" type="button" class="ascend-go" :disabled="!view.sockets.drill.affordable" @click="drill">
+          鑿孔：● {{ view.sockets.drill.gold }}・防具精華 {{ view.sockets.drill.essence }}
+        </button>
+        <template v-if="view.sockets.holes > view.sockets.cores.length">
+          <p class="note">背包裡的熔核（點一下鑲進空孔：● {{ view.sockets.insertPrice }}）</p>
+          <p v-if="view.sockets.available.length === 0" class="empty">背包裡沒有熔核（在「融合」把用不到的武器熔成熔核）</p>
+          <div class="core-list">
+            <button
+              v-for="c in view.sockets.available"
+              :key="c.cell"
+              type="button"
+              class="card"
+              :class="`r-${c.entry.rarity}`"
+              :disabled="view.gold < view.sockets.insertPrice"
+              @click="insertCore($event, c.cell)"
+              @pointerenter="hover($event, c.entry, 0, [])"
+              @pointerleave="hovered = null"
+            >
+              <span class="core-glyph" :class="`t-${c.entry.rarity}`">⬢</span>
+              <span class="card-name" :class="`t-${c.entry.rarity}`">{{ c.entry.name }} T{{ c.entry.tier }}</span>
+            </button>
+          </div>
+        </template>
+      </template>
 
+    </section>
+
+    <section v-else-if="tab === 'fusion'" class="list">
+      <p class="note">把用不到的武器（2～4 把）熔成熔核；飾品區的戒指 / 護身符只提高印記機率。投入的物品會消失。</p>
+      <div class="fusion-grid">
+        <div class="fusion-inputs">
+          <button
+            v-for="(f, i) in view.fusion.inputs"
+            :key="i"
+            type="button"
+            class="ascend-slot"
+            :class="{ filled: f }"
+            title="拿著武器點這裡放進去；空手點這裡拿回來"
+            @click="fusionSlot($event, 'inputs', i)"
+            @pointerenter="f && hover($event, f, 0, [])"
+            @pointerleave="hovered = null"
+          >
+            <ItemCell v-if="f" :entry="f" size="slot" />
+            <span v-else>武器</span>
+          </button>
+        </div>
+        <div class="fusion-jewelry">
+          <button
+            v-for="(f, i) in view.fusion.jewelry"
+            :key="i"
+            type="button"
+            class="ascend-slot jewel"
+            :class="{ filled: f }"
+            title="戒指或護身符（藍以上）：提高印記機率"
+            @click="fusionSlot($event, 'jewelry', i)"
+            @pointerenter="f && hover($event, f, 0, [])"
+            @pointerleave="hovered = null"
+          >
+            <ItemCell v-if="f" :entry="f" size="slot" />
+            <span v-else>飾品</span>
+          </button>
+        </div>
+      </div>
+      <template v-if="view.fusion.preview">
+        <ul v-if="view.fusion.preview.problems.length" class="warn">
+          <li v-for="p in view.fusion.preview.problems" :key="p">{{ p }}</li>
+        </ul>
+        <template v-if="view.fusion.preview.certain.length">
+          <h4 class="sub">一定會是</h4>
+          <ul class="fusion-lines">
+            <li v-for="l in view.fusion.preview.certain" :key="l">{{ l }}</li>
+          </ul>
+          <h4 class="sub">有機會</h4>
+          <ul class="fusion-lines">
+            <li v-for="l in view.fusion.preview.chance" :key="l">{{ l }}</li>
+          </ul>
+          <h4 class="sub">鑲在哪裡（主屬性範圍）</h4>
+          <nav class="slot-tabs">
+            <button v-for="(s, i) in view.fusion.preview.slots" :key="s.label" type="button" :class="{ on: slotTab === i }" @click="slotTab = i">{{ s.label.replace('鑲', '') }}</button>
+          </nav>
+          <ul class="fusion-lines">
+            <li v-for="l in view.fusion.preview.slots[slotTab]?.lines ?? []" :key="l">{{ l }}</li>
+          </ul>
+        </template>
+        <ul v-if="view.fusion.preview.warnings.length" class="warn">
+          <li v-for="w in view.fusion.preview.warnings" :key="w">⚠ {{ w }}</li>
+        </ul>
+        <ul class="costs">
+          <li :class="{ short: view.fusion.preview.cost.haveGold < view.fusion.preview.cost.gold }">金幣 {{ view.fusion.preview.cost.gold }}（持有 {{ view.fusion.preview.cost.haveGold }}）</li>
+          <li :class="{ short: view.fusion.preview.cost.haveEssence < view.fusion.preview.cost.essence }">武器精華 {{ view.fusion.preview.cost.essence }}（持有 {{ view.fusion.preview.cost.haveEssence }}）</li>
+        </ul>
+        <button type="button" class="ascend-go" :disabled="!view.fusion.preview.canFuse" @click="fuse($event, view)">融合</button>
+      </template>
+      <p v-else class="empty">從背包拿起武器，點上面的格子放進去。</p>
     </section>
 
     <section v-else class="list">
@@ -486,6 +615,81 @@ button:disabled {
 }
 .gamble-grid button {
   padding: 8px 0;
+}
+.sockets {
+  margin: 4px 0 8px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.sockets li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sockets .line {
+  flex: 1;
+}
+.sockets button {
+  font-size: 11px;
+  padding: 1px 6px;
+}
+.empty-hole {
+  color: #6a5e4e;
+}
+.core-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.core-glyph {
+  font-size: 22px;
+  line-height: 1;
+}
+.fusion-grid {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.fusion-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, 52px);
+  gap: 6px;
+}
+.fusion-jewelry {
+  display: grid;
+  gap: 6px;
+}
+.ascend-slot.jewel {
+  border-color: #7ad8ff;
+}
+.fusion-lines {
+  margin: 2px 0 6px;
+  padding: 0 0 0 16px;
+  font-size: 12px;
+}
+.warn {
+  margin: 6px 0;
+  padding: 0 0 0 16px;
+  font-size: 12px;
+  color: #ff9a7a;
+}
+.slot-tabs {
+  display: flex;
+  gap: 3px;
+  margin: 2px 0 4px;
+}
+.slot-tabs button {
+  flex: 1;
+  padding: 1px 0;
+  font-size: 11px;
+}
+.slot-tabs button.on {
+  color: #f2e2b8;
+  border-color: #c8a25a;
+  background: #3a2c18;
 }
 .tooltip-anchor {
   position: fixed;

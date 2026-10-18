@@ -827,6 +827,9 @@ export class GameWorld {
         if (command.uniques) this.spawnUniqueSamples();
         else this.spawnLootSamples();
         return true;
+      case 'DebugFusionKit':
+        this.spawnFusionKit();
+        return true;
       case 'SortInventory':
         sortInventory(this.inventory, this.data);
         return true;
@@ -978,6 +981,28 @@ export class GameWorld {
       const item =
         designs.length > 0 ? this.itemGenerator.createLegendary(rng.pick(designs), level) : this.itemGenerator.create(rng.pick(bases), rarity, level);
       this.spawnGroundItem(position, { kind: 'item', item });
+    });
+  }
+
+  /** 開發用：融合測試包——金幣、精華、四把武器（劍、劍、弓、傳奇斧）、一件 2 孔頭盔 */
+  private spawnFusionKit(): void {
+    const level = Math.max(1, this.itemLevel);
+    this.wallet.add(20000);
+    this.materials.add('weaponEssence', 200);
+    this.materials.add('armorEssence', 100);
+    const base = (pred: (b: (typeof this.data.items.all)[number]) => boolean) => this.data.items.all.filter((b) => pred(b) && b.levelReq <= level).at(-1)!;
+    const axeLegend = this.data.legendaries.all.find((d) => d.rarity === 'legendary' && d.kind === 'axe')!;
+    const items = [
+      this.itemGenerator.create(base((b) => b.weaponType === 'sword'), 'normal', level),
+      this.itemGenerator.create(base((b) => b.weaponType === 'sword'), 'rare', level),
+      this.itemGenerator.create(base((b) => b.weaponType === 'bow'), 'magic', level),
+      this.itemGenerator.createLegendary(axeLegend, level),
+      { ...this.itemGenerator.create(base((b) => b.slot === 'helmet'), 'magic', level), sockets: { max: 2, cores: [] } },
+    ];
+    items.forEach((item, i) => {
+      const angle = (i / items.length) * Math.PI * 2;
+      const at = vec2(this.player.position.x + Math.cos(angle) * 1.6, this.player.position.y + Math.sin(angle) * 1.6);
+      this.spawnGroundItem(this.nav.isWalkableAt(at.x, at.y) ? at : this.player.position, { kind: 'item', item });
     });
   }
 
