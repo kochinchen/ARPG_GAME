@@ -1,7 +1,7 @@
 {
   "name": "arpg",
   "private": true,
-  "version": "0.4.1",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,7 @@
     "docs:combos": "node scripts/render-combo-doc.mjs",
     "docs:icons": "vite build -c scripts/vite.item-icons.config.ts",
     "docs:sim": "vite build -c scripts/vite.sim.config.ts",
+    "docs:cores": "node scripts/render-core-codex.mjs",
     "docs:pages": "node scripts/publish-design-docs.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

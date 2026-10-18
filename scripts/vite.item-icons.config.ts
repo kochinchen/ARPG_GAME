@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
-/** 裝備圖鑑的圖示產生器（單一 IIFE：window.ItemIcons.baseIcon / uniqueIcon） */
+/** 裝備圖鑑的圖示產生器（單一 IIFE：window.ItemIcons.baseIcon / uniqueIcon / gemIcon） */
 export default defineConfig({
   logLevel: 'warn',
   build: {

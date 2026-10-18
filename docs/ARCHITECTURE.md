@@ -600,6 +600,16 @@ Summon 召喚系已移除
 - 行為：`trip`（橫向長方形、每隻敵人一次）、`proximity`（待命後近接觸發）、`turret`（每 interval 秒朝最近敵人觸發 onShot）、`none`；`onDestroy` / `onExpire`
 - 子效果以玩家為施放者、從機關位置發出；怪物在 `balance.devices.aggroRange`（3 格）內改打機關（`AiSystem.lureToDevice`），機關沒了改回追玩家
 
+### 鑲嵌與融合（v0.5.0，規格：`release/設計文件/版更討論/v0.5.0_鑲嵌與融合/`）
+
+- **資料**：`data/schema/core.ts`（核種、五個可鑲部位、三種屬性行：數值 `stat` / 元素 `element` / 技能加成 `mods`）、`data/cores.ts`（武器 → 銳、重、穿、靈四種攻核；防具與盾牌 → 壁、疾、掌、冠四種護核；通用副屬性池）、`balance.sockets`（孔數上限白 5 / 藍 4 / 黃 3 / 紫 2 / 橘 1 / 紅 0、掉落孔數權重、鑿孔 / 鑲嵌 / 拆卸費用、全身上限 `bodyCap`、裝備稀有度倍率 `hostPower`）、`balance.fusion`（核階倍率、核色門檻、條數、混核倍率、印記、飾品加成、費用）。DataRegistry 檢查熔核資料，`StealCap.test` 檢查熔核沒有吸取 / 回魔。
+- **熔核** `game/items/CoreInstance.ts`：只存核種、核階、核色、核色倍率擲骰 `power`、元素、各部位主屬性與副屬性的「T1 範圍內位置」（0～1）、印記（傳奇 ID＋強屬性那一行）。數值由資料推導，改數值表時舊熔核跟著變。背包格多一種 `{ kind: 'core' }`，地上、拆解區也能放；不能賣，拆成武器精華。
+- **孔位** `ItemInstance.sockets { max, cores }`：白 / 藍 / 黃掉落時依權重 0～2 孔（`ItemGenerator` 用獨立的 `sockets` 序列，不改變既有掉落結果）；商人對鍛造格裡的裝備鑿孔 / 鑲嵌 / 拆卸（拆下時熔核毀掉、孔保留）。飛昇保留孔與熔核。
+- **生效** `game/items/CoreStats.ts`（純函式）：每條 = T1 擲骰 × 核階倍率（T5 有 `t5Value` 時改用它）× 核色倍率 ×（混核主屬性 0.7）× 裝備稀有度倍率（白 0.5 … 橘 1.25，固定數值不乘）。全身上限：同一條屬性 ≤ 一顆 T5 橘核最高值 × 1.5；印記 ≤ 單顆 × 1.5。`Equipment.refreshCores()` 以來源 `cores` 整批重算角色屬性；技能加成與印記由 `ItemEffectSystem` 讀 `equipment.cores.mechanics`（依 `coreVersion` 重建）。射擊距離 `projectileRange` 加在投射物飛行距離與投射物 / 投擲技能的施放距離（`SkillSystem.castRange`）。
+- **融合** `game/items/FusionResolver.ts`：投入 2～4 件飾品以外的裝備。`previewFusion()` 不擲骰算出核種（依核種多數決、平手混核）、核階（平均物品等級）、核色（`gearAura.weights` 加總）、元素（靈核看法杖、冠核看頭盔）、條數（四件同一類 = 純核 +1 條）、印記候選與總機率、副屬性池（核種在武器以外的部位＋通用池，同一種屬性只算一次）、五部位範圍、費用（精華跟著多數決，平手各半）、提醒；`fuse()` 用 `fusion` 序列擲骰。商人 `ShopSystem` 有 4 格合成區＋2 格飾品區（`ShopFusionSlotClick` / `ShopFuse { confirm }`，傳奇 / 神話要二次確認），結果放背包並發 `CoreFused`；`lastFused` 給介面播放揭曉動畫（不存檔）。
+- **表現**：`render/icons/CoreIcons.ts` 明亮式切割的六角寶石（核階 = 切工細緻度、核種色、混核半色、印記星芒），`ui/components/CoreReveal.vue` 揭曉動畫；裝備格角落的孔位標記；`gearAura` 總分加上全身核階（門檻加開 50、80），腳下外圈核光取全身最多的核種顏色。
+- **存檔**：v15（物品 `sockets`、熔核格、拆解區熔核、融合格 `fusion`）；開發用快捷鍵 H 給融合測試包。
+
 ### 按鍵配置（`PlayerLoadout`）
 
 - **左鍵**：單一主動技能（技能頁每個已學主動技能旁的「左」按鈕）

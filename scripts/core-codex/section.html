@@ -1,0 +1,33 @@
+  <section id="cores">
+    <div class="sec-head">
+      <div class="eyebrow">v0.5.0 · data/cores.ts · balance.sockets · balance.fusion</div>
+      <h2>熔核：鑲嵌與融合</h2>
+      <p>把用不到的裝備（2～4 件，飾品以外）在商人那裡熔成「熔核」，再鑲進自己裝備的孔：武器熔成攻核（銳、重、穿、靈），防具與盾牌熔成護核（壁、疾、掌、冠）。融合的核種、核階、核色由規則決定（按下融合前就看得到），數值、副屬性與印記由骰子決定。同一顆熔核鑲在不同部位效果不同。</p>
+    </div>
+    <div class="gem-row" id="gemRow"></div>
+    <div class="two">
+      <div style="display:grid;gap:10px">
+        <h3>孔數與熔核倍率</h3>
+        <div class="tbl"><table id="socketTable"></table></div>
+        <p class="small muted" id="socketNote"></p>
+        <h3>核階與核色</h3>
+        <div class="tbl"><table id="tierTable"></table></div>
+        <div class="tbl"><table id="colorTable"></table></div>
+        <p class="small muted" id="colorNote"></p>
+      </div>
+      <div style="display:grid;gap:10px">
+        <h3>融合規則</h3>
+        <ul class="small rules" id="fusionRules"></ul>
+        <div class="formula" id="fusionFormula"></div>
+        <h3>鑿孔、鑲嵌、拆卸（商人的鍛造格）</h3>
+        <div class="formula" id="socketFormula"></div>
+        <p class="small muted">鑲入後不能換，只能拆；拆下時熔核毀掉、孔保留。熔核不能賣，可以在背包的拆解區拆成武器精華（數量依核色）。</p>
+      </div>
+    </div>
+    <h3 style="margin-top:18px">核種 × 部位（T1 範圍；同一格兩條時擲骰選一條）</h3>
+    <div class="tbl"><table id="coreTable"></table></div>
+    <p class="small muted" id="coreNote"></p>
+    <h3 style="margin-top:18px">融合範例（固定的部分與費用；由遊戲的融合判定算出）</h3>
+    <div class="tbl"><table id="exampleTable"></table></div>
+  </section>
+
