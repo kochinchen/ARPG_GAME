@@ -128,6 +128,24 @@ describe('商人：鑿孔、鑲嵌、拆卸', () => {
     expect(world.wallet.gold).toBe(1000 - 120 - 240);
   });
 
+  it('鑲好熔核的裝備可以飛昇：孔與熔核保留；飛昇的金幣與精華是 v0.5.0 前的 2 倍', () => {
+    const { world, send } = setup();
+    const t1 = data.items.all.find((b) => b.weaponType === 'sword' && b.tier === 1)!;
+    const t2 = data.items.all.find((b) => b.weaponType === 'sword' && b.tier === 2)!;
+    const sockets = { max: 2, cores: [core('keep')] };
+    world.shop.ascendSlot = { uid: 'w', baseId: t1.id, rarity: 'epic', itemLevel: 10, affixes: [], sockets };
+    const info = world.shop.ascendInfo(world.shop.ascendSlot);
+    // (120 + 240 × 2) × 紫 4 = 2,400；武器精華 (10 + 6 × 2) × 紫 1.5 = 33
+    expect(info.price).toBe(2400);
+    expect(info.materials).toEqual({ weaponEssence: 33 });
+    world.wallet.gold = 2400;
+    world.materials.add('weaponEssence', 33);
+    send({ type: 'ShopAscend' });
+    expect(world.shop.ascendSlot.baseId).toBe(t2.id);
+    expect(world.shop.ascendSlot.sockets).toEqual(sockets);
+    expect(world.wallet.gold).toBe(0);
+  });
+
   it('鑲好熔核的裝備穿上後屬性生效', () => {
     const { world } = setup();
     world.equipment.equip(item('weapon', 'normal', 12, { max: 1, cores: [] }));

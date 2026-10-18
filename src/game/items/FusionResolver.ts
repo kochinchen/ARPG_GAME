@@ -133,7 +133,7 @@ export function previewFusion(inputs: readonly ItemInstance[], jewelry: readonly
   const rawChance = candidates.length ? 1 - (1 - p) ** candidates.length : 0;
   const chance = Math.min(rawChance, f.brand.chanceCap);
 
-  // 副屬性池：核種在各部位的屬性（去掉同 ID）＋通用池；均等抽 lineCount − 1 條不重複
+  // 副屬性池：核種在武器以外各部位的屬性（去掉同 ID）＋通用池；均等抽 lineCount − 1 條不重複
   const pool = secondaryPool(types, rarity, data);
   const picks = Math.min(lineCount - 1, pool.length);
   const secondary = pool.map((line) => ({ line, chance: pool.length ? picks / pool.length : 0 }));
@@ -153,7 +153,7 @@ export function previewFusion(inputs: readonly ItemInstance[], jewelry: readonly
 
   const sumLevel = levels.reduce((a, b) => a + b, 0);
   const cost = {
-    gold: f.cost.goldBase + f.cost.goldPerItemLevel * sumLevel,
+    gold: Math.round(f.cost.goldBase + f.cost.goldPerItemLevel * sumLevel),
     essence: f.cost.essenceBase + levels.reduce((sum, lv) => sum + Math.ceil(lv / f.cost.essenceLevelDivisor), 0),
   };
 
@@ -251,7 +251,8 @@ function secondaryPool(types: readonly CoreTypeId[], rarity: CoreRarity, data: D
     seen.add(l.id);
     out.push(l);
   };
-  for (const t of types) for (const slot of CORE_SLOTS) for (const l of data.cores.types.get(t).slots[slot] ?? []) push(l);
+  // 不抽「武器欄」的屬性（2026-10-18 定案）：輸出主要靠武器欄的主屬性，防具上的熔核偏防禦與通用
+  for (const t of types) for (const slot of CORE_SLOTS) if (slot !== 'weapon') for (const l of data.cores.types.get(t).slots[slot] ?? []) push(l);
   for (const l of data.cores.shared) push(l);
   return out;
 }

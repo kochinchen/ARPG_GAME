@@ -313,7 +313,7 @@ export const BalanceSchema = z.strictObject({
     /** 費用：金幣 goldBase + goldPerItemLevel × Σ物品等級；武器精華 essenceBase + Σ ceil(物品等級 ÷ essenceLevelDivisor) */
     cost: z.strictObject({
       goldBase: z.int().nonnegative(),
-      goldPerItemLevel: z.int().nonnegative(),
+      goldPerItemLevel: z.number().nonnegative(),
       essenceBase: z.int().nonnegative(),
       essenceLevelDivisor: z.int().positive(),
     }),

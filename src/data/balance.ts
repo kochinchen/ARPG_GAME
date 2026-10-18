@@ -167,14 +167,14 @@ export const balance: z.input<typeof BalanceSchema> = {
     gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 59.65, rare: 25, epic: 0.3, legendary: 0.05 } },
     // 重鑄：第 20 層的黃裝第一次約 1,300、第二次約 1,900；紅裝約 5,000 起；強屬性 ×1.5；每重鑄一次再貴 50%
     reroll: { base: 200, perItemLevel: 25, rarity: { normal: 1, magic: 0.8, rare: 1.8, epic: 2.8, legendary: 4.5, mythic: 7 }, strong: 1.5, perReroll: 0.5 },
-    // 飛昇：越高階、越稀有越貴（紅裝升到第 8 階約 1 萬金幣）
+    // 飛昇：越高階、越稀有越貴（紅裝升到第 8 階約 2 萬金幣）。v0.5.0 金幣與精華 ×2：鑲好熔核的裝備是長期投資，飛昇是主要的金幣 / 精華出口
     ascend: {
-      base: 60,
-      perTier: 120,
+      base: 120,
+      perTier: 240,
       rarity: { normal: 1, magic: 1.5, rare: 2.5, epic: 4, legendary: 6, mythic: 10 },
-      // 精華：第 2 階 11 個 … 第 8 階 29 個（再乘稀有度，紅裝 ×2.5）
-      essenceBase: 5,
-      essencePerTier: 3,
+      // 精華：第 2 階 22 個 … 第 8 階 58 個（再乘稀有度，紅裝 ×2.5）
+      essenceBase: 10,
+      essencePerTier: 6,
       essenceRarity: { normal: 1, magic: 1, rare: 1.2, epic: 1.5, legendary: 2, mythic: 2.5 },
       // 第 5 階起需要飛昇碎片：第 5 階 1 片 … 第 8 階 4 片
       shardFromTier: 5,
@@ -201,7 +201,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     // 熔核強度跟著裝備稀有度（2026-10-18 設計者定案）：白裝 5 孔 × 0.5 ≈ 2.5 孔，比不上紫裝 2 孔＋詞綴；紅裝沒有孔
     hostPower: { normal: 0.5, magic: 0.6, rare: 0.75, epic: 1, legendary: 1.25, mythic: 1.25 },
   },
-  // 融合（v0.5.0）：第四階約 3,000 金幣；精華約等於把同樣四把拆解的期望產出
+  // 融合（v0.5.0）：費用在 P9 砍半（2026-10-18）——Lv40 四把紫約 2,060 金幣（約賣價的一半）、武器精華 34（≈ 拆掉這四把的 28～44）
   fusion: {
     inputs: { min: 2, max: 4 },
     jewelrySlots: 2,
@@ -211,7 +211,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     mixedMultiplier: 0.7,
     brand: { chance: 0.35, chanceCap: 0.85, valueMultiplier: 0.7 },
     jewelryBoost: { normal: 0, magic: 0.05, rare: 0.1, epic: 0.15, legendary: 0.2, mythic: 0.25 },
-    cost: { goldBase: 120, goldPerItemLevel: 25, essenceBase: 12, essenceLevelDivisor: 3 },
+    cost: { goldBase: 60, goldPerItemLevel: 12.5, essenceBase: 6, essenceLevelDivisor: 6 },
   },
   // 武器決定可用的技能類別：劍斧＝近戰＋魔法、弓＝遠程＋魔法、法杖＝魔法；戰術任何武器都能用
   // 魔法的加減分（劍斧弓 −20%、法杖 +15%）在 items.ts 的武器內建屬性

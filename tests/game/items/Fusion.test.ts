@@ -54,7 +54,7 @@ function setup(seed = 5) {
 const example3 = () => [weapon('axe', 'legendary', 18, { legendaryId: 'legendary.mountain_splitter' }), weapon('axe', 'rare', 17), weapon('axe', 'magic', 19)];
 
 describe('融合流程', () => {
-  it('範例 #3：投入裂山與兩把斧 → 二次確認後融合，扣 1,470 金幣 / 31 武器精華，得到重核 T2 紫', () => {
+  it('範例 #3：投入裂山與兩把斧 → 二次確認後融合，扣 735 金幣 / 16 武器精華，得到重核 T2 紫', () => {
     const { world, send, place, failures, fused } = setup();
     world.wallet.gold = 2000;
     world.materials.add('weaponEssence', 40);
@@ -67,8 +67,8 @@ describe('融合流程', () => {
     expect(world.wallet.gold).toBe(2000);
 
     send({ type: 'ShopFuse', confirm: true });
-    expect(world.wallet.gold).toBe(2000 - 1470);
-    expect(world.materials.get('weaponEssence')).toBe(40 - 31);
+    expect(world.wallet.gold).toBe(2000 - 735);
+    expect(world.materials.get('weaponEssence')).toBe(40 - 16);
     expect(world.shop.fusionInputs.every((s) => s === null)).toBe(true);
     const entry = world.inventory.cells.find((c) => c?.kind === 'core');
     expect(entry?.kind === 'core' && entry.core).toMatchObject({ types: ['heavy'], tier: 2, rarity: 'epic' });
