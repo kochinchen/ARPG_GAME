@@ -158,7 +158,8 @@ export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillT
       const cost = world.respecCost('skills');
       return { cost, affordable: world.wallet.gold >= cost, available: world.spentSkillPoints > 0 || world.progress.t4Unlocked.size > 0 };
     })(),
-    categories: SKILL_CATEGORIES.map((category) => {
+    // 還沒有任何技能的類別不顯示（v0.4.0 開發中的戰術）
+    categories: SKILL_CATEGORIES.filter((category) => SKILL_BRANCHES.some((b) => tree.index.at(category, 1, b))).map((category) => {
       const unlock = tree.checkUnlock(category);
       return {
         category,

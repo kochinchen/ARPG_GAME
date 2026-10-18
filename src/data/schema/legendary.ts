@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { IdSchema, ModifierKindSchema, StatIdSchema } from './common';
 import { ComboRoleSchema, ComboTagSchema, ElementTagSchema, RangeTypeSchema } from './combo';
 import { EffectDefSchema, StatusKindSchema } from './effects';
+import { ActiveCategorySchema } from './skill';
 
 /**
  * 傳奇（橘）與神話（紅）裝備：固定名稱、固定屬性組合與特殊效果（參考 Diablo II 的 Unique、
@@ -26,7 +27,7 @@ export const SkillFilterSchema = z.strictObject({
   ranges: z.array(RangeTypeSchema).optional(),
   roles: z.array(ComboRoleSchema).optional(),
   /** 近戰 / 遠程 / 魔法 */
-  categories: z.array(z.enum(['melee', 'ranged', 'magic'])).optional(),
+  categories: z.array(ActiveCategorySchema).optional(),
   /** 元素（符合任一個） */
   elements: z.array(ElementTagSchema).optional(),
   /** 連段中的第幾段（1～3） */

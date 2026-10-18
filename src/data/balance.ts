@@ -185,7 +185,17 @@ export const balance: z.input<typeof BalanceSchema> = {
     melee: { manaCost: 0.85, lifeSteal: 1.3 },
     ranged: { manaCost: 1, lifeSteal: 1 },
     magic: { manaCost: 1, lifeSteal: 0.8 },
+    utility: { manaCost: 1, lifeSteal: 1 },
   },
+  // 武器決定可用的技能類別：劍斧＝近戰＋魔法、弓＝遠程＋魔法、法杖＝魔法；戰術任何武器都能用
+  // 魔法的加減分（劍斧弓 −20%、法杖 +15%）在 items.ts 的武器內建屬性
+  weaponRules: {
+    sword: ['melee', 'magic', 'utility'],
+    axe: ['melee', 'magic', 'utility'],
+    bow: ['ranged', 'magic', 'utility'],
+    staff: ['magic', 'utility'],
+  },
+  devices: { maxAlive: 2, aggroRange: 3 },
   combo: {
     nearNearFarBonus: { damage: 0.1, aoeRadius: 0.1 },
   },

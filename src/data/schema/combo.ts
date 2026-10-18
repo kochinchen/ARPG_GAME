@@ -29,7 +29,8 @@ export const DamageTagSchema = z.enum(['Physical', 'Fire', 'Ice', 'Lightning']);
 /** 魔法元素（不含 Physical） */
 export const ElementTagSchema = z.enum(['Fire', 'Ice', 'Lightning']);
 export const MovementTagSchema = z.enum(['Advance', 'Retreat', 'Roll', 'Reposition', 'Dash']);
-export const ControlTagSchema = z.enum(['Slow', 'Freeze', 'Stun', 'Knockback', 'ArmorBreak', 'Mark', 'Shield', 'Launch']);
+/** Pull：把敵人拉向施放者（鉤索）；Expose：降低敵人抗性（閃光粉） */
+export const ControlTagSchema = z.enum(['Slow', 'Freeze', 'Stun', 'Knockback', 'ArmorBreak', 'Mark', 'Shield', 'Launch', 'Pull', 'Expose']);
 export const ComboRoleSchema = z.enum(['Starter', 'Setup', 'Bridge', 'Amplifier', 'Finisher', 'Defense']);
 
 export const ComboTagSchema = z.union([ActionTagSchema, DamageTagSchema, MovementTagSchema, ControlTagSchema]);

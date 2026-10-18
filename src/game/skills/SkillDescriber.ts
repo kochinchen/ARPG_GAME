@@ -91,7 +91,8 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
         const spread = rankValue(e.spreadDeg, rank);
         const parts = [count > 1 ? `${count} 發投射物` : '投射物'];
         if (count > 1 && spread > 0) parts.push(spread >= 360 ? '環狀' : `散射 ${spread}°`);
-        if (e.pierce > 0) parts.push(`穿透 ${e.pierce}`);
+        const pierce = Math.round(rankValue(e.pierce, rank));
+        if (pierce > 0) parts.push(`穿透 ${pierce}`);
         if (e.aimAssistDeg > 0) parts.push('自動修正方向');
         lines.push(parts.join('，'), ...effectLines(e.onHit, rank));
         break;

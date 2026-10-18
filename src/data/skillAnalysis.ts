@@ -69,7 +69,7 @@ export function checkComboTags(skill: SkillDef): string[] {
 
   for (const tag of info.action) {
     if (tag === 'Projectile') need(projectiles.length > 0, tag, '投射物');
-    if (tag === 'Pierce') need(projectiles.some((p) => p.pierce > 0), tag, '可穿透的投射物');
+    if (tag === 'Pierce') need(projectiles.some((p) => rankValue(p.pierce, 1) > 0), tag, '可穿透的投射物');
     if (tag === 'MultiHit') need(countHits(skill.effects) >= 2, tag, '至少 2 段命中');
     if (tag === 'AoE') {
       need(all.some((e) => e.type === 'area' || e.type === 'zone' || e.type === 'chain') || projectiles.some((p) => rankValue(p.count, 1) > 1), tag, '範圍、地面區域、連鎖或多發投射物');

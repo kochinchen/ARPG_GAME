@@ -32,7 +32,7 @@ export class ProjectileEffect implements IEffect<'projectile'> {
         speed: def.speed * (1 + mods.projectileSpeed),
         radius: def.radius * (1 + mods.projectileSize),
         remaining: def.range,
-        pierceLeft: def.pierce + mods.pierce,
+        pierceLeft: Math.round(rankValue(def.pierce, ctx.rank)) + mods.pierce,
         hitIds: new Set(ctx.spawnFrom ? [ctx.spawnFrom.id] : []),
         onHit: def.onHit,
         alive: true,

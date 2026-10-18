@@ -105,8 +105,8 @@ export const ProjectileEffectSchema = z.strictObject({
   count: RankNumberSchema.default(1),
   /** 多發時的總散射角度；≥ 360 為環狀平均分布（可依等級成長） */
   spreadDeg: RankNumberSchema.default(0),
-  /** 可穿透的敵人數 */
-  pierce: z.int().nonnegative().default(0),
+  /** 可穿透的敵人數（可依等級成長，取整數） */
+  pierce: RankNumberSchema.default(0),
   /** 自動修正方向：此角度內有敵人時改朝最近的敵人發射 */
   aimAssistDeg: z.number().nonnegative().default(0),
   get onHit() {

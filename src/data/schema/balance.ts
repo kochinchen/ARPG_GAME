@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { IdSchema, RangeSchema, StatIdSchema } from './common';
 import { EliteConfigSchema } from './elite';
-import { RaritySchema, RarityWeightsSchema } from './item';
+import { RaritySchema, RarityWeightsSchema, WeaponTypeSchema } from './item';
+import { ActiveCategorySchema } from './skill';
 
 const SizeRollSchema = z.strictObject({
   mean: z.number().positive(),
@@ -258,8 +259,22 @@ export const BalanceSchema = z.strictObject({
     /** 離商人多遠內可以交易（Tile） */
     range: z.number().positive(),
   }),
-  /** 近戰 / 遠程 / 魔法技能的共通倍率 */
-  skillCategories: z.strictObject({ melee: CategoryTraitsSchema, ranged: CategoryTraitsSchema, magic: CategoryTraitsSchema }),
+  /** 近戰 / 遠程 / 魔法 / 戰術技能的共通倍率 */
+  skillCategories: z.strictObject({
+    melee: CategoryTraitsSchema,
+    ranged: CategoryTraitsSchema,
+    magic: CategoryTraitsSchema,
+    utility: CategoryTraitsSchema,
+  }),
+  /** 武器允許矩陣：每種武器可以使用的主動技能類別（不在清單內 = 禁用） */
+  weaponRules: z.record(WeaponTypeSchema, z.array(ActiveCategorySchema).min(1)),
+  /** 機關（戰術技能佈置的有血量物件） */
+  devices: z.strictObject({
+    /** 全身同時存在的上限；放下一個時最舊的消失 */
+    maxAlive: z.int().positive(),
+    /** 怪物在這個距離內（Tile）會把機關當目標 */
+    aggroRange: z.number().positive(),
+  }),
   combo: z.strictObject({
     /** 「近 → 近 → 遠」的 Combo：第三招額外加成（前兩招承擔貼身風險的回報） */
     nearNearFarBonus: z.strictObject({ damage: z.number().nonnegative(), aoeRadius: z.number().nonnegative() }),

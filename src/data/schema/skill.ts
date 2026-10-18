@@ -3,10 +3,16 @@ import { IdSchema, ModifierKindSchema, RankNumberSchema, StatIdSchema } from './
 import { EffectDefSchema } from './effects';
 import { SkillComboInfoSchema } from './combo';
 
-/** melee / ranged / magic 為主動技能（放進 Q/W/E 連段）；support 為常駐被動（最多裝備 3 個） */
-export const SkillCategorySchema = z.enum(['melee', 'ranged', 'magic', 'support']);
+/**
+ * melee / ranged / magic / utility 為主動技能（放進連段）；support 為常駐被動（最多裝備 3 個）。
+ * utility（戰術）任何武器都能用，不吃武器種類的加減分。
+ */
+export const SkillCategorySchema = z.enum(['melee', 'ranged', 'magic', 'utility', 'support']);
 export type SkillCategory = z.infer<typeof SkillCategorySchema>;
 export const SKILL_CATEGORIES = SkillCategorySchema.options;
+/** 主動技能的類別（武器允許矩陣、MP / 吸血倍率以此為鍵） */
+export const ActiveCategorySchema = SkillCategorySchema.exclude(['support']);
+export type ActiveCategory = z.infer<typeof ActiveCategorySchema>;
 
 export const SkillBranchSchema = z.enum(['A', 'B', 'C']);
 export type SkillBranch = z.infer<typeof SkillBranchSchema>;
