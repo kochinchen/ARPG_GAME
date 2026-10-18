@@ -885,6 +885,9 @@ export class GameWorld {
       case 'ShopFusionSlotClick':
         this.shop.clickFusionSlot(command.zone, command.index);
         return true;
+      case 'ShopDismissFused':
+        this.shop.dismissFused();
+        return true;
       case 'ShopFuse':
         this.shop.fuse(command.confirm, (core) => {
           this.spawnGroundItem(this.player.position, { kind: 'core', core }).droppedByPlayer = true;

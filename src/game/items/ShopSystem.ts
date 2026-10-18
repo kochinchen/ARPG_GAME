@@ -74,6 +74,8 @@ export class ShopSystem {
   /** 融合：合成區（武器）與飾品區（戒指 / 護身符，只提高印記機率）；格子裡的物品會存檔 */
   readonly fusionInputs: (ItemInstance | null)[];
   readonly fusionJewelry: (ItemInstance | null)[];
+  /** 最近一次融合的結果（介面顯示揭曉動畫；關閉面板或收下後清除，不存檔） */
+  lastFused: CoreInstance | null = null;
   /** 商人位置（樓梯口、中途存檔點、出口旁；共用同一家店） */
   private _positions: readonly Vec2[] = [];
   private floor = 0;
@@ -261,6 +263,10 @@ export class ShopSystem {
    * 回傳是否有放回。
    */
   returnForgeItems(drop: (item: ItemInstance) => void): boolean {
+    if (this.lastFused) {
+      this.lastFused = null;
+      this._version++;
+    }
     const items = [this.ascendSlot, ...this.fusionInputs, ...this.fusionJewelry].filter((i): i is ItemInstance => i !== null);
     if (items.length === 0) return false;
     this.ascendSlot = null;
@@ -290,6 +296,13 @@ export class ShopSystem {
     const current = slots[index] ?? null;
     slots[index] = held?.kind === 'item' ? held.item : null;
     this.ctx.cursor.set(current ? { kind: 'item', item: current } : null);
+    this._version++;
+  }
+
+  /** 收下融合結果（關掉揭曉畫面） */
+  dismissFused(): void {
+    if (!this.lastFused) return;
+    this.lastFused = null;
     this._version++;
   }
 
@@ -329,6 +342,7 @@ export class ShopSystem {
     this.fusionInputs.fill(null);
     this.fusionJewelry.fill(null);
     if (!this.ctx.inventory.addCore(core)) drop(core);
+    this.lastFused = core;
     this._version++;
     this.events.emit('ShopTransaction', { kind: 'fuse', gold: -pv.cost.gold, rarity: core.rarity });
     this.events.emit('CoreFused', { uid: core.uid, rarity: core.rarity, tier: core.tier, branded: core.brand !== undefined });

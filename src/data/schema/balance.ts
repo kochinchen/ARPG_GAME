@@ -204,7 +204,7 @@ export const BalanceSchema = z.strictObject({
    */
   gearAura: z.strictObject({
     weights: z.record(RaritySchema, z.number().nonnegative()),
-    thresholds: z.array(z.number().positive()).length(4),
+    thresholds: z.array(z.number().positive()).min(4).max(6),
   }),
   enemySize: z.strictObject({
     melee: SizeRollSchema,

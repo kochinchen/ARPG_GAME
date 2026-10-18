@@ -5,6 +5,7 @@ import type { EntryView } from '../bridge/InventoryView';
 import type { ShopView } from '../bridge/ShopView';
 import ItemCell from './ItemCell.vue';
 import ItemTooltip from './ItemTooltip.vue';
+import CoreReveal from './CoreReveal.vue';
 
 defineProps<{ view: ShopView }>();
 const emit = defineEmits<{ close: [] }>();
@@ -218,7 +219,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
               @pointerenter="hover($event, c.entry, 0, [])"
               @pointerleave="hovered = null"
             >
-              <span class="core-glyph" :class="`t-${c.entry.rarity}`">⬢</span>
+              <span class="icon"><ItemCell :entry="c.entry" size="slot" /></span>
               <span class="card-name" :class="`t-${c.entry.rarity}`">{{ c.entry.name }} T{{ c.entry.tier }}</span>
             </button>
           </div>
@@ -229,6 +230,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
 
     <section v-else-if="tab === 'fusion'" class="list">
       <p class="note">把用不到的武器（2～4 把）熔成熔核；飾品區的戒指 / 護身符只提高印記機率。投入的物品會消失。</p>
+      <CoreReveal v-if="view.fusion.result" :result="view.fusion.result" @dismiss="gameBridge.send({ type: 'ShopDismissFused' })" />
       <div class="fusion-grid">
         <div class="fusion-inputs">
           <button

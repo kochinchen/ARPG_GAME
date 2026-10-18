@@ -8,7 +8,8 @@ import type { ItemInstance } from '../../game/items/ItemInstance';
 import { itemStats } from '../../game/items/ItemStats';
 import { buyPrice, sellPrice } from '../../game/items/Pricing';
 import { coreEntryView, itemEntryView, type EntryView } from './InventoryView';
-import { CORE_ELEMENT_LABELS, coreRangeText } from '../../game/items/CoreDescriber';
+import { CORE_ELEMENT_LABELS, coreExtraTexts, coreRangeText } from '../../game/items/CoreDescriber';
+import { coreGem, type CoreGem } from '../../render/icons/CoreIcons';
 import { describeItem, STAT_LABELS } from '../../game/items/ItemDescriber';
 import type { StatId } from '../../data/schema/common';
 import type { FusionPreview } from '../../game/items/FusionResolver';
@@ -79,6 +80,8 @@ export interface ShopView {
     inputs: (EntryView | null)[];
     jewelry: (EntryView | null)[];
     preview: FusionPanel | null;
+    /** 剛融合出的熔核（揭曉動畫） */
+    result: { uid: string; gem: CoreGem; entry: EntryView; branded: boolean; brand: string | null } | null;
   };
   gold: number;
 }
@@ -110,7 +113,7 @@ export function emptyShopView(): ShopView {
     sellTiers: [],
     reroll: null,
     sockets: null,
-    fusion: { inputs: [], jewelry: [], preview: null },
+    fusion: { inputs: [], jewelry: [], preview: null, result: null },
     gold: 0,
   };
 }
@@ -191,6 +194,15 @@ export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
       inputs: shop.fusionInputs.map((i) => (i ? itemEntryView(i, data) : null)),
       jewelry: shop.fusionJewelry.map((i) => (i ? itemEntryView(i, data) : null)),
       preview: shop.fusionInputs.some(Boolean) || shop.fusionJewelry.some(Boolean) ? fusionPanel(world, data, shop.fusionPreview(), gold) : null,
+      result: shop.lastFused
+        ? {
+            uid: shop.lastFused.uid,
+            gem: coreGem(shop.lastFused),
+            entry: coreEntryView(shop.lastFused, data),
+            branded: shop.lastFused.brand !== undefined,
+            brand: coreExtraTexts(shop.lastFused, data).brand,
+          }
+        : null,
     },
     gold,
   };

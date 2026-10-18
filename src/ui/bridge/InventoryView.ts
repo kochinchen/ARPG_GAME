@@ -1,4 +1,5 @@
 import { describeCore, socketLines } from '../../game/items/CoreDescriber';
+import { coreIcon, coreTypeColor, hexColor } from '../../render/icons/CoreIcons';
 import type { CoreInstance } from '../../game/items/CoreInstance';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { MATERIAL_IDS, MATERIAL_LABELS, type MaterialId, type Rarity, type WeaponType } from '../../data/schema/item';
@@ -35,6 +36,8 @@ export interface EntryView {
   affixLines: string[];
   /** 孔位（v0.5.0）：已鑲入的熔核在這個部位的效果、空孔 */
   socketLines?: { text: string; rarity: Rarity | null }[] | undefined;
+  /** 格子角落的孔位標記：已鑲熔核的顏色（核種）與空孔數量 */
+  socketBadge?: { filled: string[]; empty: number } | undefined;
   /** 熔核：鑲在各部位的主屬性 */
   coreSlots?: { label: string; texts: string[] }[] | undefined;
   /** 物品可以穿在哪些裝備欄（比較用） */
@@ -139,6 +142,7 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       legendary: d.legendary,
       affixLines: d.affixLines,
       socketLines: socketLines(item, data),
+      socketBadge: item.sockets?.max ? { filled: item.sockets.cores.map((c) => hexColor(coreTypeColor(c.types[0], c.element))), empty: item.sockets.max - item.sockets.cores.length } : undefined,
       equipSlots: slotsForBase(d.slot),
       count: 1,
       itemLevel: item.itemLevel,
@@ -155,7 +159,7 @@ export function coreEntryView(core: CoreInstance, data: DataRegistry): EntryView
     name: d.name,
     rarity: core.rarity,
     glyph: '核',
-    icon: null,
+    icon: coreIcon(core),
     slotLabel: d.subtitle,
     baseLines: [...d.notes, '在商人的鍛造格鑲進裝備的孔'],
     coreSlots: d.slots.map((s) => ({ label: `鑲${s.label}`, texts: s.texts })),

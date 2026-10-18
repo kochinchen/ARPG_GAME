@@ -9,6 +9,7 @@ import { MATERIAL_LABELS, type MaterialId } from '../data/schema/item';
 import type { Actor, ActorId } from '../game/entities/Actor';
 import type { GameWorld } from '../game/GameWorld';
 import { equippedItems, gearAura } from '../game/items/GearAura';
+import { coreTypeColor } from './icons/CoreIcons';
 import { outfitFor } from './figure/gear/ArmorLooks';
 import { HeroPreviewView, type HeroPreviewState } from './views/HeroPreviewView';
 import { weaponLookFor } from './figure/weapons/WeaponLooks';
@@ -366,7 +367,7 @@ export class Renderer {
       // 裝備光芒：依身上裝備的稀有度分數
       if (actor === this.world.player) {
         const aura = gearAura(equippedItems((slot) => this.world.equipment.get(slot)), this.data.balance.gearAura);
-        view.setAura(aura.level, aura.rarity);
+        view.setAura(aura.level, aura.rarity, aura.core ? coreTypeColor(aura.core.type, aura.core.element) : null);
         // 手上的武器造型與武器微光
         const weapon = weaponLookFor(this.world.equipment.get('weapon'), this.data);
         view.setWeapon(weapon?.look ?? null, weapon?.rarity ?? 'normal');

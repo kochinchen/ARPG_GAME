@@ -146,8 +146,8 @@ export const balance: z.input<typeof BalanceSchema> = {
   },
   gearAura: {
     weights: { normal: 0, magic: 1, rare: 2, epic: 4, legendary: 7, mythic: 12 },
-    // 0～5 無光、6～10 微弱、11～18 中等、19～30 強、31 以上高階
-    thresholds: [6, 11, 19, 31],
+    // 0～5 無光、6～10 微弱、11～18 中等、19～30 強、31～49 高階；熔核核階加進總分後，50、80 再加開兩階（v0.5.0）
+    thresholds: [6, 11, 19, 31, 50, 80],
   },
   enemySize: {
     // 近戰：多數在 100%～140%，少數巨大個體接近 200%（HP / 傷害最多 150%）

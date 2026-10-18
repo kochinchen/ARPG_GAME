@@ -9,6 +9,10 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
     <img v-if="entry.icon" class="icon" :src="entry.icon" alt="" draggable="false" />
     <template v-else>{{ entry.glyph }}</template>
     <span v-if="entry.kind === 'potion'" class="count">{{ entry.count }}</span>
+    <span v-if="entry.socketBadge" class="sockets">
+      <i v-for="(c, i) in entry.socketBadge.filled" :key="`f${i}`" class="hex" :style="{ background: c }" />
+      <i v-for="i in entry.socketBadge.empty" :key="`e${i}`" class="hex empty" />
+    </span>
   </span>
 </template>
 
@@ -91,6 +95,25 @@ defineProps<{ entry: EntryView | null; size?: 'cell' | 'slot' }>();
   --rc: #8a3a30;
   --rbg: rgb(176 42 30 / 16%);
   color: #e0574b;
+}
+.sockets {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  display: flex;
+  gap: 1px;
+}
+.hex {
+  width: 6px;
+  height: 7px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.hex.empty {
+  background: #8a7c68;
+  opacity: 0.55;
+}
+.glyph.kind-core {
+  --rbg: rgb(255 255 255 / 6%);
 }
 .count {
   position: absolute;

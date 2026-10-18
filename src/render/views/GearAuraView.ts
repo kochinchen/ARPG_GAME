@@ -2,8 +2,8 @@ import { Container, Graphics } from 'pixi.js';
 import { RARITIES, type Rarity } from '../../data/schema/item';
 import { RARITY_COLORS } from '../palette';
 
-/** 光芒等級 1～4 的整體強度 */
-const INTENSITY = [0, 0.35, 0.55, 0.8, 1];
+/** 光芒等級 1～6 的整體強度（5、6 是熔核核階加開的兩階） */
+const INTENSITY = [0, 0.35, 0.55, 0.8, 1, 1.12, 1.25];
 /** 武器拖尾保留的點數 */
 const TRAIL_POINTS = 9;
 /** 武器尖端移動超過這個速度（px / 秒）才畫拖尾 */
@@ -30,6 +30,7 @@ interface Mote {
  * - 紫：紫色微粒 + 武器拖尾
  * - 橘：金橘光芒 + 武器特效 + 少量火花
  * - 紅：深紅光芒 + 地面符文 + 明顯的武器拖尾 + 間歇的能量脈動
+ * - 熔核（v0.5.0）：腳下外圈多一道「核光」，顏色取全身最多的核種（銳 銀藍、重 琥珀、穿 翠綠、靈 紫 / 元素色）
  * 保持低調，不要滿身閃光。
  */
 export class GearAuraView {
@@ -43,6 +44,8 @@ export class GearAuraView {
   private readonly motes = new Graphics();
   private readonly trail = new Graphics();
   private readonly pulse = new Graphics();
+  private readonly coreRing = new Graphics();
+  private coreColor: number | null = null;
   private readonly particles: Mote[] = [];
   private readonly tips: { x: number; y: number }[] = [];
   private level = 0;
@@ -53,18 +56,19 @@ export class GearAuraView {
   private pulseTime = 0;
 
   constructor(private readonly bodyHeight: number) {
-    for (const g of [this.feet, this.halo, this.motes, this.trail, this.pulse, this.runes]) g.blendMode = 'add';
+    for (const g of [this.feet, this.halo, this.motes, this.trail, this.pulse, this.runes, this.coreRing]) g.blendMode = 'add';
     const ground = new Container();
     ground.scale.set(1, 0.5);
-    ground.addChild(this.runes);
+    ground.addChild(this.runes, this.coreRing);
     this.back.addChild(this.feet, ground, this.halo);
     this.front.addChild(this.trail, this.motes, this.pulse);
   }
 
-  set(level: number, rarity: Rarity): void {
-    if (level === this.level && rarity === this.rarity) return;
+  set(level: number, rarity: Rarity, coreColor: number | null = null): void {
+    if (level === this.level && rarity === this.rarity && coreColor === this.coreColor) return;
     this.level = level;
     this.rarity = rarity;
+    this.coreColor = coreColor;
     this.color = RARITY_COLORS[rarity];
     this.redraw();
   }
@@ -85,6 +89,8 @@ export class GearAuraView {
     this.halo.alpha = k * (0.7 + 0.3 * Math.sin(t * 1.6 + 1));
     this.runes.rotation = t * 0.35;
     this.runes.alpha = k * (0.4 + 0.2 * Math.sin(t * 2.5));
+    this.coreRing.rotation = -t * 0.5;
+    this.coreRing.alpha = Math.min(1, k) * (0.55 + 0.25 * Math.sin(t * 1.8 + 2));
 
     this.updateMotes(dt, k);
     this.updateTrail(dt, tip);
@@ -97,7 +103,23 @@ export class GearAuraView {
     this.feet.clear();
     this.halo.clear();
     this.runes.clear();
+    this.coreRing.clear();
     if (this.level === 0) return;
+    // 核光：腳下外圈的六角環（六個小六角形，隨時間緩慢旋轉）
+    if (this.coreColor !== null) {
+      const cc = this.coreColor;
+      this.coreRing.circle(0, 0, 34).stroke({ color: cc, width: 1.4, alpha: 0.55 });
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const x = Math.cos(a) * 34;
+        const y = Math.sin(a) * 34;
+        const hex = Array.from({ length: 6 }, (_, j) => {
+          const b = -Math.PI / 2 + (j * Math.PI) / 3;
+          return [x + Math.cos(b) * 3.2, y + Math.sin(b) * 3.2];
+        }).flat();
+        this.coreRing.poly(hex).fill({ color: cc, alpha: 0.8 });
+      }
+    }
     // 腳下光暈
     this.feet.ellipse(0, 0, 26, 12).fill({ color: c, alpha: 0.18 }).ellipse(0, 0, 15, 7).fill({ color: c, alpha: 0.22 });
     // 身體邊緣的微光 / 輪廓（黃以上較明顯）

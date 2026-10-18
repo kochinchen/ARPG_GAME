@@ -126,8 +126,8 @@ export class ActorView {
   }
 
   /** 裝備光芒的等級（0 = 無光）與顏色（最高稀有度） */
-  setAura(level: number, rarity: Rarity): void {
-    this.gear?.set(level, rarity);
+  setAura(level: number, rarity: Rarity, coreColor: number | null = null): void {
+    this.gear?.set(level, rarity, coreColor);
   }
 
   /** 手上的武器（null = 空手）與武器微光的稀有度 */

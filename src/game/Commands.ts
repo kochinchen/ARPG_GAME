@@ -93,6 +93,8 @@ export type GameCommand =
   | { type: 'ShopFusionSlotClick'; zone: 'inputs' | 'jewelry'; index: number }
   /** 商人：融合；有傳奇 / 神話投入時要 confirm（介面先二次確認） */
   | { type: 'ShopFuse'; confirm: boolean }
+  /** 商人：收下融合結果（關掉揭曉畫面） */
+  | { type: 'ShopDismissFused' }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 確認進入極限挑戰（第 31 層，之後回不到 1～30 層） */
