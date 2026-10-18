@@ -270,10 +270,10 @@ function build(spec: Spec): WeaponLook {
 }
 
 /**
- * 平常拿武器的方式（攻擊時轉回 HOLD 的角度）：劍尖朝前下；斧柄與前臂垂直、斧頭朝前；
- * 法杖杖頭往前傾；弓直立在身前（上弓臂朝前、弓背朝外）。
+ * 平常拿武器的方式（攻擊時轉回 HOLD 的角度）：劍尖朝前下；斧柄朝前、斧刃朝下（2026-10-18 設計者回饋：原本斧刃朝上；
+ * 這組角度讓斧柄方向與原本相同，只繞斧柄轉半圈）；法杖杖頭往前傾；弓直立在身前（上弓臂朝前、弓背朝外）。
  */
-const REST: Partial<Record<WeaponType, V3>> = { axe: [-1, 0, 0], staff: [0.35, 0, 0], bow: [0.8, 0, 0] };
+const REST: Partial<Record<WeaponType, V3>> = { axe: [2.26, -3.04, 0.11], staff: [0.35, 0, 0], bow: [0.8, 0, 0] };
 
 /** 造型 → 掛到角色手上的資料（PolyFigure.setWeapon） */
 export function mountFor(look: WeaponLook): WeaponMount {
