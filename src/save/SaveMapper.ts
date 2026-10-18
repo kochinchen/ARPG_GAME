@@ -86,6 +86,7 @@ export const SaveMapper = {
       materials: world.materials.snapshot(),
       salvage: world.salvage.slots.map((e) => (e === null ? null : clone(e.kind === 'item' ? e.item : e.core))),
       ascendSlot: world.shop.ascendSlot ? clone(world.shop.ascendSlot) : null,
+      fusion: { inputs: world.shop.fusionInputs.map((i) => (i ? clone(i) : null)), jewelry: world.shop.fusionJewelry.map((i) => (i ? clone(i) : null)) },
       counters: { itemUidCounter: world.itemGenerator.uidCounter },
       rng: Object.fromEntries(RNG_STREAMS.map((name) => [name, world.rngStreams[name].getState()])),
     };
@@ -120,6 +121,8 @@ export const SaveMapper = {
     world.materials.restore(save.materials);
     world.salvage.restore(save.salvage.map((s) => (s === null ? null : 'baseId' in s ? { kind: 'item', item: toItem(s) } : { kind: 'core', core: toCore(s) })));
     world.shop.ascendSlot = save.ascendSlot ? toItem(save.ascendSlot) : null;
+    world.shop.fusionInputs.forEach((_, i) => (world.shop.fusionInputs[i] = save.fusion?.inputs[i] ? toItem(save.fusion.inputs[i]) : null));
+    world.shop.fusionJewelry.forEach((_, i) => (world.shop.fusionJewelry[i] = save.fusion?.jewelry[i] ? toItem(save.fusion.jewelry[i]) : null));
     world.attributes.apply();
 
     // 按鍵配置

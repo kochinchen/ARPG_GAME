@@ -173,7 +173,7 @@ export class Renderer {
       this.floatingText.spawnText(projection.toScreen(world.player.position), `升級！Lv ${e.level}`, PALETTE.marker, 20);
     });
     world.events.on('ShopTransaction', (e) => {
-      const label = { ascend: '飛昇！', reroll: '重鑄！', drill: '鑿孔！', insert: '鑲嵌！', remove: '拆下熔核 ' }[e.kind as string] ?? '';
+      const label = { ascend: '飛昇！', reroll: '重鑄！', drill: '鑿孔！', insert: '鑲嵌！', remove: '拆下熔核 ', fuse: '融合！' }[e.kind as string] ?? '';
       const text = e.kind === 'sell' ? `+${e.gold} 金幣` : `${label}${e.gold} 金幣`;
       say(world.player.position, text, PALETTE.marker);
     });
@@ -191,6 +191,8 @@ export class Renderer {
         cannotDrill: '無法再鑿孔',
         cannotInsert: '沒有空孔或沒有熔核',
         cannotSell: '熔核不能賣',
+        cannotFuse: '無法融合',
+        needsConfirm: '請先確認投入傳奇 / 神話裝備',
       }[e.reason];
       say(world.player.position, text, PALETTE.manaText);
     });

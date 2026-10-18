@@ -359,6 +359,7 @@ export class GameWorld {
         generator: this.itemGenerator,
         potionId: p.potionId,
         materials: this.materials,
+        fusionRng: streams.fusion,
       },
       data,
       this.events,
@@ -861,7 +862,7 @@ export class GameWorld {
         this.shop.ascend();
         return true;
       case 'ShopClosed':
-        this.shop.returnAscendItem((item) => {
+        this.shop.returnForgeItems((item) => {
           this.spawnGroundItem(this.player.position, { kind: 'item', item }).droppedByPlayer = true;
           this.events.emit('ItemDropped', { position: this.player.position });
         });
@@ -877,6 +878,15 @@ export class GameWorld {
         return true;
       case 'ShopRemoveCore':
         this.shop.removeCore(command.index);
+        return true;
+      case 'ShopFusionSlotClick':
+        this.shop.clickFusionSlot(command.zone, command.index);
+        return true;
+      case 'ShopFuse':
+        this.shop.fuse(command.confirm, (core) => {
+          this.spawnGroundItem(this.player.position, { kind: 'core', core }).droppedByPlayer = true;
+          this.events.emit('ItemDropped', { position: this.player.position });
+        });
         return true;
       case 'ShopGamble':
         this.shop.gamble(command.kind);

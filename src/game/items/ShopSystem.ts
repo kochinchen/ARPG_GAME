@@ -14,8 +14,10 @@ import type { ItemInstance } from './ItemInstance';
 import { epicTheme } from './ItemNamer';
 import { buyPrice, gamblePrice, sellPrice } from './Pricing';
 import { CORE_SLOTS, type CoreSlot } from '../../data/schema/core';
+import type { CoreInstance } from './CoreInstance';
+import { fuse, previewFusion, type FusionPreview } from './FusionResolver';
 
-type ShopData = Pick<DataRegistry, 'balance' | 'items' | 'affixes' | 'legendaries' | 'potions'>;
+type ShopData = Pick<DataRegistry, 'balance' | 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores'>;
 
 export interface ShopContext {
   player: Actor;
@@ -27,6 +29,8 @@ export interface ShopContext {
   potionId: string;
   /** 材料（飛昇消耗精華與碎片） */
   materials: Materials;
+  /** 融合擲骰（獨立序列） */
+  fusionRng: Rng;
 }
 
 /** 飛昇的預覽：下一階基底與價格；不能飛昇時 next 為 null 並附上原因 */
@@ -67,6 +71,9 @@ export class ShopSystem {
   stock: (ItemInstance | null)[] = [];
   /** 飛昇格：要飛昇的裝備（飛昇後留在原位，點一下拿回來） */
   ascendSlot: ItemInstance | null = null;
+  /** 融合：合成區（武器）與飾品區（戒指 / 護身符，只提高印記機率）；格子裡的物品會存檔 */
+  readonly fusionInputs: (ItemInstance | null)[];
+  readonly fusionJewelry: (ItemInstance | null)[];
   /** 商人位置（樓梯口、中途存檔點、出口旁；共用同一家店） */
   private _positions: readonly Vec2[] = [];
   private floor = 0;
@@ -76,7 +83,10 @@ export class ShopSystem {
     private readonly ctx: ShopContext,
     private readonly data: ShopData,
     private readonly events: GameEventBus,
-  ) {}
+  ) {
+    this.fusionInputs = Array.from({ length: data.balance.fusion.inputs.max }, () => null);
+    this.fusionJewelry = Array.from({ length: data.balance.fusion.jewelrySlots }, () => null);
+  }
 
   get positions(): readonly Vec2[] {
     return this._positions;
@@ -247,16 +257,86 @@ export class ShopSystem {
   }
 
   /**
-   * 關閉商人面板時：鍛造格裡的裝備放回背包（背包滿了就由 drop 丟在腳下），避免裝備留在看不到的格子裡。
+   * 關閉商人面板時：鍛造格與融合格裡的裝備放回背包（背包滿了就由 drop 丟在腳下），避免裝備留在看不到的格子裡。
    * 回傳是否有放回。
    */
-  returnAscendItem(drop: (item: ItemInstance) => void): boolean {
-    const item = this.ascendSlot;
-    if (!item) return false;
+  returnForgeItems(drop: (item: ItemInstance) => void): boolean {
+    const items = [this.ascendSlot, ...this.fusionInputs, ...this.fusionJewelry].filter((i): i is ItemInstance => i !== null);
+    if (items.length === 0) return false;
     this.ascendSlot = null;
-    if (!this.ctx.inventory.addItem(item)) drop(item);
+    this.fusionInputs.fill(null);
+    this.fusionJewelry.fill(null);
+    for (const item of items) if (!this.ctx.inventory.addItem(item)) drop(item);
     this._version++;
     return true;
+  }
+
+  // ─────────────────────────── 融合（v0.5.0）───────────────────────────
+
+  /** 點合成區（只能放武器）或飾品區（只能放非白的戒指 / 護身符）的格子：放進 / 互換 / 拿回 */
+  clickFusionSlot(zone: 'inputs' | 'jewelry', index: number): void {
+    const slots = zone === 'inputs' ? this.fusionInputs : this.fusionJewelry;
+    if (index < 0 || index >= slots.length) return;
+    const held = this.ctx.cursor.entry;
+    if (held && held.kind !== 'item') return;
+    if (held) {
+      const base = this.data.items.get(held.item.baseId);
+      const ok = zone === 'inputs' ? base.weaponType !== undefined : (base.slot === 'ring' || base.slot === 'amulet') && held.item.rarity !== 'normal';
+      if (!ok) {
+        this.fail('cannotFuse');
+        return;
+      }
+    }
+    const current = slots[index] ?? null;
+    slots[index] = held?.kind === 'item' ? held.item : null;
+    this.ctx.cursor.set(current ? { kind: 'item', item: current } : null);
+    this._version++;
+  }
+
+  /** 融合預覽（目前融合格的內容；不擲骰） */
+  fusionPreview(): FusionPreview {
+    return previewFusion(this.filled(this.fusionInputs), this.filled(this.fusionJewelry), this.data);
+  }
+
+  /** 投入物中有傳奇 / 神話（要二次確認） */
+  get fusionNeedsConfirm(): boolean {
+    return [...this.fusionInputs, ...this.fusionJewelry].some((i) => i?.rarity === 'legendary' || i?.rarity === 'mythic');
+  }
+
+  /**
+   * 融合：付金幣與武器精華，投入的武器與飾品消失，產出一顆熔核放進背包（滿了由 drop 丟在腳下）。
+   * 有傳奇 / 神話投入時必須 confirmed。
+   */
+  fuse(confirmed: boolean, drop: (core: CoreInstance) => void): CoreInstance | null {
+    if (!this.canTrade()) return null;
+    const pv = this.fusionPreview();
+    if (pv.problems.length > 0) {
+      this.fail('cannotFuse');
+      return null;
+    }
+    if (this.fusionNeedsConfirm && !confirmed) {
+      this.fail('needsConfirm');
+      return null;
+    }
+    const materials = { weaponEssence: pv.cost.essence };
+    if (!this.ctx.materials.has(materials)) {
+      this.fail('materials');
+      return null;
+    }
+    if (!this.pay(pv.cost.gold)) return null;
+    this.ctx.materials.spend(materials);
+    const core = fuse(this.filled(this.fusionInputs), this.filled(this.fusionJewelry), this.data, this.ctx.fusionRng, this.ctx.generator.newUid());
+    this.fusionInputs.fill(null);
+    this.fusionJewelry.fill(null);
+    if (!this.ctx.inventory.addCore(core)) drop(core);
+    this._version++;
+    this.events.emit('ShopTransaction', { kind: 'fuse', gold: -pv.cost.gold, rarity: core.rarity });
+    this.events.emit('CoreFused', { uid: core.uid, rarity: core.rarity, tier: core.tier, branded: core.brand !== undefined });
+    return core;
+  }
+
+  private filled(slots: readonly (ItemInstance | null)[]): ItemInstance[] {
+    return slots.filter((i): i is ItemInstance => i !== null);
   }
 
   /** 飛昇格：拿著裝備點 → 放進去（有東西則互換）；空手點 → 拿回來。格子裡的裝備會存檔 */

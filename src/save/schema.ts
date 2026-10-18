@@ -150,6 +150,8 @@ export const SaveDataSchema = z.object({
   salvage: z.array(z.union([ItemInstanceSchema, CoreInstanceSchema]).nullable()),
   /** 商人飛昇格裡的裝備（v8，選填） */
   ascendSlot: ItemInstanceSchema.nullable().optional(),
+  /** 融合格（v15）：合成區（武器）與飾品區 */
+  fusion: z.object({ inputs: z.array(ItemInstanceSchema.nullable()), jewelry: z.array(ItemInstanceSchema.nullable()) }).optional(),
   counters: z.object({
     /** ItemGenerator 最後使用的流水號；讀檔後從下一號接續 */
     itemUidCounter: nonNegInt,

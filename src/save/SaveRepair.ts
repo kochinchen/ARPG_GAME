@@ -227,6 +227,9 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   // ---- 拆解區：修正物品（已刪除的基底移除） ----
   save.salvage = save.salvage.map((s) => (s === null ? null : 'baseId' in s ? fixItem(s) : s));
   if (save.ascendSlot) save.ascendSlot = fixItem(save.ascendSlot);
+  if (save.fusion) {
+    save.fusion = { inputs: save.fusion.inputs.map((i) => (i ? fixItem(i) : null)), jewelry: save.fusion.jewelry.map((i) => (i ? fixItem(i) : null)) };
+  }
 
   // ---- 怪物圖鑑：移除已刪除的怪物 ----
   save.bestiary = Object.fromEntries(Object.entries(save.bestiary).filter(([id]) => data.enemies.has(id)));
@@ -247,18 +250,28 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
 
 /** uid 格式為「流水號（36 進位）-隨機碼」；回傳所有物品中最大的流水號 */
 function maxUidCounter(save: SaveData, overflow: readonly SavedEntry[]): number {
-  const items: SavedItem[] = [];
-  const collect = (e: { kind: string; item?: SavedItem } | null) => {
-    if (e?.kind === 'item' && e.item) items.push(e.item);
+  const uids: string[] = [];
+  const item = (i: SavedItem | null | undefined) => {
+    if (!i) return;
+    uids.push(i.uid);
+    for (const c of i.sockets?.cores ?? []) uids.push(c.uid);
+  };
+  const collect = (e: { kind: string; item?: SavedItem; core?: { uid: string } } | null) => {
+    if (e?.kind === 'item') item(e.item);
+    if (e?.kind === 'core' && e.core) uids.push(e.core.uid);
   };
   save.inventory.cells.forEach(collect);
   collect(save.inventory.cursor);
-  Object.values(save.equipment).forEach((item) => item && items.push(item));
+  Object.values(save.equipment).forEach(item);
   save.floor.groundItems.forEach((g) => collect(g.entry));
   overflow.forEach(collect);
+  // 拆解區、鍛造格、融合格（熔核也用同一個流水號）
+  for (const s of save.salvage) if (s) 'baseId' in s ? item(s) : uids.push(s.uid);
+  item(save.ascendSlot);
+  [...(save.fusion?.inputs ?? []), ...(save.fusion?.jewelry ?? [])].forEach(item);
   let max = 0;
-  for (const item of items) {
-    const n = parseInt(item.uid.split('-')[0] ?? '', 36);
+  for (const uid of uids) {
+    const n = parseInt(uid.split('-')[0] ?? '', 36);
     if (Number.isFinite(n)) max = Math.max(max, n);
   }
   return max;

@@ -89,6 +89,10 @@ export type GameCommand =
   | { type: 'ShopInsertCore'; cell: number }
   /** 商人：拆下鍛造格裡裝備的第 index 顆熔核（熔核毀掉、孔保留） */
   | { type: 'ShopRemoveCore'; index: number }
+  /** 商人：點融合格（合成區 = 武器、飾品區 = 戒指 / 護身符）：放進 / 互換 / 拿回 */
+  | { type: 'ShopFusionSlotClick'; zone: 'inputs' | 'jewelry'; index: number }
+  /** 商人：融合；有傳奇 / 神話投入時要 confirm（介面先二次確認） */
+  | { type: 'ShopFuse'; confirm: boolean }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 確認進入極限挑戰（第 31 層，之後回不到 1～30 層） */

@@ -145,11 +145,13 @@ export interface GameEvents {
   /** 點了商人（UI 開啟商店） */
   ShopOpened: Record<string, never>;
   /** 商店交易：gold 為金幣變化（買 / 賭博為負） */
-  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll' | 'drill' | 'insert' | 'remove'; gold: number; rarity?: Rarity };
+  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll' | 'drill' | 'insert' | 'remove' | 'fuse'; gold: number; rarity?: Rarity };
+  /** 融合完成（結果動畫：核色、核階、印記是否命中） */
+  CoreFused: { uid: string; rarity: Rarity; tier: number; branded: boolean };
   /** 洗點完成（gold = 花費）或失敗（金幣不足、沒有點數可以重置） */
   Respec: { kind: 'skills' | 'attributes'; gold: number };
   RespecFailed: { kind: 'skills' | 'attributes'; reason: 'gold' | 'nothing' };
-  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotInsert' | 'cannotSell' };
+  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotInsert' | 'cannotSell' | 'cannotFuse' | 'needsConfirm' };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }
