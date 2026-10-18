@@ -18,6 +18,7 @@ import { ActorView, HIT_BOX, sizeOf } from './views/ActorView';
 import { EffectLayer } from './views/EffectLayer';
 import type { ImpactKind } from './views/fx/ImpactFx';
 import { FloatingTextLayer } from './views/FloatingTextLayer';
+import { DeviceLayer } from './views/DeviceLayer';
 import { InteractableLayer } from './views/InteractableLayer';
 import { FloorMarkersView } from './views/FloorMarkersView';
 import { TileMapView } from './views/TileMapView';
@@ -47,6 +48,7 @@ export class Renderer {
   private readonly markers: FloorMarkersView;
   private readonly effects: EffectLayer;
   private readonly interactables: InteractableLayer;
+  private readonly devices: DeviceLayer;
   private readonly actorViews = new Map<ActorId, ActorView>();
   private readonly roars: ActorId[] = [];
   /** 魔王階段變化時掉在地上的物件（碎盾、插在地上的巨劍）；換樓層時清除 */
@@ -64,6 +66,7 @@ export class Renderer {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
     this.effects = new EffectLayer(projection, this.objectLayer);
     this.interactables = new InteractableLayer(projection, this.objectLayer, data);
+    this.devices = new DeviceLayer(projection, this.objectLayer);
     this.markers = new FloorMarkersView(projection);
     this.markers.rebuild(world.checkpoints.checkpoints);
     this.marker.poly([0, -6, 12, 0, 0, 6, -12, 0]).stroke({ color: PALETTE.marker, width: 2 });
@@ -342,7 +345,10 @@ export class Renderer {
       const y = s.y + offset.y;
       return x > -CULL_MARGIN && x < width + CULL_MARGIN && y > -CULL_MARGIN && y < height + CULL_MARGIN * 2;
     };
+    // 機關有自己的外觀（DeviceLayer），不建立角色模型
+    this.devices.sync(this.world.actors, alpha, dt);
     for (const actor of this.world.actors) {
+      if (actor.device) continue;
       alive.add(actor.id);
       let view = this.actorViews.get(actor.id);
       if (!view) {

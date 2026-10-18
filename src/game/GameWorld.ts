@@ -24,6 +24,7 @@ import type { Projectile } from './entities/Projectile';
 import { ChestSystem } from './items/ChestSystem';
 import { Equipment } from './items/Equipment';
 import { weaponDenial } from './skills/skillCategory';
+import { DeviceSystem } from './skills/DeviceSystem';
 import { Inventory } from './items/Inventory';
 import { ItemCursor } from './items/ItemCursor';
 import { ItemGenerator } from './items/ItemGenerator';
@@ -167,6 +168,7 @@ export class GameWorld {
   private nextInteractableId = 1;
   private readonly commands: CommandQueue<GameCommand>;
   private readonly ai: AiSystem;
+  private readonly devices: DeviceSystem;
   private readonly regen: RegenSystem;
   private readonly movement = new MovementSystem();
   private readonly separation: SeparationSystem;
@@ -220,6 +222,7 @@ export class GameWorld {
       scheduler: this.scheduler,
       categoryTraits: data.balance.skillCategories,
       summon: (caster, enemyId, count, maxAlive) => this.summon(caster, enemyId, count, maxAlive),
+      placeDevice: (def, ctx) => this.devices.place(def, ctx),
       spawnProjectile: (p) => {
         this.projectiles.push({ ...p, id: this.nextProjectileId++ });
       },
@@ -233,7 +236,8 @@ export class GameWorld {
     this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories, this.statuses);
     this.projectileSystem = new ProjectileSystem(this.nav, this.targeting, executor);
     // 閒置走動用獨立的亂數：不影響其他系統（掉寶、戰鬥）的亂數順序
-    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events, data.skills, streams.ai);
+    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events, data.skills, streams.ai, data.balance.devices.aggroRange);
+    this.devices = new DeviceSystem(this.actors, this.targeting, this.nav, this.events, data.balance.devices, () => this.nextActorId++);
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
     this.bosses = new BossSystem(data, this.events);
@@ -1034,6 +1038,7 @@ export class GameWorld {
     this.interaction.update();
     this.projectileSystem.update(this.projectiles, dt);
     this.scheduler.update(dt);
+    this.devices.update(dt);
     this.checkpoints.update(this.player);
     this.deaths.update(this.actors);
     this.deathHandler.update(dt);

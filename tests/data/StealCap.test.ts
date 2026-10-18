@@ -25,6 +25,12 @@ describe('吸血 / 吸魔硬上限', () => {
     for (const s of data.skills.all) for (const p of s.passive) if (STEAL.has(p.stat)) expect(Math.max(...ranks(p.values)), s.id).toBeLessThanOrEqual(STEAL_CAP.skill);
   });
 
+  it('戰術 12 招（v0.4.0）：不新增任何吸血 / 吸魔來源', () => {
+    const utility = data.skills.all.filter((s) => s.tree?.category === 'utility');
+    expect(utility).toHaveLength(12);
+    for (const s of utility) expect(JSON.stringify(s), s.id).not.toMatch(/lifeSteal|manaSteal|hpOfDamage/);
+  });
+
   it('詞綴：數值不成長、最高不超過 0.3%', () => {
     for (const a of data.affixes.all.filter((a) => STEAL.has(a.stat))) {
       expect(a.growth, a.id).toBe(0);

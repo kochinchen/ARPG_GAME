@@ -1,7 +1,7 @@
 import type { Balance } from '../../../data/schema/balance';
 import type { Rng } from '../../../core/Rng';
 import type { Vec2 } from '../../../core/math/Vec2';
-import type { DelayedEffectDef, EffectDef, EffectType, ZoneEffectDef } from '../../../data/schema/effects';
+import type { DelayedEffectDef, DeviceEffectDef, EffectDef, EffectType, ZoneEffectDef } from '../../../data/schema/effects';
 import type { SkillDef } from '../../../data/schema/skill';
 import type { DamagePipeline } from '../../combat/DamagePipeline';
 import type { StatusEffectSystem } from '../../combat/StatusEffectSystem';
@@ -29,6 +29,8 @@ export interface EffectServices {
   spawnProjectile: (projectile: Omit<Projectile, 'id'>) => void;
   /** 在施放者周圍召喚怪物（由 GameWorld 建立實體） */
   summon: (caster: Actor, enemyId: string, count: number, maxAlive: number) => void;
+  /** 佈置機關（DeviceSystem） */
+  placeDevice: (def: DeviceEffectDef, ctx: EffectContext) => void;
   /** 近戰 / 遠程 / 魔法的共通倍率（吸血） */
   categoryTraits: Balance['skillCategories'];
 }

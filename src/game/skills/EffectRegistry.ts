@@ -4,6 +4,7 @@ import { ChainEffect } from './effects/ChainEffect';
 import { DamageEffect } from './effects/DamageEffect';
 import { DashEffect } from './effects/DashEffect';
 import { DelayedEffect } from './effects/DelayedEffect';
+import { DeviceEffect } from './effects/DeviceEffect';
 import type { EffectContext, IEffect } from './effects/IEffect';
 import { KnockbackEffect } from './effects/KnockbackEffect';
 import { ProjectileEffect } from './effects/ProjectileEffect';
@@ -29,6 +30,7 @@ export class EffectRegistry {
     zone: new ZoneEffect(),
     delayed: new DelayedEffect(),
     summon: new SummonEffect(),
+    device: new DeviceEffect(),
   };
 
   apply(def: EffectDef, ctx: EffectContext): void {

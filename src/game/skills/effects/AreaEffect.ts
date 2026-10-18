@@ -1,6 +1,6 @@
 import { distance, normalize, rotate, sub } from '../../../core/math/Vec2';
 import { rankValue, type Element } from '../../../data/schema/common';
-import type { AreaEffectDef, EffectDef } from '../../../data/schema/effects';
+import { nestedEffects, type AreaEffectDef, type EffectDef } from '../../../data/schema/effects';
 import type { EffectContext, IEffect } from './IEffect';
 
 export class AreaEffect implements IEffect<'area'> {
@@ -48,8 +48,7 @@ export class AreaEffect implements IEffect<'area'> {
 export function firstElement(effects: readonly EffectDef[]): Element | null {
   for (const e of effects) {
     if (e.type === 'damage') return e.element;
-    const nested =
-      e.type === 'projectile' ? firstElement(e.onHit) : e.type === 'dash' ? firstElement(e.onPath) : 'effects' in e ? firstElement(e.effects) : null;
+    const nested = firstElement(nestedEffects(e));
     if (nested) return nested;
   }
   return null;

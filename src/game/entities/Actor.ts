@@ -1,5 +1,5 @@
 import { vec2, type Vec2 } from '../../core/math/Vec2';
-import type { StatusKind } from '../../data/schema/effects';
+import type { DeviceEffectDef, StatusKind } from '../../data/schema/effects';
 import type { SkillDef } from '../../data/schema/skill';
 import type { AiBrain } from '../ai/AiBrain';
 import type { StepMods } from '../combo/StepMods';
@@ -33,6 +33,31 @@ export interface ActorInit {
   xpReward?: number;
   /** 特殊技能（普通攻擊以外）的範圍倍率：怪物隨樓層提高；直線招式不受影響 */
   skillArea?: number;
+  /** 機關（戰術技能佈置的物件）；一般角色為 null */
+  device?: DeviceState | null;
+}
+
+/** 機關的執行狀態（由 DeviceSystem 管理；不存檔，換樓層時隨實體一起清除） */
+export interface DeviceState {
+  def: DeviceEffectDef;
+  /** 佈置者（玩家）；子效果以它為施放者 */
+  ownerId: ActorId;
+  skillId: string;
+  rank: number;
+  /** 佈置時的面向（絆索網橫放的方向） */
+  direction: Vec2;
+  /** 第幾個佈置的（越小越舊；超過上限時最舊的先消失） */
+  order: number;
+  /** 剩餘時間（秒） */
+  remaining: number;
+  /** 地雷的待命時間 */
+  armTimer: number;
+  /** 圖騰距離下一發的時間與剩餘發數 */
+  shotTimer: number;
+  shotsLeft: number;
+  /** 絆索網剩餘觸發次數，與已經絆倒過的敵人 */
+  triggersLeft: number;
+  readonly tripped: Set<ActorId>;
 }
 
 /** 身上的狀態（由 StatusEffectSystem 管理） */
@@ -95,6 +120,7 @@ export class Actor {
   readonly summonedBy: ActorId | null;
   readonly xpReward: number;
   readonly skillArea: number;
+  readonly device: DeviceState | null;
   radius: number;
   /** 外觀大小（Render 依此縮放模型） */
   readonly visualRadius: number;
@@ -145,6 +171,7 @@ export class Actor {
     this.summonedBy = init.summonedBy ?? null;
     this.xpReward = init.xpReward ?? 0;
     this.skillArea = init.skillArea ?? 1;
+    this.device = init.device ?? null;
     this.skillRanks = new Map(init.skillRanks ?? []);
     this.hp = init.stats.get('maxHp');
     this.mana = init.stats.get('maxMana');

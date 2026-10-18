@@ -62,6 +62,11 @@ export const skillComboTags: Record<string, ComboInfo> = {
   'utility.shadow_step': { range: 'Mid', action: ['Fast'], movement: ['Advance', 'Reposition'], role: 'Starter' },
   'utility.grapple_hook': { range: 'Mid', action: ['Projectile'], damage: ['Physical'], control: ['Pull'], role: 'Bridge' },
   'utility.phantom_rush': { range: 'Mid', action: ['Fast', 'Burst'], damage: ['Physical'], movement: ['Advance', 'Reposition'], control: ['Stun'], role: 'Starter' },
+  // ── Utility · 機關 ──
+  'utility.trip_net': { range: 'Far', action: ['AoE'], control: ['Launch', 'Slow'], role: 'Setup' },
+  'utility.frost_mine': { range: 'Far', action: ['AoE'], damage: ['Ice'], element: ['Ice'], control: ['Freeze'], role: 'Setup' },
+  'utility.storm_totem': { range: 'Far', action: ['Projectile', 'Pierce', 'MultiHit'], damage: ['Lightning'], element: ['Lightning'], role: 'Amplifier' },
+  'utility.powder_keg': { range: 'Far', action: ['AoE', 'Burst', 'Heavy'], damage: ['Fire'], element: ['Fire'], control: ['Knockback'], role: 'Setup' },
   // ── Utility · 投擲 ──
   'utility.poison_knife': { range: 'Mid', action: ['Fast', 'Projectile'], damage: ['Physical'], role: 'Starter' },
   'utility.frost_flask': { range: 'Mid', action: ['AoE'], damage: ['Ice'], element: ['Ice'], control: ['Slow'], role: 'Setup' },

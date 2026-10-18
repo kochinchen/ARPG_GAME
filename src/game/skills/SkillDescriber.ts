@@ -101,7 +101,7 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
         const parts = [count > 1 ? `${count} 發投射物` : '投射物'];
         if (count > 1 && spread > 0) parts.push(spread >= 360 ? '環狀' : `散射 ${spread}°`);
         const pierce = Math.round(rankValue(e.pierce, rank));
-        if (pierce > 0) parts.push(`穿透 ${pierce}`);
+        if (pierce > 0) parts.push(pierce >= 99 ? '穿透所有敵人' : `穿透 ${pierce}`);
         if (e.aimAssistDeg > 0) parts.push('自動修正方向');
         lines.push(parts.join('，'), ...effectLines(e.onHit, rank));
         break;
@@ -121,6 +121,23 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
       case 'summon':
         lines.push(`召喚 ${e.count} 隻（最多同時 ${e.maxAlive} 隻）`);
         break;
+      case 'device': {
+        const maxAlive = rankValue(e.maxAlive, rank);
+        lines.push(
+          `機關：生命 ${pctText(rankValue(e.hpPct, rank))} 最大生命、防禦同角色，持續 ${rankValue(e.duration, rank)} 秒${maxAlive > 1 ? `，可同時 ${maxAlive} 個` : ''}`,
+        );
+        if (e.behavior === 'trip' && e.line) lines.push(`面前 ${e.forward ?? 0} 格橫放 ${e.line.length} 格寬；碰到的敵人各觸發一次（共 ${rankValue(e.triggers, rank)} 次）：`, ...effectLines(e.onTrigger, rank));
+        if (e.behavior === 'proximity') lines.push(`${e.armDelay} 秒後待命，敵人進入 ${e.triggerRadius} 格內時觸發：`, ...effectLines(e.onTrigger, rank));
+        if (e.behavior === 'turret') lines.push(`每 ${e.interval} 秒朝 ${e.range} 格內最近的敵人射擊，共 ${rankValue(e.shots, rank)} 發：`, ...effectLines(e.onShot, rank));
+        const sameBlast = e.onDestroy.length > 0 && JSON.stringify(e.onDestroy) === JSON.stringify(e.onExpire);
+        if (sameBlast) lines.push('被打壞或時間到時：', ...effectLines(e.onDestroy, rank));
+        else {
+          if (e.onDestroy.length > 0 && JSON.stringify(e.onDestroy) !== JSON.stringify(e.onTrigger)) lines.push('被打壞時：', ...effectLines(e.onDestroy, rank));
+          else if (e.onDestroy.length > 0) lines.push('被打壞時也會觸發');
+          if (e.onExpire.length > 0) lines.push('時間到時：', ...effectLines(e.onExpire, rank));
+        }
+        break;
+      }
     }
   }
   return lines.filter((l) => l !== '');

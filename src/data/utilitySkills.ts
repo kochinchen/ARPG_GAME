@@ -9,7 +9,7 @@ const pct = (...v: R5): R5 => v.map((x) => x / 100) as R5;
 
 // ─────────────────────────────── Utility 戰術 ───────────────────────────────
 // 任何武器都能用、不吃武器種類的加減分（v0.4.0，規格：SPEC_v0.4.0_戰術技能與武器規則）。
-// A 身法：位移與控場 ｜ B 機關：有血量的佈置物（P5）｜ C 投擲：直接傷害是固定值（投擲物本身），武器傷害只體現在毒 / 流血上。
+// A 身法：位移與控場 ｜ B 機關：有血量的佈置物 ｜ C 投擲：直接傷害是固定值（投擲物本身），武器傷害只體現在毒 / 流血上。
 // 冷卻全部為 0，節流靠魔力；魔力對齊同階魔法。投擲不吃攻速。
 
 const mobility: SkillInput[] = [
@@ -87,6 +87,141 @@ const mobility: SkillInput[] = [
           { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(100, 115, 130, 145, 160) },
           { type: 'status', status: 'stun', duration: [0.8, 0.9, 1, 1.1, 1.2] },
         ],
+      },
+    ],
+  },
+];
+
+type EffectInput = NonNullable<SkillInput['effects']>[number];
+
+/** 霜凍地雷的爆炸（近接觸發與被打壞都一樣） */
+const frostBlast: EffectInput[] = [
+  {
+    type: 'area',
+    radius: 1.5,
+    effects: [
+      { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: pct(50, 60, 70, 80, 90) },
+      // Boss 依現有規則改為強力緩速
+      { type: 'status', status: 'freeze', duration: [0.8, 0.9, 1, 1.1, 1.2] },
+    ],
+  },
+];
+
+/** 火藥桶的爆炸（被打壞或 10 秒後） */
+const kegBlast: EffectInput[] = [
+  {
+    type: 'area',
+    radius: [2, 2.05, 2.1, 2.15, 2.2],
+    effects: [
+      { type: 'damage', element: 'fire', scaling: 'weapon', multiplier: pct(260, 295, 330, 365, 400) },
+      { type: 'knockback', distance: 2 },
+      { type: 'status', status: 'burn', duration: 3 },
+    ],
+  },
+];
+
+// 機關：有血量的佈置物（血量 = 玩家最大生命 × 比例、防禦 = 玩家防禦），怪物在 3 格內會改打機關；全身最多 2 個
+const devices: SkillInput[] = [
+  {
+    id: 'utility.trip_net',
+    name: '絆索網',
+    description: '在面前橫放一道 8 格寬的絆索網，碰到的敵人被絆倒（浮空）並緩速。被打壞或觸發次數用完就消失。',
+    tree: { category: 'utility', tier: 1, branch: 'B' },
+    targeting: 'direction',
+    castTime: 0.3,
+    cost: { mana: 4 },
+    tags: ['utility', 'device'],
+    effects: [
+      {
+        type: 'device',
+        behavior: 'trip',
+        hpPct: pct(15, 20, 25, 30, 35),
+        duration: [8, 8, 8, 8, 12],
+        forward: 3,
+        line: { length: 8, width: 1 },
+        triggers: [2, 2, 3, 3, 4],
+        onTrigger: [
+          { type: 'status', status: 'airborne', duration: [0.5, 0.6, 0.7, 0.8, 0.9] },
+          { type: 'status', status: 'slow', magnitude: 0.3, duration: 2 },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'utility.frost_mine',
+    name: '霜凍地雷',
+    description: '佈置霜凍地雷，0.8 秒後待命；敵人靠近或地雷被打壞時爆炸，範圍冰凍。',
+    tree: { category: 'utility', tier: 2, branch: 'B' },
+    targeting: 'ground',
+    range: 6,
+    castTime: 0.3,
+    cost: { mana: 9 },
+    tags: ['utility', 'device'],
+    effects: [
+      {
+        type: 'device',
+        behavior: 'proximity',
+        hpPct: 0.1,
+        duration: 30,
+        maxAlive: [1, 1, 1, 1, 2],
+        armDelay: 0.8,
+        triggerRadius: 1.5,
+        onTrigger: frostBlast,
+        onDestroy: frostBlast,
+      },
+    ],
+  },
+  {
+    id: 'utility.storm_totem',
+    name: '雷電圖騰',
+    description: '豎起雷電圖騰，每秒朝最近的敵人射出一道穿透所有敵人的閃電（吃法術強度）。',
+    tree: { category: 'utility', tier: 3, branch: 'B' },
+    targeting: 'ground',
+    range: 6,
+    castTime: 0.4,
+    cost: { mana: 13 },
+    tags: ['utility', 'device', 'lightning'],
+    effects: [
+      {
+        type: 'device',
+        behavior: 'turret',
+        hpPct: 0.2,
+        // 射完 5～6 發就消失；附近一直沒有敵人時最多留 15 秒
+        duration: 15,
+        interval: 1,
+        shots: [5, 5, 6, 6, 6],
+        range: 6,
+        onShot: [
+          {
+            type: 'projectile',
+            speed: 18,
+            radius: 0.25,
+            range: 6,
+            pierce: 99,
+            onHit: [{ type: 'damage', element: 'lightning', scaling: 'spell', multiplier: pct(40, 45, 50, 55, 60) }],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'utility.powder_keg',
+    name: '火藥桶',
+    description: '放下火藥桶：被打壞或 10 秒後爆炸，範圍火焰傷害、擊退並燃燒。',
+    tree: { category: 'utility', tier: 4, branch: 'B' },
+    targeting: 'ground',
+    range: 6,
+    castTime: 0.4,
+    cost: { mana: 20 },
+    tags: ['utility', 'device', 'fire'],
+    effects: [
+      {
+        type: 'device',
+        behavior: 'none',
+        hpPct: 0.25,
+        duration: 10,
+        onDestroy: kegBlast,
+        onExpire: kegBlast,
       },
     ],
   },
@@ -204,4 +339,4 @@ const throwables: SkillInput[] = [
   },
 ];
 
-export const utilitySkills: SkillInput[] = [...mobility, ...throwables];
+export const utilitySkills: SkillInput[] = [...mobility, ...devices, ...throwables];

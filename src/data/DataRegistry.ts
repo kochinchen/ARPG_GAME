@@ -19,10 +19,7 @@ import { LegendaryDefSchema, type LegendaryDef, type SkillFilter } from './schem
 import { checkComboTags, flattenEffects } from './skillAnalysis';
 import { findMarker, reachableTiles } from './mapAnalysis';
 import { MAP_TILES } from './schema/map';
-import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS, type SkillBranch, type SkillCategory } from './schema/skill';
-
-/** v0.4.0 開發中、尚未放入技能的路線（戰術 B 機關在 P5 加入）；機關完成後移除 */
-const PENDING_BRANCHES: Partial<Record<SkillCategory, readonly SkillBranch[]>> = { utility: ['B'] };
+import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS } from './schema/skill';
 
 /** 尚未驗證的原始資料（來自 data/*.ts） */
 export interface RawGameData {
@@ -238,7 +235,6 @@ export class DataRegistry {
       for (const category of SKILL_CATEGORIES) {
         for (const tier of SKILL_TIERS) {
           for (const branch of SKILL_BRANCHES) {
-            if (PENDING_BRANCHES[category]?.includes(branch)) continue;
             const key = `${category} T${tier}-${branch}`;
             if (!treeSlots.has(key)) problems.push(`技能樹位置 ${key} 沒有技能`);
           }

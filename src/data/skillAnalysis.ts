@@ -1,5 +1,5 @@
 import { rankValue } from './schema/common';
-import type { EffectDef } from './schema/effects';
+import { nestedEffects, type EffectDef } from './schema/effects';
 import type { SkillDef } from './schema/skill';
 
 /**
@@ -33,6 +33,10 @@ export function countHits(effects: readonly EffectDef[]): number {
       case 'delayed':
         hits += e.repeat * countHits(e.effects);
         break;
+      case 'device':
+        // 圖騰：射擊次數 × 每發命中；其他機關：觸發或爆炸一次
+        hits += e.behavior === 'turret' ? rankValue(e.shots, 1) * countHits(e.onShot) : Math.max(countHits(e.onTrigger), countHits(e.onExpire));
+        break;
       default:
         break;
     }
@@ -43,8 +47,7 @@ export function countHits(effects: readonly EffectDef[]): number {
 /** 攤平所有巢狀效果 */
 export function flattenEffects(effects: readonly EffectDef[]): EffectDef[] {
   return effects.flatMap((e) => {
-    const nested = e.type === 'projectile' ? e.onHit : e.type === 'dash' ? e.onPath : 'effects' in e ? e.effects : [];
-    return [e, ...flattenEffects(nested)];
+    return [e, ...flattenEffects(nestedEffects(e))];
   });
 }
 
@@ -74,7 +77,11 @@ export function checkComboTags(skill: SkillDef): string[] {
     if (tag === 'Pierce') need(projectiles.some((p) => rankValue(p.pierce, 1) > 0), tag, '可穿透的投射物');
     if (tag === 'MultiHit') need(countHits(skill.effects) >= 2, tag, '至少 2 段命中');
     if (tag === 'AoE') {
-      need(all.some((e) => e.type === 'area' || e.type === 'zone' || e.type === 'chain') || projectiles.some((p) => rankValue(p.count, 1) > 1), tag, '範圍、地面區域、連鎖或多發投射物');
+      need(
+        all.some((e) => e.type === 'area' || e.type === 'zone' || e.type === 'chain' || (e.type === 'device' && e.line)) || projectiles.some((p) => rankValue(p.count, 1) > 1),
+        tag,
+        '範圍、地面區域、連鎖、橫向機關或多發投射物',
+      );
     }
     if (tag === 'Execute') need(damages.some((d) => d.bonus && 'hpBelow' in d.bonus.when), tag, '對低血量目標的加成');
     if (tag === 'Counter') need(statuses.has('counter'), tag, '反擊狀態');

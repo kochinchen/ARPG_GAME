@@ -190,6 +190,48 @@ export const SummonEffectSchema = z.strictObject({
   maxAlive: z.int().positive(),
 });
 
+/**
+ * 機關（戰術技能）：佈置一個有血量的物件。血量 = 玩家最大生命 × hpPct、防禦 = 玩家防禦（即時跟隨）；
+ * 屬玩家陣營，玩家的技能不會傷到它；怪物在附近時會把它當目標（balance.devices.aggroRange）。
+ * 全身同時最多 balance.devices.maxAlive 個，超過時最舊的消失（不觸發 onDestroy）。
+ * 子效果的施放者是玩家（吃玩家的武器傷害 / 法術強度），從機關的位置發出。
+ */
+export const DeviceEffectSchema = z.strictObject({
+  type: z.literal('device'),
+  /** trip：敵人碰到 line 就觸發 onTrigger（每個敵人一次，共 triggers 次）；proximity：待命 armDelay 秒後，敵人進入 triggerRadius 就觸發並消失；turret：每 interval 秒朝 range 內最近的敵人觸發 onShot，共 shots 次；none：只等時間到或被打壞 */
+  behavior: z.enum(['trip', 'proximity', 'turret', 'none']),
+  hpPct: RankNumberSchema,
+  /** 持續時間（秒），到期觸發 onExpire 後消失 */
+  duration: RankNumberSchema,
+  /** 這個技能的機關同時存在的上限（全身上限另計） */
+  maxAlive: RankNumberSchema.default(1),
+  /** 放在施放者面前幾格（絆索網）；省略 = 放在指定位置 */
+  forward: z.number().positive().optional(),
+  /** trip：垂直於面向的長方形（length 為橫向長度） */
+  line: z.strictObject({ length: z.number().positive(), width: z.number().positive() }).optional(),
+  triggers: RankNumberSchema.default(1),
+  triggerRadius: z.number().positive().default(1),
+  armDelay: z.number().nonnegative().default(0),
+  interval: z.number().positive().default(1),
+  shots: RankNumberSchema.default(1),
+  /** turret 的索敵距離 */
+  range: z.number().positive().default(6),
+  get onTrigger() {
+    return z.array(EffectDefSchema).default([]);
+  },
+  get onShot() {
+    return z.array(EffectDefSchema).default([]);
+  },
+  /** 被怪物打壞時 */
+  get onDestroy() {
+    return z.array(EffectDefSchema).default([]);
+  },
+  /** 時間到（或 turret 射完）時 */
+  get onExpire() {
+    return z.array(EffectDefSchema).default([]);
+  },
+});
+
 export const EffectDefSchema = z.discriminatedUnion('type', [
   DamageEffectSchema,
   StatusEffectSchema,
@@ -201,6 +243,7 @@ export const EffectDefSchema = z.discriminatedUnion('type', [
   ZoneEffectSchema,
   DelayedEffectSchema,
   SummonEffectSchema,
+  DeviceEffectSchema,
 ]);
 
 export type DamageEffectDef = z.infer<typeof DamageEffectSchema>;
@@ -210,6 +253,21 @@ export type DashEffectDef = z.infer<typeof DashEffectSchema>;
 export type ProjectileEffectDef = z.infer<typeof ProjectileEffectSchema>;
 export type AreaEffectDef = z.infer<typeof AreaEffectSchema>;
 export type SummonEffectDef = z.infer<typeof SummonEffectSchema>;
+export type DeviceEffectDef = z.infer<typeof DeviceEffectSchema>;
+
+/** 一個效果底下的巢狀效果（投射物 onHit、位移 onPath、機關的各種觸發、其他的 effects） */
+export function nestedEffects(e: EffectDef): readonly EffectDef[] {
+  switch (e.type) {
+    case 'projectile':
+      return e.onHit;
+    case 'dash':
+      return e.onPath;
+    case 'device':
+      return [...e.onTrigger, ...e.onShot, ...e.onDestroy, ...e.onExpire];
+    default:
+      return 'effects' in e ? e.effects : [];
+  }
+}
 export type ChainEffectDef = z.infer<typeof ChainEffectSchema>;
 export type ZoneEffectDef = z.infer<typeof ZoneEffectSchema>;
 export type DelayedEffectDef = z.infer<typeof DelayedEffectSchema>;

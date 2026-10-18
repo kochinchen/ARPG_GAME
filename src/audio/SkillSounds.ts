@@ -1,5 +1,5 @@
 import type { Element } from '../data/schema/common';
-import type { EffectDef } from '../data/schema/effects';
+import { nestedEffects, type EffectDef } from '../data/schema/effects';
 import type { SkillDef } from '../data/schema/skill';
 import type { SfxName } from './Sfx';
 
@@ -26,8 +26,7 @@ function collect(effects: readonly EffectDef[], out: Traits): Traits {
     out.types.add(e.type);
     if (e.type === 'damage' && e.element !== 'physical' && out.element === 'physical') out.element = e.element;
     if (e.type === 'projectile' && Math.max(...[e.count].flat()) > 1) out.multiShot = true;
-    if ('effects' in e) collect(e.effects, out);
-    if ('onHit' in e) collect(e.onHit, out);
+    collect(nestedEffects(e), out);
   }
   return out;
 }

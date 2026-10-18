@@ -6,6 +6,7 @@ import type { GameEventBus } from '../GameEvents';
 import type { NavGrid } from '../movement/NavGrid';
 import type { Pathfinder } from '../movement/Pathfinder';
 import type { TargetingService } from '../targeting/TargetingService';
+import { nearestDevice } from '../skills/DeviceSystem';
 import type { AiStateName } from './AiBrain';
 import type { AiContext, IAiState } from './IAiState';
 import { ChaseState } from './states/ChaseState';
@@ -32,6 +33,8 @@ export class AiSystem {
     events: GameEventBus,
     private readonly skills: DataTable<SkillDef>,
     private readonly rng: Rng,
+    /** 怪物在這個距離內會改打機關（balance.devices.aggroRange） */
+    private readonly deviceAggroRange: number,
   ) {
     // 被攻擊時記錄仇恨來源
     events.on('ActorDamaged', (e) => {
@@ -59,11 +62,27 @@ export class AiSystem {
         rng: this.rng,
         dt,
       };
+      if (self.faction === 'enemy') this.lureToDevice(ctx);
       const next = this.states[brain.state].update(ctx);
       if (next !== null && next !== brain.state) {
         brain.state = next;
         this.states[next].enter(ctx);
       }
+    }
+  }
+
+  /** 機關在附近（aggroRange 內）：改打機關，打壞後由 DeviceSystem 把目標改回玩家 */
+  private lureToDevice(ctx: AiContext): void {
+    const { self, brain, actors, targeting } = ctx;
+    const current = brain.targetId === null ? null : targeting.getActor(brain.targetId);
+    if (current?.device && current.alive) return;
+    const device = nearestDevice(self, actors, this.deviceAggroRange);
+    if (!device) return;
+    brain.targetId = device.id;
+    self.intent = null;
+    if (brain.state !== 'chase') {
+      brain.state = 'chase';
+      this.states.chase.enter(ctx);
     }
   }
 }
