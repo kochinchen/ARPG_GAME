@@ -110,7 +110,7 @@ describe('DataRegistry', () => {
       player: {
         ...player,
         startingSkills: ['basic.attack', 'support.vitality'],
-        startingLoadout: { left: 'basic.attack', combos: [['support.vitality', null, null], [null, null, null], [null, null, null]], supports: [null, null, null] },
+        startingLoadout: { left: 'basic.attack', combos: [['support.vitality', null, null], [null, null, null], [null, null, null], [null, null, null], [null, null, null], [null, null, null], [null, null, null]], supports: [null, null, null] },
       },
     };
     expect(expectProblems(withData({ balance: passiveInCombo })).some((p) => p.includes("'support.vitality' 必須是 active 技能"))).toBe(true);

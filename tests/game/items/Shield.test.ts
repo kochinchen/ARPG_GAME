@@ -93,7 +93,7 @@ describe('盾牌的裝備規則', () => {
     const fresh = floorWorld(save.meta.runSeed);
     SaveMapper.restore(fresh, repairSave(save, data));
     expect(fresh.equipment.get('shield')?.rerolls).toBe(2);
-    expect(migrate({ equipment: {} }, 11)).toEqual({ equipment: {} });
+    expect(migrate({ equipment: {} }, 11)).toMatchObject({ equipment: {} });
   });
 
   it('讀檔修復：拿弓卻裝著盾牌 → 盾牌放回背包', () => {

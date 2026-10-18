@@ -107,7 +107,7 @@ function respec(e: MouseEvent) {
     </nav>
 
     <section v-if="showCodex" class="codex">
-      <p v-if="view.codex.length === 0" class="hint">尚未發現任何組合。在 Q / W / E 放入三個技能，實戰施放成功後就會記錄在這裡。</p>
+      <p v-if="view.codex.length === 0" class="hint">尚未發現任何組合。在任一組連段（Q / W / E / R / A / S / D）放入三個技能，實戰施放成功後就會記錄在這裡。</p>
       <article v-for="entry in view.codex" :key="entry.comboId" class="entry">
         <div class="entry-head">
           <b>{{ entry.name }}</b>
@@ -227,11 +227,12 @@ function respec(e: MouseEvent) {
           <h3>左鍵 <small>點技能格上的「左」指定</small></h3>
           <span class="slot left-current">{{ view.left?.name ?? '—' }}</span>
         </div>
-        <h3>Q / W / E 連段 <small>右鍵依序施放 · 右鍵點格子清空</small></h3>
+        <h3>Q / W / E / R / A / S / D 連段 <small>右鍵依序施放 · 右鍵點格子清空</small></h3>
         <div v-for="combo in view.combos" :key="combo.key" class="combo-block">
           <div class="combo" :class="{ active: combo.active }">
             <span class="key">{{ combo.label }}</span>
-            <template v-for="step in STEPS" :key="step">
+            <span v-if="combo.keyLevel !== null" class="slot locked key-locked">🔒 等級 {{ combo.keyLevel }} 解鎖</span>
+            <template v-for="step in STEPS" v-else :key="step">
               <span v-if="step > 0" class="arrow">→</span>
               <button
                 v-if="combo.unlocked[step]"
@@ -248,7 +249,7 @@ function respec(e: MouseEvent) {
               <span v-else class="slot locked">🔒 Lv {{ combo.unlockLevels[step] }}</span>
             </template>
           </div>
-          <div class="combo-status" :class="combo.status">
+          <div v-if="combo.keyLevel === null" class="combo-status" :class="combo.status">
             <template v-if="combo.status === 'known'">
               ✦ {{ combo.name }}<span class="combo-effects"> · {{ combo.description.join('；') }}</span>
             </template>

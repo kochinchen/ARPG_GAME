@@ -155,8 +155,16 @@ const v10ToV11: Migration = (v10) => {
 /** v11 → v12：新增盾牌欄位與重鑄次數，兩者都是選填（舊存檔沒有盾牌、沒有重鑄過），內容不需要轉換 */
 const v11ToV12: Migration = (v11) => v11;
 
+/** v12 → v13：連段從 Q / W / E 三組增加為 Q / W / E / R / A / S / D 七組，新的四組是空的 */
+const v12ToV13: Migration = (v12) => {
+  const loadout = (v12.loadout ?? {}) as { combos?: unknown[] };
+  const combos = [...(loadout.combos ?? [])];
+  while (combos.length < 7) combos.push([null, null, null]);
+  return { ...v12, loadout: { ...loadout, combos } };
+};
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13];
 
 export class MigrationError extends Error {}
 

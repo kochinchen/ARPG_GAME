@@ -20,6 +20,7 @@
 - **v9（亂數狀態）**：`rng`（序列名稱 → Rng 狀態；序列見 `GameWorld.RNG_STREAMS`：戰鬥、效果、物品、掉落、AI、傳奇效果、拆解）。之前讀檔後每條序列都從 seed 重新開始，會重跑同一串結果（掉出屬性完全相同的裝備）。Migration v8 → v9 給空的紀錄，讀檔時缺少的序列以 runSeed、序列名稱、物品流水號、遊玩時間混出新狀態。樓層、商人等依層數重新 fork 的亂數不存（本來就應該每次相同）。
 - **v11（魔王門前存檔點、傳送口）**：`floor.bossGateActive`（魔王門前的存檔點已啟動；只在本次進入樓層有效）、`floor.midwayFloors`（到過中途存檔點的樓層，跨層永久保留）。Migration v10 → v11：魔王門前一律未啟動；目前這一層的中途已啟動時記為到過中途。規則見 4.9 與 4.10。
 - **v12（盾牌、詞綴重鑄）**：`equipment.shield`（盾牌欄位，只能搭配劍、斧）、物品的 `rerolls`（在商人重鑄詞綴的次數，越多次越貴）。兩者都是選填，Migration v11 → v12 不需要轉換內容；SaveRepair 會把「拿弓 / 法杖卻裝著盾牌」的盾牌放回背包。
+- **v13（七組連段）**：`loadout.combos` 從 3 組（Q / W / E）變成 7 組（Q / W / E / R / A / S / D），`activeCombo` 範圍 0～6。Migration v12 → v13 保留原本三組、補上四組空的連段 `[null, null, null]`；按鍵依等級解鎖（`balance.player.comboKeyLevels`），不存在存檔裡。
 - 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---

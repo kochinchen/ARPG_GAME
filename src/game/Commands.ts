@@ -1,3 +1,4 @@
+import type { ComboKey } from './player/PlayerLoadout';
 import type { Vec2 } from '../core/math/Vec2';
 import type { ActorId } from './entities/Actor';
 import type { SkillCategory } from '../data/schema/skill';
@@ -35,7 +36,7 @@ export type GameCommand =
   /** 觸控招式鈕：自動瞄準最近的敵人施放目前的 Q / W / E 連段 */
   | { type: 'AutoCastRight' }
   /** Q / W / E：選擇右鍵要施放的連段 */
-  | { type: 'SelectRightSlot'; slot: 0 | 1 | 2 }
+  | { type: 'SelectRightSlot'; slot: ComboKey }
   /** Space：同時回復 HP 與 MP */
   | { type: 'UsePotion' }
   /** 背包格：手上沒東西 → 拿起；有東西 → 放下（互換 / 合併） */
@@ -49,7 +50,7 @@ export type GameCommand =
   /** 把已學會的主動技能指定到左鍵 */
   | { type: 'AssignLeft'; skillId: string }
   /** 設定 Q / W / E 連段的某一步（null = 清空） */
-  | { type: 'SetComboSlot'; combo: 0 | 1 | 2; step: 0 | 1 | 2; skillId: string | null }
+  | { type: 'SetComboSlot'; combo: ComboKey; step: 0 | 1 | 2; skillId: string | null }
   /** 設定 Support 欄位（null = 卸下） */
   | { type: 'SetSupportSlot'; slot: 0 | 1 | 2; skillId: string | null }
   /** 角色面板：把屬性點加到某個屬性（count 點，不足時加到用完為止） */

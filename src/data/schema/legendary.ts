@@ -41,8 +41,8 @@ export const SkillFilterSchema = z.strictObject({
   distinctSkills: z.boolean().optional(),
   /** 三招至少包含幾種不同元素 */
   minElements: z.int().min(1).max(3).optional(),
-  /** Q / W / E（0～2） */
-  comboSlot: z.int().min(0).max(2).optional(),
+  /** Q / W / E / R / A / S / D（0～6） */
+  comboSlot: z.int().min(0).max(6).optional(),
   /** 尚未發現的 Combo（第一次施放） */
   newCombo: z.boolean().optional(),
   /** 秘密 Combo（規則層級 1）且已發現 */

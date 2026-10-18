@@ -218,11 +218,11 @@ describe('連段格子解鎖', () => {
     };
     const [, lv2, lv3] = data.balance.player.comboSlotLevels;
     send({ type: 'SetComboSlot', combo: 1, step: 1, skillId: 'magic.fireball' });
-    expect(world.loadout.combos[1][1]).toBeNull();
+    expect(world.loadout.combos[1]![1]).toBeNull();
     world.progress.level = lv2;
     expect(world.comboSlotsUnlocked).toBe(2);
     send({ type: 'SetComboSlot', combo: 1, step: 1, skillId: 'magic.fireball' });
-    expect(world.loadout.combos[1][1]).toBe('magic.fireball');
+    expect(world.loadout.combos[1]![1]).toBe('magic.fireball');
     world.progress.level = lv3;
     expect(world.comboSlotsUnlocked).toBe(3);
   });

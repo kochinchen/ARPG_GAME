@@ -43,12 +43,18 @@ export const balance: z.input<typeof BalanceSchema> = {
     startingSkills: ['melee.heavy_slash', 'magic.fireball'],
     startingSkillPoints: 2,
     comboSlotLevels: [1, 3, 6],
+    // Q Lv1、W Lv3、E Lv6、R Lv10、A Lv15、S Lv20、D Lv25
+    comboKeyLevels: [1, 3, 6, 10, 15, 20, 25],
     startingLoadout: {
       left: 'melee.heavy_slash',
-      // 第 2、3 格分別在 Lv3、Lv6 解鎖
+      // 每組的第 2、3 格分別在 Lv3、Lv6 解鎖；一開始只有 Q：左鍵重砍、Q 火球
       combos: [
-        ['melee.heavy_slash', null, null],
         ['magic.fireball', null, null],
+        ['melee.heavy_slash', null, null],
+        [null, null, null],
+        [null, null, null],
+        [null, null, null],
+        [null, null, null],
         [null, null, null],
       ],
       supports: [null, null, null],

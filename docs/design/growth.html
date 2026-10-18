@@ -677,7 +677,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
         return list.length ? `<optgroup label="${CAT[c]}">${list.map((s) => `<option value="${s.id}" ${s.id === cur ? 'selected' : ''}>${esc(s.name)}${st.comboAll ? '' : '（Lv' + rank(s.id) + '）'}</option>`).join('')}</optgroup>` : '';
       }).join('');
       const p = valid ? S.profile(cur) : null;
-      return `<div class="step"><span class="lbl">第 ${i + 1} 招（${'QWE'[i]} 連段第 ${i + 1} 格）</span>
+      return `<div class="step"><span class="lbl">第 ${i + 1} 招（連段第 ${i + 1} 格）</span>
         <select data-step="${i}" aria-label="第 ${i + 1} 招"><option value="">— 未選 —</option>${groups}</select>
         <span class="meta">${p ? `${RANGE[p.range]}距離・${ROLE[p.role]}・${[...p.tags].map((t) => TAG[t] || t).join('、')}` : ''}</span></div>`;
     }).join('');

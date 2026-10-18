@@ -17,7 +17,7 @@ import { SkillCategorySchema } from '../data/schema/skill';
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -81,8 +81,9 @@ export const SaveDataSchema = z.object({
   }),
   loadout: z.object({
     left: z.string(),
-    combos: z.tuple([comboSlots, comboSlots, comboSlots]),
-    activeCombo: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+    /** Q / W / E / R / A / S / D 各一組（v13 起 7 組） */
+    combos: z.array(comboSlots).length(7),
+    activeCombo: int.min(0).max(6),
     supports: comboSlots,
   }),
   inventory: z.object({

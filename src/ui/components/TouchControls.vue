@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
-import type { GameView } from '../bridge/GameViewStore';
+import type { ComboBarView, GameView } from '../bridge/GameViewStore';
 import { touchBridge } from '../bridge/TouchBridge';
 
 /**
- * iPad 觸控操作：左邊浮動搖桿，右邊攻擊（= 左鍵）、招式（= 右鍵）、Q / W / E、藥水。
+ * iPad 觸控操作：左邊浮動搖桿，右邊攻擊（= 左鍵）、招式（= 右鍵）、Q / W / E / R、藥水。
  * 平常半透明，按下時才亮起。只送 Command，不碰遊戲狀態。
  */
 const props = defineProps<{ skillBar: GameView['skillBar']; potions: number }>();
@@ -115,9 +115,14 @@ function release(which: 'attack' | 'cast') {
   if (which === 'attack') gameBridge.send({ type: 'PrimaryRelease' });
 }
 
-function selectCombo(slot: 0 | 1 | 2) {
-  gameBridge.send({ type: 'SelectRightSlot', slot });
+function selectCombo(combo: ComboBarView) {
+  if (combo.unlockLevel !== null) return;
+  gameBridge.send({ type: 'SelectRightSlot', slot: combo.index });
 }
+
+/** 手機版只放 Q / W / E / R 四個按鈕（A / S / D 在小螢幕放不下，暫不提供） */
+const TOUCH_COMBOS = 4;
+const touchCombos = computed(() => props.skillBar.combos.slice(0, TOUCH_COMBOS));
 
 const flash = ref(false);
 function drink() {
@@ -151,7 +156,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- 右：攻擊、招式、Q / W / E、藥水 -->
+    <!-- 右：攻擊、招式、Q / W / E / R、藥水 -->
     <button
       type="button"
       class="btn attack"
@@ -175,14 +180,15 @@ onBeforeUnmount(() => {
       <span class="small">{{ castLabel }}</span>
     </button>
     <button
-      v-for="combo in skillBar.combos"
+      v-for="combo in touchCombos"
       :key="combo.key"
       type="button"
       class="btn combo"
-      :class="[`slot-${combo.index}`, { on: combo.active }]"
-      @pointerdown.stop.prevent="selectCombo(combo.index)"
+      :class="[`slot-${combo.index}`, { on: combo.active, locked: combo.unlockLevel !== null }]"
+      @pointerdown.stop.prevent="selectCombo(combo)"
     >
       {{ combo.key }}
+      <span v-if="combo.unlockLevel !== null" class="lock-level">Lv{{ combo.unlockLevel }}</span>
     </button>
     <button
       type="button"
@@ -323,6 +329,21 @@ onBeforeUnmount(() => {
 .combo.slot-2 {
   right: 30px;
   bottom: 292px;
+}
+.combo.slot-3 {
+  right: 196px;
+  bottom: 236px;
+}
+.combo.locked {
+  opacity: 0.45;
+}
+.lock-level {
+  position: absolute;
+  bottom: 3px;
+  left: 0;
+  right: 0;
+  font-size: 9px;
+  font-weight: normal;
 }
 .potion {
   right: 222px;

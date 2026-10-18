@@ -103,6 +103,8 @@ describe('Q / W / E 連段（M6 技能大改）', () => {
   it('點地面移動會取消連段', () => {
     const ctx = setup([dummyAt(10.5, 3.5)]);
     const casts = recordCasts(ctx);
+    // 近戰技能要先走到目標身邊：中途點地面移動就取消
+    ctx.world.loadout.combos[0] = ['melee.heavy_slash', null, null];
     ctx.commands.push(castAt(enemiesOf(ctx.world)[0]!));
     run(ctx.world, 0.2);
     ctx.commands.push({ type: 'PrimaryAction', worldPos: vec2(1.5, 4.5), targetId: null, held: false });
@@ -131,16 +133,16 @@ describe('Q / W / E 連段（M6 技能大改）', () => {
       ctx.world.update(DT);
     };
     send({ type: 'SetComboSlot', combo: 2, step: 1, skillId: 'ranged.quick_shot' });
-    expect(ctx.world.loadout.combos[2][1]).toBeNull();
+    expect(ctx.world.loadout.combos[2]![1]).toBeNull();
     send({ type: 'SetComboSlot', combo: 2, step: 1, skillId: 'basic.attack' });
-    expect(ctx.world.loadout.combos[2][1]).toBeNull();
+    expect(ctx.world.loadout.combos[2]![1]).toBeNull();
     ctx.world.player.skillRanks.set('support.vitality', 1);
     send({ type: 'SetComboSlot', combo: 2, step: 1, skillId: 'support.vitality' });
-    expect(ctx.world.loadout.combos[2][1]).toBeNull();
+    expect(ctx.world.loadout.combos[2]![1]).toBeNull();
     send({ type: 'SetComboSlot', combo: 2, step: 1, skillId: 'magic.fireball' });
-    expect(ctx.world.loadout.combos[2][1]).toBe('magic.fireball');
+    expect(ctx.world.loadout.combos[2]![1]).toBe('magic.fireball');
     send({ type: 'SetComboSlot', combo: 2, step: 1, skillId: null });
-    expect(ctx.world.loadout.combos[2][1]).toBeNull();
+    expect(ctx.world.loadout.combos[2]![1]).toBeNull();
   });
 });
 

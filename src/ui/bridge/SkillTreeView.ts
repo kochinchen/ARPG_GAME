@@ -1,3 +1,4 @@
+import { COMBO_KEY_LABELS, type ComboKey } from '../../game/player/PlayerLoadout';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS, type SkillCategory, type SkillDef } from '../../data/schema/skill';
 import { SKILL_CATEGORY_LABELS, SKILL_ROUTE_LABELS } from '../../data/skillTree';
@@ -6,7 +7,7 @@ import type { LearnBlock } from '../../game/skills/MasteryRule';
 import { describeSkill } from '../../game/skills/SkillDescriber';
 
 export type { SkillCategory };
-export type ComboKey = 0 | 1 | 2;
+export type { ComboKey };
 
 export interface SkillNodeView {
   id: string;
@@ -50,6 +51,8 @@ export interface SlotView {
 export interface ComboView {
   key: ComboKey;
   label: string;
+  /** 這一組按鍵還沒解鎖時的解鎖等級；已解鎖為 null */
+  keyLevel: number | null;
   steps: (SlotView | null)[];
   /** 每一格是否已解鎖，以及解鎖等級 */
   unlocked: boolean[];
@@ -119,7 +122,7 @@ export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillT
   };
 
   const usedIn = (id: string) =>
-    loadout.combos.flatMap((steps, c) => steps.flatMap((s, i) => (s === id ? [`${'QWE'[c]}${i + 1}`] : [])));
+    loadout.combos.flatMap((steps, c) => steps.flatMap((s, i) => (s === id ? [`${COMBO_KEY_LABELS[c]}${i + 1}`] : [])));
 
   const nodeView = (skill: SkillDef): SkillNodeView => {
     const rank = tree.rank(skill.id);
@@ -183,7 +186,8 @@ export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillT
       const known = resolution.status === 'combo' && world.codex.has(resolution.comboId);
       return {
         key: key as ComboKey,
-        label: 'QWE'[key]!,
+        label: COMBO_KEY_LABELS[key]!,
+        keyLevel: key < world.comboKeysUnlocked ? null : (balance.player.comboKeyLevels[key] ?? null),
         steps: steps.map(slot),
         unlocked: [0, 1, 2].map((i) => i < unlockedCount),
         unlockLevels: [...balance.player.comboSlotLevels],

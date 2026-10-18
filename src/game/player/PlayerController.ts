@@ -11,7 +11,7 @@ import type { AttributeSystem } from '../progression/AttributeSystem';
 import type { ComboSystem } from '../combo/ComboSystem';
 import type { DataTable } from '../../data/DataRegistry';
 import type { SkillDef } from '../../data/schema/skill';
-import type { PlayerLoadout } from './PlayerLoadout';
+import type { ComboKey, PlayerLoadout } from './PlayerLoadout';
 import type { PotionBelt } from './PotionBelt';
 
 /** 觸控搖桿：每次指令往前看幾格（每 0.1 秒重送一次，要比這段時間走的距離長） */
@@ -54,6 +54,8 @@ export class PlayerController {
     private readonly skills: DataTable<SkillDef>,
     /** 目前解鎖的連段格數 */
     private readonly unlockedSlots: () => number,
+    /** 目前解鎖的連段組數（Q / W / E / R / A / S / D 依序） */
+    private readonly unlockedKeys: () => number,
     private readonly attributes: AttributeSystem,
   ) {}
 
@@ -85,7 +87,8 @@ export class PlayerController {
         break;
       }
       case 'SelectRightSlot':
-        this.loadout.select(command.slot);
+        // 還沒解鎖的按鍵不能選
+        if (command.slot < this.unlockedKeys()) this.loadout.select(command.slot);
         break;
       case 'UsePotion':
         this.potions.use();
@@ -242,7 +245,8 @@ export class PlayerController {
     // 連段施放中：忽略（按住右鍵時，等這一組結束後的下一次指令再開始）
     if (this.combos.isRunning(this.player)) return;
     // 只施放已解鎖的格子；空格跳過
-    const steps = this.loadout.combos[this.loadout.activeCombo]
+    if (this.loadout.activeCombo >= this.unlockedKeys()) return;
+    const steps = (this.loadout.combos[this.loadout.activeCombo] ?? [])
       .slice(0, this.unlockedSlots())
       .filter((id): id is string => id !== null && this.isLearned(id, 'active'));
     if (steps.length === 0) return;
@@ -289,10 +293,11 @@ export class PlayerController {
   }
 
   /** 連段只能放技能樹中的主動技能（普通攻擊不行），且格子要已解鎖 */
-  private setComboSlot(combo: 0 | 1 | 2, step: 0 | 1 | 2, skillId: string | null): void {
-    if (step >= this.unlockedSlots()) return;
+  private setComboSlot(combo: ComboKey, step: 0 | 1 | 2, skillId: string | null): void {
+    const steps = this.loadout.combos[combo];
+    if (!steps || combo >= this.unlockedKeys() || step >= this.unlockedSlots()) return;
     if (skillId !== null && (!this.isLearned(skillId, 'active') || !this.skills.get(skillId).tree)) return;
-    this.loadout.combos[combo][step] = skillId;
+    steps[step] = skillId;
   }
 
   /** 同一個 Support 只能裝一次：放到新欄位時從舊欄位移除 */

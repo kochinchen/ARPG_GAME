@@ -1,3 +1,4 @@
+import { COMBO_KEY_LABELS, type ComboKey } from '../../game/player/PlayerLoadout';
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { GameWorld } from '../../game/GameWorld';
 import type { ActorId } from '../../game/entities/Actor';
@@ -144,6 +145,8 @@ export class ViewSync {
       return { id, name: skill.name, affordable: player.mana >= world.skills.manaCost(skill, rank, player) };
     };
     const unlocked = world.comboSlotsUnlocked;
+    const keysUnlocked = world.comboKeysUnlocked;
+    const keyLevels = this.data.balance.player.comboKeyLevels;
     const running = world.combos.currentStep(player);
     const rankOf = (id: string) => player.skillRanks.get(id) ?? 1;
     const bar = gameView.skillBar;
@@ -154,8 +157,9 @@ export class ViewSync {
       const comboName =
         resolved?.status === 'combo' ? (world.codex.has(resolved.comboId) ? resolved.displayName : '???') : null;
       return {
-        key: (['Q', 'W', 'E'] as const)[i]!,
-        index: i as 0 | 1 | 2,
+        key: COMBO_KEY_LABELS[i]!,
+        index: i as ComboKey,
+        unlockLevel: i < keysUnlocked ? null : (keyLevels[i] ?? null),
         steps: steps.map((id, step) => ({ skill: step < unlocked ? slot(id) : null, locked: step >= unlocked })),
         active: loadout.activeCombo === i,
         running: loadout.activeCombo === i ? running : 0,

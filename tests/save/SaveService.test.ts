@@ -24,7 +24,7 @@ function sample(gold: number): SaveData {
     attributes: { unspent: 0, allocated: {} },
     loadout: {
       left: 'basic.attack',
-      combos: [['melee.heavy_slash', null, null], ['magic.fireball', null, null], [null, null, null]],
+      combos: [['melee.heavy_slash', null, null], ['magic.fireball', null, null], [null, null, null], [null, null, null], [null, null, null], [null, null, null], [null, null, null]],
       activeCombo: 0,
       supports: [null, null, null],
     },
@@ -128,7 +128,7 @@ describe('Migration', () => {
     const v1 = SaveDataSchema.parse(migrate(v0, 0));
     // v2：過去 2 級補發屬性點
     expect(v1.attributes).toEqual({ unspent: 6, allocated: {} });
-    expect(v1.loadout.combos).toEqual([['melee.heavy_slash', null, null], ['magic.fireball', null, null], [null, null, null]]);
+    expect(v1.loadout.combos).toEqual([['melee.heavy_slash', null, null], ['magic.fireball', null, null], [null, null, null], [null, null, null], [null, null, null], [null, null, null], [null, null, null]]);
     expect(v1.loadout.activeCombo).toBe(1);
     expect(v1.inventory.cells.filter((c) => c?.kind === 'potion').map((c) => c?.kind === 'potion' && c.count)).toEqual([20, 3]);
     expect(v1.inventory.cells).toHaveLength(80);

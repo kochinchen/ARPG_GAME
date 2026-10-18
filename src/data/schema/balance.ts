@@ -88,13 +88,15 @@ export const BalanceSchema = z.strictObject({
     /** 新角色一開始會的技能（Lv1）；其餘技能以技能點學習 */
     startingSkills: z.array(IdSchema).default([]),
     startingSkillPoints: z.int().nonnegative().default(0),
-    /** Q / W / E 連段第 1、2、3 格的解鎖等級 */
+    /** 每組連段第 1、2、3 格的解鎖等級 */
     comboSlotLevels: z.tuple([z.int().positive(), z.int().positive(), z.int().positive()]),
+    /** Q / W / E / R / A / S / D 各組連段的解鎖等級 */
+    comboKeyLevels: z.array(z.int().positive()).length(7),
     /** 新角色的技能配置（必須是 startingSkills 內的技能） */
     startingLoadout: z.strictObject({
       left: IdSchema,
-      /** Q / W / E 各 3 步連段 */
-      combos: z.tuple([ComboSlotsSchema, ComboSlotsSchema, ComboSlotsSchema]),
+      /** Q / W / E / R / A / S / D 各 3 步連段 */
+      combos: z.array(ComboSlotsSchema).length(7),
       supports: z.tuple([IdSchema.nullable(), IdSchema.nullable(), IdSchema.nullable()]),
     }),
   }),

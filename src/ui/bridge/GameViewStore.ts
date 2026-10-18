@@ -1,3 +1,4 @@
+import type { ComboKey, ComboKeyLabel } from '../../game/player/PlayerLoadout';
 import { reactive } from 'vue';
 import { emptyCharacterView } from './CharacterView';
 import { emptyInventoryView } from './InventoryView';
@@ -12,8 +13,10 @@ export interface SkillSlotView {
 }
 
 export interface ComboBarView {
-  key: 'Q' | 'W' | 'E';
-  index: 0 | 1 | 2;
+  key: ComboKeyLabel;
+  index: ComboKey;
+  /** 還沒解鎖時的解鎖等級；已解鎖為 null */
+  unlockLevel: number | null;
   /** 每一步：null = 空格；locked = 等級未到 */
   steps: ({ skill: SkillSlotView | null; locked: boolean })[];
   active: boolean;

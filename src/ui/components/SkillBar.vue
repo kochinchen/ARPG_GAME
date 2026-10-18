@@ -4,13 +4,15 @@ import type { ComboBarView, GameView } from '../bridge/GameViewStore';
 
 defineProps<{ bar: GameView['skillBar'] }>();
 
-/** 點連段欄 = 按 Q / W / E */
+/** 點連段欄 = 按 Q / W / E / R / A / S / D */
 function select(e: MouseEvent, combo: ComboBarView) {
   (e.currentTarget as HTMLElement).blur();
+  if (combo.unlockLevel !== null) return;
   gameBridge.send({ type: 'SelectRightSlot', slot: combo.index });
 }
 
 function comboTitle(combo: ComboBarView): string {
+  if (combo.unlockLevel !== null) return `${combo.key} 連段：等級 ${combo.unlockLevel} 解鎖`;
   const steps = combo.steps.map((s, i) => `${i + 1}. ${s.locked ? '（未解鎖）' : (s.skill?.name ?? '（空）')}`).join('\n');
   const name = combo.comboName === null ? '' : `\nCombo：${combo.comboName}`;
   return `${combo.key} 連段（右鍵施放）\n${steps}${name}`;
@@ -28,12 +30,13 @@ function comboTitle(combo: ComboBarView): string {
       :key="combo.key"
       type="button"
       class="slot combo"
-      :class="{ active: combo.active }"
+      :class="{ active: combo.active, locked: combo.unlockLevel !== null, extra: combo.index >= 4 }"
       :title="comboTitle(combo)"
       @click="select($event, combo)"
     >
       <span class="key">{{ combo.key }}</span>
-      <span class="steps">
+      <span v-if="combo.unlockLevel !== null" class="lock">🔒<br />Lv{{ combo.unlockLevel }}</span>
+      <span v-else class="steps">
         <span
           v-for="(step, i) in combo.steps"
           :key="i"
@@ -42,7 +45,7 @@ function comboTitle(combo: ComboBarView): string {
           {{ step.locked ? '🔒' : (step.skill?.name ?? '—') }}
         </span>
       </span>
-      <span v-if="combo.comboName" class="combo-name">{{ combo.comboName }}</span>
+      <span v-if="combo.comboName && combo.unlockLevel === null" class="combo-name">{{ combo.comboName }}</span>
     </button>
     <div v-if="bar.supports.length" class="supports" title="Support 被動">
       <span v-for="s in bar.supports" :key="s">{{ s }}</span>
@@ -74,8 +77,34 @@ function comboTitle(combo: ComboBarView): string {
   margin-right: 6px;
 }
 .slot.combo {
-  width: 108px;
+  width: 92px;
   cursor: pointer;
+}
+/* 還沒解鎖的按鍵：窄格、顯示解鎖等級 */
+.slot.combo.locked {
+  width: 44px;
+  cursor: default;
+  opacity: 0.6;
+}
+/* 觸控裝置只有 Q / W / E / R 的按鈕，A / S / D 不顯示；窄螢幕縮小格子 */
+@media (pointer: coarse) {
+  .slot.combo.extra {
+    display: none;
+  }
+}
+@media (max-width: 1100px) {
+  .slot.combo {
+    width: 72px;
+  }
+  .slot.combo.locked {
+    width: 38px;
+  }
+}
+.lock {
+  font-size: 10px;
+  line-height: 1.3;
+  color: #6a5e4e;
+  text-align: center;
 }
 .slot.combo:hover {
   border-color: #8a7c68;

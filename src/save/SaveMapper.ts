@@ -4,6 +4,7 @@ import type { ComboCodexEntry } from '../game/combo/ComboCodex';
 import type { GroundContent } from '../game/entities/Interactable';
 import type { InventoryEntry } from '../game/items/Inventory';
 import { EQUIPMENT_SLOTS, type ItemInstance } from '../game/items/ItemInstance';
+import type { ComboKey } from '../game/player/PlayerLoadout';
 import type { RepairResult } from './SaveRepair';
 import type { SaveData, SavedEntry, SavedGroundItem, SavedItem } from './schema';
 
@@ -49,7 +50,7 @@ export const SaveMapper = {
       },
       loadout: {
         left: loadout.left,
-        combos: [[...loadout.combos[0]], [...loadout.combos[1]], [...loadout.combos[2]]],
+        combos: loadout.combos.map((c) => [...c] as [string | null, string | null, string | null]),
         activeCombo: loadout.activeCombo,
         supports: [...loadout.supports],
       },
@@ -125,7 +126,7 @@ export const SaveMapper = {
     loadout.left = save.loadout.left;
     save.loadout.combos.forEach((steps, i) => steps.forEach((id, step) => (loadout.combos[i]![step] = id)));
     save.loadout.supports.forEach((id, i) => (loadout.supports[i] = id));
-    loadout.select(save.loadout.activeCombo);
+    loadout.select(save.loadout.activeCombo as ComboKey);
 
     // 物品
     world.wallet.gold = save.character.gold;

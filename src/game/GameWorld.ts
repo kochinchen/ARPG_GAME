@@ -35,7 +35,7 @@ import { DeathHandler } from './player/DeathHandler';
 import { InteractionSystem } from './player/InteractionSystem';
 import { ItemActions } from './player/ItemActions';
 import { PlayerController } from './player/PlayerController';
-import { PlayerLoadout } from './player/PlayerLoadout';
+import { PlayerLoadout, type ComboSlots } from './player/PlayerLoadout';
 import { PotionBelt } from './player/PotionBelt';
 import { Wallet } from './player/Wallet';
 import { EffectRegistry } from './skills/EffectRegistry';
@@ -148,6 +148,7 @@ export class GameWorld {
   readonly comboResolver: ComboResolver;
   readonly codex = new ComboCodex();
   private readonly comboSlotLevels: readonly number[];
+  private readonly comboKeyLevels: readonly number[];
   readonly deathHandler: DeathHandler;
   readonly itemGenerator: ItemGenerator;
   /**
@@ -227,6 +228,7 @@ export class GameWorld {
     this.combos = new ComboSystem(this.comboResolver, this.targeting, this.statuses, this.events);
     new ComboDiscoverySystem(this.codex, this.events);
     this.comboSlotLevels = data.balance.player.comboSlotLevels;
+    this.comboKeyLevels = data.balance.player.comboKeyLevels;
     this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories, this.statuses);
     this.projectileSystem = new ProjectileSystem(this.nav, this.targeting, executor);
     // 閒置走動用獨立的亂數：不影響其他系統（掉寶、戰鬥）的亂數順序
@@ -240,7 +242,7 @@ export class GameWorld {
     const { left, combos, supports } = p.startingLoadout;
     this.loadout = new PlayerLoadout(
       left,
-      [[...combos[0]], [...combos[1]], [...combos[2]]],
+      combos.map((c) => [...c] as ComboSlots),
       [...supports],
     );
     this.player = this.addActor(
@@ -321,6 +323,7 @@ export class GameWorld {
       this.combos,
       data.skills,
       () => this.comboSlotsUnlocked,
+      () => this.comboKeysUnlocked,
       this.attributes,
     );
     this.support = new SupportSystem(this.player, this.loadout, data.skills);
@@ -774,6 +777,11 @@ export class GameWorld {
     this.support.update();
     this.player.hp = Math.min(Math.max(1, hp), this.player.maxHp);
     this.player.mana = Math.min(Math.max(0, mana), this.player.maxMana);
+  }
+
+  /** 目前等級已解鎖的連段組數（Q 起算，1～7） */
+  get comboKeysUnlocked(): number {
+    return this.comboKeyLevels.filter((level) => this.progress.level >= level).length;
   }
 
   /** 目前等級已解鎖的連段格數（1～3） */

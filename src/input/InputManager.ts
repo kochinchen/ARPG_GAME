@@ -5,7 +5,8 @@ import type { GameCommand } from '../game/Commands';
 /** 按住左鍵時，重新送出指令的間隔（秒） */
 const HOLD_REPEAT_INTERVAL = 0.1;
 
-const RIGHT_SLOT_KEYS: Record<string, 0 | 1 | 2> = { KeyQ: 0, KeyW: 1, KeyE: 2 };
+/** 連段選擇鍵（實體鍵位）：Q W E R / A S D */
+const RIGHT_SLOT_KEYS: Record<string, Extract<GameCommand, { type: 'SelectRightSlot' }>['slot']> = { KeyQ: 0, KeyW: 1, KeyE: 2, KeyR: 3, KeyA: 4, KeyS: 5, KeyD: 6 };
 
 export interface InputAdapters {
   /** 畫面座標 → World 座標（Camera） */
@@ -122,7 +123,8 @@ export class InputManager {
 
   private onKeyDown(e: KeyboardEvent): void {
     if (e.repeat || this.paused) return;
-    const slot = RIGHT_SLOT_KEYS[e.code];
+    // 有修飾鍵（Ctrl / ⌘ / Alt）時交給瀏覽器（例如 ⌘R 重新整理）
+    const slot = e.ctrlKey || e.metaKey || e.altKey ? undefined : RIGHT_SLOT_KEYS[e.code];
     if (slot !== undefined) {
       this.commands.push({ type: 'SelectRightSlot', slot });
     } else if (e.code === 'Space') {
