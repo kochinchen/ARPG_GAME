@@ -129,6 +129,11 @@ button.chip:hover { border-color: var(--focus); color: var(--focus); }
 .card-foot .num { font-weight: 600; color: var(--ink); }
 .card-foot .easy { flex: 1 1 100%; color: var(--muted); }
 .card-foot button { margin-left: auto; }
+.card-foot .wp { flex: 1 1 100%; color: var(--muted); }
+.result .warn { color: var(--no); font-weight: 600; }
+.result .ok { color: var(--ok); }
+td.wp { white-space: nowrap; font-size: 13px; }
+td.wp.no { color: var(--no); }
 
 /* 全部排列 */
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
@@ -173,7 +178,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
   <header>
     <div class="eyebrow">設計文件 · 地牢冒險 Dungeon Adventure · Q / W / E / R / A / S / D 三段連段</div>
     <h1>組合技<em>圖鑑</em></h1>
-    <p class="lede">把三個技能放進同一格連段，依序施放時會依標籤判定是否組成組合技，第三招（部分規則含第二招）得到加成。下面的資料由遊戲的判定程式實際跑過所有排列產生，可以直接拿來測試。</p>
+    <p class="lede">把三個技能放進同一格連段，依序施放時會依標籤判定是否組成組合技，第三招（部分規則含第二招）得到加成。下面的資料由遊戲的判定程式實際跑過所有排列產生，並依武器允許矩陣標出每組排列能用哪些武器，可以直接拿來測試。</p>
     <div class="facts" id="facts"></div>
   </header>
 
@@ -181,7 +186,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="sec-head">
       <div class="eyebrow">連段試算</div>
       <h2>選三招，看會不會組成組合技</h2>
-      <p>加成以 Lv1 為準；實際數值 × 第三招技能等級係數（Lv1～Lv5 為 1.0 / 1.1 / 1.2 / 1.3 / 1.4，數量類不縮放）。點下方表格任一列也會帶進這裡。</p>
+      <p>加成以 Lv1 為準；實際數值 × 第三招技能等級係數（Lv1～Lv5 為 1.0 / 1.1 / 1.2 / 1.3 / 1.4，數量類不縮放）。下方也會標出拿哪些武器能放這三招。點下方表格任一列也會帶進這裡。</p>
     </div>
     <div class="calc">
       <div class="picks">
@@ -209,18 +214,19 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="sec-head">
       <div class="eyebrow">全部排列</div>
       <h2>會觸發組合技的排列</h2>
-      <p>「需 Lv」是三招中解鎖等級最高的一招（技能樹 T1～T4 為 Lv <span class="mono" id="tier-levels"></span>）。效果欄是這組排列實際得到的加成（Lv1）。</p>
+      <p>「需 Lv」是三招中解鎖等級最高的一招（技能樹 T1～T4 為 Lv <span class="mono" id="tier-levels"></span>）。「武器」是拿哪些武器能同時放這三招；預設只列出至少一種武器能用的排列。效果欄是這組排列實際得到的加成（Lv1）。</p>
     </div>
     <div class="filters">
       <div class="f"><label for="f-rule">組合技</label><select id="f-rule"></select></div>
       <div class="f"><label for="f-skill">包含技能</label><select id="f-skill"></select></div>
+      <div class="f"><label for="f-weapon">武器</label><select id="f-weapon"></select></div>
       <div class="f"><label for="f-level">玩家等級</label><select id="f-level"></select></div>
       <div class="f"><label for="f-text">搜尋</label><input type="search" id="f-text" placeholder="例如 冰霜傷害、處決斬"></div>
     </div>
     <div class="count-line"><span>符合 <b class="mono" id="count"></b> 組</span><span class="muted" id="count-note"></span></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>需 Lv</th><th>組合技</th><th>第一招</th><th>第二招</th><th>第三招</th><th>效果（Lv1）</th></tr></thead>
+        <thead><tr><th>需 Lv</th><th>組合技</th><th>第一招</th><th>第二招</th><th>第三招</th><th>武器</th><th>效果（Lv1）</th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
@@ -239,6 +245,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <li data-n="4"><p><b>優先順序。</b>Tier 小的先；同 Tier 比較條件多寡，條件多的先；再相同就看規則編號。</p></li>
       <li data-n="5"><p><b>近身回報。</b>距離是「近 → 近 → 遠」時，第三招再加傷害 <span class="mono" id="nnf-dmg"></span>、範圍 <span class="mono" id="nnf-aoe"></span>，表格以「＋近身回報」標示。</p></li>
       <li data-n="6"><p><b>組合失敗照常施放。</b>三招一定依序放出，只是沒有加成。某一招沒有目標或魔力不足時整組中斷。</p></li>
+      <li data-n="7"><p><b>武器限制。</b>拿在手上的武器決定能用哪幾類技能：<span id="weapon-rules"></span>。連段裡有一招不能用，整組都不施放；盾擊另外需要裝備盾牌。所以近戰與遠程技能不會出現在同一組，法杖只能把魔法和戰術技能組在一起。</p></li>
     </ol>
   </section>
 
@@ -254,6 +261,9 @@ const DATA = __COMBO_DATA__;
   const RANGE = { Near: '近', Mid: '中', Far: '遠' };
   const pct = (v) => `+${Math.round(v * 1000) / 10}%`;
   const lvOf = (r) => Math.max(skills[r[1]].level, skills[r[2]].level, skills[r[3]].level);
+  const weapons = DATA.weapons;
+  const weaponText = (mask) => weapons.filter((_, i) => mask & (1 << i)).map((w) => w.label).join('、');
+  const usable = rows.filter((r) => r[6]);
   const TIER_NOTES = {
     1: '秘密組合技：指定技能與順序',
     2: '元素連擊：同元素三個不同技能',
@@ -275,10 +285,12 @@ const DATA = __COMBO_DATA__;
   $('facts').innerHTML = [
     `<span><b class="mono">${rules.length}</b> 條規則</span>`,
     `<span><b class="mono">${skills.length}</b> 個主動技能</span>`,
-    `<span>全部 <b class="mono">${(skills.length ** 3).toLocaleString()}</b> 種排列中，<b class="mono">${rows.length.toLocaleString()}</b> 種會觸發</span>`,
+    `<span>全部 <b class="mono">${(skills.length ** 3).toLocaleString()}</b> 種排列中，<b class="mono">${rows.length.toLocaleString()}</b> 種會觸發，其中 <b class="mono">${usable.length.toLocaleString()}</b> 種有武器能用</span>`,
+    ...weapons.map((w, i) => `<span>${esc(w.label)} <b class="mono">${rows.filter((r) => r[6] & (1 << i)).length.toLocaleString()}</b> 種</span>`),
     `<span>資料產生於 <b class="mono">${esc(DATA.generatedAt)}</b></span>`,
   ].join('');
   $('tier-levels').textContent = DATA.tierLevels.join(' / ');
+  $('weapon-rules').textContent = weapons.map((w) => `${w.label}：${w.categories.join('、')}`).join('；');
   $('nnf-dmg').textContent = pct(DATA.nearNearFar.damage);
   $('nnf-aoe').textContent = pct(DATA.nearNearFar.aoeRadius);
   $('footer').textContent = `由 scripts/render-combo-doc.mjs 讀取遊戲資料產生（npm run docs:combos）。技能或組合技規則改動後重新產生即可。`;
@@ -299,6 +311,9 @@ const DATA = __COMBO_DATA__;
   $('f-skill').innerHTML = skillOptions(true);
   $('f-rule').innerHTML = '<option value="">全部組合技</option>' +
     rules.map((r, i) => `<option value="${i}">T${r.tier} ${esc(r.name)}</option>`).join('');
+  $('f-weapon').innerHTML = '<option value="">任一武器能用</option>' +
+    weapons.map((w, i) => `<option value="${i}">${esc(w.label)}</option>`).join('') +
+    '<option value="none">沒有武器能用</option><option value="all">全部（不看武器）</option>';
   $('f-level').innerHTML = '<option value="">不限</option>' +
     DATA.tierLevels.map((lv) => `<option value="${lv}">Lv ${lv} 以下可用</option>`).join('');
 
@@ -315,6 +330,11 @@ const DATA = __COMBO_DATA__;
     const ranges = trio.map((s) => RANGE[s.range]).join(' → ');
     const lv = Math.max(...trio.map((s) => s.level));
     const meta = `<span class="meta">距離 ${ranges} · 需 Lv ${lv}</span>`;
+    const mask = trio.reduce((m, s) => m & s.weapons, (1 << weapons.length) - 1);
+    const shield = trio.some((s) => s.shield) ? '（盾擊需要裝備盾牌）' : '';
+    const wp = mask
+      ? `<p class="ok">可用武器：${esc(weaponText(mask))}${shield}</p>`
+      : `<p class="warn">沒有任何武器能同時使用這三招（${esc([...new Set(trio.map((s) => s.category))].join('、'))}），連段不會施放。</p>`;
     const box = $('result');
     const row = lookup.get(`${a},${b},${c}`);
     if (row) {
@@ -323,7 +343,7 @@ const DATA = __COMBO_DATA__;
       box.innerHTML = `<div class="result-head">${tierTag(rule.tier)}<span class="name">${esc(rule.name)}</span>${meta}</div>
         ${rule.description ? `<p class="muted">${esc(rule.description)}</p>` : ''}
         <ul>${texts[row[4]].split('；').map((t) => `<li>${esc(t)}</li>`).join('')}
-        ${row[5] ? `<li><b>近身回報：</b>第三招再加傷害 ${pct(DATA.nearNearFar.damage)}、範圍 ${pct(DATA.nearNearFar.aoeRadius)}</li>` : ''}</ul>`;
+        ${row[5] ? `<li><b>近身回報：</b>第三招再加傷害 ${pct(DATA.nearNearFar.damage)}、範圍 ${pct(DATA.nearNearFar.aoeRadius)}</li>` : ''}</ul>${wp}`;
       return;
     }
     let why = '距離與標籤都合理，但沒有符合的組合技。三招照常施放。';
@@ -333,7 +353,7 @@ const DATA = __COMBO_DATA__;
       name = '距離來回跳'; why = '「近 → 遠 → 近」與「遠 → 近 → 遠」不成立。';
     }
     box.className = 'result none';
-    box.innerHTML = `<div class="result-head"><span class="name">${name}</span>${meta}</div><p class="muted">${why}</p>`;
+    box.innerHTML = `<div class="result-head"><span class="name">${name}</span>${meta}</div><p class="muted">${why}</p>${wp}`;
   }
   function setPicks(a, b, c) {
     [a, b, c].forEach((v, i) => (picks[i].value = String(v)));
@@ -341,10 +361,13 @@ const DATA = __COMBO_DATA__;
   }
   picks.forEach((p) => p.addEventListener('change', showResult));
   const EXAMPLES = [
-    ['雙元素附刃', 'magic.ice_orb', 'magic.spark', 'melee.heavy_slash'],
-    ['烈焰終擊', 'melee.heavy_slash', 'melee.heavy_slash', 'magic.fireball'],
+    ['雙元素附刃（任何武器）', 'magic.ice_orb', 'magic.spark', 'utility.poison_knife'],
+    ['元素投擲（法杖也能用）', 'magic.fireball', 'magic.fireball', 'utility.poison_knife'],
+    ['元素陷阱', 'magic.ice_orb', 'utility.powder_keg', 'magic.fireball'],
+    ['烈焰終擊（劍 / 斧）', 'melee.heavy_slash', 'melee.heavy_slash', 'magic.fireball'],
     ['浮空追擊', 'melee.launch_slash', 'melee.quick_slash', 'melee.execution_slash'],
-    ['戰術撤退', 'melee.heavy_slash', 'ranged.backstep_shot', 'ranged.quick_shot'],
+    ['戰術撤退', 'melee.heavy_slash', 'utility.roll', 'magic.fireball'],
+    ['近戰＋遠程（不能用）', 'melee.heavy_slash', 'ranged.backstep_shot', 'ranged.quick_shot'],
     ['距離來回跳', 'melee.heavy_slash', 'magic.fireball', 'melee.heavy_slash'],
   ].filter((e) => e.slice(1).every((id) => idxOf(id) >= 0));
   $('examples').innerHTML = '<span>範例：</span>' +
@@ -363,8 +386,10 @@ const DATA = __COMBO_DATA__;
   $('rule-blocks').innerHTML = tiers.map((t) => {
     const cards = rules.map((r, i) => [r, i]).filter(([r]) => r.tier === t).map(([r, i]) => {
       const list = byRule[i];
-      const easy = list[0];
-      const easyText = easy ? `最早可測：Lv ${lvOf(easy)}，${[easy[1], easy[2], easy[3]].map((s) => skills[s].name).join(' → ')}` : '目前沒有任何排列會觸發';
+      const ok = list.filter((r) => r[6]);
+      const easy = ok[0];
+      const easyText = easy ? `最早可測：Lv ${lvOf(easy)}，${[easy[1], easy[2], easy[3]].map((s) => skills[s].name).join(' → ')}` : (list.length ? '沒有任何武器能同時使用會觸發的排列' : '目前沒有任何排列會觸發');
+      const perWeapon = weapons.map((w, b) => `${w.label} ${list.filter((r) => r[6] & (1 << b)).length}`).join('、');
       const extra = [...r.condition.extra, ...r.displayNames.map((d) => `第三招是${d.skill}時名稱改為「${d.name}」`)];
       return `<article class="card">
         <div class="card-head">${tierTag(r.tier)}<h4>${esc(r.name)}</h4><span class="id mono">${esc(r.id)}</span></div>
@@ -372,8 +397,9 @@ const DATA = __COMBO_DATA__;
         ${strip(r.condition.steps)}
         ${extra.length ? `<p class="extra">${extra.map(esc).join('；')}</p>` : ''}
         <ul>${r.effects.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>
-        <div class="card-foot"><span><span class="num mono">${list.length.toLocaleString()}</span> 組排列</span>
+        <div class="card-foot"><span><span class="num mono">${ok.length.toLocaleString()}</span> 組排列有武器能用${list.length > ok.length ? `（共 ${list.length.toLocaleString()} 組）` : ''}</span>
           ${easy ? `<button type="button" class="chip" data-rule="${i}">查看排列</button>` : ''}
+          <span class="wp">${esc(perWeapon)}</span>
           <span class="easy">${esc(easyText)}</span></div>
       </article>`;
     }).join('');
@@ -397,11 +423,15 @@ const DATA = __COMBO_DATA__;
     const rule = $('f-rule').value;
     const skill = $('f-skill').value;
     const level = $('f-level').value;
+    const weapon = $('f-weapon').value;
     const text = $('f-text').value.trim();
     filtered = rows.filter((r) => {
       if (rule !== '' && r[0] !== Number(rule)) return false;
       if (skill !== '' && ![r[1], r[2], r[3]].includes(Number(skill))) return false;
       if (level !== '' && lvOf(r) > Number(level)) return false;
+      if (weapon === '' && !r[6]) return false;
+      if (weapon === 'none' && r[6]) return false;
+      if (/^\d+$/.test(weapon) && !(r[6] & (1 << Number(weapon)))) return false;
       if (text) {
         const hay = rules[r[0]].name + skills[r[1]].name + skills[r[2]].name + skills[r[3]].name + texts[r[4]];
         if (!hay.includes(text)) return false;
@@ -415,11 +445,12 @@ const DATA = __COMBO_DATA__;
       const rl = rules[r[0]];
       return `<tr data-a="${r[1]}" data-b="${r[2]}" data-c="${r[3]}"><td class="lv">${lvOf(r)}</td>
         <td>${tierTag(rl.tier)} ${esc(rl.name)}</td>${skillCell(r[1])}${skillCell(r[2])}${skillCell(r[3])}
+        <td class="wp${r[6] ? '' : ' no'}">${r[6] ? esc(weaponText(r[6])) : '不能用'}</td>
         <td class="eff">${esc(texts[r[4]])}${r[5] ? ' <span class="nnf">＋近身回報</span>' : ''}</td></tr>`;
-    }).join('') || '<tr><td colspan="6" class="muted">沒有符合條件的排列。放寬篩選條件再試一次。</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="muted">沒有符合條件的排列。放寬篩選條件再試一次。</td></tr>';
     $('more').hidden = filtered.length <= shown;
   }
-  ['f-rule', 'f-skill', 'f-level'].forEach((id) => $(id).addEventListener('change', () => render(true)));
+  ['f-rule', 'f-skill', 'f-weapon', 'f-level'].forEach((id) => $(id).addEventListener('change', () => render(true)));
   $('f-text').addEventListener('input', () => render(true));
   $('more').addEventListener('click', () => {
     shown += PAGE;

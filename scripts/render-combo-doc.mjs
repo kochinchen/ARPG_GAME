@@ -100,6 +100,7 @@ try {
   const { ComboResolver } = await vite.ssrLoadModule('/src/game/combo/ComboResolver.ts');
   const { ComboSkillIndex } = await vite.ssrLoadModule('/src/game/combo/ComboSkillIndex.ts');
   const { SKILL_CATEGORY_LABELS, SKILL_ROUTE_LABELS } = await vite.ssrLoadModule('/src/data/skillTree.ts');
+  const { WEAPON_TYPE_LABELS } = await vite.ssrLoadModule('/src/data/schema/item.ts');
 
   const data = DataRegistry.load(gameData);
   const index = new ComboSkillIndex(data.skills);
@@ -111,6 +112,16 @@ try {
     .filter((s) => index.get(s.id))
     .sort((a, b) => categoryOrder.indexOf(a.tree.category) - categoryOrder.indexOf(b.tree.category) || a.tree.branch.localeCompare(b.tree.branch) || a.tree.tier - b.tree.tier);
   const skillIdx = new Map(skillDefs.map((s, i) => [s.id, i]));
+
+  // 武器允許矩陣：允許類別相同的武器合成一組（劍 / 斧），每組一個位元
+  const weapons = [];
+  for (const [type, cats] of Object.entries(data.balance.weaponRules)) {
+    const key = [...cats].sort().join(',');
+    const group = weapons.find((w) => w.key === key);
+    if (group) group.label += ` / ${WEAPON_TYPE_LABELS[type]}`;
+    else weapons.push({ key, label: WEAPON_TYPE_LABELS[type], categories: cats });
+  }
+  const weaponMask = (s) => weapons.reduce((m, w, i) => (w.categories.includes(s.tree.category) ? m | (1 << i) : m), 0);
   const skills = skillDefs.map((s) => {
     const p = index.get(s.id);
     return {
@@ -124,11 +135,13 @@ try {
       role: ROLE_LABELS[p.role],
       tags: [...p.tags].map((t) => TAG_LABELS[t] ?? t),
       element: p.elementTags.map((t) => TAG_LABELS[t]),
+      weapons: weaponMask(s),
+      shield: s.tags.includes('shield'),
     };
   });
   const skillName = (id) => data.skills.get(id).name;
 
-  // 所有排列：[規則索引, 第一招, 第二招, 第三招, 說明索引, 近身回報]
+  // 所有排列：[規則索引, 第一招, 第二招, 第三招, 說明索引, 近身回報, 可用武器（位元）]
   const rules = data.comboRules.all;
   const ruleIdx = new Map(rules.map((r, i) => [r.id, i]));
   const texts = [];
@@ -147,13 +160,15 @@ try {
     const nearNearFar = r.description.some((d) => d.startsWith('近身'));
     const desc = r.description.filter((d) => !d.startsWith('近身')).join('；');
     const shown = r.displayName !== r.rule.name ? `〔${r.displayName}〕` : '';
-    rows.push([ruleIdx.get(r.rule.id), skillIdx.get(a.id), skillIdx.get(b.id), skillIdx.get(c.id), textOf(shown + desc), nearNearFar ? 1 : 0]);
+    rows.push([ruleIdx.get(r.rule.id), skillIdx.get(a.id), skillIdx.get(b.id), skillIdx.get(c.id), textOf(shown + desc), nearNearFar ? 1 : 0,
+      weaponMask(a) & weaponMask(b) & weaponMask(c)]);
   }
 
   const payload = {
     generatedAt: new Date().toISOString().slice(0, 10),
     tierLevels,
     nearNearFar: data.balance.combo.nearNearFarBonus,
+    weapons: weapons.map((w) => ({ label: w.label, categories: w.categories.map((c) => SKILL_CATEGORY_LABELS[c]) })),
     skills,
     rules: rules.map((r) => ({
       id: r.id,
@@ -174,7 +189,8 @@ try {
   const html = fragment ? page : SHELL_HEAD + page + SHELL_TAIL;
   mkdirSync(dirname(outFile), { recursive: true });
   writeFileSync(outFile, html);
-  console.log(`組合技圖鑑：${rules.length} 條規則、${rows.length} 組排列 → ${outFile}`);
+  const usable = weapons.map((w, i) => `${w.label} ${rows.filter((r) => r[6] & (1 << i)).length}`).join('、');
+  console.log(`組合技圖鑑：${rules.length} 條規則、${rows.length} 組排列（${usable}）→ ${outFile}`);
 } finally {
   await vite.close();
 }
