@@ -139,6 +139,7 @@ export class PlayerController {
       case 'ShopGamble':
       case 'ShopAscendSlotClick':
       case 'ShopAscend':
+      case 'ShopClosed':
       case 'SalvageClick':
       case 'SalvageAll':
         // 由 GameWorld 處理

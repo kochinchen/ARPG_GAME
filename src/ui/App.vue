@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { gameBridge } from './bridge/GameBridge';
 import { gameView } from './bridge/GameViewStore';
 import { resolveHover, type HoverTarget } from './bridge/InventoryView';
 import { systemBridge } from './bridge/SystemBridge';
@@ -45,6 +46,10 @@ watch(
     if (!near) shopOpen.value = false;
   },
 );
+// 不論用哪種方式關閉商人面板（×、Esc、離開商人、開其他面板），都讓遊戲把鍛造格裡的裝備放回背包
+watch(shopOpen, (isOpen, wasOpen) => {
+  if (wasOpen && !isOpen) gameBridge.send({ type: 'ShopClosed' });
+});
 /** 依最新快照計算，穿脫或交換後 Tooltip 立即更新 */
 const hovered = computed(() => resolveHover(gameView.inventory, hoverTarget.value));
 

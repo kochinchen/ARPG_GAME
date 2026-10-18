@@ -558,3 +558,44 @@ function stepMatches(m: StepMatcher, s: SkillComboInfo): boolean {
 5. 現有的 `ComboTriggered`（開始時發出）改為 `ComboCompleted`（第三招施放時發出）；`discoveredCombos` 改為 `ComboCodex`
 6. `PlayerLoadout` 加入格子解鎖等級（Q7）
 7. 依 1.3 修正技能效果或標籤，並加入 SkillTagValidator
+
+---
+
+## 12. v0.4.0 戰術技能與新規則（規格：`release/設計文件/版更討論/v0.4.0_戰術技能與武器規則/`）
+
+### 12.1 戰術 12 招的標籤（`data/skillComboTags.ts`）
+
+| 技能 | Range / Role | 標籤 |
+|---|---|---|
+| 翻滾 | Mid / Bridge | Fast · Retreat · Roll |
+| 影步 | Mid / Starter | Fast · Advance · Reposition |
+| 鉤索 | Mid / Bridge | Projectile · Physical · Pull |
+| 幻影突襲 | Mid / Starter | Fast · Burst · Physical · Advance · Reposition · Stun |
+| 絆索網 | Far / Setup | AoE · Launch · Slow |
+| 霜凍地雷 | Far / Setup | AoE · Ice · Freeze |
+| 雷電圖騰 | Far / Amplifier | Projectile · Pierce · MultiHit · Lightning |
+| 火藥桶 | Far / Setup | AoE · Burst · Heavy · Fire · Knockback |
+| 淬毒飛刀 | Mid / Starter | Fast · Projectile · Physical |
+| 霜凍瓶 | Mid / Setup | AoE · Ice · Slow |
+| 擲斧 | Mid / Amplifier | Heavy · Projectile · Pierce · Physical |
+| 閃光粉 | Mid / Setup | AoE · Expose |
+
+新標籤 `Pull`（需要負距離擊退）、`Expose`（需要弱化狀態）；`Reposition` 需要穿越位移、`Knockback` 只認正距離（`skillAnalysis.checkComboTags`）。
+
+### 12.2 新規則（`data/comboRules.ts`）
+
+| 規則 | Tier / order | 條件 | 加成（第三招） |
+|---|---|---|---|
+| 破綻一擊 `combo.stun_opening` | 3 / 17 | Stun → Physical → Heavy 或 Execute | 傷害 +25%、暴擊率 +15% |
+| 乘虛而入 `combo.exploit_weakness` | 3 / 18 | Expose → 有傷害 → Finisher | 傷害 +20%、暴擊率 +10% |
+| 佈雷引爆 `combo.trap_detonation` | 4 / 19 | Far · Setup · AoE → Advance / Retreat / Roll / Reposition / Pull → Burst / Heavy / AoE | 傷害 +20%、範圍 +30% |
+
+### 12.3 Combo 池（`tests/game/combo/ComboPool.test.ts`）
+
+| 武器 | 只套武器規則 | 加入戰術＋新規則 | 打不到的規則 |
+|---|---|---|---|
+| 劍 / 斧 | 3,490 | 10,161 | 標記處決 |
+| 弓 | 3,287 | 9,264 | 烈焰終擊、冰霜重擊、碎甲 |
+| 法杖 | 119 | 1,943 | 烈焰終擊、冰霜重擊、碎甲、標記處決、元素處決 |
+
+基準（原本 36 招、19 條規則、不分武器）：10,040。連段裡有技能被目前的武器禁用或還在冷卻時，整組不施放。

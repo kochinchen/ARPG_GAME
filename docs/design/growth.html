@@ -234,7 +234,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
           <label>法術傷害 +<input type="number" id="gSpell" value="0" min="0" step="1" aria-label="法術傷害百分比">%</label>
           <label>暴擊率 +<input type="number" id="gCrit" value="0" min="0" step="1" aria-label="暴擊率百分點">%</label>
         </div>
-        <p class="small muted">數值欄填所有裝備加起來的總和：武器基底傷害（劍、斧、弓已乘主倍率）、法術強度（法杖已乘主倍率）＋詞綴。武器種類的內建加成會自動算進去，包含拿錯類型的扣分（例如拿劍用遠程技能 −20%）；百分比欄只填詞綴，例如「戰士的」「獵手的」「秘法的」與強屬性。預設為空手、無裝備。裝上的 Support 被動（模擬器 2）也會算進來。</p>
+        <p class="small muted">數值欄填所有裝備加起來的總和：武器基底傷害（劍、斧、弓已乘主倍率）、法術強度（法杖已乘主倍率）＋詞綴。武器種類的內建加成會自動算進去（劍斧弓的魔法 −20%、法杖 +15%）；武器不能用的技能類別會在技能說明與 Combo 測試標出（v0.4.0 武器允許矩陣）；百分比欄只填詞綴，例如「戰士的」「獵手的」「秘法的」與強屬性。預設為空手、無裝備。裝上的 Support 被動（模擬器 2）也會算進來。</p>
       </div>
       <div class="panel">
         <h3>角色數值</h3>
@@ -278,9 +278,9 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
 
   <section id="combo">
     <div class="sec-head">
-      <div class="eyebrow">ComboResolver · 19 條規則</div>
+      <div class="eyebrow">ComboResolver · 22 條規則</div>
       <h2>三段 Combo 測試</h2>
-      <p>依序選 Q / W / E 連段的三招，會用遊戲的判定程式算出是否成立、套用哪條規則、每一招的加成，以及加成後打在對手身上的傷害。加成會隨技能等級放大（Lv1 ×1.0 → Lv5 ×1.4）。</p>
+      <p>依序選連段（Q～D）的三招，會用遊戲的判定程式算出是否成立、套用哪條規則、每一招的加成，以及加成後打在對手身上的傷害。加成會隨技能等級放大（Lv1 ×1.0 → Lv5 ×1.4）。</p>
     </div>
     <label class="small"><input type="checkbox" id="comboAll"> 不受技能樹限制（所有主動技能，以 Lv5 計算）</label>
     <div class="combo-pick" id="comboPick"></div>
@@ -316,7 +316,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   const skillById = new Map(S.skills.map((s) => [s.id, s]));
   const enemyById = new Map(S.enemies.map((e) => [e.id, e]));
   const CAT = S.labels.category, ROUTE = S.labels.route;
-  const CATS = ['melee', 'ranged', 'magic', 'support'];
+  const CATS = ['melee', 'ranged', 'magic', 'utility', 'support'];
   const TREE = S.skills.filter((s) => s.tree);
   const START = new Set(B.player.startingSkills);
   // 武器種類的內建加成（取自 items.ts 的武器基底，扣除隨階級變動的傷害與法術強度）
@@ -421,6 +421,11 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
         case 'chain': collectDamage(e.effects, rankN, times, out); break;
         case 'delayed': collectDamage(e.effects, rankN, times * (e.repeat || 1), out); break;
         case 'zone': collectDamage(e.effects, rankN, times * Math.max(1, Math.floor(e.duration / e.interval)), out); break;
+        // 機關（v0.4.0）：圖騰 = 射擊次數 × 每發；其他 = 觸發或爆炸一次
+        case 'device':
+          if (e.behavior === 'turret') collectDamage(e.onShot, rankN, times * S.rankValue(e.shots, rankN), out);
+          else collectDamage(e.onTrigger.length ? e.onTrigger : e.onExpire, rankN, times, out);
+          break;
       }
     }
     return out;
@@ -437,7 +442,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     let perCast = 0; const lines = [];
     for (const { e, times } of parts) {
       const [bmin, bmax] = e.scaling === 'weapon' ? [ps.get('damageMin'), ps.get('damageMax')]
-        : e.scaling === 'spell' ? [ps.get('spellPower') * 0.8, ps.get('spellPower') * 1.2] : (e.base || [0, 0]);
+        : e.scaling === 'spell' ? [ps.get('spellPower') * 0.8, ps.get('spellPower') * 1.2] : (e.base ? S.rankRange(e.base, r) : [0, 0]);
       const mult = S.rankValue(e.multiplier, r) * (1 + (mods.damage || 0)) * (1 + melee) * (1 + dmgBonus);
       const red = e.element === 'physical' ? 1 - mitig(en.defense * (1 - Math.min(1, mods.armorPenetration || 0))) : 1;
       const lo = bmin * mult * red, hi = bmax * mult * red;
@@ -476,7 +481,10 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   // ───────── Rendering: attributes ─────────
   function renderAttrs() {
     const imp = WEAPON_IMPLICIT[$('gType').value];
-    $('gTypeFx').textContent = imp ? '內建：' + Object.entries(imp).map(([k, v]) => `${IMPLICIT_LABEL[k] || k} ${v >= 0 ? '+' : ''}${pct(v)}`).join('、') : '';
+    const allowed = B.weaponRules[$('gType').value];
+    $('gTypeFx').textContent = imp
+      ? '內建：' + Object.entries(imp).map(([k, v]) => `${IMPLICIT_LABEL[k] || k} ${v >= 0 ? '+' : ''}${pct(v)}`).join('、') + (allowed ? `・可用技能：${allowed.map((c) => CAT[c]).join('、')}` : '')
+      : '';
     const left = attrTotal() - attrSpent();
     $('attrLeft').textContent = left; $('attrTotal').textContent = attrTotal();
     $('attrWarn').hidden = left >= 0;
@@ -619,6 +627,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
       <span class="small muted">${CAT[s.tree.category]}・${ROUTE[s.tree.category][s.tree.branch]}・T${s.tree.tier}・${rank(s.id) ? 'Lv' + rank(s.id) : '未學（以 Lv1 顯示）'}</span></div>
       ${s.description ? `<p>${esc(s.description)}</p>` : ''}
       ${prof ? `<div class="tags"><span class="tag">${RANGE[prof.range]}</span><span class="tag">${ROLE[prof.role]}</span>${tags.map((t) => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
+      ${S.weaponDenial(s.id, $('gType').value) ? `<p class="warn">⚠ ${esc(S.weaponDenial(s.id, $('gType').value))}（遊戲中這招會灰掉；放在連段裡整組不能施放）</p>` : ''}
       <ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="primary" data-learn="${s.id}" ${chk.ok ? '' : 'disabled'}>${rank(s.id) ? '升一級' : '學習'}</button>
@@ -646,7 +655,8 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   // ───────── Combo ─────────
   const TAG = { Heavy: '重擊', Impact: '衝擊', Fast: '快速', MultiHit: '多段', AoE: '範圍', Burst: '爆發', Projectile: '投射物', Pierce: '穿透',
     Channel: '持續', Execute: '處決', Physical: '物理', Fire: '火', Ice: '冰', Lightning: '雷', Advance: '突進', Retreat: '後撤',
-    Knockback: '擊退', ArmorBreak: '破甲', Slow: '緩速', Freeze: '冰凍', Mark: '標記', Launch: '浮空' };
+    Knockback: '擊退', ArmorBreak: '破甲', Slow: '緩速', Freeze: '冰凍', Mark: '標記', Launch: '浮空',
+    Roll: '翻滾', Reposition: '換位', Stun: '暈眩', Pull: '拉近', Expose: '弱化', Guard: '防禦', Counter: '反擊', Shield: '護盾', Dash: '衝刺' };
   const RANGE = { Near: '近', Mid: '中', Far: '遠' };
   const ROLE = { Starter: '起手', Setup: '鋪陳', Amplifier: '增幅', Bridge: '銜接', Finisher: '終結' };
   const NO_COMBO = {
@@ -672,14 +682,14 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     $('comboPick').innerHTML = [0, 1, 2].map((i) => {
       const cur = st.combo[i];
       const valid = opts.some((s) => s.id === cur);
-      const groups = ['melee', 'ranged', 'magic'].map((c) => {
+      const groups = ['melee', 'ranged', 'magic', 'utility'].map((c) => {
         const list = opts.filter((s) => s.tree.category === c);
         return list.length ? `<optgroup label="${CAT[c]}">${list.map((s) => `<option value="${s.id}" ${s.id === cur ? 'selected' : ''}>${esc(s.name)}${st.comboAll ? '' : '（Lv' + rank(s.id) + '）'}</option>`).join('')}</optgroup>` : '';
       }).join('');
       const p = valid ? S.profile(cur) : null;
       return `<div class="step"><span class="lbl">第 ${i + 1} 招（連段第 ${i + 1} 格）</span>
         <select data-step="${i}" aria-label="第 ${i + 1} 招"><option value="">— 未選 —</option>${groups}</select>
-        <span class="meta">${p ? `${RANGE[p.range]}距離・${ROLE[p.role]}・${[...p.tags].map((t) => TAG[t] || t).join('、')}` : ''}</span></div>`;
+        <span class="meta">${p ? `${RANGE[p.range]}距離・${ROLE[p.role]}・${[...p.tags].map((t) => TAG[t] || t).join('、')}` : ''}${valid && S.weaponDenial(cur, $('gType').value) ? `<b class="warn">・${esc(S.weaponDenial(cur, $('gType').value))}</b>` : ''}</span></div>`;
     }).join('');
   }
   function renderCombo() {

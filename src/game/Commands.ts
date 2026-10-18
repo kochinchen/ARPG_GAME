@@ -79,6 +79,8 @@ export type GameCommand =
   | { type: 'ShopAscendSlotClick' }
   /** 商人：飛昇飛昇格裡的裝備（基底升一階，結果留在飛昇格） */
   | { type: 'ShopAscend' }
+  /** 商人面板關閉（按 ×、Esc、離開商人、開其他面板）：鍛造格裡的裝備放回背包 */
+  | { type: 'ShopClosed' }
   /** 商人：重鑄飛昇格裡裝備的第 index 行詞綴 */
   | { type: 'ShopReroll'; index: number }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */

@@ -856,6 +856,12 @@ export class GameWorld {
       case 'ShopAscend':
         this.shop.ascend();
         return true;
+      case 'ShopClosed':
+        this.shop.returnAscendItem((item) => {
+          this.spawnGroundItem(this.player.position, { kind: 'item', item }).droppedByPlayer = true;
+          this.events.emit('ItemDropped', { position: this.player.position });
+        });
+        return true;
       case 'ShopReroll':
         this.shop.reroll(command.index);
         return true;

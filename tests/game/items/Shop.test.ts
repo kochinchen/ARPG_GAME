@@ -287,6 +287,28 @@ describe('飛昇（基底升一階）', () => {
     expect(fresh.shop.ascendSlot!.uid).toBe('asc');
   });
 
+  it('關閉商人面板（ShopClosed）：鍛造格裡的裝備放回背包；背包滿了就丟在腳下', () => {
+    const { world, send, approach } = setup(1);
+    approach();
+    world.cursor.set({ kind: 'item', item: sword() });
+    send({ type: 'ShopAscendSlotClick' });
+    send({ type: 'ShopClosed' });
+    expect(world.shop.ascendSlot).toBeNull();
+    expect(world.inventory.cells.some((c) => c?.kind === 'item' && c.item.uid === 'asc')).toBe(true);
+    // 空的鍛造格關閉時不做任何事
+    send({ type: 'ShopClosed' });
+
+    const full = setup(1);
+    full.approach();
+    const g = full.world.itemGenerator;
+    full.world.inventory.restore(full.world.inventory.cells.map(() => ({ kind: 'item' as const, item: g.create(base('boots'), 'normal', 1) })));
+    full.world.cursor.set({ kind: 'item', item: sword() });
+    full.send({ type: 'ShopAscendSlotClick' });
+    full.send({ type: 'ShopClosed' });
+    expect(full.world.shop.ascendSlot).toBeNull();
+    expect(full.world.groundItems.some((gi) => gi.content.kind === 'item' && gi.content.item.uid === 'asc')).toBe(true);
+  });
+
   it('價格依目標階級與稀有度；最高階與飾品不能飛昇', () => {
     const { world } = setup(12);
     const rare = world.shop.ascendInfo(sword('rare')).price;

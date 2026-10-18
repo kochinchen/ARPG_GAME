@@ -33,6 +33,7 @@
 - `npm run docs:models`：重新產生設計文件的怪物模型圖（每隻怪物旁邊站著女主角當比例尺）→ `release/設計文件/models/`
 - `npm run docs:combos`：用遊戲的 Combo 判定重新產生組合技圖鑑 → `release/設計文件/組合技圖鑑.html`（頁面樣式在 `scripts/combo-doc.template.html`）
 - `npm run docs:icons`：重新產生裝備圖鑑的物品圖示產生器（與遊戲背包相同的圖示）→ `release/設計文件/item-icons.js`；改到裝備資料或外觀時執行
+- `npm run docs:sim`：重新產生角色成長模擬用的遊戲邏輯（資料、Combo 判定、技能樹規則、武器允許矩陣）→ `release/設計文件/sim.js`；改到技能、平衡數值或規則時執行
 - `npm run docs:pages`：把 `release/設計文件/` 複製到 `docs/design/`（GitHub Pages：https://kochinchen.github.io/ARPG_GAME/design/）
 
 ## 開發用快捷鍵（只在 `npm run dev` 有效）

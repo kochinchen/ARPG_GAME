@@ -225,6 +225,19 @@ export class ShopSystem {
     return { next, price, materials, reason: null };
   }
 
+  /**
+   * 關閉商人面板時：鍛造格裡的裝備放回背包（背包滿了就由 drop 丟在腳下），避免裝備留在看不到的格子裡。
+   * 回傳是否有放回。
+   */
+  returnAscendItem(drop: (item: ItemInstance) => void): boolean {
+    const item = this.ascendSlot;
+    if (!item) return false;
+    this.ascendSlot = null;
+    if (!this.ctx.inventory.addItem(item)) drop(item);
+    this._version++;
+    return true;
+  }
+
   /** 飛昇格：拿著裝備點 → 放進去（有東西則互換）；空手點 → 拿回來。格子裡的裝備會存檔 */
   clickAscendSlot(): void {
     const held = this.ctx.cursor.entry;
