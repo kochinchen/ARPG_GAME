@@ -208,6 +208,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     tierMultiplier: [1, 1.15, 1.32, 1.52, 1.75],
     rarityFrom: { magic: 2, rare: 5, epic: 9, legendary: 15 },
     lineCount: { normal: 1, magic: 2, rare: 2, epic: 3, legendary: 3 },
+    // 純核（四件同一種類）：屬性多一條（2026-10-18 提前到 v0.5.0）
+    pureBonusLines: 1,
     mixedMultiplier: 0.7,
     brand: { chance: 0.35, chanceCap: 0.85, valueMultiplier: 0.7 },
     jewelryBoost: { normal: 0, magic: 0.05, rare: 0.1, epic: 0.15, legendary: 0.2, mythic: 0.25 },

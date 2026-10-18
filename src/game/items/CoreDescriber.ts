@@ -87,7 +87,7 @@ export interface CoreDescription {
 export function describeCore(core: CoreInstance, data: Data): CoreDescription {
   const { secondary, brand } = coreExtraTexts(core, data);
   const notes: string[] = [];
-  if (core.pure) notes.push('純核（四把同種類）');
+  if (core.pure) notes.push('純核（四件同一類，屬性多一條）');
   if (core.types.length === 2) notes.push(`混核：每個部位兩個核種各一條，數值 ×${data.balance.fusion.mixedMultiplier}`);
   notes.push(`數值以紫裝為準；鑲在${hostPowerText(data)}`);
   return {

@@ -229,7 +229,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
     </section>
 
     <section v-else-if="tab === 'fusion'" class="list">
-      <p class="note">把用不到的武器（2～4 把）熔成熔核；飾品區的戒指 / 護身符只提高印記機率。投入的物品會消失。</p>
+      <p class="note">把用不到的裝備（2～4 件，飾品以外）熔成熔核：武器 → 攻核、防具與盾牌 → 護核；四件同一類 = 純核（屬性多一條）。飾品區的戒指 / 護身符只提高印記機率。投入的物品會消失。</p>
       <CoreReveal v-if="view.fusion.result" :result="view.fusion.result" @dismiss="gameBridge.send({ type: 'ShopDismissFused' })" />
       <div class="fusion-grid">
         <div class="fusion-inputs">
@@ -239,13 +239,13 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
             type="button"
             class="ascend-slot"
             :class="{ filled: f }"
-            title="拿著武器點這裡放進去；空手點這裡拿回來"
+            title="拿著裝備（飾品以外）點這裡放進去；空手點這裡拿回來"
             @click="fusionSlot($event, 'inputs', i)"
             @pointerenter="f && hover($event, f, 0, [])"
             @pointerleave="hovered = null"
           >
             <ItemCell v-if="f" :entry="f" size="slot" />
-            <span v-else>武器</span>
+            <span v-else>裝備</span>
           </button>
         </div>
         <div class="fusion-jewelry">
@@ -291,11 +291,11 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
         </ul>
         <ul class="costs">
           <li :class="{ short: view.fusion.preview.cost.haveGold < view.fusion.preview.cost.gold }">金幣 {{ view.fusion.preview.cost.gold }}（持有 {{ view.fusion.preview.cost.haveGold }}）</li>
-          <li :class="{ short: view.fusion.preview.cost.haveEssence < view.fusion.preview.cost.essence }">武器精華 {{ view.fusion.preview.cost.essence }}（持有 {{ view.fusion.preview.cost.haveEssence }}）</li>
+          <li v-for="m in view.fusion.preview.cost.materials" :key="m.label" :class="{ short: m.have < m.need }">{{ m.label }} {{ m.need }}（持有 {{ m.have }}）</li>
         </ul>
         <button type="button" class="ascend-go" :disabled="!view.fusion.preview.canFuse" @click="fuse($event, view)">融合</button>
       </template>
-      <p v-else class="empty">從背包拿起武器，點上面的格子放進去。</p>
+      <p v-else class="empty">從背包拿起裝備（飾品以外），點上面的格子放進去。</p>
     </section>
 
     <section v-else class="list">

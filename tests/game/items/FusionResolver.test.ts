@@ -33,7 +33,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.mixed).toBe(true);
     expect([pv.tier, pv.rarity, pv.lineCount]).toEqual([1, 'normal', 1]);
     expect(pv.brand.chance).toBe(0);
-    expect(pv.cost).toEqual({ gold: 123, essence: 8 });
+    expect(pv.cost).toMatchObject({ gold: 123, essence: 8, materials: { weaponEssence: 8 } });
     // 混核：每個部位兩個核種各一條候選，數值 ×0.7
     const weaponSlot = pv.slots.find((s) => s.slot === 'weapon')!;
     expect(weaponSlot.options.map((o) => o.type).sort()).toEqual(['heavy', 'sharp']);
@@ -42,12 +42,12 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(crit.range[1]).toBeCloseTo(0.04 * 0.7);
   });
 
-  it('#2 四把弓（白 5、藍 8、黃 9、藍 13）→ 穿核 純 / T1 / 藍 2 條；頭盔欄射擊距離 0.5～1.0 格', () => {
+  it('#2 四把弓（白 5、藍 8、黃 9、藍 13）→ 穿核 純 / T1 / 藍 2＋1 條（純核多一條）；頭盔欄射擊距離 0.5～1.0 格', () => {
     const pv = previewFusion([weapon('bow', 'normal', 5), weapon('bow', 'magic', 8), weapon('bow', 'rare', 9), weapon('bow', 'magic', 13)], [], data);
     expect(pv.types).toEqual(['pierce']);
-    expect([pv.pure, pv.tier, pv.weight, pv.rarity, pv.lineCount]).toEqual([true, 1, 4, 'magic', 2]);
+    expect([pv.pure, pv.tier, pv.weight, pv.rarity, pv.lineCount]).toEqual([true, 1, 4, 'magic', 3]);
     expect(pv.next).toEqual({ rarity: 'rare', gap: 1 });
-    expect(pv.cost).toEqual({ gold: 498, essence: 14 });
+    expect(pv.cost).toMatchObject({ gold: 498, essence: 14, materials: { weaponEssence: 14 } });
     const helmet = pv.slots.find((s) => s.slot === 'helmet')!.options[0]!.lines[0]!;
     expect(helmet.line.id).toBe('core.pierce.range');
     expect(helmet.range).toEqual([0.5, 1]);
@@ -64,7 +64,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.brand.candidates).toHaveLength(1);
     expect(pv.brand.candidates[0]!.text).toMatch(/^重擊類技能傷害 \+25%/);
     expect(pv.brand.chance).toBeCloseTo(0.35);
-    expect(pv.cost).toEqual({ gold: 735, essence: 16 });
+    expect(pv.cost).toMatchObject({ gold: 735, essence: 16, materials: { weaponEssence: 16 } });
     expect(pv.warnings).toContain('投入傳奇 / 神話裝備，融合後無法復原');
   });
 
@@ -73,7 +73,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.types).toEqual(['pierce']);
     expect([pv.tier, pv.rarity]).toEqual([3, 'epic']);
     expect(pv.brand.candidates[0]!.legendaryId).toBe(MOUNTAIN);
-    expect(pv.cost).toEqual({ gold: 1135, essence: 22 });
+    expect(pv.cost).toMatchObject({ gold: 1135, essence: 22, materials: { weaponEssence: 22 } });
   });
 
   it('#5 紅弓＋焚星＋寒月＋水晶杖（火焰詞綴）＋紫戒指＋橘護身符 → 靈核（火）/ T3 / 橘；印記 91% 夾到 85%；1,523 / 26', () => {
@@ -95,7 +95,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.brand.chance).toBe(0.85);
     expect(pv.brand.capped).toBe(true);
     expect(pv.warnings).toContain('印記機率已達上限 85%');
-    expect(pv.cost).toEqual({ gold: 1523, essence: 26 });
+    expect(pv.cost).toMatchObject({ gold: 1523, essence: 26, materials: { weaponEssence: 26 } });
     // 武器欄：附加火焰 11.9～26.4%（6～10% × 1.32 × 1.5～2.0）
     const wpn = pv.slots.find((s) => s.slot === 'weapon')!.options[0]!.lines[0]!;
     expect(wpn.range[0]).toBeCloseTo(0.06 * 1.32 * 1.5);
@@ -113,7 +113,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.votes).toEqual({ sword: 1, axe: 2, staff: 1 });
     expect([pv.types[0], pv.tier, pv.rarity]).toEqual(['heavy', 2, 'epic']);
     expect(pv.brand.chance).toBeCloseTo(0.45);
-    expect(pv.cost).toEqual({ gold: 598, essence: 14 });
+    expect(pv.cost).toMatchObject({ gold: 598, essence: 14, materials: { weaponEssence: 14 } });
     // 權重 10（紫門檻 9）：拿掉裂山（7）或騎士長劍（黃 2）都會掉到黃；拿掉月刃斧（藍 1）或短杖（白 0）不會
     expect(pv.rarityCritical).toEqual([sword.uid, mountain.uid]);
   });
@@ -131,10 +131,10 @@ describe('融合預覽：規則', () => {
     expect([tierOf(9), tierOf(10), tierOf(39), tierOf(40), tierOf(80)]).toEqual([1, 2, 4, 5, 5]);
   });
 
-  it('不能融合：數量不對、放了非武器、白飾品', () => {
-    expect(previewFusion([weapon('sword', 'normal', 5)], [], data).problems).toContain('請放入 2～4 把武器');
-    const armor = { uid: 'a', baseId: baseOfSlot('armor'), rarity: 'normal' as const, itemLevel: 5, affixes: [] };
-    expect(previewFusion([weapon('sword', 'normal', 5), armor], [], data).problems).toContain('合成區只能放武器');
+  it('不能融合：數量不對、合成區放了飾品、白飾品', () => {
+    expect(previewFusion([weapon('sword', 'normal', 5)], [], data).problems).toContain('請放入 2～4 件裝備');
+    const ring = { uid: 'r', baseId: baseOfSlot('ring'), rarity: 'magic' as const, itemLevel: 5, affixes: [] };
+    expect(previewFusion([weapon('sword', 'normal', 5), ring], [], data).problems).toContain('合成區不能放戒指或護身符');
     expect(previewFusion([weapon('sword', 'normal', 5), weapon('sword', 'normal', 5)], [jewel('ring', 'normal')], data).problems).toContain('普通（白）飾品不能放進飾品區');
     expect(() => fuse([weapon('sword', 'normal', 5)], [], data, new Rng(1), 'x')).toThrow();
   });
@@ -175,9 +175,10 @@ describe('融合擲骰', () => {
     }
     expect(brands / 1000).toBeGreaterThan(0.31);
     expect(brands / 1000).toBeLessThan(0.39);
-    // 副屬性池：重核在武器以外的部位 5 條 ＋ 通用 5 條 = 10 條，每條約 2/10；不會抽到武器欄的屬性
-    expect(secondaryIds.size).toBe(10);
-    for (const count of secondaryIds.values()) expect(count / 1000).toBeGreaterThan(0.15);
+    // 副屬性池：重核在武器以外的部位 5 條 ＋ 通用 5 條，藥水效果重複只算一次 = 9 條，每條約 2/9；不會抽到武器欄的屬性
+    expect(secondaryIds.size).toBe(9);
+    for (const count of secondaryIds.values()) expect(count / 1000).toBeGreaterThan(0.17);
+    expect([...secondaryIds.keys()]).not.toContain('core.shared.potion');
     expect([...secondaryIds.keys()]).not.toContain('core.heavy.heavy_damage');
     expect([...secondaryIds.keys()]).not.toContain('core.heavy.knockback');
   });
@@ -201,5 +202,56 @@ describe('融合擲骰', () => {
     const pv = previewFusion([item, weapon('sword', 'normal', 20)], [], data);
     expect(pv.brand.candidates[0]).toMatchObject({ legendaryId: id, text: 'critDamageBonus' });
     expect(pv.brand.candidates[0]!.roll).toBeTypeOf('number');
+  });
+});
+
+describe('防具融合（2026-10-18 提前到 v0.5.0）', () => {
+  const gear = (slot: string, rarity: Rarity, itemLevel: number, extra: Partial<ItemInstance> = {}): ItemInstance => ({ uid: `${slot}-${n++}`, baseId: baseOfSlot(slot), rarity, itemLevel, affixes: [], ...extra });
+
+  it('防具依部位決定護核：鞋子 → 疾核、手套 → 掌核、頭盔 → 冠核、盔甲與盾牌 → 壁核；付防具精華', () => {
+    expect(previewFusion([gear('boots', 'rare', 20), gear('boots', 'magic', 20)], [], data).types).toEqual(['swift']);
+    expect(previewFusion([gear('gloves', 'rare', 20), gear('gloves', 'magic', 20)], [], data).types).toEqual(['grip']);
+    expect(previewFusion([gear('helmet', 'rare', 20), gear('helmet', 'magic', 20)], [], data).types).toEqual(['crown']);
+    const wall = previewFusion([gear('armor', 'rare', 20), gear('armor', 'rare', 20), gear('shield', 'magic', 20), gear('shield', 'magic', 20)], [], data);
+    expect(wall.types).toEqual(['wall']);
+    expect(wall.mixed).toBe(false);
+    // 盔甲與盾牌同屬壁核，但不是同一類 → 不是純核
+    expect(wall.pure).toBe(false);
+    expect(wall.cost.materials).toEqual({ armorEssence: wall.cost.essence });
+  });
+
+  it('純核：四件鞋子 → 屬性多一條', () => {
+    const pv = previewFusion([0, 1, 2, 3].map(() => gear('boots', 'epic', 30)), [], data);
+    expect([pv.pure, pv.rarity, pv.lineCount]).toEqual([true, 'legendary', 4]);
+  });
+
+  it('武器與防具混放：多數決；2 弓＋2 鞋子 → 混核（穿＋疾），精華各付一半', () => {
+    const three = previewFusion([weapon('sword', 'rare', 20), weapon('sword', 'rare', 20), weapon('sword', 'rare', 20), gear('armor', 'rare', 20)], [], data);
+    expect(three.types).toEqual(['sharp']);
+    expect(three.cost.materials).toEqual({ weaponEssence: three.cost.essence });
+    const mix = previewFusion([weapon('bow', 'rare', 20), weapon('bow', 'rare', 20), gear('boots', 'rare', 20), gear('boots', 'rare', 20)], [], data);
+    expect(mix.types.sort()).toEqual(['pierce', 'swift']);
+    expect(mix.cost.materials).toEqual({ weaponEssence: Math.ceil(mix.cost.essence / 2), armorEssence: Math.ceil(mix.cost.essence / 2) });
+  });
+
+  it('冠核的元素：投入防具上最多的元素抗性詞綴', () => {
+    const fireHelm = gear('helmet', 'rare', 20, { affixes: [{ id: 'affix.fireproof', rolls: [0.08] }] });
+    const pv = previewFusion([fireHelm, gear('helmet', 'magic', 20)], [], data);
+    expect([pv.types[0], pv.hasElement, pv.element]).toEqual(['crown', true, 'fire']);
+  });
+
+  it('副屬性不抽護核的武器欄屬性；擲出的熔核五個部位都有主屬性', () => {
+    const inputs = [0, 1, 2].map(() => gear('gloves', 'epic', 30));
+    const pv = previewFusion(inputs, [], data);
+    expect(pv.secondary.map((x) => x.line.id)).not.toContain('core.grip.crit_damage');
+    const core = fuse(inputs, [], data, new Rng(9), 'g1');
+    expect(core.types).toEqual(['grip']);
+    for (const slot of ['weapon', 'helmet', 'armor', 'gloves', 'boots'] as const) expect(core.main[slot]).toHaveLength(1);
+  });
+
+  it('橘色防具的強屬性也能成為印記', () => {
+    const def = data.legendaries.all.find((d) => d.rarity === 'legendary' && d.kind === 'boots' && d.lines.some((l) => l.strong))!;
+    const pv = previewFusion([gear('boots', 'legendary', 25, { legendaryId: def.id }), gear('boots', 'rare', 25)], [], data);
+    expect(pv.brand.candidates.map((c) => c.legendaryId)).toEqual([def.id]);
   });
 });

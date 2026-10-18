@@ -76,19 +76,38 @@ describe('融合流程', () => {
     expect(fused[0]).toMatchObject({ rarity: 'epic', tier: 2 });
   });
 
-  it('合成區只能放武器、飾品區只能放非白的戒指 / 護身符（放錯時留在手上）', () => {
+  it('合成區不能放飾品、飾品區只能放非白的戒指 / 護身符（放錯時留在手上）；防具可以放進合成區', () => {
     const { world, place, failures } = setup();
-    const armor: ItemInstance = { uid: 'a1', baseId: baseOfSlot('armor'), rarity: 'magic', itemLevel: 5, affixes: [] };
-    place('inputs', 0, armor);
+    const ring: ItemInstance = { uid: 'r1', baseId: baseOfSlot('ring'), rarity: 'magic', itemLevel: 5, affixes: [] };
+    place('inputs', 0, ring);
     expect(failures.at(-1)).toBe('cannotFuse');
     expect(world.shop.fusionInputs[0]).toBeNull();
-    expect(world.cursor.entry).toMatchObject({ kind: 'item', item: { uid: 'a1' } });
+    expect(world.cursor.entry).toMatchObject({ kind: 'item', item: { uid: 'r1' } });
+    world.cursor.set(null);
+    const armor: ItemInstance = { uid: 'a1', baseId: baseOfSlot('armor'), rarity: 'magic', itemLevel: 5, affixes: [] };
+    place('inputs', 0, armor);
+    expect(world.shop.fusionInputs[0]?.uid).toBe('a1');
     const whiteRing: ItemInstance = { uid: 'r0', baseId: baseOfSlot('ring'), rarity: 'normal', itemLevel: 5, affixes: [] };
     place('jewelry', 0, whiteRing);
     expect(world.shop.fusionJewelry[0]).toBeNull();
+    world.cursor.set(null);
     const amulet: ItemInstance = { uid: 'm1', baseId: baseOfSlot('amulet'), rarity: 'rare', itemLevel: 5, affixes: [] };
     place('jewelry', 1, amulet);
     expect(world.shop.fusionJewelry[1]?.uid).toBe('m1');
+  });
+
+  it('防具融合：四件鞋子 → 純疾核，付防具精華', () => {
+    const { world, send, place } = setup();
+    world.wallet.gold = 5000;
+    world.materials.add('armorEssence', 100);
+    world.materials.add('weaponEssence', 100);
+    for (let i = 0; i < 4; i++) place('inputs', i, { uid: `b${i}`, baseId: baseOfSlot('boots'), rarity: 'rare', itemLevel: 12, affixes: [] });
+    const pv = world.shop.fusionPreview();
+    send({ type: 'ShopFuse', confirm: false });
+    expect(world.materials.get('armorEssence')).toBe(100 - pv.cost.essence);
+    expect(world.materials.get('weaponEssence')).toBe(100);
+    const entry = world.inventory.cells.find((c) => c?.kind === 'core');
+    expect(entry?.kind === 'core' && entry.core).toMatchObject({ types: ['swift'], pure: true });
   });
 
   it('飾品區的戒指提高印記機率，融合後一起消失', () => {

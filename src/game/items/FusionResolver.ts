@@ -1,14 +1,15 @@
 import type { Rng } from '../../core/Rng';
 import type { DataRegistry } from '../../data/DataRegistry';
 import { CORE_SLOTS, type CoreElement, type CoreLine, type CoreSlot, type CoreTypeDef, type CoreTypeId } from '../../data/schema/core';
-import { RARITIES, type Rarity, type WeaponType } from '../../data/schema/item';
+import { RARITIES, WEAPON_TYPE_LABELS, type MaterialId, type Rarity } from '../../data/schema/item';
 import type { CoreInstance, CoreRarity, CoreRoll } from './CoreInstance';
 import { coreLineValue } from './CoreStats';
 import type { ItemInstance } from './ItemInstance';
 import { itemStats } from './ItemStats';
 
 /**
- * 融合判定（v0.5.0，SPEC §2）：2～4 把武器 → 一顆熔核；飾品區 0～2 件戒指 / 護身符只提高印記機率。
+ * 融合判定（v0.5.0，SPEC §2、§7）：2～4 件裝備（飾品以外：武器 → 攻核、防具與盾牌 → 護核）→ 一顆熔核；
+ * 飾品區 0～2 件戒指 / 護身符只提高印記機率。
  * - preview()：不用擲骰就算得出的全部（核種、核階、核色、元素、條數、純度、印記機率、各部位範圍、費用、提醒）
  * - fuse()：用 Seeded Rng 擲出主屬性、副屬性、核色倍率與印記
  * 純函式；投入物的消耗與扣費由呼叫端（商人）處理。
@@ -17,7 +18,18 @@ import { itemStats } from './ItemStats';
 type Data = Pick<DataRegistry, 'balance' | 'cores' | 'items' | 'affixes' | 'legendaries'>;
 
 const ELEMENTS: readonly CoreElement[] = ['fire', 'cold', 'lightning'];
-const ELEMENT_OF_STAT: Partial<Record<string, CoreElement>> = { fireDamagePct: 'fire', coldDamagePct: 'cold', lightningDamagePct: 'lightning' };
+/** 決定元素的詞綴：附加元素傷害（法杖）或元素抗性（防具） */
+const ELEMENT_OF_STAT: Partial<Record<string, CoreElement>> = {
+  fireDamagePct: 'fire',
+  coldDamagePct: 'cold',
+  lightningDamagePct: 'lightning',
+  fireResist: 'fire',
+  coldResist: 'cold',
+  lightningResist: 'lightning',
+};
+
+/** 投入物的「種類」：武器看武器種類、防具看部位（純核 = 四件同一種類） */
+export const FUSION_KIND_LABELS: Record<string, string> = { ...WEAPON_TYPE_LABELS, helmet: '頭盔', armor: '盔甲', gloves: '手套', boots: '鞋子', shield: '盾牌' };
 
 /** 印記候選：投入的一把橘武器 */
 export interface BrandCandidate {
@@ -41,9 +53,10 @@ export interface SlotPreview {
 }
 
 export interface FusionPreview {
-  /** 有問題時無法融合（例如投入數量不對、放了非武器） */
+  /** 有問題時無法融合（例如投入數量不對、放了飾品） */
   problems: string[];
-  votes: Partial<Record<WeaponType, number>>;
+  /** 各種類的件數（key = 武器種類或防具部位，名稱見 FUSION_KIND_LABELS） */
+  votes: Partial<Record<string, number>>;
   types: CoreTypeId[];
   mixed: boolean;
   avgItemLevel: number;
@@ -61,7 +74,8 @@ export interface FusionPreview {
   /** 副屬性池（每條抽中的機率） */
   secondary: { line: CoreLine; chance: number }[];
   slots: SlotPreview[];
-  cost: { gold: number; essence: number };
+  /** essence = 精華合計；materials = 實際要付的精華（跟著多數決：武器多付武器精華、防具多付防具精華；平手各付一半） */
+  cost: { gold: number; essence: number; materials: Partial<Record<MaterialId, number>> };
   warnings: string[];
   /** 拿掉後核色會降一級的投入物（uid） */
   rarityCritical: string[];
@@ -84,9 +98,13 @@ export function previewFusion(inputs: readonly ItemInstance[], jewelry: readonly
   const { balance } = data;
   const f = balance.fusion;
   const problems: string[] = [];
-  if (inputs.length < f.inputs.min || inputs.length > f.inputs.max) problems.push(`請放入 ${f.inputs.min}～${f.inputs.max} 把武器`);
-  const weapons = inputs.filter((i) => data.items.get(i.baseId).weaponType !== undefined);
-  if (weapons.length !== inputs.length) problems.push('合成區只能放武器');
+  if (inputs.length < f.inputs.min || inputs.length > f.inputs.max) problems.push(`請放入 ${f.inputs.min}～${f.inputs.max} 件裝備`);
+  const kindOf = (item: ItemInstance) => {
+    const base = data.items.get(item.baseId);
+    return base.weaponType ?? base.slot;
+  };
+  const materials = inputs.filter((i) => coreTypeForKind(kindOf(i), data) !== null);
+  if (materials.length !== inputs.length) problems.push('合成區不能放戒指或護身符');
   if (jewelry.length > f.jewelrySlots) problems.push(`飾品區最多 ${f.jewelrySlots} 件`);
   for (const j of jewelry) {
     const slot = data.items.get(j.baseId).slot;
@@ -94,19 +112,22 @@ export function previewFusion(inputs: readonly ItemInstance[], jewelry: readonly
     else if (j.rarity === 'normal') problems.push('普通（白）飾品不能放進飾品區');
   }
 
-  // 核種：武器種類多數決；平手 → 混核（取票數最高的兩種；超過兩種平手時取物品等級最高的兩種）
-  const votes: Partial<Record<WeaponType, number>> = {};
-  const topLevel: Partial<Record<WeaponType, number>> = {};
-  for (const item of weapons) {
-    const w = data.items.get(item.baseId).weaponType!;
-    votes[w] = (votes[w] ?? 0) + 1;
-    topLevel[w] = Math.max(topLevel[w] ?? 0, item.itemLevel);
+  // 核種：依核種多數決（盔甲與盾牌都算壁核）；平手 → 混核（取票數最高的兩種；超過兩種平手時取物品等級最高的兩種）
+  const votes: Partial<Record<string, number>> = {};
+  const typeVotes = new Map<CoreTypeId, { count: number; top: number }>();
+  for (const item of materials) {
+    const kind = kindOf(item);
+    votes[kind] = (votes[kind] ?? 0) + 1;
+    const type = coreTypeForKind(kind, data)!;
+    const v = typeVotes.get(type) ?? { count: 0, top: 0 };
+    v.count++;
+    v.top = Math.max(v.top, item.itemLevel);
+    typeVotes.set(type, v);
   }
-  const ranked = (Object.keys(votes) as WeaponType[]).sort((a, b) => votes[b]! - votes[a]! || topLevel[b]! - topLevel[a]!);
-  const best = ranked.length ? votes[ranked[0]!]! : 0;
-  const tied = ranked.filter((w) => votes[w] === best);
-  const chosen = tied.length >= 2 ? tied.slice(0, 2) : ranked.slice(0, 1);
-  const types = chosen.map((w) => attackCoreFor(w, data).id);
+  const ranked = [...typeVotes].sort(([, a], [, b]) => b.count - a.count || b.top - a.top).map(([t]) => t);
+  const best = ranked.length ? typeVotes.get(ranked[0]!)!.count : 0;
+  const tied = ranked.filter((t) => typeVotes.get(t)!.count === best);
+  const types = tied.length >= 2 ? tied.slice(0, 2) : ranked.slice(0, 1);
   const mixed = types.length === 2;
 
   // 核階：平均物品等級；核色：稀有度權重加總
@@ -119,12 +140,15 @@ export function previewFusion(inputs: readonly ItemInstance[], jewelry: readonly
   const nextRarity = NEXT_RARITY[rarity];
   const next = nextRarity ? { rarity: nextRarity, gap: f.rarityFrom[nextRarity] - weight } : null;
 
-  // 靈核的元素：投入法杖的元素詞綴（含傳奇的數值行）最多的那一種；平手或沒有 = 融合時隨機
-  const hasElement = types.some((t) => data.cores.types.get(t).slots.weapon?.some((l) => l.type === 'element'));
-  const element = hasElement ? majorityElement(weapons.filter((i) => data.items.get(i.baseId).weaponType === 'staff'), data) : null;
+  // 元素（靈核、冠核）：只看對應核種的投入物（靈核看法杖、冠核看頭盔）上最多的元素詞綴（附加元素傷害或元素抗性，含傳奇的數值行）；
+  // 平手或沒有 = 融合時隨機
+  const elementTypes = types.filter((t) => CORE_SLOTS.some((slot) => data.cores.types.get(t).slots[slot]?.some((l) => l.type === 'element')));
+  const hasElement = elementTypes.length > 0;
+  const element = hasElement ? majorityElement(materials.filter((i) => elementTypes.includes(coreTypeForKind(kindOf(i), data)!)), data) : null;
 
-  const pure = inputs.length === f.inputs.max && ranked.length === 1;
-  const lineCount = f.lineCount[rarity];
+  // 純核：四件同一種類（四把劍、四件鞋子…）→ 屬性多一條
+  const pure = inputs.length === f.inputs.max && Object.keys(votes).length === 1;
+  const lineCount = f.lineCount[rarity] + (pure ? f.pureBonusLines : 0);
 
   // 印記：每把橘武器（有強屬性）的機率 = 基礎 + 飾品加成；總機率 = 1 − Π(1 − p)，上限 chanceCap
   const jewelryBoost = jewelry.reduce((sum, j) => sum + (f.jewelryBoost[j.rarity] ?? 0), 0);
@@ -152,9 +176,18 @@ export function previewFusion(inputs: readonly ItemInstance[], jewelry: readonly
   }));
 
   const sumLevel = levels.reduce((a, b) => a + b, 0);
+  const essence = f.cost.essenceBase + levels.reduce((sum, lv) => sum + Math.ceil(lv / f.cost.essenceLevelDivisor), 0);
+  const weaponCount = materials.filter((i) => data.items.get(i.baseId).weaponType !== undefined).length;
+  const armorCount = materials.length - weaponCount;
   const cost = {
     gold: Math.round(f.cost.goldBase + f.cost.goldPerItemLevel * sumLevel),
-    essence: f.cost.essenceBase + levels.reduce((sum, lv) => sum + Math.ceil(lv / f.cost.essenceLevelDivisor), 0),
+    essence,
+    materials:
+      weaponCount === armorCount
+        ? { weaponEssence: Math.ceil(essence / 2), armorEssence: Math.ceil(essence / 2) }
+        : weaponCount > armorCount
+          ? { weaponEssence: essence }
+          : { armorEssence: essence },
   };
 
   const warnings: string[] = [];
@@ -233,8 +266,10 @@ export function fuse(inputs: readonly ItemInstance[], jewelry: readonly ItemInst
 
 // ─────────────────────────── 輔助 ───────────────────────────
 
-function attackCoreFor(weapon: WeaponType, data: Data): CoreTypeDef {
-  return data.cores.types.all.find((t) => t.enabled && t.family === 'attack' && t.weapon === weapon)!;
+/** 投入物種類 → 核種（武器種類 → 攻核、防具部位 → 護核；飾品沒有） */
+function coreTypeForKind(kind: string, data: Data): CoreTypeId | null {
+  const type = data.cores.types.all.find((t) => t.enabled && (t.weapon === kind || (t.sourceSlots as string[] | undefined)?.includes(kind)));
+  return type?.id ?? null;
 }
 
 /** 某部位可抽的主屬性（排除核色不足的，例如穿透 +1 需要紫以上） */
@@ -246,9 +281,12 @@ function mainCandidates(type: CoreTypeDef, slot: CoreSlot, rarity: CoreRarity): 
 function secondaryPool(types: readonly CoreTypeId[], rarity: CoreRarity, data: Data): CoreLine[] {
   const seen = new Set<string>();
   const out: CoreLine[] = [];
+  // 依「實際屬性」去重：不同部位欄的同一種屬性（例如衣裝與鞋子的暈眩時間減少）、與通用池重複的屬性只算一次
+  const keyOf = (l: CoreLine) => (l.type === 'stat' ? `stat:${l.stat}` : l.type === 'element' ? `element:${l.kind}` : `mods:${l.mod}:${JSON.stringify(l.when)}`);
   const push = (l: CoreLine) => {
-    if (seen.has(l.id) || !rarityAtLeast(rarity, l.minRarity)) return;
-    seen.add(l.id);
+    const key = keyOf(l);
+    if (seen.has(key) || !rarityAtLeast(rarity, l.minRarity)) return;
+    seen.add(key);
     out.push(l);
   };
   // 不抽「武器欄」的屬性（2026-10-18 定案）：輸出主要靠武器欄的主屬性，防具上的熔核偏防禦與通用
@@ -257,9 +295,9 @@ function secondaryPool(types: readonly CoreTypeId[], rarity: CoreRarity, data: D
   return out;
 }
 
-function majorityElement(staffs: readonly ItemInstance[], data: Data): CoreElement | null {
+function majorityElement(items: readonly ItemInstance[], data: Data): CoreElement | null {
   const count: Record<CoreElement, number> = { fire: 0, cold: 0, lightning: 0 };
-  for (const item of staffs) {
+  for (const item of items) {
     for (const { def } of itemStats(item, data).affixes) {
       const el = ELEMENT_OF_STAT[def.stat];
       if (el) count[el]++;

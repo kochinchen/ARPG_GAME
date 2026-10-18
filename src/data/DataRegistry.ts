@@ -322,7 +322,7 @@ function parseTable<T extends { id: string }>(
   return new DataTable(kind, parsed);
 }
 
-/** 熔核：核種、屬性行 ID 不重複；啟用的核種五個部位都有；每種武器剛好一種攻核；不得有吸取 / 回魔 */
+/** 熔核：核種、屬性行 ID 不重複；啟用的核種五個部位都有；每種武器剛好一種攻核、每個防具部位剛好一種護核；不得有吸取 / 回魔 */
 function parseCores(value: unknown, problems: string[]): CoreTables {
   const data = parseOne('cores', CoreDataSchema, value, problems);
   const types = new DataTable<CoreTypeDef>('coreType', []);
@@ -354,6 +354,11 @@ function parseCores(value: unknown, problems: string[]): CoreTables {
   for (const weapon of WeaponTypeSchema.options) {
     const n = data.types.filter((t) => t.enabled && t.family === 'attack' && t.weapon === weapon).length;
     if (n !== 1) problems.push(`武器 '${weapon}' 應剛好對應一種啟用的攻核（目前 ${n} 種）`);
+  }
+  // 防具融合：每個可以當材料的防具部位剛好對應一種啟用的護核
+  for (const slot of ['helmet', 'armor', 'gloves', 'boots', 'shield'] as const) {
+    const n = data.types.filter((t) => t.enabled && t.family === 'defense' && t.sourceSlots?.includes(slot)).length;
+    if (n !== 1) problems.push(`防具部位 '${slot}' 應剛好對應一種啟用的護核（目前 ${n} 種）`);
   }
   for (const line of data.shared) addLine(line, 'shared');
   return { types: new DataTable('coreType', data.types), lines: new DataTable('coreLine', lines), shared: data.shared };

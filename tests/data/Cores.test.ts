@@ -21,7 +21,7 @@ function problemsWith(patch: unknown): string[] {
 const clone = () => structuredClone(cores) as { types: { id: string; enabled: boolean; weapon?: string; slots: Record<string, unknown[]> }[]; shared: { id: string; type: string; stat?: string }[] };
 
 describe('熔核資料', () => {
-  it('四種攻核啟用、各對應一種武器；四種護核先寫好但不啟用', () => {
+  it('四種攻核各對應一種武器；四種護核各對應防具部位（盔甲與盾牌都是壁核），全部啟用', () => {
     const attack = data.cores.types.all.filter((t) => t.family === 'attack');
     expect(attack.map((t) => [t.id, t.weapon, t.enabled])).toEqual([
       ['sharp', 'sword', true],
@@ -29,15 +29,19 @@ describe('熔核資料', () => {
       ['pierce', 'bow', true],
       ['arcane', 'staff', true],
     ]);
-    expect(data.cores.types.all.filter((t) => t.family === 'defense').map((t) => [t.id, t.enabled])).toEqual([
-      ['wall', false],
-      ['swift', false],
-      ['grip', false],
-      ['crown', false],
+    expect(data.cores.types.all.filter((t) => t.family === 'defense').map((t) => [t.id, t.sourceSlots, t.enabled])).toEqual([
+      ['wall', ['armor', 'shield'], true],
+      ['swift', ['boots'], true],
+      ['grip', ['gloves'], true],
+      ['crown', ['helmet'], true],
     ]);
+    // 護核的手套、鞋子欄（2026-10-18）與冠核武器欄 4～6%
+    expect(data.cores.lines.get('core.wall.block')).toMatchObject({ stat: 'blockChance', value: [0.02, 0.04] });
+    expect(data.cores.lines.get('core.grip.crit')).toMatchObject({ stat: 'critChance', value: [0.015, 0.03] });
+    expect(data.cores.lines.get('core.crown.damage')).toMatchObject({ stat: 'damageBonus', value: [0.04, 0.06] });
   });
 
-  it('攻核五個部位都有主屬性（武器、頭盔、衣裝、手套、鞋子），每格 1～2 條', () => {
+  it('所有核種五個部位都有主屬性（武器、頭盔、衣裝、手套、鞋子），每格 1～2 條', () => {
     for (const type of data.cores.types.all.filter((t) => t.enabled)) {
       for (const slot of CORE_SLOTS) {
         const lines = type.slots[slot]!;

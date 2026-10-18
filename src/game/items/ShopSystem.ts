@@ -71,7 +71,7 @@ export class ShopSystem {
   stock: (ItemInstance | null)[] = [];
   /** 飛昇格：要飛昇的裝備（飛昇後留在原位，點一下拿回來） */
   ascendSlot: ItemInstance | null = null;
-  /** 融合：合成區（武器）與飾品區（戒指 / 護身符，只提高印記機率）；格子裡的物品會存檔 */
+  /** 融合：合成區（飾品以外的裝備）與飾品區（戒指 / 護身符，只提高印記機率）；格子裡的物品會存檔 */
   readonly fusionInputs: (ItemInstance | null)[];
   readonly fusionJewelry: (ItemInstance | null)[];
   /** 最近一次融合的結果（介面顯示揭曉動畫；關閉面板或收下後清除，不存檔） */
@@ -279,7 +279,7 @@ export class ShopSystem {
 
   // ─────────────────────────── 融合（v0.5.0）───────────────────────────
 
-  /** 點合成區（只能放武器）或飾品區（只能放非白的戒指 / 護身符）的格子：放進 / 互換 / 拿回 */
+  /** 點合成區（飾品以外的裝備）或飾品區（只能放非白的戒指 / 護身符）的格子：放進 / 互換 / 拿回 */
   clickFusionSlot(zone: 'inputs' | 'jewelry', index: number): void {
     const slots = zone === 'inputs' ? this.fusionInputs : this.fusionJewelry;
     if (index < 0 || index >= slots.length) return;
@@ -287,7 +287,8 @@ export class ShopSystem {
     if (held && held.kind !== 'item') return;
     if (held) {
       const base = this.data.items.get(held.item.baseId);
-      const ok = zone === 'inputs' ? base.weaponType !== undefined : (base.slot === 'ring' || base.slot === 'amulet') && held.item.rarity !== 'normal';
+      const jewel = base.slot === 'ring' || base.slot === 'amulet';
+      const ok = zone === 'inputs' ? !jewel : jewel && held.item.rarity !== 'normal';
       if (!ok) {
         this.fail('cannotFuse');
         return;
@@ -317,7 +318,7 @@ export class ShopSystem {
   }
 
   /**
-   * 融合：付金幣與武器精華，投入的武器與飾品消失，產出一顆熔核放進背包（滿了由 drop 丟在腳下）。
+   * 融合：付金幣與精華（武器多付武器精華、防具多付防具精華），投入的裝備與飾品消失，產出一顆熔核放進背包（滿了由 drop 丟在腳下）。
    * 有傳奇 / 神話投入時必須 confirmed。
    */
   fuse(confirmed: boolean, drop: (core: CoreInstance) => void): CoreInstance | null {
@@ -331,7 +332,7 @@ export class ShopSystem {
       this.fail('needsConfirm');
       return null;
     }
-    const materials = { weaponEssence: pv.cost.essence };
+    const materials = pv.cost.materials;
     if (!this.ctx.materials.has(materials)) {
       this.fail('materials');
       return null;

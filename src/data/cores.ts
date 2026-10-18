@@ -3,7 +3,7 @@ import type { CoreDataSchema, CoreLine } from './schema/core';
 import type { SkillFilter } from './schema/legendary';
 
 /**
- * 熔核（規格：SPEC_v0.5.0_鑲嵌與融合 §1.6、§3、§7.2）。
+ * 熔核（規格：SPEC_v0.5.0_鑲嵌與融合 §1.6、§3、§7.2）：攻核由武器融合、護核由防具融合（飾品不能當材料）。
  * 數值都是 T1 範圍；實際數值 = 擲骰 × 核階倍率 × 核色倍率（balance.fusion）。
  * 不放吸血 / 吸魔（吸取硬上限守則）與回魔（由 Support 被動負責）——tests/data/StealCap.test.ts 把關。
  */
@@ -88,17 +88,19 @@ export const cores: Input = {
       },
     },
 
-    // ── 護核（防具融合，v0.5.1 啟用；手套、鞋子欄到時補齊）──
+    // ── 護核（防具融合：頭盔、盔甲、手套、鞋子、盾牌；2026-10-18 提前到 v0.5.0）──
     {
       id: 'wall',
       name: '壁核',
       family: 'defense',
       sourceSlots: ['armor', 'shield'],
-      enabled: false,
+      enabled: true,
       slots: {
         weapon: [stat('core.wall.melee', 'meleeDamageBonus', [0.08, 0.12])],
         helmet: [stat('core.wall.potion', 'potionEffect', [0.08, 0.12])],
         armor: [inc('core.wall.defense', 'defense', [0.04, 0.08]), stat('core.wall.damage_reduction', 'damageReduction', [0.03, 0.05])],
+        gloves: [stat('core.wall.block', 'blockChance', [0.02, 0.04])],
+        boots: [stat('core.wall.physical_resist', 'physicalResist', [0.02, 0.04])],
       },
     },
     {
@@ -106,11 +108,13 @@ export const cores: Input = {
       name: '疾核',
       family: 'defense',
       sourceSlots: ['boots'],
-      enabled: false,
+      enabled: true,
       slots: {
         weapon: [inc('core.swift.attack_speed', 'attackSpeed', [0.04, 0.08])],
         helmet: [inc('core.swift.move_speed', 'moveSpeed', [0.03, 0.05])],
         armor: [stat('core.swift.dodge', 'dodgeChance', [0.02, 0.04]), stat('core.swift.slow_resist', 'slowResist', [0.15, 0.25])],
+        gloves: [inc('core.swift.attack_speed_gloves', 'attackSpeed', [0.03, 0.06])],
+        boots: [inc('core.swift.move_speed_boots', 'moveSpeed', [0.04, 0.06])],
       },
     },
     {
@@ -118,11 +122,13 @@ export const cores: Input = {
       name: '掌核',
       family: 'defense',
       sourceSlots: ['gloves'],
-      enabled: false,
+      enabled: true,
       slots: {
         weapon: [stat('core.grip.crit_damage', 'critDamageBonus', [0.08, 0.12])],
         helmet: [stat('core.grip.cast_speed', 'castSpeed', [0.04, 0.08])],
         armor: [stat('core.grip.knockback_resist', 'knockbackResist', [0.15, 0.25])],
+        gloves: [stat('core.grip.crit', 'critChance', [0.015, 0.03])],
+        boots: [stat('core.grip.knockback_resist_boots', 'knockbackResist', [0.15, 0.25])],
       },
     },
     {
@@ -130,11 +136,13 @@ export const cores: Input = {
       name: '冠核',
       family: 'defense',
       sourceSlots: ['helmet'],
-      enabled: false,
+      enabled: true,
       slots: {
-        weapon: [stat('core.crown.damage', 'damageBonus', [0.02, 0.04])],
+        weapon: [stat('core.crown.damage', 'damageBonus', [0.04, 0.06])],
         helmet: [inc('core.crown.max_mana', 'maxMana', [0.06, 0.1]), stat('core.crown.mana_cost', 'manaCostReduction', [0.03, 0.05])],
         armor: [element('core.crown.element_resist', 'resist', [0.06, 0.1]), stat('core.crown.stun_resist', 'stunResist', [0.15, 0.25])],
+        gloves: [stat('core.crown.spell_damage', 'spellDamageBonus', [0.04, 0.08])],
+        boots: [stat('core.crown.stun_resist_boots', 'stunResist', [0.15, 0.25])],
       },
     },
   ],

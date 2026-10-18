@@ -298,6 +298,8 @@ export const BalanceSchema = z.strictObject({
     rarityFrom: z.strictObject({ magic: z.number(), rare: z.number(), epic: z.number(), legendary: z.number() }),
     /** 屬性條數（含主屬性；印記不佔條數） */
     lineCount: z.strictObject({ normal: z.int().positive(), magic: z.int().positive(), rare: z.int().positive(), epic: z.int().positive(), legendary: z.int().positive() }),
+    /** 純核（四件同一種類）多幾條屬性 */
+    pureBonusLines: z.int().nonnegative(),
     /** 混核：兩個核種各取一條，數值 × mixedMultiplier */
     mixedMultiplier: z.number().positive(),
     brand: z.strictObject({

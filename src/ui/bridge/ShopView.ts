@@ -12,7 +12,7 @@ import { CORE_ELEMENT_LABELS, coreExtraTexts, coreRangeText, hostPowerText } fro
 import { coreGem, type CoreGem } from '../../render/icons/CoreIcons';
 import { describeItem, STAT_LABELS } from '../../game/items/ItemDescriber';
 import type { StatId } from '../../data/schema/common';
-import type { FusionPreview } from '../../game/items/FusionResolver';
+import { FUSION_KIND_LABELS, type FusionPreview } from '../../game/items/FusionResolver';
 
 export interface ShopView {
   /** 站在商人附近（離開後 UI 自動關閉商店） */
@@ -93,7 +93,8 @@ export interface FusionPanel {
   chance: string[];
   slots: { label: string; lines: string[] }[];
   warnings: string[];
-  cost: { gold: number; essence: number; haveGold: number; haveEssence: number };
+  /** 金幣與精華（武器多付武器精華、防具多付防具精華；平手各付一半），並列持有量 */
+  cost: { gold: number; haveGold: number; materials: { label: string; need: number; have: number }[] };
   canFuse: boolean;
   needsConfirm: boolean;
 }
@@ -235,12 +236,13 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /** 融合確認面板的文字 */
 function fusionPanel(world: GameWorld, data: DataRegistry, pv: FusionPreview, gold: number): FusionPanel {
-  const haveEssence = world.materials.get('weaponEssence');
-  const cost = { gold: pv.cost.gold, essence: pv.cost.essence, haveGold: gold, haveEssence };
+  const materials = (Object.entries(pv.cost.materials) as [MaterialId, number][]).map(([id, need]) => ({ label: MATERIAL_LABELS[id], need, have: world.materials.get(id) }));
+  const enough = world.materials.has(pv.cost.materials);
+  const cost = { gold: pv.cost.gold, haveGold: gold, materials };
   const empty = { problems: pv.problems, certain: [], chance: [], slots: [], warnings: [], cost, canFuse: false, needsConfirm: false };
   if (pv.types.length === 0) return empty;
   const typeName = (t: string) => data.cores.types.get(t as never).name;
-  const votes = (Object.entries(pv.votes) as [WeaponType, number][]).map(([w, n]) => `${WEAPON_TYPE_LABELS[w]} ${n}`).join('、');
+  const votes = (Object.entries(pv.votes) as [string, number][]).map(([k, n]) => `${FUSION_KIND_LABELS[k] ?? k} ${n}`).join('、');
   const certain = [
     `核種：${pv.mixed ? `混核（${pv.types.map(typeName).join('＋')}）` : typeName(pv.types[0]!)}（${votes}）`,
     `核階：T${pv.tier}（平均物品等級 ${Math.round(pv.avgItemLevel * 10) / 10}）`,
@@ -250,11 +252,11 @@ function fusionPanel(world: GameWorld, data: DataRegistry, pv: FusionPreview, go
   ];
   const chance: string[] = [];
   if (pv.brand.candidates.length) {
-    const base = `每把橘武器 ${pct(pv.brand.baseChance)}${pv.brand.jewelryBoost > 0 ? ` ＋ 飾品 ${pct(pv.brand.jewelryBoost)}` : ''}`;
+    const base = `每件橘裝 ${pct(pv.brand.baseChance)}${pv.brand.jewelryBoost > 0 ? ` ＋ 飾品 ${pct(pv.brand.jewelryBoost)}` : ''}`;
     chance.push(`印記機率 ${pct(pv.brand.chance)}（${base}${pv.brand.capped ? '，已達上限' : ''}）`);
     const f = data.balance.fusion.brand.valueMultiplier;
     for (const c of pv.brand.candidates) chance.push(`可能印記：${data.legendaries.get(c.legendaryId).name}「${c.roll === undefined ? c.text : STAT_LABELS[c.text as StatId]}」× ${f}`);
-  } else chance.push('沒有印記（投入橘武器才有機會傳入強屬性）');
+  } else chance.push('沒有印記（投入橘色裝備才有機會傳入強屬性）');
   if (pv.secondary.length && pv.lineCount > 1) chance.push(`副屬性：從 ${pv.secondary.length} 條中抽 ${pv.lineCount - 1} 條，每條 ${pct(pv.secondary[0]!.chance)}`);
   chance.push(`部位範圍以紫裝為準；鑲在${hostPowerText(data)}`);
   const slots = pv.slots.map((s) => ({
@@ -266,8 +268,8 @@ function fusionPanel(world: GameWorld, data: DataRegistry, pv: FusionPreview, go
     return item ? describeItem(item, data).name : uid;
   };
   const warnings = [...pv.warnings, ...pv.rarityCritical.map((uid) => `拿掉「${nameOf(uid)}」會降低核色`)];
-  if (haveEssence < pv.cost.essence) warnings.push('武器精華不足（在背包的拆解區拆武器）');
-  const canFuse = pv.problems.length === 0 && gold >= pv.cost.gold && haveEssence >= pv.cost.essence;
+  if (!enough) warnings.push('精華不足（在背包的拆解區拆裝備：武器 → 武器精華、防具 → 防具精華）');
+  const canFuse = pv.problems.length === 0 && gold >= pv.cost.gold && enough;
   return { problems: pv.problems, certain, chance, slots, warnings, cost, canFuse, needsConfirm: world.shop.fusionNeedsConfirm };
 }
 
