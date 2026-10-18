@@ -142,7 +142,13 @@ export class ViewSync {
       if (id === null || !this.data.skills.has(id)) return null;
       const skill = this.data.skills.get(id);
       const rank = player.skillRanks.get(id) ?? 1;
-      return { id, name: skill.name, affordable: player.mana >= world.skills.manaCost(skill, rank, player), denied: world.weaponDenial(id) };
+      return {
+        id,
+        name: skill.name,
+        affordable: player.mana >= world.skills.manaCost(skill, rank, player),
+        denied: world.weaponDenial(id),
+        cooldown: player.cooldowns.get(id) ?? 0,
+      };
     };
     const unlocked = world.comboSlotsUnlocked;
     const keysUnlocked = world.comboKeysUnlocked;
@@ -150,6 +156,10 @@ export class ViewSync {
     const running = world.combos.currentStep(player);
     const rankOf = (id: string) => player.skillRanks.get(id) ?? 1;
     const bar = gameView.skillBar;
+    const cooldownDenial = (sequence: readonly string[]): string | null => {
+      const id = sequence.find((s) => (player.cooldowns.get(s) ?? 0) > 0);
+      return id ? `${this.data.skills.get(id).name}：冷卻中（${Math.ceil(player.cooldowns.get(id)!)} 秒）` : null;
+    };
     bar.left = slot(loadout.left);
     bar.combos = loadout.combos.map((steps, i): ComboBarView => {
       const sequence = steps.slice(0, unlocked).filter((s): s is string => s !== null);
@@ -164,7 +174,7 @@ export class ViewSync {
         active: loadout.activeCombo === i,
         running: loadout.activeCombo === i ? running : 0,
         comboName,
-        denied: comboDenial(world, sequence, this.data),
+        denied: comboDenial(world, sequence, this.data) ?? cooldownDenial(sequence),
       };
     });
     bar.supports = loadout.supports.flatMap((id) => (id === null || !this.data.skills.has(id) ? [] : [this.data.skills.get(id).name]));

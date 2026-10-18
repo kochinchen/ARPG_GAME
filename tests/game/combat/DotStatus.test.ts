@@ -44,7 +44,7 @@ describe('中毒', () => {
     expect(countOf(target, 'poison')).toBe(0);
   });
 
-  it('吃「附加毒素傷害」；最多疊 3 層，第 4 層取代最快到期的一層', () => {
+  it('吃「附加毒素傷害」；最多疊 3 層，第 4 層刷新最快到期的一層', () => {
     const { statuses, caster, target, hits, tick } = setup();
     caster.stats.setBase('poisonDamagePct', 0.5);
     statuses.apply(target, 'poison', 5, 1, caster);
@@ -56,9 +56,20 @@ describe('中毒', () => {
       tick(0.5);
     }
     expect(countOf(target, 'poison')).toBe(3);
-    // 第 4 層取代最早的一層：剩下的是後三次施加（還剩 3.5 / 4 / 4.5 秒）
+    // 第 4 次施加刷新最早的一層（剩 3.5 秒 → 5 秒，再過 0.5 秒為 4.5），另外兩層剩 3.5 / 4 秒
     const remaining = target.statuses.filter((s) => s.kind === 'poison').map((s) => s.remaining).sort();
     remaining.forEach((r, i) => expect(r).toBeCloseTo([3.5, 4, 4.5][i]!));
+  });
+
+  it('連續施放（滿層後一直刷新）時毒照樣每秒結算：3 層 × 每秒一跳', () => {
+    const { statuses, caster, target, hits, tick } = setup();
+    for (let i = 0; i < 50; i++) {
+      statuses.apply(target, 'poison', 5, 1, caster);
+      tick(0.1);
+    }
+    // 5 秒內 3 層各跳 4～5 次（每跳 20）
+    expect(hits.length).toBeGreaterThanOrEqual(12);
+    expect(total(hits)).toBeGreaterThanOrEqual(240);
   });
 
   it('不吃毒素抗性以外的減免：毒素抗性 50% 時減半', () => {
@@ -101,28 +112,34 @@ describe('流血', () => {
   });
 });
 
-describe('弱化', () => {
-  it('元素抗性與物理抗性分開降低；過期後恢復', () => {
-    const { statuses, caster, target, tick } = setup();
-    target.stats.setBase('fireResist', 0.4);
-    target.stats.setBase('physicalResist', 0.3);
-    statuses.apply(target, 'expose', 6, 0.25, caster, 0.15);
-    expect(target.stats.get('fireResist')).toBeCloseTo(0.15);
-    expect(target.stats.get('coldResist')).toBeCloseTo(-0.25);
-    expect(target.stats.get('physicalResist')).toBeCloseTo(0.15);
+describe('弱化（從有效抗性直接相減，可以變成負數；設計者 2026-10-18）', () => {
+  const hit = (pipeline: DamagePipeline, caster: Actor, target: Actor, element: 'fire' | 'physical' | 'poison') =>
+    pipeline.apply({ source: caster, target, min: 100, max: 100, element, canCrit: false })!.amount;
+
+  it('魔抗 50% − 20% = 30%、物抗 50% − 40% = 10%；毒素不受影響；過期後恢復', () => {
+    const { statuses, pipeline, caster, target, tick } = setup();
+    target.stats.setBase('fireResist', 0.5);
+    target.stats.setBase('poisonResist', 0.5);
+    target.stats.setBase('physicalResist', 0.5);
+    expect(hit(pipeline, caster, target, 'fire')).toBe(50);
+    statuses.apply(target, 'expose', 6, 0.2, caster, 0.4);
+    expect(hit(pipeline, caster, target, 'fire')).toBe(70);
+    expect(hit(pipeline, caster, target, 'physical')).toBe(90);
+    expect(hit(pipeline, caster, target, 'poison')).toBe(50);
+    // 屬性本身不變（只在計算傷害時相減）
+    expect(target.stats.get('fireResist')).toBeCloseTo(0.5);
     tick(6.5);
-    expect(target.stats.get('fireResist')).toBeCloseTo(0.4);
-    expect(target.stats.get('physicalResist')).toBeCloseTo(0.3);
+    expect(hit(pipeline, caster, target, 'fire')).toBe(50);
   });
 
-  it('抗性下限 0：抗性 0 的目標被弱化不會受到額外傷害', () => {
+  it('抗性 0 的一般怪也有效：0 − 25% = 多受 25% 傷害；超過上限的抗性先以上限計算再相減', () => {
     const { statuses, pipeline, caster, target } = setup();
-    const hit = () => pipeline.apply({ source: caster, target, min: 100, max: 100, element: 'fire', canCrit: false })!.amount;
-    expect(hit()).toBe(100);
     statuses.apply(target, 'expose', 6, 0.25, caster, 0.15);
-    expect(hit()).toBe(100);
-    target.stats.setBase('fireResist', 0.2);
-    expect(hit()).toBe(100);
+    expect(hit(pipeline, caster, target, 'fire')).toBe(125);
+    expect(hit(pipeline, caster, target, 'physical')).toBe(115);
+    target.stats.setBase('fireResist', 0.9);
+    // 上限 75% − 25% = 50%
+    expect(hit(pipeline, caster, target, 'fire')).toBe(50);
   });
 });
 

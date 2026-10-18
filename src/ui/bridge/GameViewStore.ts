@@ -12,6 +12,8 @@ export interface SkillSlotView {
   affordable: boolean;
   /** 目前的武器禁用此技能的原因；可以用為 null */
   denied: string | null;
+  /** 剩餘冷卻秒數（0 = 可以用） */
+  cooldown: number;
 }
 
 export interface ComboBarView {
@@ -26,7 +28,7 @@ export interface ComboBarView {
   running: number;
   /** 已發現的 Combo 名稱；有 Combo 但未發現為 '???'；沒有 Combo 為 null */
   comboName: string | null;
-  /** 有一招被目前的武器禁用時整組停用：「重砍：法杖無法使用近戰技能」；可以施放為 null */
+  /** 有一招被目前的武器禁用或還在冷卻時整組停用：「重砍：法杖無法使用近戰技能」「閃光粉：冷卻中（12 秒）」；可以施放為 null */
   denied: string | null;
 }
 

@@ -31,7 +31,7 @@ const AIR_SWING_DISTANCE = 2;
  * - 點地上物品 / 寶箱：走過去撿起 / 開啟
  * - 手上拿著物品時點地面：丟在腳下
  * 右鍵：依序施放目前 Q / W / E 選中的連段；按住則連段結束後再施放一次
- * 武器禁用（允許矩陣）：左鍵技能被禁用時不出手；連段裡只要有一招被禁用，整組都不施放（配置保留）
+ * 武器禁用（允許矩陣）：左鍵技能被禁用時不出手；連段裡只要有一招被禁用或還在冷卻，整組都不施放（配置保留）
  *
  * 觸控（iPad）：
  * - 搖桿：朝方向持續移動；攻擊或連段進行中不會被搖桿打斷
@@ -255,7 +255,7 @@ export class PlayerController {
     const steps = (this.loadout.combos[this.loadout.activeCombo] ?? [])
       .slice(0, this.unlockedSlots())
       .filter((id): id is string => id !== null && this.isLearned(id, 'active'));
-    if (steps.length === 0 || this.denied(steps)) return;
+    if (steps.length === 0 || this.denied(steps) || this.coolingDown(steps)) return;
     const target = this.resolveTarget(worldPos, targetId);
     // 游標在敵人身上時瞄準敵人腳下：角色有高度，游標下的地面點其實在敵人後方
     const point = target?.position ?? worldPos;
@@ -289,6 +289,18 @@ export class PlayerController {
       if (text === null) continue;
       this.player.intent = null;
       this.events.emit('SkillFailed', { actorId: this.player.id, skillId, reason: 'weapon', text });
+      return true;
+    }
+    return false;
+  }
+
+  /** 連段裡有技能還在冷卻（閃光粉）：整組不施放，提示剩餘秒數 */
+  private coolingDown(skillIds: readonly string[]): boolean {
+    for (const skillId of skillIds) {
+      const left = this.player.cooldowns.get(skillId) ?? 0;
+      if (left <= 0) continue;
+      const text = `${this.skills.get(skillId).name}冷卻中（${Math.ceil(left)} 秒）`;
+      this.events.emit('SkillFailed', { actorId: this.player.id, skillId, reason: 'cooldown', text });
       return true;
     }
     return false;

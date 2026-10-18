@@ -25,8 +25,8 @@ export interface GameEvents {
     combo?: ComboCastInfo | null;
   };
   /** 技能無法施放 */
-  /** reason 'weapon'：武器允許矩陣禁用（text 為原因） */
-  SkillFailed: { actorId: ActorId; skillId: string; reason: 'mana' } | { actorId: ActorId; skillId: string; reason: 'weapon'; text: string };
+  /** reason 'weapon'：武器允許矩陣禁用；'cooldown'：連段裡有技能還在冷卻（text 為原因） */
+  SkillFailed: { actorId: ActorId; skillId: string; reason: 'mana' } | { actorId: ActorId; skillId: string; reason: 'weapon' | 'cooldown'; text: string };
   /** 範圍效果觸發（Render 播放擴散圈） */
   AreaTriggered: {
     skillId: string;

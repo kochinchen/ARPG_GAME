@@ -139,33 +139,56 @@ describe('戰術 · 投擲', () => {
     }
   });
 
-  it('閃光粉：落地範圍弱化；Lv1 全元素 −7.5%，Lv4 起也降低物理抗性', () => {
+  it('閃光粉：落地範圍弱化 20 秒；Lv1 全元素 −7.5%，Lv4 起也降低物理抗性；30 魔力、冷卻 30 秒', () => {
     const { world, commands } = setup([dummyAt(5.5, 2.5)]);
     const dummy = enemiesOf(world)[0]!;
-    dummy.stats.setBase('fireResist', 0.3);
-    dummy.stats.setBase('physicalResist', 0.3);
     cast(world, commands, 'utility.flash_powder', 1, dummy, 1);
-    expect(dummy.stats.get('fireResist')).toBeCloseTo(0.225);
-    expect(dummy.stats.get('physicalResist')).toBeCloseTo(0.3);
+    const expose = dummy.statuses.find((s) => s.kind === 'expose')!;
+    expect(expose.magnitude).toBeCloseTo(0.075);
+    expect(expose.physicalMagnitude).toBe(0);
+    expect(expose.remaining).toBeGreaterThan(18.5);
+    for (const rank of [1, 5]) expect(world.skills.manaCost(data.skills.get('utility.flash_powder'), rank)).toBe(30);
+    expect(world.player.cooldowns.get('utility.flash_powder')).toBeGreaterThan(28);
 
     const lv4 = setup([dummyAt(5.5, 2.5)]);
     const target = enemiesOf(lv4.world)[0]!;
-    target.stats.setBase('coldResist', 0.3);
-    target.stats.setBase('physicalResist', 0.3);
     cast(lv4.world, lv4.commands, 'utility.flash_powder', 4, target, 1);
-    expect(target.stats.get('coldResist')).toBeCloseTo(0.1);
-    expect(target.stats.get('physicalResist')).toBeCloseTo(0.2);
+    const lv4Expose = target.statuses.find((s) => s.kind === 'expose')!;
+    expect(lv4Expose.magnitude).toBeCloseTo(0.2);
+    expect(lv4Expose.physicalMagnitude).toBeCloseTo(0.1);
+  });
+
+  it('連段裡有技能還在冷卻：整組不施放並提示剩餘秒數；冷卻結束後恢復', () => {
+    const { world, commands, events } = setup([dummyAt(5.5, 2.5)]);
+    const dummy = enemiesOf(world)[0]!;
+    const failures: string[] = [];
+    events.on('SkillFailed', (e) => {
+      if (e.reason === 'cooldown') failures.push(e.text);
+    });
+    cast(world, commands, 'utility.flash_powder', 1, dummy, 1);
+    const casts = world.player.castCount;
+    world.player.skillRanks.set('utility.poison_knife', 1);
+    world.loadout.combos[0] = ['utility.poison_knife', 'utility.flash_powder', null];
+    commands.push({ type: 'CastRight', worldPos: dummy.position, targetId: dummy.id });
+    run(world, 1);
+    expect(world.player.castCount).toBe(casts);
+    expect(failures.at(-1)).toMatch(/^閃光粉冷卻中（\d+ 秒）$/);
+
+    run(world, 29);
+    commands.push({ type: 'CastRight', worldPos: dummy.position, targetId: dummy.id });
+    run(world, 1.5);
+    expect(world.player.castCount).toBe(casts + 2);
   });
 });
 
 describe('戰術 · 共通', () => {
   const utility = data.skills.all.filter((s) => s.tree?.category === 'utility');
 
-  it('任何武器都能用；冷卻 0；投擲不吃攻速', () => {
+  it('任何武器都能用；冷卻 0（閃光粉例外：30 秒）；投擲不吃攻速', () => {
     expect(utility.length).toBeGreaterThanOrEqual(8);
     for (const s of utility) {
       for (const weapon of ['sword', 'axe', 'bow', 'staff'] as const) expect(weaponDenial(s, weapon, data.balance.weaponRules), `${s.id} × ${weapon}`).toBeNull();
-      expect(s.cooldown, s.id).toBe(0);
+      expect(s.cooldown, s.id).toBe(s.id === 'utility.flash_powder' ? 30 : 0);
       expect(s.useAttackSpeed, s.id).toBe(false);
     }
   });

@@ -45,9 +45,9 @@ function comboTitle(combo: ComboBarView): string {
         <span
           v-for="(step, i) in combo.steps"
           :key="i"
-          :class="{ running: combo.running === i + 1, empty: !step.skill, dim: step.skill && !step.skill.affordable, 'step-denied': step.skill?.denied }"
+          :class="{ running: combo.running === i + 1, empty: !step.skill, dim: step.skill && (!step.skill.affordable || step.skill.cooldown > 0), 'step-denied': step.skill?.denied }"
         >
-          {{ step.locked ? '🔒' : (step.skill?.name ?? '—') }}
+          {{ step.locked ? '🔒' : (step.skill?.name ?? '—') }}<template v-if="step.skill && step.skill.cooldown > 0"> {{ Math.ceil(step.skill.cooldown) }}s</template>
         </span>
       </span>
       <span v-if="combo.comboName && combo.unlockLevel === null" class="combo-name">{{ combo.comboName }}</span>

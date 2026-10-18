@@ -17,6 +17,8 @@ export function defenseMitigation(defense: number, constant: number): number {
 /** 反擊的觸發距離：攻擊者在近戰範圍內（雙方邊緣距離） */
 const COUNTER_REACH = 1.2;
 const MAX_DAMAGE_REDUCTION = 0.9;
+/** 弱化降低的元素抗性（毒素不受影響） */
+const EXPOSED: ReadonlySet<Element> = new Set(['fire', 'cold', 'lightning']);
 /** 元素 → 抗性屬性 */
 const RESIST: Record<Exclude<Element, 'physical'>, StatId> = {
   fire: 'fireResist',
@@ -63,12 +65,15 @@ export class DamagePipeline implements DamageDealer {
     const isCrit = this.rng.chance(critChance);
     if (isCrit) amount *= this.balance.combat.critMultiplier + target.stats.get('critDamageTaken') + (source?.stats.get('critDamageBonus') ?? 0);
 
+    // 抗性 0～上限；弱化從有效抗性直接減掉（魔抗 50% − 20% = 30%），可以減到負數（抗性 0 − 25% = 多受 25%）
+    const expose = target.statuses.find((s) => s.kind === 'expose');
+    const resist = (stat: StatId) => Math.min(this.balance.combat.maxResist, Math.max(0, target.stats.get(stat)));
     if (request.element === 'physical') {
       const defense = target.stats.get('defense') * (1 - Math.min(1, Math.max(0, request.armorPenetration ?? 0)));
       amount *= 1 - defenseMitigation(defense, this.balance.combat.defenseConstant);
-      amount *= 1 - Math.min(this.balance.combat.maxResist, Math.max(0, target.stats.get('physicalResist')));
+      amount *= 1 - (resist('physicalResist') - (expose?.physicalMagnitude ?? 0));
     } else {
-      amount *= 1 - Math.min(this.balance.combat.maxResist, Math.max(0, target.stats.get(RESIST[request.element])));
+      amount *= 1 - (resist(RESIST[request.element]) - (expose && EXPOSED.has(request.element) ? expose.magnitude : 0));
     }
     amount *= 1 - Math.min(MAX_DAMAGE_REDUCTION, Math.max(0, target.stats.get('damageReduction')));
     if (!isDot) {

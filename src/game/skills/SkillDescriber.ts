@@ -59,7 +59,7 @@ function statusText(kind: StatusKind, duration: number, magnitude: number, chanc
     case 'bleed':
       return `流血：${duration} 秒內共 ${pctText(magnitude)} 武器傷害（物理，每秒結算，可暴擊；重新命中刷新）${chanceText}`;
     case 'expose':
-      return `弱化 ${duration} 秒：火焰 / 冰霜 / 雷電抗性 -${pctText(magnitude)}${physical > 0 ? `、物理抗性 -${pctText(physical)}` : ''}（最低到 0）`;
+      return `弱化 ${duration} 秒：火焰 / 冰霜 / 雷電抗性 -${pctText(magnitude)}${physical > 0 ? `、物理抗性 -${pctText(physical)}` : ''}（直接相減，可以降到負數）`;
   }
 }
 

@@ -307,12 +307,14 @@ const throwables: SkillInput[] = [
   {
     id: 'utility.flash_powder',
     name: '閃光粉',
-    description: '拋出閃光粉，落地範圍內的敵人抗性降低（弱化）。Lv4 起也降低物理抗性。',
+    description: '拋出閃光粉，落地範圍內的敵人抗性降低（弱化，直接相減、可以降到負數）。Lv4 起也降低物理抗性。冷卻 30 秒。',
     tree: { category: 'utility', tier: 4, branch: 'C' },
     targeting: 'ground',
     range: 6,
     castTime: 0.2,
-    cost: { mana: 12 },
+    // 設計者調整（2026-10-18）：每級都是 30 魔力、維持 20 秒、冷卻 30 秒（戰術唯一有冷卻的技能）
+    cost: { mana: 30 },
+    cooldown: 30,
     tags: ['utility', 'area'],
     effects: [
       {
@@ -329,7 +331,7 @@ const throwables: SkillInput[] = [
                 status: 'expose',
                 magnitude: [0.075, 0.1, 0.2, 0.2, 0.25],
                 physicalMagnitude: [0, 0, 0, 0.1, 0.15],
-                duration: [6, 8, 8, 8, 10],
+                duration: 20,
               },
             ],
           },

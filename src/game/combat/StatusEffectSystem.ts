@@ -26,18 +26,12 @@ const STAT_EFFECTS: Partial<Record<StatusKind, (status: StatusInstance) => Modif
   armorBreak: (s) => [{ stat: 'defense', kind: 'more', value: -s.magnitude }],
   weakPoint: (s) => [{ stat: 'critDamageTaken', kind: 'flat', value: s.magnitude }],
   ironWill: (s) => [{ stat: 'damageReduction', kind: 'flat', value: s.magnitude }],
-  // 抗性下限 0 在 DamagePipeline 計算時處理（一般怪抗性 0，不會變負數加傷）
-  expose: (s) => [
-    { stat: 'fireResist', kind: 'flat', value: -s.magnitude },
-    { stat: 'coldResist', kind: 'flat', value: -s.magnitude },
-    { stat: 'lightningResist', kind: 'flat', value: -s.magnitude },
-    { stat: 'physicalResist', kind: 'flat', value: -(s.physicalMagnitude ?? 0) },
-  ],
+  // 弱化不改屬性：DamagePipeline 從有效抗性直接減掉（可以變成負數）
 };
 
 /**
  * Buff / Debuff：緩速、冰凍、暈眩、浮空、燃燒、中毒、流血、弱化、破甲、弱點、標記、防禦姿態、反擊、鋼鐵意志、下一招強化。
- * 同種狀態重複施加時取較長的時間與較強的效果；中毒例外，最多疊 3 層（滿層時取代最快到期的一層）。
+ * 同種狀態重複施加時取較長的時間與較強的效果；中毒例外，最多疊 3 層（滿層時刷新最快到期的一層）。
  */
 export class StatusEffectSystem {
   constructor(
@@ -66,11 +60,14 @@ export class StatusEffectSystem {
     const existing = target.statuses.find((s) => s.kind === kind);
     if (kind === 'poison') {
       const stacks = target.statuses.filter((s) => s.kind === 'poison');
-      if (stacks.length >= POISON_MAX_STACKS) {
+      if (stacks.length < POISON_MAX_STACKS) target.statuses.push(instance);
+      else {
+        // 滿層：刷新最快到期的一層（保留它的結算進度；若直接取代，連續施放時每層都撐不到第一跳）
         const oldest = stacks.reduce((a, b) => (b.remaining < a.remaining ? b : a));
-        target.statuses.splice(target.statuses.indexOf(oldest), 1);
+        oldest.remaining = Math.max(oldest.remaining, duration);
+        oldest.dps = Math.max(oldest.dps, dps);
+        oldest.source = source ?? oldest.source;
       }
-      target.statuses.push(instance);
     } else if (existing) {
       existing.remaining = Math.max(existing.remaining, duration);
       existing.magnitude = Math.max(existing.magnitude, magnitude);

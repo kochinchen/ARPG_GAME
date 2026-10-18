@@ -39,7 +39,7 @@ export const StatusKindSchema = z.enum([
   'poison',
   /** 流血：總量 = 施放者武器傷害 × magnitude，在持續時間內每秒結算；物理、每跳可暴擊、不疊層（重新命中刷新） */
   'bleed',
-  /** 弱化：火焰 / 冰寒 / 閃電抗性 −magnitude、物理抗性 −physicalMagnitude（抗性最低到 0） */
+  /** 弱化：火焰 / 冰寒 / 閃電抗性 −magnitude、物理抗性 −physicalMagnitude（從有效抗性直接相減，可以變成負數） */
   'expose',
 ]);
 export type StatusKind = z.infer<typeof StatusKindSchema>;
