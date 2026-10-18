@@ -278,7 +278,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
 
   <section id="combo">
     <div class="sec-head">
-      <div class="eyebrow">ComboResolver · 22 條規則</div>
+      <div class="eyebrow">ComboResolver · 24 條規則</div>
       <h2>三段 Combo 測試</h2>
       <p>依序選連段（Q～D）的三招，會用遊戲的判定程式算出是否成立、套用哪條規則、每一招的加成，以及加成後打在對手身上的傷害。加成會隨技能等級放大（Lv1 ×1.0 → Lv5 ×1.4）。</p>
     </div>
@@ -441,8 +441,12 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     const critMul = B.combat.critMultiplier;
     let perCast = 0; const lines = [];
     for (const { e, times } of parts) {
-      const [bmin, bmax] = e.scaling === 'weapon' ? [ps.get('damageMin'), ps.get('damageMax')]
-        : e.scaling === 'spell' ? [ps.get('spellPower') * 0.8, ps.get('spellPower') * 1.2] : (e.base ? S.rankRange(e.base, r) : [0, 0]);
+      // 戰術技能：攻擊力 = 武器傷害與法術強度取較高者（與遊戲的 attackPower 相同）
+      const weaponRange = [ps.get('damageMin'), ps.get('damageMax')], spellRange = [ps.get('spellPower') * 0.8, ps.get('spellPower') * 1.2];
+      const power = weaponRange[0] + weaponRange[1] >= spellRange[0] + spellRange[1] ? weaponRange : spellRange;
+      const [bmin, bmax] = cat === 'utility' && (e.scaling === 'weapon' || e.scaling === 'spell') ? power
+        : e.scaling === 'weapon' ? weaponRange
+        : e.scaling === 'spell' ? spellRange : e.scaling === 'shield' ? [0, 0] : (e.base ? S.rankRange(e.base, r) : [0, 0]);
       const mult = S.rankValue(e.multiplier, r) * (1 + (mods.damage || 0)) * (1 + melee) * (1 + dmgBonus);
       const red = e.element === 'physical' ? 1 - mitig(en.defense * (1 - Math.min(1, mods.armorPenetration || 0))) : 1;
       const lo = bmin * mult * red, hi = bmax * mult * red;
@@ -801,7 +805,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     st.level = Math.min(keep, 24);
     tryMany('melee.heavy_slash', 4); tryMany('melee.armor_break', 3); tryMany('melee.earth_break', 3); tryMany('melee.devastator', 1);
     st.level = keep;
-    tryMany('magic.fireball', 2); tryMany('magic.flame_burst', 2); tryMany('melee.quick_slash', 2); tryMany('melee.double_slash', 2);
+    tryMany('magic.fireball', 2); tryMany('magic.flame_burst', 2); tryMany('melee.quick_slash', 2); tryMany('melee.shield_bash', 2);
     tryMany('support.vitality', 3); tryMany('support.precision', 3); tryMany('support.iron_skin', 2);
     render();
   }

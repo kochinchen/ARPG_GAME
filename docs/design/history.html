@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">20</b> 個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">627</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">841</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -384,6 +384,11 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p>關閉商人面板（按 ×、Esc、離開商人、開其他面板）時，鍛造格裡的裝備放回背包；背包滿了就丟在腳下。角色成長模擬加入戰術類別、武器允許矩陣與機關傷害；組合技圖鑑重新產生（22 條規則）；架構與 Combo 文件更新。標題畫面版本為 v0.4.0。</p>
             <p class="why">鍛造格的裝備原本只留在商人身上（會存檔，但面板關掉後看不到），玩家以為裝備不見了。角色成長模擬的 sim.js 改由 npm run docs:sim 從遊戲程式產生。</p>
           </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">v0.4.1：盾擊、技能特效、法術＋戰術組合技</span><span class="hash mono">5dffa3f</span><span class="badge">版本 0.4.1</span></div>
+            <p>試玩回饋後的調整。雙重斬和幻影連斬太像，改成盾擊：傷害用盾牌本身的防禦計算，沒拿盾不能用，有衝擊波、暈眩與擊退。重砍、破甲斬、裂地擊等原本共用同一種特效，改成每招各有自己的特效；盾擊是盾牌往前撞加兩道風。傳奇 / 神話武器的特殊效果在 Combo 觸發時以金色特效顯示。戰術技能的攻擊力改為武器傷害與法術強度取較高者，並調高投擲與機關的倍率。新增元素投擲、元素陷阱兩條組合技，讓法師也能用「火球＋火球＋飛刀」這類組合。技能面板的說明改為滑鼠移上去才顯示，連段格可以按 × 清除，技能說明標出近身 / 中距離 / 遠距離。</p>
+            <p class="why">原本法杖的戰術技能只吃武器傷害（約劍的 1/8），用起來很弱；取較高者之後，同等級的法杖飛刀約是劍的 80%。原本指向雙重斬的三件傳奇改指向快斬、劍刃旋舞、幻影連斬；存檔升到 v14，雙重斬的等級與連段格自動轉給盾擊。</p>
+          </div>
         </div>
       </div>
     </div>
@@ -393,19 +398,19 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="sec-head">
       <div class="eyebrow">品質</div>
       <h2>測試數量隨 Milestone 累積</h2>
-      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/18（v0.4.0）的 npm test 結果。</p>
+      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/18（v0.4.1）的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 830">
-      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:3.4%"></div><span class="val mono">28</span></div>
-      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:6.3%"></div><span class="val mono">52</span></div>
-      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:9.8%"></div><span class="val mono">81</span></div>
-      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:11.3%"></div><span class="val mono">94</span></div>
-      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:13.7%"></div><span class="val mono">114</span></div>
-      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:16.5%"></div><span class="val mono">137</span></div>
-      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:21.6%"></div><span class="val mono">179</span></div>
-      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:31.3%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">830</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 830 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個）。</p>
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 841">
+      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:3.3%"></div><span class="val mono">28</span></div>
+      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:6.2%"></div><span class="val mono">52</span></div>
+      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:9.6%"></div><span class="val mono">81</span></div>
+      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:11.2%"></div><span class="val mono">94</span></div>
+      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:13.6%"></div><span class="val mono">114</span></div>
+      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:16.3%"></div><span class="val mono">137</span></div>
+      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:21.3%"></div><span class="val mono">179</span></div>
+      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:30.9%"></div><span class="val mono">260</span></div>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">841</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 841 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個）。</p>
     </div>
   </section>
 
