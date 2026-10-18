@@ -17,7 +17,7 @@ import { SkillCategorySchema } from '../data/schema/skill';
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);

@@ -6,6 +6,8 @@ import { combatCategory } from '../skillCategory';
 
 /** Spell Power 傷害的浮動範圍 */
 export const SPELL_SPREAD = 0.2;
+/** 盾擊（盾牌防禦）傷害的浮動範圍 */
+export const SHIELD_SPREAD = 0.1;
 
 /** 裝備的元素附加傷害屬性 */
 const ELEMENT_DAMAGE: readonly [Element, StatId][] = [
@@ -15,6 +17,17 @@ const ELEMENT_DAMAGE: readonly [Element, StatId][] = [
   ['poison', 'poisonDamagePct'],
 ];
 
+/**
+ * 戰術技能的攻擊力：武器傷害（min–max）與法術強度（±20%）取平均較高的一組。
+ * 中毒 / 流血的總量也用它（StatusEffectSystem）。
+ */
+export function attackPower(stats: { get(stat: StatId): number }): [number, number] {
+  const weapon: [number, number] = [stats.get('damageMin'), stats.get('damageMax')];
+  const sp = stats.get('spellPower');
+  const spell: [number, number] = [sp * (1 - SPELL_SPREAD), sp * (1 + SPELL_SPREAD)];
+  return weapon[0] + weapon[1] >= spell[0] + spell[1] ? weapon : spell;
+}
+
 export class DamageEffect implements IEffect<'damage'> {
   readonly type = 'damage' as const;
 
@@ -22,12 +35,18 @@ export class DamageEffect implements IEffect<'damage'> {
     const target = ctx.target;
     if (!target) return;
     const stats = ctx.caster.stats;
+    const category = combatCategory(ctx.skill);
     const [baseMin, baseMax] =
-      def.scaling === 'weapon'
+      // 戰術技能：武器傷害與法術強度取較高者（法杖拿飛刀、陷阱也打得動）
+      category === 'utility' && (def.scaling === 'weapon' || def.scaling === 'spell')
+        ? attackPower(stats)
+        : def.scaling === 'weapon'
         ? [stats.get('damageMin'), stats.get('damageMax')]
         : def.scaling === 'spell'
           ? [stats.get('spellPower') * (1 - SPELL_SPREAD), stats.get('spellPower') * (1 + SPELL_SPREAD)]
-          : def.base ? rankRange(def.base, ctx.rank) : [0, 0];
+          : def.scaling === 'shield'
+            ? [stats.get('shieldDefense') * (1 - SHIELD_SPREAD), stats.get('shieldDefense') * (1 + SHIELD_SPREAD)]
+            : def.base ? rankRange(def.base, ctx.rank) : [0, 0];
 
     const mods = ctx.mods;
     let multiplier = rankValue(def.multiplier, ctx.rank);
@@ -47,7 +66,6 @@ export class DamageEffect implements IEffect<'damage'> {
     for (const low of mods.vsLowHp) if (target.maxHp > 0 && target.hp / target.maxHp < low.below) comboDamage += low.damage;
     multiplier *= 1 + comboDamage;
     // 近戰技能額外加成（屬性點「攻擊」對近戰效果較高）
-    const category = combatCategory(ctx.skill);
     if (category === 'melee') multiplier *= 1 + stats.get('meleeDamageBonus');
     // 武器種類：弓加成遠程、法杖加成魔法
     if (category === 'ranged') multiplier *= 1 + stats.get('rangedDamageBonus');

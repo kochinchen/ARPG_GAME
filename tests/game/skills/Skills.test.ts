@@ -222,13 +222,13 @@ describe('技能效果（M6 技能大改）', () => {
     return hits;
   };
 
-  it('多段攻擊：雙重斬命中兩次', () => {
+  it('多段攻擊：幻影連斬命中五次', () => {
     const ctx = setup([dummyAt(3.5, 1.5)]);
-    comboQ(ctx.world, 'melee.double_slash');
+    comboQ(ctx.world, 'melee.phantom_blades');
     const dummy = enemiesOf(ctx.world)[0]!;
     const hits = hitsOn(ctx, dummy);
     castQ(ctx, dummy);
-    expect(hits).toHaveLength(2);
+    expect(hits).toHaveLength(5);
   });
 
   it('冰球：命中後緩速，時間到恢復', () => {

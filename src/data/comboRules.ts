@@ -177,6 +177,19 @@ export const comboRules: Rule[] = [
       { type: 'crit', value: 0.15 },
     ],
   },
+  // 法術＋戰術的混搭（法杖也能打出特殊流）
+  {
+    id: 'combo.elemental_throw',
+    name: '元素投擲',
+    description: '兩道元素法術之後擲出物理投射物，投射物帶上第一招的元素。',
+    tier: 3,
+    order: 20,
+    match: { kind: 'pattern', steps: [{ hasElement: true }, { hasElement: true }, { allTags: ['Projectile', 'Physical'] }] },
+    modifiers: [
+      { type: 'elementDamage', value: 0.3, element: 'fromStep1' },
+      { type: 'damage', value: 0.15 },
+    ],
+  },
   {
     id: 'combo.exploit_weakness',
     name: '乘虛而入',
@@ -232,6 +245,20 @@ export const comboRules: Rule[] = [
     modifiers: [
       { type: 'damage', value: 0.2 },
       { type: 'knockback', value: 0.3 },
+    ],
+  },
+  {
+    // 法術＋機關：元素法術 → 遠距範圍機關（機關帶上第一招的元素）→ 元素法術收尾
+    id: 'combo.elemental_trap',
+    name: '元素陷阱',
+    description: '元素法術之後佈下範圍陷阱，陷阱帶上該元素，再以元素法術收尾。',
+    tier: 4,
+    order: 21,
+    match: { kind: 'pattern', steps: [{ hasElement: true }, { range: ['Far'], role: ['Setup'], anyTags: ['AoE'] }, { hasElement: true }] },
+    modifiers: [
+      { type: 'elementDamage', value: 0.25, element: 'fromStep1', target: 'step2' },
+      { type: 'damage', value: 0.2, target: 'step2' },
+      { type: 'damage', value: 0.15 },
     ],
   },
   {

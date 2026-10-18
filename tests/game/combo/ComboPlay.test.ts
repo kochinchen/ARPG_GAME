@@ -152,15 +152,15 @@ describe('Combo 加成實際作用在技能上', () => {
 
   it('元素附刃：第二、三招每一擊追加火焰傷害', () => {
     const { world, commands, events } = setup();
-    setQ(world, 'magic.fireball', 'melee.quick_slash', 'melee.double_slash');
+    setQ(world, 'magic.fireball', 'melee.quick_slash', 'melee.blade_dance');
     const fireHits: number[] = [];
     events.on('ActorDamaged', (e) => {
       if (e.element === 'fire') fireHits.push(e.amount);
     });
     commands.push(castAt(enemiesOf(world)[0]!));
     run(world, 5);
-    // 火球 1 次 + 快斬追加 1 次 + 雙重斬追加 2 次
-    expect(fireHits).toHaveLength(4);
+    // 火球 1 次 + 快斬追加 1 次 + 劍刃旋舞追加 3 次
+    expect(fireHits).toHaveLength(5);
   });
 
   it('雷湧：第三招連鎖閃電多跳一次', () => {

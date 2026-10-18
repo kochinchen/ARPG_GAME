@@ -104,15 +104,28 @@ const melee: SkillInput[] = [
     ],
   },
   {
-    id: 'melee.double_slash',
-    name: '雙重斬',
-    description: '快速斬擊前方 80° 兩次。',
+    // v0.4.x 取代雙重斬（與幻影連斬重複）：傷害以盾牌本身的防禦計算，沒有裝備盾牌時不能使用
+    id: 'melee.shield_bash',
+    name: '盾擊',
+    description: '以盾牌猛擊前方，產生衝擊波，暈眩並擊退敵人。傷害以盾牌本身的防禦計算，需要裝備盾牌。',
     tree: { category: 'melee', tier: 2, branch: 'B' },
     targeting: 'enemy',
     useAttackSpeed: true,
     cost: { mana: [4, 4, 5, 6, 7] },
-    tags: ['attack', 'melee', 'combo'],
-    effects: [swing(80, [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 2, multiplier: pct(78, 86, 95, 103, 112) }])],
+    tags: ['attack', 'melee', 'shield', 'heavy', 'area'],
+    effects: [
+      {
+        type: 'area',
+        radius: 2.5,
+        angleDeg: 100,
+        includeTarget: true,
+        effects: [
+          { type: 'damage', element: 'physical', scaling: 'shield', multiplier: pct(110, 120, 130, 140, 150) },
+          { type: 'status', status: 'stun', duration: [0.6, 0.7, 0.8, 0.9, 1] },
+          { type: 'knockback', distance: 1 },
+        ],
+      },
+    ],
   },
   {
     id: 'melee.quake_slash',

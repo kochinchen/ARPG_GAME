@@ -92,6 +92,10 @@ export class Equipment {
     for (const [stat, value] of Object.entries(stats.baseStats) as [StatId, number][]) {
       this.owner.stats.addModifier({ stat, kind: 'flat', value, source });
     }
+    // 盾擊的傷害基準：盾牌本身的防禦（含主倍率，不含其他部位與詞綴）
+    if (stats.base.slot === 'shield' && stats.baseStats.defense) {
+      this.owner.stats.addModifier({ stat: 'shieldDefense', kind: 'flat', value: stats.baseStats.defense, source });
+    }
     for (const { def, value } of stats.affixes) {
       this.owner.stats.addModifier({ stat: def.stat, kind: def.modifier, value, source });
     }

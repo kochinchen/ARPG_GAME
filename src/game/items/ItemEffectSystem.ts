@@ -221,7 +221,9 @@ export class ItemEffectSystem {
       if (m.chance !== undefined && !this.rng.chance(m.chance)) continue;
       if (m.cooldown > 0) this.cooldowns.set(key, m.cooldown);
       if (m.consumeBuff) this.clearBuff(m.consumeBuff);
-      for (const action of m.actions) this.run(key, action, event, on);
+      // 只在「成功組成 Combo」時才觸發的效果，用 Combo 的金色特效顯示（和同時發生的一般效果區分）
+      const comboEffect = m.when.comboOnly === true && event.combo?.success === true;
+      for (const action of m.actions) this.run(key, action, event, on, comboEffect);
     }
   }
 
@@ -240,7 +242,7 @@ export class ItemEffectSystem {
     return true;
   }
 
-  private run(key: string, action: ItemAction, e: TriggerEvent, on?: Extract<ItemMechanic, { type: 'trigger' }>['on']): void {
+  private run(key: string, action: ItemAction, e: TriggerEvent, on?: Extract<ItemMechanic, { type: 'trigger' }>['on'], comboEffect = false): void {
     const p = this.player;
     switch (action.type) {
       case 'effects': {
@@ -250,7 +252,8 @@ export class ItemEffectSystem {
         const direction = toward.x === 0 && toward.y === 0 ? p.facing : normalize(toward);
         const effects = action.hitFraction ? withFlatDamage(action.effects, e.amount * action.hitFraction) : action.effects;
         const skill = this.syntheticSkill(key, action.category);
-        const ctx = this.executor.createContext(p, skill, 1, target && target.alive ? target : null, vec2(origin.x, origin.y), direction, NO_MODS);
+        const mods = comboEffect && e.combo ? { ...NO_MODS, combo: e.combo } : NO_MODS;
+        const ctx = this.executor.createContext(p, skill, 1, target && target.alive ? target : null, vec2(origin.x, origin.y), direction, mods);
         // 在目標身上分裂的投射物：從目標邊緣飛出、不再打同一個目標
         if (action.at === 'target' && target) ctx.spawnFrom = target;
         ctx.run(effects, ctx);

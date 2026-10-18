@@ -14,7 +14,7 @@ const resolve = (ids: string[], ranks: Record<string, number> = {}) => resolver.
 // 技能代號（對照 docs/COMBO_SYSTEM.md 第 9 節）
 const S = {
   HS: 'melee.heavy_slash', AB: 'melee.armor_break', EB: 'melee.earth_break', DV: 'melee.devastator',
-  QS: 'melee.quick_slash', DS: 'melee.double_slash', PB: 'melee.phantom_blades',
+  QS: 'melee.quick_slash', PB: 'melee.phantom_blades',
   DSl: 'melee.dash_slash', QK: 'melee.quake_slash', LS: 'melee.launch_slash', XS: 'melee.execution_slash',
   QSh: 'ranged.quick_shot', CS: 'ranged.charge_shot', WP: 'ranged.weak_point', ES: 'ranged.execution_shot',
   PS: 'ranged.piercing_shot', SS: 'ranged.spread_shot', RF: 'ranged.rapid_fire', RA: 'ranged.rain_of_arrows',
@@ -54,7 +54,7 @@ describe('ComboResolver：規格測試案例 T01～T26', () => {
     ['T11 同元素但有重複', [S.FB, S.FB, S.MT], { reason: 'noRule' }],
     ['T12 雷系三連', [S.SK, S.TS, S.CL], { rule: 'combo.storm_surge', step3: { damage: 0.2, chainCount: 1, statusChance: 0.15 } }],
     ['T13 跨系 + Priority 衝突', [S.IO, S.DSl, S.DV], { rule: 'combo.frozen_impact', step3: { damage: 0.3, knockback: 0.8 }, also: ['combo.control_rush', 'combo.hunter_rush'] }],
-    ['T15 兩同一異 + 同層衝突', [S.DS, S.DS, S.HS], { rule: 'combo.fast_momentum', step3: { damage: 0.2, animationSpeed: 0.15, crit: 0.1 }, also: ['combo.rapid_finisher'] }],
+    ['T15 兩同一異 + 同層衝突', [S.PB, S.PB, S.HS], { rule: 'combo.fast_momentum', step3: { damage: 0.2, animationSpeed: 0.15, crit: 0.1 }, also: ['combo.rapid_finisher'] }],
     ['T16 跨層衝突（Tier 3 > 5）', [S.AB, S.EB, S.CS], { rule: 'combo.armor_crusher', step3: { armorPenetration: 0.25, damage: 0.2 }, also: ['combo.heavy_chain_finisher'] }],
     ['T17 跨層衝突（Tier 2 > 5）', [S.CL, S.SC, S.TS], { rule: 'combo.storm_surge', step3: { damage: 0.2 }, also: ['combo.rapid_finisher'] }],
     ['T18 Generic（第三招無投射物 → 命中次數）', [S.PS, S.SS, S.RA], { rule: 'combo.piercing_barrage', step3: { aoeRadius: 0.25, hitCount: 1, projectileCount: 0, damage: 0.15 } }],
@@ -88,7 +88,7 @@ describe('ComboResolver：規格測試案例 T01～T26', () => {
   }
 
   it('T14 跨系：元素附刃，第二、三招追加第一招的元素傷害', () => {
-    const r = resolve([S.FB, S.QS, S.DS]);
+    const r = resolve([S.FB, S.QS, S.PB]);
     expect(r.status === 'combo' && r.rule.id).toBe('combo.elemental_weapon');
     if (r.status !== 'combo') return;
     expect(r.modifiers.steps[1].elementDamage).toEqual([{ element: 'fire', value: 0.15 }]);

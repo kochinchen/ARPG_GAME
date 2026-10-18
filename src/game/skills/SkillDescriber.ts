@@ -18,6 +18,9 @@ const TARGETING_LABELS: Record<TargetType, string> = {
   self: '自身',
 };
 
+/** Combo 判定用的距離分類 */
+const RANGE_LABELS: Record<'Near' | 'Mid' | 'Far', string> = { Near: '近身', Mid: '中距離', Far: '遠距離' };
+
 /** 說明文字本身已講明對象的自身狀態，不加「自身：」 */
 const SELF_EXPLAINED = new Set<StatusKind>(['meleeEmpower', 'rangedEmpower']);
 
@@ -69,7 +72,7 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
     switch (e.type) {
       case 'damage': {
         const m = rankValue(e.multiplier, rank);
-        const scale = e.scaling === 'weapon' ? '武器傷害' : e.scaling === 'spell' ? '法術強度' : '';
+        const scale = e.scaling === 'weapon' ? '武器傷害' : e.scaling === 'spell' ? '法術強度' : e.scaling === 'shield' ? '盾牌防禦' : '';
         const flat = e.base ? rankRange(e.base, rank) : [0, 0];
         const amount = e.scaling === 'flat' ? `${flat[0]}–${flat[1]}` : `${pctText(m)}${e.hits > 1 ? ` × ${e.hits}` : ''} ${scale}`;
         lines.push(`${ELEMENT_LABELS[e.element]}傷害 ${amount}`);
@@ -171,8 +174,15 @@ export function describeSkill(skill: SkillDef, rank: number, manaCost: number): 
   if (skill.kind === 'passive') {
     return skill.passive.map((b) => `${STAT_LABELS[b.stat]} ${formatValue(b.stat, b.modifier, rankValue(b.values, r), true)}`);
   }
-  const header = [`${TARGETING_LABELS[skill.targeting]} · 魔力 ${Math.round(manaCost * 10) / 10}`];
+  // 距離分類（近 / 中 / 遠）：Combo 規則與裝備效果用它判定（例如「三招皆為近身」）
+  const distance = skill.combo ? [`${RANGE_LABELS[skill.combo.range]}`] : [];
+  const header = [...distance, `${TARGETING_LABELS[skill.targeting]} · 魔力 ${Math.round(manaCost * 10) / 10}`];
   if (skill.cooldown > 0) header.push(`冷卻 ${skill.cooldown} 秒`);
   const range = skill.range !== undefined && skill.targeting !== 'self' ? [`射程 ${skill.range} 格`] : [];
-  return [header.join(' · '), ...range, ...effectLines(skill.effects, r)];
+  const lines = effectLines(skill.effects, r);
+  // 戰術技能：武器傷害與法術強度取較高者（攻擊力）
+  if (skill.tree?.category === 'utility' && lines.some((l) => /武器傷害|法術強度/.test(l))) {
+    return [header.join(' · '), ...range, '攻擊力 = 武器傷害與法術強度取較高者', ...lines.map((l) => l.replace(/武器傷害|法術強度/g, '攻擊力'))];
+  }
+  return [header.join(' · '), ...range, ...lines];
 }

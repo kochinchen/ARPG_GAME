@@ -52,6 +52,7 @@ export const STAT_LABELS: Record<StatId, string> = {
   physicalResist: '物理減傷',
   dodgeChance: '閃避',
   blockChance: '格擋率',
+  shieldDefense: '盾牌防禦',
   thorns: '荊棘傷害',
   potionEffect: '藥水效果',
   fireDamagePct: '附加火焰傷害',

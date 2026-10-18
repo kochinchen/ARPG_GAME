@@ -163,8 +163,28 @@ const v12ToV13: Migration = (v12) => {
   return { ...v12, loadout: { ...loadout, combos } };
 };
 
+/**
+ * v13 → v14：雙重斬（melee.double_slash）換成盾擊（melee.shield_bash），技能樹同一格。
+ * 技能等級、左鍵與連段格直接轉給盾擊；組合表裡含雙重斬的組合已經不存在，移除。
+ */
+const OLD_SKILL = 'melee.double_slash';
+const NEW_SKILL = 'melee.shield_bash';
+const v13ToV14: Migration = (v13) => {
+  const rename = (id: unknown) => (id === OLD_SKILL ? NEW_SKILL : id);
+  const skills = (v13.skills ?? {}) as { ranks?: Record<string, number> };
+  const ranks = Object.fromEntries(Object.entries(skills.ranks ?? {}).map(([id, rank]) => [rename(id), rank]));
+  const loadout = (v13.loadout ?? {}) as { left?: unknown; combos?: unknown[][]; supports?: unknown[] };
+  const codex = ((v13.codex ?? []) as { skills?: unknown[] }[]).filter((entry) => !(entry.skills ?? []).includes(OLD_SKILL));
+  return {
+    ...v13,
+    skills: { ...skills, ranks },
+    loadout: { ...loadout, left: rename(loadout.left), combos: (loadout.combos ?? []).map((steps) => steps.map(rename)) },
+    codex,
+  };
+};
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14];
 
 export class MigrationError extends Error {}
 

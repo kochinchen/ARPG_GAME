@@ -58,6 +58,34 @@ function toggleSupport(node: SkillNodeView) {
 
 const STEPS = [0, 1, 2] as const;
 
+/** 技能說明：滑鼠移到技能格（或鍵盤聚焦）時浮在面板旁邊 */
+const TIP_WIDTH = 300;
+const tip = ref<{ id: string; x: number; y: number } | null>(null);
+const tipNode = computed(() => (tip.value ? (allNodes.value.find((n) => n.id === tip.value!.id) ?? null) : null));
+function showTip(e: Event, node: SkillNodeView) {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const panel = (e.currentTarget as HTMLElement).closest('.panel')?.getBoundingClientRect();
+  // 優先放在面板右側；右邊放不下時改放技能格左側
+  const right = (panel?.right ?? rect.right) + 8;
+  const x = right + TIP_WIDTH <= window.innerWidth - 8 ? right : Math.max(8, rect.left - TIP_WIDTH - 8);
+  tip.value = { id: node.id, x, y: Math.max(8, Math.min(rect.top, window.innerHeight - 320)) };
+}
+function hideTip(node: SkillNodeView) {
+  if (tip.value?.id === node.id) tip.value = null;
+}
+
+function learn(node: SkillNodeView) {
+  gameBridge.send({ type: 'LearnSkill', skillId: node.id });
+}
+
+function clearCombo(combo: ComboKey, step: 0 | 1 | 2) {
+  gameBridge.send({ type: 'SetComboSlot', combo, step, skillId: null });
+}
+
+function clearSupport(slot: number) {
+  gameBridge.send({ type: 'SetSupportSlot', slot: slot as 0 | 1 | 2, skillId: null });
+}
+
 /** 洗點：重置技能點（確認後送出） */
 function respec(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
@@ -166,7 +194,20 @@ function respec(e: MouseEvent) {
             @click="selectedId = node.id"
             @keydown.enter="selectedId = node.id"
             @dragstart="onDragStart($event, node)"
+            @pointerenter="showTip($event, node)"
+            @pointerleave="hideTip(node)"
+            @focus="showTip($event, node)"
+            @blur="hideTip(node)"
           >
+            <button
+              v-if="node.canLearn"
+              type="button"
+              class="learn-btn"
+              :aria-label="`${node.rank > 0 ? '升級' : '學習'}${node.name}（1 點）`"
+              @click.stop="learn(node)"
+            >
+              {{ node.rank > 0 ? '升級' : '學習' }}
+            </button>
             <span class="name">{{ node.name }}</span>
             <span class="rank">{{ node.rank }} / {{ node.maxRank }}</span>
             <span class="tags">
@@ -183,47 +224,45 @@ function respec(e: MouseEvent) {
             >
               左
             </button>
+            <button
+              v-if="node.kind === 'passive' && node.rank > 0"
+              type="button"
+              class="left-btn"
+              :class="{ on: node.equippedSupport }"
+              :aria-label="node.equippedSupport ? '卸下 Support' : '裝備 Support'"
+              @click.stop="toggleSupport(node)"
+            >
+              {{ node.equippedSupport ? '卸' : '裝' }}
+            </button>
           </div>
         </div>
       </section>
 
-      <section v-if="selected" class="info">
-        <div class="info-head">
-          <b>{{ selected.name }}</b>
-          <span class="rank">Lv {{ selected.rank }} / {{ selected.maxRank }}</span>
-        </div>
-        <p class="desc">{{ selected.description }}</p>
-        <div class="cols">
-          <div>
-            <h4>{{ selected.rank > 0 ? '目前' : 'Lv 1' }}</h4>
-            <ul>
-              <li v-for="l in selected.now" :key="l">{{ l }}</li>
-            </ul>
+      <Teleport to="body">
+        <div v-if="tipNode && tip" class="skill-tip" :style="{ left: `${tip.x}px`, top: `${tip.y}px`, width: `${TIP_WIDTH}px` }" role="tooltip">
+          <div class="info-head">
+            <b>{{ tipNode.name }}</b>
+            <span class="rank">Lv {{ tipNode.rank }} / {{ tipNode.maxRank }}</span>
           </div>
-          <div v-if="selected.next">
+          <p class="desc">{{ tipNode.description }}</p>
+          <h4>{{ tipNode.rank > 0 ? '目前' : 'Lv 1' }}</h4>
+          <ul>
+            <li v-for="l in tipNode.now" :key="l">{{ l }}</li>
+          </ul>
+          <template v-if="tipNode.next">
             <h4>下一級</h4>
             <ul class="next">
               <!-- 只有數值改變的行以亮色顯示，一眼看出升級差異 -->
-              <li v-for="l in selected.next" :key="l" :class="{ same: selected.now.includes(l) }">{{ l }}</li>
+              <li v-for="l in tipNode.next" :key="l" :class="{ same: tipNode.now.includes(l) }">{{ l }}</li>
             </ul>
-          </div>
+          </template>
+          <p v-if="tipNode.blocked" class="blocked">{{ tipNode.blocked }}</p>
+          <p v-else-if="tipNode.canLearn" class="tip-learn">點右上角「{{ tipNode.rank > 0 ? '升級' : '學習' }}」花 1 技能點</p>
         </div>
-        <div class="actions">
-          <button
-            type="button"
-            :disabled="!selected.canLearn"
-            @click="gameBridge.send({ type: 'LearnSkill', skillId: selected.id })"
-          >
-            {{ selected.rank > 0 ? '升級（1 點）' : '學習（1 點）' }}
-          </button>
-          <button v-if="selected.kind === 'passive' && selected.rank > 0" type="button" @click="toggleSupport(selected)">
-            {{ selected.equippedSupport ? '卸下' : '裝備' }}
-          </button>
-          <span v-if="selected.blocked" class="blocked">{{ selected.blocked }}</span>
-        </div>
-        <p v-if="placeable && placeable.kind === 'active'" class="hint">拖曳技能，或直接點下方連段格子放入</p>
-        <p v-if="placeable && placeable.kind === 'passive'" class="hint">拖曳技能，或直接點下方 Support 格子裝備</p>
-      </section>
+      </Teleport>
+      <p v-if="placeable" class="hint">
+        已選取「{{ placeable.name }}」：{{ placeable.kind === 'active' ? '點下方連段格子放入，或直接拖曳' : '點下方 Support 格子裝備，或直接拖曳' }}
+      </p>
 
       <section v-if="category.kind === 'active'" class="loadout">
         <div class="left-slot">
@@ -231,26 +270,37 @@ function respec(e: MouseEvent) {
           <span class="slot left-current" :class="{ denied: view.left?.denied }">{{ view.left?.name ?? '—' }}</span>
           <span v-if="view.left?.denied" class="blocked">無法使用：{{ view.left.denied }}</span>
         </div>
-        <h3>Q / W / E / R / A / S / D 連段 <small>右鍵依序施放 · 右鍵點格子清空</small></h3>
+        <h3>Q / W / E / R / A / S / D 連段 <small>右鍵依序施放 · 點格子右上角 × 清空</small></h3>
         <div v-for="combo in view.combos" :key="combo.key" class="combo-block">
           <div class="combo" :class="{ active: combo.active }">
             <span class="key">{{ combo.label }}</span>
             <span v-if="combo.keyLevel !== null" class="slot locked key-locked">🔒 等級 {{ combo.keyLevel }} 解鎖</span>
             <template v-for="step in STEPS" v-else :key="step">
               <span v-if="step > 0" class="arrow">→</span>
-              <button
-                v-if="combo.unlocked[step]"
-                type="button"
-                class="slot"
-                :class="{ empty: !combo.steps[step], target: placeable?.kind === 'active', denied: combo.steps[step]?.denied }"
-                :title="combo.steps[step]?.denied ?? undefined"
-                @click="placeCombo(combo.key, step, placeable?.id ?? null)"
-                @contextmenu.prevent="gameBridge.send({ type: 'SetComboSlot', combo: combo.key, step, skillId: null })"
-                @dragover.prevent
-                @drop.prevent="placeCombo(combo.key, step, draggedId($event))"
-              >
-                {{ combo.steps[step]?.name ?? '＋' }}
-              </button>
+              <span v-if="combo.unlocked[step]" class="slot-wrap">
+                <button
+                  type="button"
+                  class="slot"
+                  :class="{ empty: !combo.steps[step], target: placeable?.kind === 'active', denied: combo.steps[step]?.denied }"
+                  :title="combo.steps[step]?.denied ?? undefined"
+                  @click="placeCombo(combo.key, step, placeable?.id ?? null)"
+                  @contextmenu.prevent="clearCombo(combo.key, step)"
+                  @dragover.prevent
+                  @drop.prevent="placeCombo(combo.key, step, draggedId($event))"
+                >
+                  {{ combo.steps[step]?.name ?? '＋' }}
+                </button>
+                <button
+                  v-if="combo.steps[step]"
+                  type="button"
+                  class="clear-btn"
+                  :aria-label="`清空 ${combo.label}${step + 1}`"
+                  title="清空這一格"
+                  @click.stop="clearCombo(combo.key, step)"
+                >
+                  ×
+                </button>
+              </span>
               <span v-else class="slot locked">🔒 Lv {{ combo.unlockLevels[step] }}</span>
             </template>
           </div>
@@ -266,21 +316,22 @@ function respec(e: MouseEvent) {
       </section>
 
       <section v-else class="loadout">
-        <h3>Support <small>最多 3 個，常駐生效 · 右鍵點格子卸下</small></h3>
+        <h3>Support <small>最多 3 個，常駐生效 · 點格子右上角 × 卸下</small></h3>
         <div class="supports">
-          <button
-            v-for="(s, i) in view.supports"
-            :key="i"
-            type="button"
-            class="slot"
-            :class="{ empty: !s, target: placeable?.kind === 'passive' }"
-            @click="placeSupport(i as 0 | 1 | 2, placeable?.id ?? null)"
-            @contextmenu.prevent="gameBridge.send({ type: 'SetSupportSlot', slot: i as 0 | 1 | 2, skillId: null })"
-            @dragover.prevent
-            @drop.prevent="placeSupport(i as 0 | 1 | 2, draggedId($event))"
-          >
-            {{ s?.name ?? '＋' }}
-          </button>
+          <span v-for="(s, i) in view.supports" :key="i" class="slot-wrap">
+            <button
+              type="button"
+              class="slot"
+              :class="{ empty: !s, target: placeable?.kind === 'passive' }"
+              @click="placeSupport(i as 0 | 1 | 2, placeable?.id ?? null)"
+              @contextmenu.prevent="clearSupport(i)"
+              @dragover.prevent
+              @drop.prevent="placeSupport(i as 0 | 1 | 2, draggedId($event))"
+            >
+              {{ s?.name ?? '＋' }}
+            </button>
+            <button v-if="s" type="button" class="clear-btn" :aria-label="`卸下 ${s.name}`" title="卸下" @click.stop="clearSupport(i)">×</button>
+          </span>
         </div>
       </section>
     </div>
@@ -436,6 +487,10 @@ section {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.node .name {
+  /* 右上角的學習 / 升級鈕 */
+  padding-right: 30px;
+}
 .learned .name {
   color: #f0e2c0;
 }
@@ -470,6 +525,79 @@ section {
   background: #c8a25a;
   border-color: #c8a25a;
 }
+.learn-btn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  padding: 0 5px;
+  font: 10px/1.5 sans-serif;
+  color: #0b0a09;
+  background: #c8a25a;
+  border: 1px solid #e8c47a;
+  cursor: pointer;
+}
+.learn-btn:hover,
+.learn-btn:focus-visible {
+  background: #e8c47a;
+}
+/* 技能說明（浮動，Teleport 到 body，跟著滑鼠所在的技能格） */
+.skill-tip {
+  position: fixed;
+  z-index: 50;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 10px 12px;
+  font: 13px/1.45 sans-serif;
+  color: #d8cbb4;
+  background: rgb(18 15 12 / 97%);
+  border: 1px solid #8a7c68;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 70%);
+  pointer-events: none;
+}
+.skill-tip h4 {
+  margin-top: 6px;
+}
+.skill-tip .blocked,
+.tip-learn {
+  margin: 6px 0 0;
+}
+.tip-learn {
+  font-size: 11px;
+  color: #e8c47a;
+}
+/* 連段 / Support 格的清空鈕：滑鼠移到格子上才出現（觸控裝置一直顯示） */
+.slot-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+.clear-btn {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font: 12px/14px sans-serif;
+  color: #f0e2c0;
+  background: #6a2a22;
+  border: 1px solid #b0776a;
+  cursor: pointer;
+  opacity: 0;
+}
+.slot-wrap:hover .clear-btn,
+.clear-btn:focus-visible {
+  opacity: 1;
+}
+.clear-btn:hover {
+  background: #a33a2c;
+}
+@media (pointer: coarse) {
+  .clear-btn {
+    opacity: 1;
+  }
+}
 .info-head {
   display: flex;
   justify-content: space-between;
@@ -479,11 +607,6 @@ section {
   margin: 4px 0 6px;
   font-size: 12px;
   color: #b8ab94;
-}
-.cols {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
 }
 h4 {
   margin: 0 0 2px;
@@ -502,26 +625,6 @@ ul {
 }
 .next .same {
   color: #5e5648;
-}
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-.actions button {
-  padding: 3px 10px;
-  font: inherit;
-  font-size: 12px;
-  color: #e8c47a;
-  background: #221d19;
-  border: 1px solid #c8a25a;
-  cursor: pointer;
-}
-.actions button:disabled {
-  color: #5a4e40;
-  border-color: #3d342c;
-  cursor: default;
 }
 .blocked {
   font-size: 11px;

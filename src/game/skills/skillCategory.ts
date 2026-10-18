@@ -21,9 +21,10 @@ export function combatCategory(skill: SkillDef): CombatCategory | null {
 
 /**
  * 武器允許矩陣（純函式）：拿這把武器時不能用的技能，回傳原因；可以用回傳 null。
- * 沒拿武器時不限制；沒有類別的技能（Support 被動）不限制。
+ * 沒拿武器時不限制；沒有類別的技能（Support 被動）不限制。盾牌技能（tag: shield，例如盾擊）需要裝備盾牌。
  */
-export function weaponDenial(skill: SkillDef, weapon: WeaponType | undefined, rules: Balance['weaponRules']): string | null {
+export function weaponDenial(skill: SkillDef, weapon: WeaponType | undefined, rules: Balance['weaponRules'], hasShield = true): string | null {
+  if (skill.tags.includes('shield') && !hasShield) return '需要裝備盾牌';
   const category = combatCategory(skill);
   if (!weapon || !category || rules[weapon].includes(category)) return null;
   return `${WEAPON_TYPE_LABELS[weapon]}無法使用${SKILL_CATEGORY_LABELS[category]}技能`;

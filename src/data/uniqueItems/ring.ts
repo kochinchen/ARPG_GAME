@@ -137,7 +137,7 @@ const legendary: Def[] = [
       inc('attackSpeed', 0.06, 0.08),
       stat('critChance', 0.05, 0.07),
       inc('maxHp', 0.08, 0.12),
-      strong('雙重斬傷害 +25%', mods({ skills: ['melee.double_slash'] }, { damage: 0.25 })),
+      strong('劍刃旋舞傷害 +25%', mods({ skills: ['melee.blade_dance'] }, { damage: 0.25 })),
       unique(
         '多段類近戰技能每命中 4 次，撕開目標防禦：防禦 -20%（4 秒）',
         on('hit', [at('target', 'melee', [status('armorBreak', 4, 0.2)])], { when: { tags: ['MultiHit'], categories: ['melee'] }, every: 4 }),

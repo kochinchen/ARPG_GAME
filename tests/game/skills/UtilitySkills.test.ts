@@ -193,12 +193,35 @@ describe('戰術 · 共通', () => {
     }
   });
 
-  it('技能說明：鉤索 Lv1～4 不顯示 Lv5 才有的緩速；投擲的固定傷害依等級顯示', () => {
+  it('技能說明：鉤索 Lv1～4 不顯示 Lv5 才有的緩速；傷害以攻擊力（武器 / 法術取高）顯示', () => {
     const hook = data.skills.get('utility.grapple_hook');
     expect(describeSkill(hook, 1, 6).some((l) => l.includes('緩速'))).toBe(false);
     expect(describeSkill(hook, 5, 6).some((l) => l.includes('緩速'))).toBe(true);
     const knife = data.skills.get('utility.poison_knife');
-    expect(describeSkill(knife, 1, 2)).toContain('物理傷害 3–5');
-    expect(describeSkill(knife, 5, 5)).toContain('物理傷害 7–11');
+    expect(describeSkill(knife, 1, 2)).toContain('攻擊力 = 武器傷害與法術強度取較高者');
+    expect(describeSkill(knife, 1, 2)).toContain('物理傷害 20% 攻擊力');
+    expect(describeSkill(knife, 5, 5)).toContain('物理傷害 32% 攻擊力');
+  });
+});
+
+describe('戰術 · 攻擊力（武器傷害與法術強度取高）', () => {
+  it('法杖角色（法術強度高、武器傷害低）：淬毒飛刀與毒都以法術強度計算', () => {
+    const { world, commands } = setup([dummyAt(3.5, 1.5)]);
+    const dummy = enemiesOf(world)[0]!;
+    dummy.stats.setBase('defense', 0);
+    world.player.stats.setBase('damageMin', 2);
+    world.player.stats.setBase('damageMax', 4);
+    world.player.stats.setBase('spellPower', 200);
+    const hits: number[] = [];
+    world.events.on('ActorDamaged', (e) => {
+      if (e.targetId === dummy.id) hits.push(e.amount);
+    });
+    cast(world, commands, 'utility.poison_knife', 1, dummy, 0.6);
+    // 直接傷害 20% × 法術強度 200（±20%）＝ 32～48，不是武器傷害的 0～1
+    expect(hits[0]!).toBeGreaterThanOrEqual(32);
+    expect(hits[0]!).toBeLessThanOrEqual(48);
+    // 毒：200 × 40% / 5 秒 = 每秒 16
+    const poison = dummy.statuses.find((s) => s.kind === 'poison')!;
+    expect(poison.dps).toBeCloseTo(16);
   });
 });

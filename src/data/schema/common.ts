@@ -46,6 +46,8 @@ export const StatIdSchema = z.enum([
   'dodgeChance',
   /** 格擋（盾牌）：受到攻擊時減免一部分傷害的機率（減免比例與上限見 balance.combat） */
   'blockChance',
+  /** 盾牌本身的防禦（含主倍率；盾擊的傷害基準，由裝備欄自動設定，不會出現在詞綴） */
+  'shieldDefense',
   /** 荊棘：被近身攻擊時，對攻擊者造成的固定物理傷害 */
   'thorns',
   /** 藥水效果：藥水回復量提高（比例） */

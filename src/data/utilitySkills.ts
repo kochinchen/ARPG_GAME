@@ -9,7 +9,8 @@ const pct = (...v: R5): R5 => v.map((x) => x / 100) as R5;
 
 // ─────────────────────────────── Utility 戰術 ───────────────────────────────
 // 任何武器都能用、不吃武器種類的加減分（v0.4.0，規格：SPEC_v0.4.0_戰術技能與武器規則）。
-// A 身法：位移與控場 ｜ B 機關：有血量的佈置物 ｜ C 投擲：直接傷害是固定值（投擲物本身），武器傷害只體現在毒 / 流血上。
+// A 身法：位移與控場 ｜ B 機關：有血量的佈置物 ｜ C 投擲：直接傷害偏低，主要傷害在毒 / 流血。
+// 傷害一律用「攻擊力」＝武器傷害與法術強度取較高者（DamageEffect.attackPower），法杖拿戰術技能也打得動。
 // 冷卻全部為 0，節流靠魔力；魔力對齊同階魔法。投擲不吃攻速。
 
 const mobility: SkillInput[] = [
@@ -100,7 +101,7 @@ const frostBlast: EffectInput[] = [
     type: 'area',
     radius: 1.5,
     effects: [
-      { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: pct(50, 60, 70, 80, 90) },
+      { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: pct(70, 80, 90, 100, 110) },
       // Boss 依現有規則改為強力緩速
       { type: 'status', status: 'freeze', duration: [0.8, 0.9, 1, 1.1, 1.2] },
     ],
@@ -113,7 +114,7 @@ const kegBlast: EffectInput[] = [
     type: 'area',
     radius: [2, 2.05, 2.1, 2.15, 2.2],
     effects: [
-      { type: 'damage', element: 'fire', scaling: 'weapon', multiplier: pct(260, 295, 330, 365, 400) },
+      { type: 'damage', element: 'fire', scaling: 'weapon', multiplier: pct(300, 340, 380, 420, 460) },
       { type: 'knockback', distance: 2 },
       { type: 'status', status: 'burn', duration: 3 },
     ],
@@ -246,7 +247,7 @@ const throwables: SkillInput[] = [
         count: [1, 1, 2, 2, 3],
         spreadDeg: 12,
         onHit: [
-          { type: 'damage', element: 'physical', scaling: 'flat', base: [[3, 5], [4, 6], [5, 8], [6, 9], [7, 11]] },
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(20, 23, 26, 29, 32) },
           { type: 'status', status: 'poison', magnitude: pct(40, 50, 60, 70, 80), duration: 5 },
         ],
       },
@@ -271,7 +272,7 @@ const throwables: SkillInput[] = [
             type: 'area',
             radius: [1.6, 1.7, 1.8, 1.9, 2],
             effects: [
-              { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: [0.4, 0.475, 0.55, 0.625, 0.7] },
+              { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: pct(50, 60, 70, 80, 90) },
               { type: 'status', status: 'slow', magnitude: pct(30, 35, 40, 45, 50), duration: [3, 3, 3.5, 3.5, 4] },
             ],
           },
@@ -298,7 +299,7 @@ const throwables: SkillInput[] = [
         spreadDeg: 30,
         pierce: [1, 1, 1, 1, 2],
         onHit: [
-          { type: 'damage', element: 'physical', scaling: 'flat', base: [[8, 14], [10, 17], [13, 21], [15, 24], [18, 28]] },
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(45, 50, 55, 60, 65) },
           { type: 'status', status: 'bleed', magnitude: pct(40, 50, 60, 70, 80), duration: 5 },
         ],
       },

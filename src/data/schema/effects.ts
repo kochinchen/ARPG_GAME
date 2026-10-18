@@ -49,8 +49,8 @@ export const DamageEffectSchema = z
   .strictObject({
     type: z.literal('damage'),
     element: ElementSchema,
-    /** weapon：% 武器傷害；spell：% Spell Power；flat：使用 base */
-    scaling: z.enum(['weapon', 'spell', 'flat']),
+    /** weapon：% 武器傷害；spell：% Spell Power；shield：% 盾牌本身的防禦（盾擊）；flat：使用 base */
+    scaling: z.enum(['weapon', 'spell', 'shield', 'flat']),
     /** flat 的傷害範圍（可依等級分別指定） */
     base: RankRangeSchema.optional(),
     /** 每一擊的倍率（1.2 = 120%） */

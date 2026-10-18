@@ -70,7 +70,7 @@
 | 3 | melee.earth_break | 裂地擊 | Heavy | 3 | Near | Heavy, AoE | Physical | — | None | Knockback | Finisher | 1 |
 | 4 | melee.devastator | 毀滅重擊 | Heavy | 4 | Near | Heavy, AoE, Impact（**無 Execute**，見 0.1） | Physical | — | None | None | Finisher | 1 |
 | 5 | melee.quick_slash | 快斬 | Combo | 1 | Near | Fast | Physical | — | None | None | Starter | 1 |
-| 6 | melee.double_slash | 雙重斬 | Combo | 2 | Near | Fast, MultiHit | Physical | — | None | None | Amplifier | 2 |
+| 6 | melee.shield_bash | 盾擊（v0.4.x 取代雙重斬） | Combo | 2 | Near | Heavy, Impact | Physical | — | None | Stun, Knockback | Setup | 1 |
 | 7 | melee.blade_dance | 劍刃旋舞 | Combo | 3 | Near | MultiHit, AoE | Physical | — | None | None | Amplifier | 3 |
 | 8 | melee.phantom_blades | 幻影連斬 | Combo | 4 | Near | Fast, MultiHit, Burst | Physical | — | None | None | Finisher | 5 |
 | 9 | melee.dash_slash | 突進斬 | Blade | 1 | Mid | Fast | Physical | — | Advance | None | Starter | 1（路徑上每個敵人） |
@@ -500,8 +500,8 @@ function stepMatches(m: StepMatcher, s: SkillComboInfo): boolean {
 | T11 | 同元素有重複 | 火球 | 火球 | 隕星 | F→F→F | — | — | 無 | R11 要求三個 SkillID 不同；A→A→B 合法但無規則命中 |
 | T12 | 同元素三連 | 電擊 | 雷擊 | 連鎖閃電 | F→F→F | R13 | Storm Surge | S3：Damage +20%、ChainCount +1（3 → 4 次跳躍）、StatusChance +15 | 連鎖閃電強化 |
 | T13 | 跨系 + Priority 衝突 | 冰球 | 突進斬 | 毀滅重擊 | F→M→N | S02（同時符合 R04、R07） | Frozen Impact | S3：Damage +30%、Knockback +80%、Stagger +25%（暫不生效） | Tier 1 蓋過 Tier 3（R04）與 Tier 4（R07）。毀滅重擊不再帶 Execute，R16 不成立 |
-| T14 | 跨系 | 火球 | 快斬 | 雙重斬 | F→N→N | R05 | Elemental Weapon | S2：+15% 火焰追加傷害；S3：+25% 火焰追加傷害 | 需採用 Q2（F→N→N 合理） |
-| T15 | 兩同一異 + 同層衝突 | 雙重斬 | 雙重斬 | 重砍 | N→N→N | R02（R14 同為 Tier 5，Specificity 相同，編號較小者勝） | Fast Momentum | S3：Damage +20%、AnimationSpeed +15%、Crit +10% | 前兩招 Hits 2+2 = 4，即使 R14 勝出也不會有 +10% |
+| T14 | 跨系 | 火球 | 快斬 | 幻影連斬（原為雙重斬） | F→N→N | R05 | Elemental Weapon | S2：+15% 火焰追加傷害；S3：+25% 火焰追加傷害 | 需採用 Q2（F→N→N 合理） |
+| T15 | 兩同一異 + 同層衝突 | 幻影連斬（原為雙重斬） | 幻影連斬 | 重砍 | N→N→N | R02（R14 同為 Tier 5，Specificity 相同，編號較小者勝） | Fast Momentum | S3：Damage +20%、AnimationSpeed +15%、Crit +10% | 前兩招 Hits 2+2 = 4，即使 R14 勝出也不會有 +10% |
 | T16 | Priority 衝突（跨層） | 破甲斬 | 裂地擊 | 蓄力射擊 | N→N→F | R03（同時符合 R01） | Armor Crusher | S3：ArmorPen +25%、Damage +20% | Tier 3 蓋過 Tier 5 |
 | T17 | Priority 衝突（跨層） | 連鎖閃電 | 雷暴 | 雷擊 | F→F→F | R13（同時符合 R14） | Storm Surge | S3：Damage +20%、ChainCount +1（雷擊無連鎖，無效）、StatusChance +15 | Tier 2 蓋過 Tier 5；R14 的 Hits ≥ 6 加成不生效 |
 | T18 | Generic Tag | 穿透箭 | 散射 | 箭雨 | F→F→F | R09 | Piercing Barrage | S3：AoE +25%、HitCount +1（箭雨無投射物）、Damage +15% | 若日後採用草案 S03，改為 S03 |
@@ -594,8 +594,24 @@ function stepMatches(m: StepMatcher, s: SkillComboInfo): boolean {
 
 | 武器 | 只套武器規則 | 加入戰術＋新規則 | 打不到的規則 |
 |---|---|---|---|
-| 劍 / 斧 | 3,490 | 10,161 | 標記處決 |
-| 弓 | 3,287 | 9,264 | 烈焰終擊、冰霜重擊、碎甲 |
-| 法杖 | 119 | 1,943 | 烈焰終擊、冰霜重擊、碎甲、標記處決、元素處決 |
+| 劍 / 斧 | 3,491（盾擊前 3,490） | 11,610（SPEC 10,161） | 標記處決 |
+| 弓 | 3,287 | 11,170（SPEC 9,264） | 烈焰終擊、冰霜重擊、碎甲 |
+| 法杖 | 119 | 3,134（SPEC 1,943） | 烈焰終擊、冰霜重擊、碎甲、標記處決、元素處決 |
 
-基準（原本 36 招、19 條規則、不分武器）：10,040。連段裡有技能被目前的武器禁用或還在冷卻時，整組不施放。
+基準（36 招、只用原本 19 條規則、不分武器）：10,139（盾擊取代雙重斬前為 10,040）。「加入戰術」欄含 12 招戰術與 5 條新規則（含 12.5 的兩條）。連段裡有技能被目前的武器禁用或還在冷卻時，整組不施放。
+
+### 12.4 盾擊取代雙重斬（v0.4.x）
+
+雙重斬（T2 連擊）與幻影連斬（T4）幾乎相同，改為**盾擊**：傷害 = 盾牌本身的防禦（含主倍率）× 110～150%，前方 100° 扇形 2.5 格衝擊波，暈眩 0.6～1.0 秒、擊退 1 格；沒有裝備盾牌時不能使用（`tag: shield`，與武器禁用相同的提示與整組停用）。標籤 Near · Heavy · Impact · Physical · Stun · Knockback、角色 Setup；近戰多了暈眩起手，破綻一擊（Stun → Physical → Heavy/Execute）可以全近戰完成。存檔 v14 把雙重斬的等級、左鍵與連段格轉給盾擊。
+
+### 12.5 法術＋戰術的混搭規則（v0.4.x）
+
+| 規則 | Tier / order | 條件 | 加成 |
+|---|---|---|---|
+| 元素投擲 `combo.elemental_throw` | 3 / 20 | 元素 → 元素 → 物理投射物（Projectile + Physical） | 第三招追加第一招的元素傷害 +30%、傷害 +15% |
+| 元素陷阱 `combo.elemental_trap` | 4 / 21 | 元素 → 遠距範圍佈置（Far · Setup · AoE）→ 元素 | 第二招（機關）追加第一招的元素傷害 +25%、傷害 +20%；第三招傷害 +15% |
+
+例：火球 → 火球 → 淬毒飛刀（元素投擲）、冰球 → 火藥桶 → 火球（元素陷阱）。兩種不同元素接物理招時，優先的雙元素附刃接手。
+
+戰術技能的傷害改用「攻擊力」＝武器傷害與法術強度取較高者（中毒 / 流血也是），法杖角色的戰術技能不再只能當銜接（原 P8 ★C 由設計者改為補強）。
+

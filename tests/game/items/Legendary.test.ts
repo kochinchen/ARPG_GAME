@@ -317,3 +317,52 @@ describe('特殊效果', () => {
     expect(world.itemEffects.activeBuffs[0]!.stacks).toBe(2);
   });
 });
+
+describe('世界裂痕（實際連段施放）', () => {
+  const ROOM = ['############', '#S.........#', '#..........#', '#..........#', '############'];
+  /** 用 Q 連段實際打一次：大範圍震波（半徑 3.2，Combo 效果）與一般震波（半徑 2.2，重擊效果）的次數與是否以 Combo 金色特效顯示 */
+  function castQ(skills: [string, string, string]) {
+    const ctx = createWorldWithMap(ROOM, [{ enemyId: 'enemy.training_dummy', at: [3, 1.5] }]);
+    const { world, commands, events } = ctx;
+    world.progress.level = 30;
+    world.player.stats.setBase('maxMana', 999);
+    world.player.mana = 999;
+    wear(world, 'mythic.world_rift', 20);
+    const target = world.actors.find((a) => a.defId === 'enemy.training_dummy')!;
+    target.stats.setBase('maxHp', 1e9);
+    target.hp = 1e9;
+    for (const id of skills) world.player.skillRanks.set(id, 1);
+    world.loadout.combos[0] = [...skills];
+    world.loadout.select(0);
+    const waves = { big: 0, bigSpecial: 0, small: 0, smallSpecial: 0 };
+    events.on('AreaTriggered', (e) => {
+      if (!e.skillId.includes('world_rift')) return;
+      if (Math.abs(e.radius - 3.2) < 0.01) {
+        waves.big++;
+        if (e.special) waves.bigSpecial++;
+      } else if (Math.abs(e.radius - 2.2) < 0.01) {
+        waves.small++;
+        if (e.special) waves.smallSpecial++;
+      }
+    });
+    commands.push({ type: 'CastRight', worldPos: target.position, targetId: target.id });
+    run(world, 5);
+    return waves;
+  }
+
+  it('三招都近身、技能不同且組成 Combo（破甲斬 → 快斬 → 重砍 = 碎甲）：第三招放出大範圍震波，以 Combo 金色特效和重擊震波區分', () => {
+    // 破甲斬、重砍是重擊類：各有一道一般震波；第三招另外多一道大範圍震波
+    expect(castQ(['melee.armor_break', 'melee.quick_slash', 'melee.heavy_slash'])).toEqual({ big: 1, bigSpecial: 1, small: 2, smallSpecial: 0 });
+  });
+
+  it('最後一招不是重擊（冰霜新星 → 快斬 → 劍刃旋舞 = 元素附刃）：只有 Combo 的大範圍震波', () => {
+    expect(castQ(['magic.frost_nova', 'melee.quick_slash', 'melee.blade_dance'])).toEqual({ big: 1, bigSpecial: 1, small: 0, smallSpecial: 0 });
+  });
+
+  it('含中距離技能（突進斬），或三招沒有組成 Combo：不會觸發', () => {
+    // 重砍 → 破甲斬 → 突進斬：突進斬是中距離，而且沒有符合的 Combo 規則
+    expect(castQ(['melee.heavy_slash', 'melee.armor_break', 'melee.dash_slash']).big).toBe(0);
+    // 快斬 → 破甲斬 → 重砍：三招都近身，但沒有符合的 Combo 規則
+    expect(castQ(['melee.quick_slash', 'melee.armor_break', 'melee.heavy_slash']).big).toBe(0);
+  });
+});

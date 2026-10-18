@@ -142,7 +142,7 @@ export class Renderer {
         kind: impactKind(e.skillId, skill?.tags ?? [], e.element, e.angleDeg, e.radius),
         position: e.position,
         radius: e.radius,
-        color: ELEMENT_COLORS[e.element ?? 'physical'] ?? 0xffffff,
+        color: itemFxColor(e.skillId, e.element) ?? ELEMENT_COLORS[e.element ?? 'physical'] ?? 0xffffff,
         direction: e.direction,
         angleDeg: e.angleDeg,
         big: BIG_IMPACTS.has(e.skillId) || e.radius >= 3,
@@ -417,9 +417,37 @@ function arenaOf(world: GameWorld): ArenaView | undefined {
 const BIG_IMPACTS = new Set(['magic.meteor', 'magic.absolute_zero', 'melee.devastator', 'melee.earth_break', 'magic.storm_core']);
 
 /** 範圍效果的外觀：依技能與元素選擇爆炸、冰刺、落雷、震波、斬擊… */
+/** 裝備效果的物理特效用稀有度色（神話紅、傳奇橘）；元素效果維持元素色 */
+function itemFxColor(skillId: string, element: string | null): number | null {
+  if (!skillId.startsWith('item.') || (element !== null && element !== 'physical')) return null;
+  return skillId.includes('mythic.') ? 0xff4a3a : 0xff9a3c;
+}
+
+/** 各招專屬的命中特效（沒有列出的依元素 / 標籤 / 範圍決定） */
+const SKILL_FX: Record<string, ImpactKind> = {
+  'melee.heavy_slash': 'cleave',
+  'melee.armor_break': 'sunder',
+  'melee.earth_break': 'shockwave',
+  'melee.devastator': 'crater',
+  'melee.quick_slash': 'slash',
+  'melee.shield_bash': 'shieldBash',
+  'melee.blade_dance': 'whirl',
+  'melee.phantom_blades': 'phantom',
+  'melee.dash_slash': 'dash',
+  'melee.quake_slash': 'tremor',
+  'melee.launch_slash': 'uppercut',
+  'melee.execution_slash': 'execute',
+  'ranged.rain_of_arrows': 'arrowRain',
+  'ranged.explosive_arrow': 'burst',
+  'utility.phantom_rush': 'dash',
+  'utility.flash_powder': 'flash',
+};
+
 function impactKind(skillId: string, tags: readonly string[], element: string | null, angleDeg: number, radius: number): ImpactKind {
-  if (skillId === 'ranged.rain_of_arrows') return 'arrowRain';
-  if (skillId === 'melee.blade_dance') return 'whirl';
+  const own = SKILL_FX[skillId];
+  if (own) return own;
+  // 裝備（傳奇 / 神話）的物理效果：發光的地裂，和技能本身的特效區分
+  if (skillId.startsWith('item.') && (element === null || element === 'physical')) return 'rift';
   if (element === 'fire') return 'fire';
   if (element === 'cold') return 'frost';
   if (element === 'lightning') return 'lightning';

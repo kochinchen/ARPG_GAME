@@ -10,7 +10,29 @@ import { SPECIAL } from './ProjectileArt';
  * 全部每幀重畫在四張 Graphics 上：地面（一般 / 發光）與上層（一般 / 發光）。
  */
 
-export type ImpactKind = 'fire' | 'frost' | 'lightning' | 'poison' | 'shockwave' | 'slash' | 'whirl' | 'burst' | 'arrowRain';
+export type ImpactKind =
+  | 'fire'
+  | 'frost'
+  | 'lightning'
+  | 'poison'
+  | 'shockwave'
+  | 'slash'
+  | 'whirl'
+  | 'burst'
+  | 'arrowRain'
+  // 各招專屬（近戰重擊類不再共用同一個震波）
+  | 'cleave'
+  | 'sunder'
+  | 'crater'
+  | 'shieldBash'
+  | 'tremor'
+  | 'uppercut'
+  | 'execute'
+  | 'phantom'
+  | 'dash'
+  /** 裝備（傳奇 / 神話）的特殊效果：發光的地裂，和技能本身的特效區分 */
+  | 'rift'
+  | 'flash';
 
 export interface ImpactInput {
   kind: ImpactKind;
@@ -60,10 +82,36 @@ interface Chain {
   jitterAt: number;
 }
 
+/** 各招專屬特效（drawSignature 處理） */
+const SIGNATURE = new Set<ImpactKind>(['cleave', 'sunder', 'crater', 'shieldBash', 'tremor', 'uppercut', 'execute', 'phantom', 'dash', 'rift', 'flash']);
+/** 這些特效沒有開頭的白色地面閃光（斬擊類只有弧光） */
+const NO_FLASH = new Set<ImpactKind>(['slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
+
 const CHAIN_TIME = 0.38;
 const HEIGHT = 30;
 
-const DURATION: Record<ImpactKind, number> = { fire: 0.75, frost: 0.95, lightning: 0.55, poison: 0.8, shockwave: 0.85, slash: 0.26, whirl: 0.45, burst: 0.35, arrowRain: 0.6 };
+const DURATION: Record<ImpactKind, number> = {
+  fire: 0.75,
+  frost: 0.95,
+  lightning: 0.55,
+  poison: 0.8,
+  shockwave: 0.85,
+  slash: 0.26,
+  whirl: 0.45,
+  burst: 0.35,
+  arrowRain: 0.6,
+  cleave: 0.4,
+  sunder: 0.45,
+  crater: 1.1,
+  shieldBash: 0.5,
+  tremor: 0.8,
+  uppercut: 0.45,
+  execute: 0.5,
+  phantom: 0.5,
+  dash: 0.35,
+  rift: 0.9,
+  flash: 0.7,
+};
 
 const easeOut = (x: number) => 1 - (1 - x) * (1 - x);
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -203,6 +251,57 @@ export class ImpactFx {
         break;
       case 'arrowRain':
         break;
+      case 'cleave':
+        burst('dust', Math.round(8 * size), 0x8a7a66, size * 1.4);
+        burst('spark', 8, 0xffe8c0, 1, 10);
+        this.addShake(2.5);
+        break;
+      case 'sunder':
+        // 被敲碎的護甲碎片（鋼藍）
+        burst('shard', Math.round(14 * size), 0x9fb4c8, size, 12);
+        burst('spark', 14, 0xffffff, 1.2, 12);
+        this.addShake(2.5);
+        break;
+      case 'crater':
+        burst('debris', Math.round(30 * size), 0x5a4a3a, size * 1.2);
+        burst('debris', Math.round(14 * size), 0x8a7a66, size);
+        burst('dust', Math.round(20 * size), 0x8a7a66, size * 2);
+        burst('spark', 16, 0xffd080, size);
+        this.addShake(10);
+        break;
+      case 'shieldBash':
+        burst('dust', 10, 0x8a7a66, 1.2);
+        burst('spark', 10, 0xe8ecf0, 1.2, 14);
+        this.addShake(3.5);
+        break;
+      case 'tremor':
+        burst('dust', Math.round(14 * size), 0x8a7a66, size * 1.8);
+        this.addShake(3);
+        break;
+      case 'uppercut':
+        burst('wind', 10, 0xe8f0ff, 1, 20);
+        burst('dust', 6, 0x8a7a66, 1);
+        break;
+      case 'execute':
+        burst('spark', 18, 0xff5050, 1.3, 14);
+        this.addShake(4);
+        break;
+      case 'phantom':
+        burst('mote', 14, 0xc8b4ff, 1.4, 14);
+        break;
+      case 'dash':
+        burst('wind', 8, 0xe8f0ff, 1, 10);
+        burst('dust', 5, 0x8a7a66, 1);
+        break;
+      case 'rift':
+        burst('ember', Math.round(16 * size), c, size, 4);
+        burst('spark', 10, mix(c, 0xffffff, 0.4), size);
+        this.addShake(2);
+        break;
+      case 'flash':
+        burst('mote', Math.round(24 * size), 0xf4ecff, size * 1.4, 8);
+        burst('spark', 12, 0xffffff, size, 8);
+        break;
     }
     if (input.special) burst('spark', 14, SPECIAL, 1.2, 10);
   }
@@ -337,8 +436,13 @@ export class ImpactFx {
     };
     // 前 0.12 的白色閃光（大招更亮）
     const flash = clamp01(1 - t / 0.14);
-    if (flash > 0 && im.kind !== 'slash' && im.kind !== 'whirl') disc(R * 0.75, flash * (im.big ? 0.8 : 0.5), 0xffffff);
+    if (flash > 0 && !NO_FLASH.has(im.kind)) disc(R * 0.75, flash * (im.big ? 0.8 : 0.5), 0xffffff);
 
+    if (SIGNATURE.has(im.kind)) {
+      this.drawSignature(im, t);
+      if (im.special && live) ring(R * (0.9 + 0.3 * easeOut(t)), 2, 0.9 * fade, SPECIAL);
+      return;
+    }
     switch (im.kind) {
       case 'fire': {
         // 焦痕（留得較久）
@@ -521,6 +625,232 @@ export class ImpactFx {
       }
     }
     if (im.special && live) ring(R * (0.9 + 0.3 * easeOut(t)), 2, 0.9 * fade, SPECIAL);
+  }
+
+  /**
+   * 沿扇形掃過的月牙弧光（斬擊類共用的畫法）：width = 中段厚度（比例），lift = 離地高度（px），
+   * sweep = 已掃過的比例；offset = 弧的中心相對施放方向的旋轉（弧度）。
+   */
+  private crescent(im: Impact, opts: { span: number; radius: number; width: number; lift: number; sweep: number; color: number; alpha: number; edge?: number; offset?: number; tilt?: number }): void {
+    const base = Math.atan2(im.direction.y, im.direction.x) + (opts.offset ?? 0);
+    const from = base - opts.span / 2;
+    const to = from + opts.span * opts.sweep;
+    const outer: number[] = [];
+    const inner: [number, number][] = [];
+    const steps = 16;
+    for (let i = 0; i <= steps; i++) {
+      const k = i / steps;
+      const a = from + (to - from) * k;
+      const w = Math.sin(k * Math.PI) * opts.width + 0.04;
+      const [ox, oy] = this.at(im, a, opts.radius);
+      // tilt：弧的一端往上翹（挑空斬由下往上）
+      const up = (opts.tilt ?? 0) * k;
+      outer.push(ox, oy - opts.lift - up);
+      const [ix, iy] = this.at(im, a, opts.radius * (1 - w));
+      inner.push([ix, iy - opts.lift - up]);
+    }
+    const pts = [...outer];
+    for (let i = inner.length - 1; i >= 0; i--) pts.push(...inner[i]!);
+    this.topGlow.poly(pts).fill({ color: opts.color, alpha: opts.alpha });
+    this.topGlow.poly(outer, false).stroke({ color: 0xffffff, width: opts.edge ?? 2, alpha: Math.min(1, opts.alpha * 1.6) });
+  }
+
+  /** 各招專屬的特效（drawImpact 的延伸，避免單一 switch 過長） */
+  private drawSignature(im: Impact, t: number): void {
+    const R = im.radius;
+    const live = t < 1;
+    const fade = 1 - clamp01(t);
+    const c = im.color;
+    const gg = this.groundGlow;
+    const gs = this.groundSolid;
+    const tg = this.topGlow;
+    const ts = this.topSolid;
+    const dir = Math.atan2(im.direction.y, im.direction.x);
+    const ring = (r: number, width: number, alpha: number, color = c, span = Math.PI * 2, center = 0) => {
+      const pts: number[] = [];
+      const n = 32;
+      for (let i = 0; i <= n; i++) pts.push(...this.at(im, center - span / 2 + (span * i) / n, r));
+      gg.poly(pts, span < Math.PI * 2).stroke({ color, width, alpha });
+    };
+    switch (im.kind) {
+      case 'cleave': {
+        if (!live) break;
+        // 重砍：又厚又寬的月牙，後面拖一道暗色的殘影，落點揚起塵土
+        const sweep = easeOut(clamp01(t * 2.6));
+        const span = (Math.min(im.angleDeg, 200) * Math.PI) / 180;
+        this.crescent(im, { span, radius: R * 1.1, width: 0.6, lift: 14, sweep, color: 0x3a2e24, alpha: 0.45 * fade, edge: 0 });
+        this.crescent(im, { span, radius: R * 1.05, width: 0.5, lift: 18, sweep, color: mix(c, 0xffe0b0, 0.5), alpha: 0.7 * fade, edge: 3 });
+        ring(R * 1.05, 4 * fade + 1, 0.5 * fade, 0x8a7a66, span, dir);
+        break;
+      }
+      case 'sunder': {
+        if (!live) break;
+        // 破甲斬：窄而亮的鋼藍斬擊，命中點迸出一圈碎裂的護甲紋
+        const sweep = easeOut(clamp01(t * 3));
+        const span = (Math.min(im.angleDeg, 160) * Math.PI) / 180 * 0.8;
+        this.crescent(im, { span, radius: R, width: 0.28, lift: 16, sweep, color: 0x9fd0ff, alpha: 0.8 * fade, edge: 2.5 });
+        const [hx, hy] = this.at(im, dir, R * 0.7);
+        const crack = easeOut(clamp01(t * 4));
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI * 2 + im.seeds[i]! * 0.4;
+          const len = (10 + im.seeds[i + 7]! * 12) * crack;
+          tg.moveTo(hx, hy - 16).lineTo(hx + Math.cos(a) * len, hy - 16 + Math.sin(a) * len * 0.7).stroke({ color: 0xd8ecff, width: 1.6, alpha: fade });
+        }
+        tg.circle(hx, hy - 16, 9 * (1 - t) + 2).fill({ color: 0xffffff, alpha: 0.6 * fade });
+        break;
+      }
+      case 'crater': {
+        // 毀滅重擊：先畫原本的地裂與震波，再加一圈往上竄的岩柱與中央凹坑
+        const crackAlpha = clamp01(1.8 - t);
+        gs.poly(Array.from({ length: 20 }, (_, i) => this.at(im, (i / 20) * Math.PI * 2, R * 0.45 * (0.85 + im.seeds[i]! * 0.3))).flat()).fill({ color: 0x140e0a, alpha: 0.55 * crackAlpha });
+        if (!live) break;
+        ring(R * (0.25 + 1.0 * easeOut(t)), 12 * fade + 1, 0.9 * fade, mix(c, 0xffffff, 0.4));
+        const rise = Math.sin(clamp01(t * 1.6) * Math.PI);
+        const n = 12;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + im.seeds[i + 20]! * 0.3;
+          const [x, y] = this.at(im, a, R * (0.65 + im.seeds[i + 30]! * 0.25));
+          const h = (14 + im.seeds[i + 10]! * 18) * rise;
+          const w = 4 + im.seeds[i]! * 3;
+          ts.poly([x - w, y, x - 1, y - h, x, y + 1]).fill({ color: 0x6a5846, alpha: 0.95 });
+          ts.poly([x, y + 1, x - 1, y - h, x + w, y]).fill({ color: 0x3a2e24, alpha: 0.95 });
+        }
+        break;
+      }
+      case 'shieldBash': {
+        if (!live) break;
+        // 盾擊：盾牌往前推出 + 兩側兩道往前衝的風 + 前方一道受壓的弧形衝擊波
+        const push = easeOut(clamp01(t * 3));
+        const [sx, sy] = this.at(im, dir, R * (0.15 + 0.45 * push));
+        const lift = 22;
+        const ang = Math.atan2(this.screen(vec2(Math.cos(dir), Math.sin(dir))).y - this.screen(vec2(0, 0)).y, this.screen(vec2(Math.cos(dir), Math.sin(dir))).x - this.screen(vec2(0, 0)).x);
+        const px = -Math.sin(ang);
+        const py = Math.cos(ang);
+        // 盾面：圓頂的鳶盾外形（正面朝前進方向），亮暗兩面加鐵框
+        const shield = (scale: number) => {
+          const hw = 11 * scale;
+          const hh = 15 * scale;
+          return [
+            sx + px * hw, sy - lift + py * hw * 0.6 - hh * 0.5,
+            sx + px * hw * 0.9, sy - lift + py * hw * 0.55 + hh * 0.3,
+            sx, sy - lift + hh * 0.85,
+            sx - px * hw * 0.9, sy - lift - py * hw * 0.55 + hh * 0.3,
+            sx - px * hw, sy - lift - py * hw * 0.6 - hh * 0.5,
+            sx, sy - lift - hh * 0.75,
+          ];
+        };
+        ts.poly(shield(1)).fill({ color: 0x5a6470, alpha: 0.95 * fade });
+        ts.poly(shield(0.72)).fill({ color: 0x8a96a4, alpha: 0.95 * fade });
+        tg.poly(shield(1)).stroke({ color: 0xe8ecf0, width: 1.6, alpha: fade });
+        tg.circle(sx, sy - lift, 2.5).fill({ color: 0xffffff, alpha: fade });
+        // 兩道風：從盾的兩側往前方拉長
+        for (const side of [-1, 1]) {
+          for (let k = 0; k < 3; k++) {
+            const off = side * (13 + k * 4);
+            const len = (24 + k * 10) * push;
+            const bx = sx + px * off - Math.cos(ang) * 10;
+            const by = sy - lift + py * off * 0.6 - Math.sin(ang) * 10 + k * 3;
+            tg.moveTo(bx, by).lineTo(bx + Math.cos(ang) * len, by + Math.sin(ang) * len).stroke({ color: 0xe8f4ff, width: 2.2 - k * 0.5, alpha: (0.85 - k * 0.2) * fade, cap: 'round' });
+          }
+        }
+        // 前方的壓力波
+        const span = (Math.min(im.angleDeg, 160) * Math.PI) / 180;
+        ring(R * (0.4 + 0.7 * push), 6 * fade + 1, 0.8 * fade, 0xe8f4ff, span, dir);
+        ring(R * (0.3 + 0.55 * push), 3 * fade, 0.5 * fade, mix(c, 0xffffff, 0.5), span * 0.8, dir);
+        break;
+      }
+      case 'tremor': {
+        // 震地斬：三道依序擴散的地面波紋，沒有地裂
+        for (let k = 0; k < 3; k++) {
+          const tk = clamp01((t - k * 0.15) / 0.75);
+          if (tk <= 0 || tk >= 1) continue;
+          ring(R * (0.2 + 0.9 * easeOut(tk)), 5 * (1 - tk) + 1, 0.75 * (1 - tk), mix(c, 0xd8c0a0, 0.5));
+        }
+        if (live) gs.poly(Array.from({ length: 18 }, (_, i) => this.at(im, (i / 18) * Math.PI * 2, R * 0.35)).flat()).fill({ color: 0x3a2e24, alpha: 0.3 * fade });
+        break;
+      }
+      case 'uppercut': {
+        if (!live) break;
+        // 挑空斬：由下往上翹起的弧光 + 往上的氣流
+        const sweep = easeOut(clamp01(t * 2.5));
+        this.crescent(im, { span: Math.PI * 0.6, radius: R, width: 0.4, lift: 6, sweep, color: mix(c, 0xe8f4ff, 0.5), alpha: 0.75 * fade, edge: 2.5, tilt: 40 });
+        const [x, y] = this.at(im, dir, R * 0.6);
+        for (let i = 0; i < 3; i++) tg.moveTo(x + (i - 1) * 8, y - 10).lineTo(x + (i - 1) * 6, y - 10 - 40 * sweep).stroke({ color: 0xe8f4ff, width: 1.4, alpha: 0.6 * fade });
+        break;
+      }
+      case 'execute': {
+        if (!live) break;
+        // 處決斬：兩道交叉的紅色斬痕（X），交叉點閃光
+        const [x, y] = this.at(im, dir, R * 0.6);
+        const len = 26 * easeOut(clamp01(t * 4));
+        for (const [a, delay] of [[-0.7, 0], [0.7, 0.15]] as const) {
+          const k = clamp01((t - delay) / 0.3);
+          if (k <= 0) continue;
+          const dx = Math.cos(a) * len * k;
+          const dy = Math.sin(a) * len * k;
+          tg.moveTo(x - dx, y - 18 - dy).lineTo(x + dx, y - 18 + dy).stroke({ color: 0xff3a3a, width: 6 * fade + 1, alpha: 0.5 * fade, cap: 'round' });
+          tg.moveTo(x - dx, y - 18 - dy).lineTo(x + dx, y - 18 + dy).stroke({ color: 0xffe0e0, width: 2, alpha: fade, cap: 'round' });
+        }
+        tg.circle(x, y - 18, 10 * fade + 2).fill({ color: 0xff7070, alpha: 0.4 * fade });
+        break;
+      }
+      case 'phantom': {
+        if (!live) break;
+        // 幻影連斬：五道不同角度、依序出現的淡紫殘影斬
+        for (let k = 0; k < 5; k++) {
+          const tk = clamp01((t - k * 0.1) / 0.35);
+          if (tk <= 0 || tk >= 1) continue;
+          const off = (im.seeds[k]! - 0.5) * 1.6;
+          this.crescent(im, { span: Math.PI * 0.45, radius: R * (0.8 + im.seeds[k + 5]! * 0.3), width: 0.25, lift: 10 + k * 3, sweep: easeOut(clamp01(tk * 2)), color: 0xc8b4ff, alpha: 0.6 * (1 - tk), edge: 1.5, offset: off });
+        }
+        break;
+      }
+      case 'dash': {
+        if (!live) break;
+        // 突進斬：斬擊弧光 + 身後拖出的幾道風
+        const span = (Math.min(im.angleDeg, 160) * Math.PI) / 180;
+        this.crescent(im, { span, radius: R, width: 0.35, lift: 16, sweep: easeOut(clamp01(t * 2.5)), color: c, alpha: 0.55 * fade });
+        for (let i = 0; i < 4; i++) {
+          const [x, y] = this.at(im, dir + Math.PI + (i - 1.5) * 0.25, R * (0.4 + i * 0.1));
+          const [x2, y2] = this.at(im, dir + Math.PI + (i - 1.5) * 0.2, R * (1.6 + i * 0.2));
+          tg.moveTo(x, y - 14).lineTo(x2, y2 - 14).stroke({ color: 0xe8f0ff, width: 1.2, alpha: 0.6 * fade });
+        }
+        break;
+      }
+      case 'rift': {
+        // 裝備效果：發光的地裂（裝備的元素色）往外擴散，留下熾熱的裂縫
+        const crackAlpha = clamp01(1.8 - t);
+        const n = 6;
+        const grow = easeOut(clamp01(t * 3));
+        for (let i = 0; i < n; i++) {
+          const a0 = (i / n) * Math.PI * 2 + im.seeds[i]! * 0.6;
+          const pts: number[] = [im.sx, im.sy];
+          let a = a0;
+          for (let k = 1; k <= 5; k++) {
+            a += (im.seeds[(i * 5 + k) % 48]! - 0.5) * 0.6;
+            pts.push(...this.at(im, a, (R * 0.95 * grow * k) / 5));
+          }
+          gs.poly(pts, false).stroke({ color: 0x0e0806, width: 3, alpha: 0.8 * crackAlpha });
+          gg.poly(pts, false).stroke({ color: mix(c, 0xff6a2a, 0.6), width: 2, alpha: crackAlpha });
+        }
+        if (live) {
+          ring(R * (0.3 + 0.8 * grow), 4 * fade + 1, 0.8 * fade, mix(c, 0xff8a3a, 0.6));
+          tg.circle(im.sx, im.sy - 8, R * 10 * fade).fill({ color: mix(c, 0xff6a2a, 0.5), alpha: 0.18 * fade });
+        }
+        break;
+      }
+      case 'flash': {
+        if (!live) break;
+        // 閃光粉：一團白紫色的強光粉塵，中心先爆亮再散開
+        const grow = easeOut(clamp01(t * 2));
+        tg.circle(im.sx, im.sy - 10, R * 14 * grow).fill({ color: 0xf4ecff, alpha: 0.45 * fade });
+        tg.circle(im.sx, im.sy - 10, R * 6 * (1 - t * 0.5)).fill({ color: 0xffffff, alpha: 0.7 * fade });
+        ring(R * (0.3 + 0.7 * grow), 3 * fade, 0.8 * fade, 0xd8c8ff);
+        break;
+      }
+      default:
+        break;
+    }
   }
 
   private drawChain(ch: Chain): void {

@@ -16,7 +16,8 @@ export const skillComboTags: Record<string, ComboInfo> = {
   'melee.devastator': { range: 'Near', action: ['Heavy', 'AoE', 'Impact'], damage: ['Physical'], role: 'Finisher' },
   // ── Melee · Combo ──
   'melee.quick_slash': { range: 'Near', action: ['Fast'], damage: ['Physical'], role: 'Starter' },
-  'melee.double_slash': { range: 'Near', action: ['Fast', 'MultiHit'], damage: ['Physical'], role: 'Amplifier' },
+  // 盾擊（取代雙重斬）
+  'melee.shield_bash': { range: 'Near', action: ['Heavy', 'Impact'], damage: ['Physical'], control: ['Stun', 'Knockback'], role: 'Setup' },
   'melee.blade_dance': { range: 'Near', action: ['MultiHit', 'AoE'], damage: ['Physical'], role: 'Amplifier' },
   'melee.phantom_blades': { range: 'Near', action: ['Fast', 'MultiHit', 'Burst'], damage: ['Physical'], role: 'Finisher' },
   // ── Melee · Blade 刃術 ──

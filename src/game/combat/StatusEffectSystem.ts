@@ -145,13 +145,14 @@ export class StatusEffectSystem {
 
 /**
  * 持續傷害的每秒傷害（施加當下依施放者屬性計算）：
- * 燃燒 = Spell Power × magnitude；中毒 / 流血 = 武器平均傷害 × magnitude 的總量平均分到持續時間（中毒另乘附加毒素傷害）
+ * 燃燒 = Spell Power × magnitude；中毒 / 流血 = 攻擊力（武器平均傷害與法術強度取高）× magnitude 的總量平均分到持續時間（中毒另乘附加毒素傷害）
  */
 function dotDps(kind: StatusKind, source: Actor | null, duration: number, magnitude: number): number {
   if (!source) return 0;
   if (kind === 'burn') return source.stats.get('spellPower') * magnitude;
   if (kind !== 'poison' && kind !== 'bleed') return 0;
-  const weapon = (source.stats.get('damageMin') + source.stats.get('damageMax')) / 2;
+  // 攻擊力：武器平均傷害與法術強度取較高者（中毒 / 流血都來自戰術技能，與 DamageEffect 的 attackPower 相同）
+  const power = Math.max((source.stats.get('damageMin') + source.stats.get('damageMax')) / 2, source.stats.get('spellPower'));
   const bonus = kind === 'poison' ? 1 + source.stats.get('poisonDamagePct') : 1;
-  return (weapon * magnitude * bonus) / duration;
+  return (power * magnitude * bonus) / duration;
 }

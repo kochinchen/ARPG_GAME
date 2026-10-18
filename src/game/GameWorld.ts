@@ -799,7 +799,7 @@ export class GameWorld {
   /** 目前的武器禁用這個技能時回傳原因（「法杖無法使用近戰技能」），可以用回傳 null */
   weaponDenial(skillId: string): string | null {
     if (!this.data.skills.has(skillId)) return null;
-    return weaponDenial(this.data.skills.get(skillId), this.equipment.weaponType(), this.data.balance.weaponRules);
+    return weaponDenial(this.data.skills.get(skillId), this.equipment.weaponType(), this.data.balance.weaponRules, this.equipment.get('shield') !== undefined);
   }
 
   /** 由 GameWorld 直接處理的指令（樓層確認、開發用指令）；回傳是否已處理 */
