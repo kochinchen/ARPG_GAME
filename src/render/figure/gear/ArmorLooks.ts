@@ -4,7 +4,7 @@ import type { EquipmentSlot, ItemInstance } from '../../../game/items/ItemInstan
 import type { Joint } from '../FigureModel';
 import type { Mesh } from '../Poly3D';
 import { pelvisArmor } from '../heroine/HeroineArmor';
-import { heroineHead, heroineThigh, heroineUpperArm } from '../heroine/HeroineBody';
+import { heroineForearm, heroineHand, heroineHead, heroineThigh, heroineUpperArm } from '../heroine/HeroineBody';
 import { scarfWrap } from '../heroine/HeroineHair';
 import {
   ABYSS,
@@ -34,6 +34,8 @@ import {
   bootFootPiece,
   bootShinPiece,
   chestPiece,
+  gauntletPiece,
+  gloveHandDetails,
   CLOTH,
   helmetMeshes,
   HIDE,
@@ -46,18 +48,19 @@ import {
   waistPiece,
   type ArmorSpec,
   type BootSpec,
+  type GloveSpec,
   type HelmetSpec,
   type ShieldSpec,
 } from './ArmorPieces';
 import { hasRunes, itemThemes, RARITY_TINT, themeColors, THEMES, tintTones, type GearTheme } from './GearTheme';
 
 /**
- * 穿在主角身上的頭盔、盔甲、靴子、盾牌：8 階基底造型 + 詞綴主題（染色、符文、翅膀、尖刺、厚重）+ 橘 / 紅專屬點綴。
- * 只在渲染層使用；外觀完全由裝備資料推導，不需要存檔。手套太小，不換外觀。
+ * 穿在主角身上的頭盔、盔甲、手套、靴子、盾牌：8 階基底造型 + 詞綴主題（染色、符文、翅膀、尖刺、厚重）+ 橘 / 紅專屬點綴。
+ * 只在渲染層使用；外觀完全由裝備資料推導，不需要存檔。手套的小零件只在放大時畫（遊戲地圖上太小）。
  */
 
-export type ArmorSlot = 'helmet' | 'armor' | 'boots' | 'shield';
-type Spec = { helmet: HelmetSpec; armor: ArmorSpec; boots: BootSpec; shield: ShieldSpec };
+export type ArmorSlot = 'helmet' | 'armor' | 'gloves' | 'boots' | 'shield';
+type Spec = { helmet: HelmetSpec; armor: ArmorSpec; gloves: GloveSpec; boots: BootSpec; shield: ShieldSpec };
 
 const HELMETS: HelmetSpec[] = [
   { mat: HIDE, trim: HIDE_DARK, style: 'cap', height: 0.85 },
@@ -103,7 +106,18 @@ const SHIELDS: ShieldSpec[] = [
   { shape: 'kite', size: 1.05, mat: ABYSS, rim: VOID, rays: VOID, gem: 0xc070ff, spikes: 3, spikeColors: VOID },
 ];
 
-const BASES: { [K in ArmorSlot]: Spec[K][] } = { helmet: HELMETS, armor: ARMORS, boots: BOOTS, shield: SHIELDS };
+const GLOVES: GloveSpec[] = [
+  { cuff: HIDE, hand: HIDE, fingers: HIDE },
+  { cuff: IRON, hand: HIDE, fingers: IRON, knuckle: IRON },
+  { cuff: STEEL, hand: STEEL, fingers: STEEL, knuckle: STEEL, plate: STEEL, flare: 0.8, trim: GOLD },
+  { cuff: SILVER, hand: SILVER, fingers: SILVER, knuckle: SILVER, plate: SILVER, flare: 0.6, trim: SILVER, gem: 0x4aa8ff, runes: 0x6fc8ff },
+  { cuff: BLACK_STEEL, hand: BLACK_STEEL, fingers: BLACK_STEEL, knuckle: DARK_STEEL, plate: BLACK_STEEL, claws: { len: 1.4, colors: DARK_STEEL }, spikes: 3 },
+  { cuff: RED_LEATHER, hand: BLOOD_STEEL, fingers: BLOOD_STEEL, knuckle: BONE, claws: { len: 2.6, colors: BONE }, gem: 0xd02030 },
+  { cuff: ANCIENT, hand: ANCIENT, fingers: ANCIENT, knuckle: GOLD, plate: ANCIENT, flare: 1.1, trim: GOLD, gem: 0xffb040 },
+  { cuff: ABYSS, hand: ABYSS, fingers: ABYSS, knuckle: VOID, plate: ABYSS, flare: 0.6, trim: VOID, claws: { len: 3.2, colors: VOID }, gem: 0xc070ff, spikes: 2, spikeColors: VOID },
+];
+
+const BASES: { [K in ArmorSlot]: Spec[K][] } = { helmet: HELMETS, armor: ARMORS, gloves: GLOVES, boots: BOOTS, shield: SHIELDS };
 
 /** 橘 / 紅防具：基底階級、主題與專屬點綴（染色較淡，保留專屬配色） */
 /** extra：覆寫該部位造型參數的欄位（頭盔 / 盔甲 / 靴子各自的欄位；null = 拿掉基底的零件） */
@@ -123,6 +137,11 @@ const UNIQUES: Record<string, { tier: number; themes: GearTheme[]; extra: Record
   'legendary.ice_walker': { tier: 4, themes: ['cold', 'speed'], extra: { mat: ICE } },
   'mythic.realm_walker': { tier: 8, themes: ['speed', 'arcane'], extra: {} },
   'mythic.phantom_step': { tier: 6, themes: ['speed', 'crit'], extra: { mat: SHADOW, toe: SHADOW } },
+  'legendary.smasher_grip': { tier: 5, themes: ['guard', 'crit'], extra: { knuckle: GOLD, flare: 1, claws: null, spikes: 4 } },
+  'legendary.repeater_gloves': { tier: 3, themes: ['speed', 'crit'], extra: { hand: HIDE, cuff: HIDE, knuckle: BRONZE, plate: null, flare: 0 } },
+  'legendary.elemental_touch': { tier: 4, themes: ['fire', 'cold'], extra: {} },
+  'mythic.god_hunter_hands': { tier: 8, themes: ['crit'], extra: { claws: { len: 3.6, colors: STAR } } },
+  'mythic.titan_grip': { tier: 7, themes: ['guard', 'speed'], extra: { flare: 1.6, knuckle: GOLD } },
   'legendary.bastion': { tier: 5, themes: ['guard', 'vital'], extra: { shape: 'tower', mat: STEEL, rim: GOLD, cross: GOLD, spikes: null } },
   'legendary.flame_ward': { tier: 4, themes: ['fire'], extra: { shape: 'heater', mat: BRONZE, rim: DARK_STEEL, rays: EMBER } },
   'legendary.frost_aegis': { tier: 4, themes: ['cold'], extra: { shape: 'round', mat: ICE, rim: SILVER, rays: ICE } },
@@ -149,7 +168,7 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
   if (main) {
     const color = THEMES[main].color;
     const k = RARITY_TINT[rarity] * BODY_TINT * tintScale;
-    const keys = slot === 'armor' ? ['mat', 'pauldronMat'] : slot === 'boots' ? ['mat', 'shin'] : ['mat'];
+    const keys = slot === 'armor' ? ['mat', 'pauldronMat'] : slot === 'boots' ? ['mat', 'shin'] : slot === 'gloves' ? ['cuff', 'hand', 'fingers', 'plate'] : ['mat'];
     for (const key of keys) if (spec[key]) spec[key] = tintTones(spec[key] as Tones, color, k);
     spec.gem = accent ?? color;
     if (slot === 'armor') spec.emblem = color;
@@ -168,6 +187,11 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
         spec.pauldron = Math.max(1, (spec.pauldron as number) + 0.4);
         spec.tassets = true;
       }
+      if (slot === 'gloves') {
+        spec.knuckle ??= spec.fingers as Tones;
+        spec.plate ??= spec.hand as Tones;
+        spec.flare = ((spec.flare as number | undefined) ?? 0) + 0.5;
+      }
       if (slot === 'shield') {
         spec.size = (spec.size as number) * 1.12;
         spec.boss ??= spec.rim as Tones;
@@ -181,6 +205,7 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
     if (th === 'speed') {
       if (slot === 'helmet' || slot === 'boots') spec.wings = wing;
       if (slot === 'shield') spec.size = (spec.size as number) * 0.9;
+      if (slot === 'gloves') spec.flare = 0;
       if (slot === 'armor') {
         spec.pauldron = Math.max(0, (spec.pauldron as number) - 0.4);
         spec.tassets = false;
@@ -206,9 +231,16 @@ export function specForItem<K extends ArmorSlot>(slot: K, item: ItemInstance, da
 /** 主角身上被換掉的關節網格（沒穿的部位保留原本的皮甲、長靴與頭髮） */
 export type OutfitParts = ReadonlyMap<Joint, Mesh[]>;
 
-export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; boots?: BootSpec; shield?: ShieldSpec }): OutfitParts {
+export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; gloves?: GloveSpec; boots?: BootSpec; shield?: ShieldSpec }): OutfitParts {
   const parts = new Map<Joint, Mesh[]>();
-  const { helmet, armor, boots, shield } = specs;
+  const { helmet, armor, gloves, boots, shield } = specs;
+  if (gloves) {
+    // 護手取代皮護腕、手套換顏色；指節甲、爪、尖刺只在放大時畫（角色預覽）
+    parts.set('forearmL', [...heroineForearm(3), ...gauntletPiece(gloves)]);
+    parts.set('forearmR', [...heroineForearm(4), ...gauntletPiece(gloves)]);
+    parts.set('handL', [...heroineHand(false, gloves.hand), ...gloveHandDetails(gloves)]);
+    parts.set('handR', [...heroineHand(true, gloves.hand), ...gloveHandDetails(gloves)]);
+  }
   // 盾牌拿在左手（只會和劍、斧一起裝備；弓也在左手，但兩者不會同時出現）
   if (shield) parts.set('weaponL', placeShield(shieldMeshes(shield)));
   if (helmet) {
@@ -243,13 +275,14 @@ export function outfitFor(
   /** 關掉時不畫頭盔（屬性照常生效） */
   showHelmet = true,
 ): OutfitParts {
-  const items = { helmet: showHelmet ? equipped('helmet') : undefined, armor: equipped('armor'), boots: equipped('boots'), shield: equipped('shield') };
-  const key = `${items.helmet?.uid ?? '-'}|${items.armor?.uid ?? '-'}|${items.boots?.uid ?? '-'}|${items.shield?.uid ?? '-'}`;
+  const items = { helmet: showHelmet ? equipped('helmet') : undefined, armor: equipped('armor'), gloves: equipped('gloves'), boots: equipped('boots'), shield: equipped('shield') };
+  const key = Object.values(items).map((i) => (i ? `${i.uid}:${i.baseId}:${i.rerolls ?? 0}` : '-')).join('|');
   let parts = cache.get(key);
   if (!parts) {
     parts = heroineOutfit({
       ...(items.helmet ? { helmet: specForItem('helmet', items.helmet, data) } : {}),
       ...(items.armor ? { armor: specForItem('armor', items.armor, data) } : {}),
+      ...(items.gloves ? { gloves: specForItem('gloves', items.gloves, data) } : {}),
       ...(items.boots ? { boots: specForItem('boots', items.boots, data) } : {}),
       ...(items.shield ? { shield: specForItem('shield', items.shield, data) } : {}),
     });

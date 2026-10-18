@@ -32,7 +32,7 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
   });
 
   it('8 階造型各不相同', () => {
-    for (const slot of ['helmet', 'armor', 'boots', 'shield'] as const) {
+    for (const slot of ['helmet', 'armor', 'gloves', 'boots', 'shield'] as const) {
       const looks = [1, 2, 3, 4, 5, 6, 7, 8].map((tier) => JSON.stringify(armorSpec(slot, tier, 'normal', [])));
       expect(new Set(looks).size, slot).toBe(8);
     }
@@ -64,10 +64,22 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
     expect(specForItem('boots', item('boots.leather', 'rare', ['affix.thorned']), data).spikes).toBeGreaterThanOrEqual(4);
   });
 
-  it('盾牌拿在左手；每一件橘 / 紅頭盔、盔甲、靴子、盾牌都有專屬外觀', () => {
+  it('手套：換掉前臂與手；指節甲、爪、尖刺只在放大時畫（LOD 2）', () => {
+    const parts = outfitFor(equip({ gloves: item('gloves.blacksteel', 'normal') }), data);
+    expect([...parts.keys()].sort()).toEqual(['forearmL', 'forearmR', 'handL', 'handR']);
+    const hand = parts.get('handR')!;
+    const details = hand.filter((m) => m.lod === 2);
+    expect(details.length).toBeGreaterThan(0);
+    // 手掌與手指本身一定畫
+    expect(hand.some((m) => m.lod === undefined)).toBe(true);
+    // 換手套會重建外觀
+    expect(outfitFor(equip({ gloves: item('gloves.abyss', 'normal') }), data)).not.toBe(parts);
+  });
+
+  it('盾牌拿在左手；每一件橘 / 紅頭盔、盔甲、手套、靴子、盾牌都有專屬外觀', () => {
     const parts = outfitFor(equip({ weapon: item('weapon.short_sword', 'normal'), shield: item('shield.kite', 'normal') }), data);
     expect([...parts.keys()]).toEqual(['weaponL']);
-    const ids = data.legendaries.all.filter((d) => ['helmet', 'armor', 'boots', 'shield'].includes(d.kind)).map((d) => d.id);
+    const ids = data.legendaries.all.filter((d) => ['helmet', 'armor', 'gloves', 'boots', 'shield'].includes(d.kind)).map((d) => d.id);
     expect([...UNIQUE_ARMOR_IDS].sort()).toEqual(ids.sort());
   });
 });

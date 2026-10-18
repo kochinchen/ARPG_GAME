@@ -330,9 +330,14 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p class="why">先畫物品圖示與換裝樣張確認外觀，再放進遊戲。外觀完全由裝備資料推導，存檔格式不變；換裝後主角面數只多約 7%。</p>
           </div>
           <div class="item key">
-            <div class="item-head"><span class="ms">盾牌、金幣用途、角色預覽</span><span class="badge">尚未 commit</span><span class="badge">存檔 v12</span></div>
+            <div class="item-head"><span class="ms">盾牌、金幣用途、角色預覽</span><span class="hash mono">72cd75f</span><span class="badge">存檔 v12</span></div>
             <p>新增盾牌欄位：8 階盾牌與 3 件橘、3 件紅，只能搭配劍或斧，主打格擋（最多 50%，格擋時傷害 -60%）、防禦與抗性，橘紅效果在格擋時發動。金幣新用途：商人的詞綴重鑄（越重鑄越貴，橘紅只重擲固定屬性的數值）、一鍵賣出白 / 白＋藍 / 白＋藍＋黃、技能點與屬性點洗點（費用隨等級提高）。角色頁旁加上大尺寸人物預覽（可轉向），選單可關掉頭盔外觀。</p>
             <p class="why">人物預覽一開始用獨立的 PixiJS 畫布，反覆開關背包後瀏覽器丟掉了遊戲畫面的 WebGL 環境（畫面變黑），改成由遊戲畫面的 Renderer 直接畫在預留區域。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">物品圖示與手套外觀</span><span class="badge">尚未 commit</span></div>
+            <p>背包、裝備欄、商人貨架與拆解區的武器、頭盔、盔甲、手套、靴子、盾牌改用圖示：直接用遊戲裡的裝備模型投影，所以詞綴主題、稀有度染色與橘 / 紅專屬造型都和身上看到的一樣；背景是稀有度光暈，元素等主題加上粒子。戒指、護符、藥水也有圖示（寶石換成詞綴主題色；橘為金、紅為深淵材質）。每一格都是「小圖示 + 稀有度顏色邊框」，橘、紅邊框帶光暈，紅色會脈動。手套也穿到主角身上：8 階造型與 5 件橘 / 紅專屬外觀，護手換掉皮護腕。</p>
+            <p class="why">手套在地圖上只有幾個像素，所以指節甲、爪、尖刺、寶石只在放大（角色預覽）時才畫，遊戲畫面只換護手與手套的顏色。</p>
           </div>
         </div>
       </div>

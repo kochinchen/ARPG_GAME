@@ -258,7 +258,7 @@ const UNIQUES: Record<string, { look: Spec; glow: WeaponGlowStyle }> = {
  * 握點空間 → 武器關節：劍與斧跟原本的劍一樣往前下方斜（SWORD_CANT）；
  * 法杖立起來（杖頭朝上、略往前）；弓拿在左手、弓身直立。
  */
-const HOLD: Record<WeaponType, V3> = {
+export const HOLD: Record<WeaponType, V3> = {
   sword: [SWORD_CANT - Math.PI / 2, 0, 0],
   axe: [SWORD_CANT - Math.PI / 2 + 0.15, 0, 0],
   staff: [Math.PI + 0.35, 0, 0],

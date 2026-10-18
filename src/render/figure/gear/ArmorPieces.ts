@@ -1,4 +1,4 @@
-import { facetize, loft, tone, type Ring } from '../Facets';
+import { detail, facetize, loft, tone, type Ring } from '../Facets';
 import { box, lowSphere, orient, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
 import { BLACK_STEEL, chain, gem, taper, type Tones } from '../weapons/WeaponParts';
 
@@ -227,6 +227,44 @@ export function bootFootPiece(s: BootSpec): Mesh[] {
     F(t(placeMesh(prism(5, 0, 2.2, [1.6, 1], [0.9, 0.6], toe[0]!, [0, 0, 0], 0.3), [Math.PI / 2, 0, 0], [0, -1.7, 3.9]), toe, 3), 3, 0.14),
     t(box(3.5, 0.7, 7.6, SOLE[0]!, [0, -2.55, 1.4]), SOLE),
   ];
+}
+
+// ─────────────────────────── 手套 ───────────────────────────
+
+export interface GloveSpec {
+  cuff: Tones;
+  hand: Tones;
+  fingers: Tones;
+  knuckle?: Tones;
+  plate?: Tones;
+  /** 袖口外擴 */
+  flare?: number;
+  trim?: Tones;
+  claws?: { len: number; colors: Tones } | null;
+  spikes?: number;
+  spikeColors?: Tones;
+  gem?: number | null;
+  runes?: number;
+}
+
+/** 護手（forearm 關節）：手腕到前臂的護甲（取代原本的皮護腕）；小零件只在放大時畫 */
+export function gauntletPiece(s: GloveSpec): Mesh[] {
+  const flare = (s.flare ?? 0) * 0.35;
+  const out: Mesh[] = [loft([{ y: -3.4, rx: 1.95 + flare, rz: 1.9 + flare }, { y: -6.4, rx: 1.75, rz: 1.7 }, { y: -9, rx: 1.45, rz: 1.4 }], 9, s.cuff, 1)];
+  if (s.trim) out.push(t(prism(9, -3.3, -3.9, [2.05 + flare, 2 + flare], [2.05 + flare, 2 + flare], s.trim[0]!), s.trim, 2));
+  if (s.plate) out.push(...detail(1, [F(t(box(0.6, 4.4, 1.8, s.plate[0]!, [1.6, -6.4, 0]), s.plate, 3), 3, 0.12)]));
+  if (s.gem) out.push(...detail(2, [gem(0.45, [0, -7.4, 1.5], s.gem)]));
+  if (s.runes) out.push(...detail(2, [glowBox(0.4, 0.5, 0.4, s.runes, [0, -5.2, 1.75])]));
+  return out;
+}
+
+/** 手（hand 關節）的指節甲、爪、尖刺：只在放大時畫（遊戲地圖上太小） */
+export function gloveHandDetails(s: GloveSpec): Mesh[] {
+  const out: Mesh[] = [];
+  if (s.knuckle) out.push(F(t(box(2.7, 0.8, 1.7, s.knuckle[0]!, [0, -2.7, 0.25]), s.knuckle, 4), 4, 0.1));
+  if (s.claws) for (const [i, x] of [-0.75, 0, 0.75].entries()) out.push(taper([x, -3.4, 1.2], [x * 1.1, -3.6 - s.claws.len * 0.5, 2.2], [0.25, 0.25], [0.03, 0.03], s.claws.colors, 4, i, 0.3));
+  for (let i = 0; i < Math.min(3, s.spikes ?? 0); i++) out.push(spike([-0.8 + i * 0.8, -2.6, 1], [0, 0, 1], 0.9, 0.22, s.spikeColors ?? BLACK_STEEL, i));
+  return detail(2, out);
 }
 
 // ─────────────────────────── 盾牌 ───────────────────────────

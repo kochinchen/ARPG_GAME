@@ -7,15 +7,18 @@ import { describeItem, formatValue, SLOT_LABELS, STAT_LABELS } from '../../game/
 import { EQUIPMENT_SLOTS, type EquipmentSlot, type ItemInstance } from '../../game/items/ItemInstance';
 import { itemValue, sellPrice } from '../../game/items/Pricing';
 import { affixTier } from '../../game/items/ItemGenerator';
+import { itemIcon, potionIcon } from '../../render/icons/ItemIcons';
 
 export type { EquipmentSlot };
 
-/** 格子裡顯示的內容（M8 換成圖示前先用單字代表） */
+/** 格子裡顯示的內容（有模型的裝備用圖示，其他用單字代表） */
 export interface EntryView {
   kind: 'item' | 'potion';
   name: string;
   rarity: Rarity;
   glyph: string;
+  /** 物品圖示（data URI）；沒有時顯示 glyph */
+  icon: string | null;
   slotLabel: string;
   baseLines: string[];
   /** 主倍率（例如「武器傷害 +180%」） */
@@ -117,6 +120,7 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       name: d.name,
       rarity: d.rarity,
       glyph: GLYPHS[data.items.get(item.baseId).weaponType ?? d.slot] ?? '?',
+      icon: itemIcon(item, data),
       // 例如「史詩 劍 · 短劍」
       slotLabel: d.subtitle,
       baseLines: d.baseLines,
@@ -144,6 +148,7 @@ export function buildInventoryView(world: GameWorld, data: DataRegistry): Invent
       name: potion.name,
       rarity: 'normal',
       glyph: '藥',
+      icon: potionIcon(potion.hpPct, potion.mpPct),
       slotLabel: '消耗品',
       baseLines: [
         `回復 ${Math.round(potion.hpPct * 100)}% 生命與 ${Math.round(potion.mpPct * 100)}% 魔力`,
