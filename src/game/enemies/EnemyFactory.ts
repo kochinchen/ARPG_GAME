@@ -36,6 +36,9 @@ export function rollSize(def: EnemyDef, config: Balance['enemySize'], rng: Rng):
 /** 屬性減傷作用的抗性 */
 const ELEMENTAL_RESISTS = ['fireResist', 'coldResist', 'lightningResist', 'poisonResist'] as const;
 
+/** 天生抗性（EnemyDef.resist）→ 抗性屬性 */
+const RESIST_STAT = { fire: 'fireResist', cold: 'coldResist', lightning: 'lightningResist', poison: 'poisonResist' } as const;
+
 /** 樓層減傷：物理 / 屬性各自的比例（0 = 沒有） */
 export interface FloorResist {
   physical: number;
@@ -85,6 +88,9 @@ export class EnemyFactory {
       attackRange: def.attackRange,
       defense: def.defense * scaling.defense,
     });
+    for (const [element, value] of Object.entries(def.resist) as [keyof EnemyDef['resist'], number][]) {
+      stats.addModifier({ stat: RESIST_STAT[element], kind: 'flat', value, source: 'innate' });
+    }
     for (const affix of elite?.affixes ?? []) {
       for (const m of affix.modifiers) stats.addModifier({ stat: m.stat, kind: m.kind, value: m.value, source: 'elite' });
     }

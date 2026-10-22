@@ -11,8 +11,11 @@ export const FAMILY_LABELS: Record<Exclude<EnemyFamily, 'other'>, string> = {
   spitter: '噴吐異種',
   floater: '漂浮異體',
   parasite: '寄生變異體',
+  demon: '深淵惡魔',
   boss: '樓層魔王與眷屬',
 };
+
+const RESIST_LABELS = { fire: '火焰', cold: '冰寒', lightning: '閃電', poison: '毒素' } as const;
 
 export interface BestiarySkill {
   name: string;
@@ -33,6 +36,8 @@ export interface BestiaryEntry {
   firstFloor: number;
   /** 體型說明 */
   size: string;
+  /** 天生的元素抗性，例如「火焰 50%」（沒有時為空字串） */
+  resist: string;
   skills: BestiarySkill[];
   phases: { hpBelow: number; label: string }[];
   moveSpeed: number;
@@ -86,6 +91,7 @@ export function buildBestiary(data: DataRegistry): BestiaryEntry[] {
       size: enemy.boss
         ? `約主角的 ${enemy.size} 倍大`
         : `${pct(enemy.size * roll.min)}～${pct(enemy.size * roll.max)}（常態分佈）${roll.statPerSize > 0 ? `，越大越強：HP / 傷害最多 ${pct(1 + (roll.max - 1) * roll.statPerSize)}` : '，數值不變'}`,
+      resist: (Object.entries(enemy.resist) as [keyof typeof RESIST_LABELS, number][]).map(([el, v]) => `${RESIST_LABELS[el]} ${pct(v)}`).join('、'),
       skills: skillIds
         .filter((id) => id !== 'basic.attack')
         .map((id) => {

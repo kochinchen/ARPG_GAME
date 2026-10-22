@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { IdSchema, ModifierKindSchema, RangeSchema, StatIdSchema } from './common';
 
 /** 怪物圖鑑的分類 */
-export const EnemyFamilySchema = z.enum(['undead', 'beast', 'chitin', 'brute', 'spitter', 'floater', 'parasite', 'boss', 'other']);
+export const EnemyFamilySchema = z.enum(['undead', 'beast', 'chitin', 'brute', 'spitter', 'floater', 'parasite', 'demon', 'boss', 'other']);
 export type EnemyFamily = z.infer<typeof EnemyFamilySchema>;
 
 /** Boss 的階段：HP 降到 hpBelow 以下時進入（一次性套用 modifiers，並可改用另一組技能） */
@@ -50,6 +50,20 @@ export const EnemyDefSchema = z
   size: z.number().positive().default(1),
   /** 固定全抗性（物理減傷與四種元素抗性；取代魔王 / 精英的樓層減傷） */
   fixedResist: z.number().min(0).max(1).optional(),
+  /**
+   * 天生的元素抗性（與怪物的屬性相同：火焰身體的怪抗火、會下毒的怪抗毒）。
+   * 疊加在樓層減傷之上；實際抗性上限見 balance.combat.maxResist。
+   * 一般怪物不超過魔王最高天生抗性的 70%（目前魔王最高 30% → 一般怪最高 20%；tests/data/EnemyResist.test.ts 把關）。
+   */
+  resist: z
+    .strictObject({
+      fire: z.number().min(0).max(0.75),
+      cold: z.number().min(0).max(0.75),
+      lightning: z.number().min(0).max(0.75),
+      poison: z.number().min(0).max(0.75),
+    })
+    .partial()
+    .default({}),
   /** Boss 的階段變化（依 hpBelow 由高到低） */
   phases: z.array(BossPhaseSchema).default([]),
   /** 怪物圖鑑：分類與介紹 */

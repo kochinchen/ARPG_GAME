@@ -145,9 +145,22 @@ describe('樓層分布（minFloor）', () => {
     return found;
   };
 
-  it('第 1～2 層只有骷髏戰士與食屍鬼', () => {
+  it('第 1 層只有骷髏戰士與食屍鬼；第 2 層起有毒液食屍鬼', () => {
     expect([...kinds(1)].sort()).toEqual(['enemy.ghoul', 'enemy.skeleton']);
-    expect([...kinds(2)].sort()).toEqual(['enemy.ghoul', 'enemy.skeleton']);
+    expect([...kinds(2)].sort()).toEqual(['enemy.ghoul', 'enemy.skeleton', 'enemy.venom_ghoul']);
+  });
+
+  it('變種依序加入：冰霜骷髏 3、焦骨弓手 5、雷霆法師 7、鏽蝕重甲 8', () => {
+    const from: [string, number][] = [
+      ['enemy.frost_skeleton', 3],
+      ['enemy.ember_archer', 5],
+      ['enemy.storm_mage', 7],
+      ['enemy.rusted_knight', 8],
+    ];
+    for (const [id, floor] of from) {
+      expect(kinds(floor - 1).has(id)).toBe(false);
+      expect(kinds(floor).has(id)).toBe(true);
+    }
   });
 
   it('第 3 層起有弓手、第 4 層起有重甲骷髏、第 6 層起有法師', () => {

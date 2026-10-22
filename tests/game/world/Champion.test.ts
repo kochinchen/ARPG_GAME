@@ -47,7 +47,8 @@ describe('每層的首領', () => {
     if (plain.length) expect(c.maxHp).toBeGreaterThan(Math.max(...plain.map((p) => p.maxHp)) * 3);
     const value = floorResistFor(12, false, data.balance.elite.floorResist);
     expect(c.stats.get('physicalResist')).toBeCloseTo(value);
-    expect(c.stats.get('fireResist')).toBeCloseTo(value);
+    // 扣掉怪物天生的火焰抗性（例如焦骨弓手）
+    expect(c.stats.get('fireResist') - (data.enemies.get(c.defId!).resist.fire ?? 0)).toBeCloseTo(value);
   });
 
   it('同一個種子、同一層：首領的種類與位置固定（讀檔後不變），也不改變其他怪物', () => {

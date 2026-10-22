@@ -2,10 +2,12 @@ import { ABERRATION_MODELS } from './Aberrations';
 import { BEAST_MODELS } from './Beasts';
 import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
+import { LATE_MODELS } from './LateMonsters';
 import { SKELETON_WARRIOR } from './SkeletonWarrior';
 import type { FigureModel, Pose } from './FigureModel';
 import { BONE, BONE_DARK, boneLimb, humanoid, monsterPoses, pelvis, ribcage, skull } from './MonsterParts';
 import { box, lowSphere, placeMesh, prism, type Mesh } from './Poly3D';
+import { bolt, glowEyes, iceCluster, pustule, recolor, rustSpike, variant } from './Variants';
 
 /**
  * 怪物的多面體模型（與女主角同一套關節與繪製方式）。
@@ -97,7 +99,8 @@ const GHOUL: FigureModel = {
       ...[-1, 0, 1].flatMap((i) => [box(0.8, 0.8, 2.4, GHOUL_SKIN, [i * 1, -1.4, 3.8]), box(0.5, 0.5, 1.2, CLAW, [i * 1, -1.5, 5.4])]),
     ],
   }),
-  poses: monsterPoses({ attack: 'claw', hunch: 0.65 }),
+  poses: monsterPoses({ attack: 'claw', hunch: 0.65, gait: 'lope' }),
+  gaitRate: 1.1,
 };
 
 /** 骷髏弓手：深綠色兜帽與破披風、斜背帶、背後紅羽箭筒、左臂皮護腕、反曲長弓 */
@@ -149,7 +152,8 @@ const ARCHER: FigureModel = {
     forearmL: [...boneLimb(9, 1), prism(8, -2.4, -7.6, [1.8, 1.8], [1.6, 1.6], LEATHER)],
     handL: bow(),
   }),
-  poses: monsterPoses({ attack: 'bow' }),
+  poses: monsterPoses({ attack: 'bow', gait: 'stalk' }),
+  gaitRate: 0.85,
 };
 
 /**
@@ -249,7 +253,8 @@ const ARMORED: FigureModel = {
     ],
     foot: [box(4.4, 2.6, 4.4, STEEL_DARK, [0, -1.3, 0.4]), box(4, 2, 3, STEEL, [0, -1.6, 3.4]), box(3.4, 1.6, 2, STEEL_DARK, [0, -1.9, 5.6])],
   }),
-  poses: monsterPoses({ attack: 'slam', twoHanded: true }),
+  poses: monsterPoses({ attack: 'slam', twoHanded: true, gait: 'swagger' }),
+  gaitRate: 0.7,
 };
 
 
@@ -302,8 +307,96 @@ const MAGE: FigureModel = {
     shin: [],
     foot: [box(2.8, 1.4, 3, BONE, [0, -1.4, 2.6])],
   }),
-  poses: monsterPoses({ attack: 'chop', cast: 'staff' }),
+  poses: monsterPoses({ attack: 'chop', cast: 'staff', gait: 'glide' }),
+  gaitRate: 0.8,
 };
+
+// ─────────────────────────── 變種（同一個模型換色、加零件）───────────────────────────
+
+/** 骨頭：偏暖、低飽和、較亮的顏色 */
+const isBone = (c: { h: number; s: number; l: number }) => c.l > 0.32 && c.s < 0.4 && c.h > 25 && c.h < 60;
+const isMetal = (c: { s: number; l: number }) => c.s < 0.2 && c.l > 0.25;
+
+/** 冰霜骷髏：骨頭結霜成冰藍色、劍與盾泛著冰光；肩膀、背後與劍身長出冰晶，眼窩透出藍光 */
+const ICE = [0xbfe8ff, 0x8ccff0] as const;
+const FROST_SKELETON = variant(SKELETON_WARRIOR, {
+  color: recolor([
+    { match: isBone, h: 200, s: 0.4, l: 1.02 },
+    { match: isMetal, h: 198, s: 0.35, l: 1.12 },
+    { match: (c) => c.h < 20 || c.h > 340, h: 215, s: 0.45 },
+    { match: () => true, h: 210, s: 0.18 },
+  ]),
+  add: {
+    torso: [...iceCluster([3.5, 14.5, -3.4], [0.3, 0.8, -0.5], 5, 0.75, ICE), ...iceCluster([-3, 13.5, -3.6], [-0.3, 0.85, -0.5], 4.4, 0.7, ICE), ...iceCluster([0, 8, -4], [0, 0.4, -1], 3.4, 0.6, ICE)],
+    upperArmL: iceCluster([1.2, 1.4, 0], [0.5, 1, -0.2], 3.6, 0.6, ICE),
+    upperArmR: iceCluster([-1.2, 1.4, 0], [-0.5, 1, -0.2], 3.6, 0.6, ICE),
+    head: [...glowEyes(1.7, 4.5, 4.3, 0.75, 0x9ae8ff), ...iceCluster([0, 9.4, -1.6], [0, 1, -0.4], 3.2, 0.55, ICE)],
+  },
+});
+
+/** 毒液食屍鬼：青紫色的皮、背上與肩上鼓著綠色膿疱、眼睛發出毒綠光 */
+const VENOM = { sac: 0x6aa82a, tip: 0xc8f060 };
+const VENOM_GHOUL = variant(GHOUL, {
+  color: recolor([
+    { match: (c) => c.h > 70 && c.h < 110, h: 285, s: 0.16, l: 0.92 },
+    { match: (c) => c.h > 45 && c.h < 65 && c.s > 0.7, h: 95, s: 0.95, l: 0.9 },
+  ]),
+  add: {
+    torso: [
+      ...([[2.6, 12.6, -4.2, 1.5], [-2.2, 11, -4.4, 1.3], [0.4, 8.4, -4, 1.6], [-3, 6.6, -3.8, 1.1], [3.2, 7.4, -3.6, 1.2], [1.2, 4.6, -3.6, 1]] as const).flatMap(([x, y, z, r]) => pustule([x, y, z], r, VENOM.sac, VENOM.tip)),
+    ],
+    upperArmL: pustule([1.4, -2, -0.6], 1.1, VENOM.sac, VENOM.tip),
+    upperArmR: pustule([-1.4, -3, -0.6], 1, VENOM.sac, VENOM.tip),
+    head: pustule([1.8, 9.6, -2.4], 1, VENOM.sac, VENOM.tip),
+  },
+});
+
+/** 焦骨弓手：燒焦的黑骨頭、灰燼色的兜帽與披風；肋骨間與弓的兩端透出餘燼，眼窩燒著火 */
+const EMBER = { glow: 0xff8a2a, core: 0xffd060 };
+const EMBER_ARCHER = variant(ARCHER, {
+  color: recolor([
+    { match: isBone, h: 20, s: 0.12, l: 0.36 },
+    { match: (c) => c.h > 70 && c.h < 120, h: 15, s: 0.12, l: 0.75 },
+    { match: (c) => c.h < 15 || c.h > 340, h: 24, s: 0.95, l: 1.35 },
+  ]),
+  add: {
+    torso: ([[2.6, 6, 2.4], [-2.4, 9, 2.6], [1, 12, 2.6], [-3.4, 6, -2.6], [3.6, 9.4, -2.8]] as const).map(([x, y, z], i) => lowSphere(0.7, i % 2 ? EMBER.glow : EMBER.core, [x, y, z], 5, 3)),
+    head: glowEyes(2, 6, 5.5, 0.8, EMBER.glow),
+    handL: [lowSphere(0.8, EMBER.glow, [0, 1.4, 13.4], 5, 3), lowSphere(0.8, EMBER.glow, [0, 1.4, -13.4], 5, 3)],
+  },
+});
+
+/** 雷霆法師：深藍長袍、銀色滾邊、法杖頂端是發光的青色水晶，周圍纏著雷光；眼窩透出電光 */
+const STORM = { glow: 0x8ef0ff, bolt: 0xe4fbff };
+const STORM_MAGE = variant(MAGE, {
+  color: recolor([
+    { match: (c) => c.h > 240 && c.h < 290 && c.s > 0.6 && c.l > 0.5, h: 188, s: 0.95, l: 1.15 },
+    { match: (c) => c.h > 240 && c.h < 290, h: 222, s: 0.5 },
+    { match: (c) => c.h > 35 && c.h < 55 && c.s > 0.4, h: 205, s: 0.12, l: 1.15 },
+  ]),
+  add: {
+    handL: [...bolt([1.5, 16, 0], [5, 23, 1], 0.32, STORM.bolt, 0.9), ...bolt([-1.5, 17, 0.5], [-4.6, 22, -1.5], 0.3, STORM.glow, 0.8), lowSphere(1.2, STORM.bolt, [0, 19.4, 0], 6, 4)],
+    head: glowEyes(2, 6, 5.5, 0.8, STORM.glow),
+  },
+});
+
+/** 鏽蝕重甲：板甲鏽成紅褐色、盔纓褪成暗褐；肩甲與頭盔上鉚著長短不一（有的斷掉）的鏽刺 */
+const RUST = { spike: 0x5a3a26, base: 0x3e2a1e };
+const RUSTED_KNIGHT = variant(ARMORED, {
+  color: recolor([
+    // 亮的甲片鏽得淺、暗的接縫鏽得深（斑駁）；斧刃保留一點金屬色
+    { match: (c) => c.s < 0.2 && c.l > 0.7, h: 28, s: 0.12, l: 0.82 },
+    { match: (c) => c.s < 0.2 && c.l > 0.45, h: 20, s: 0.36, l: 0.68 },
+    { match: (c) => c.s < 0.2, h: 14, s: 0.42, l: 0.8 },
+    { match: (c) => c.h < 15 || c.h > 340, h: 18, s: 0.4, l: 0.75 },
+  ]),
+  add: {
+    upperArmL: [...rustSpike([3.4, 3.6, 0], [0.5, 1, 0], 5, 0.9, RUST.spike, RUST.base), ...rustSpike([4.4, 1.4, 2], [0.8, 0.6, 0.4], 4, 0.75, RUST.spike, RUST.base, true), ...rustSpike([4, 1.6, -2.2], [0.8, 0.6, -0.4], 4, 0.75, RUST.spike, RUST.base)],
+    upperArmR: [...rustSpike([-3.4, 3.6, 0], [-0.5, 1, 0], 5, 0.9, RUST.spike, RUST.base, true), ...rustSpike([-4.4, 1.4, 2], [-0.8, 0.6, 0.4], 4, 0.75, RUST.spike, RUST.base), ...rustSpike([-4, 1.6, -2.2], [-0.8, 0.6, -0.4], 4, 0.75, RUST.spike, RUST.base, true)],
+    head: [...rustSpike([3.6, 9, 0], [1, 0.4, 0], 3.6, 0.7, RUST.spike, RUST.base), ...rustSpike([-3.6, 9, 0], [-1, 0.4, 0], 3.6, 0.7, RUST.spike, RUST.base, true)],
+    torso: [...rustSpike([0, 14, -5], [0, 0.5, -1], 4, 0.8, RUST.spike, RUST.base), ...rustSpike([3.4, 11, -5.2], [0.3, 0.3, -1], 3, 0.7, RUST.spike, RUST.base, true), ...rustSpike([-3.4, 11, -5.2], [-0.3, 0.3, -1], 3, 0.7, RUST.spike, RUST.base)],
+  },
+});
 
 /** 訓練木樁：木柱、橫桿、草包（不會動，被打時晃一下） */
 const WOOD = 0x8c5a3c;
@@ -366,6 +459,10 @@ const VISUAL_SCALE: Record<string, number> = {
   'enemy.horned_brute': 3.18,
   'enemy.molten_brute': 3.28,
   'enemy.quake_beast': 3.39,
+  // 23～35 樓：晶刺織網蛛 → 0.9、虛空吞噬者 → 1.6（比鑽地寄生蟲大一圈）、要塞魔像 → 1.8
+  'enemy.crystal_weaver': 2.3,
+  'enemy.void_maw': 2.87,
+  'enemy.rampart_golem': 1.28,
   // 樓層魔王（相對女主角的高度，含遊戲中的體型倍率）：蜘蛛女王 3.2、熔岩巨獸 4、深淵魔王 3.8（深淵分身不放大）
   'enemy.spider_queen': 1.51,
   'enemy.lava_behemoth': 1.62,
@@ -383,9 +480,15 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.armored_skeleton': ARMORED,
   'enemy.skeleton_mage': MAGE,
   'enemy.training_dummy': DUMMY,
+  'enemy.frost_skeleton': FROST_SKELETON,
+  'enemy.venom_ghoul': VENOM_GHOUL,
+  'enemy.ember_archer': EMBER_ARCHER,
+  'enemy.storm_mage': STORM_MAGE,
+  'enemy.rusted_knight': RUSTED_KNIGHT,
   ...scaled(CREATURE_MODELS),
   ...scaled(BEAST_MODELS),
   ...scaled(ABERRATION_MODELS),
+  ...scaled(LATE_MODELS),
   ...scaled(BOSS_MODELS),
 };
 

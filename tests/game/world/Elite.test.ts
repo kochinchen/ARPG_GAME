@@ -134,7 +134,8 @@ describe('精英怪的掉落與存檔', () => {
 describe('精英 / Boss 的樓層減傷', () => {
   const resist = config.floorResist;
   const physical = (a: { stats: { get(s: 'physicalResist' | 'fireResist'): number } }) => a.stats.get('physicalResist');
-  const elemental = (a: { stats: { get(s: 'physicalResist' | 'fireResist'): number } }) => a.stats.get('fireResist');
+  // 屬性減傷以火焰抗性檢查（扣掉怪物天生的火焰抗性，例如熔岩巨獸）
+  const elemental = (a: { defId: string | null; stats: { get(s: 'physicalResist' | 'fireResist'): number } }) => Math.round((a.stats.get('fireResist') - (data.enemies.get(a.defId!).resist.fire ?? 0)) * 1e6) / 1e6;
 
   it('第 10 層起才有，逐層增加，最高 40%；Boss 成長較快', () => {
     expect(floorResistFor(9, false, resist)).toBe(0);

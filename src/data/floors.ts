@@ -7,19 +7,29 @@ import type { FloorDefSchema } from './schema/floor';
  */
 type FloorInput = z.input<typeof FloorDefSchema>;
 
-/** 人形怪物（所有樓層）；scale 讓越深的樓層人形怪越少 */
+/**
+ * 人形怪物（所有樓層）；scale 讓越深的樓層人形怪越少。
+ * 變種（冰霜骷髏、毒液食屍鬼…）與原版分攤原本的權重，每 1～2 層加入一種新面孔。
+ */
 const humanoids = (scale = 1): FloorInput['monsterPool'] => [
-  { enemyId: 'enemy.skeleton', weight: 5 * scale },
-  { enemyId: 'enemy.ghoul', weight: 3 * scale },
-  { enemyId: 'enemy.skeleton_archer', weight: 3 * scale, minFloor: 3 },
-  { enemyId: 'enemy.armored_skeleton', weight: 1.5 * scale, minFloor: 4 },
-  { enemyId: 'enemy.skeleton_mage', weight: 2.5 * scale, minFloor: 6 },
+  { enemyId: 'enemy.skeleton', weight: 3.5 * scale },
+  { enemyId: 'enemy.frost_skeleton', weight: 1.5 * scale, minFloor: 3 },
+  { enemyId: 'enemy.ghoul', weight: 2 * scale },
+  { enemyId: 'enemy.venom_ghoul', weight: 1 * scale, minFloor: 2 },
+  { enemyId: 'enemy.skeleton_archer', weight: 2 * scale, minFloor: 3 },
+  { enemyId: 'enemy.ember_archer', weight: 1 * scale, minFloor: 5 },
+  { enemyId: 'enemy.armored_skeleton', weight: 1 * scale, minFloor: 4 },
+  { enemyId: 'enemy.rusted_knight', weight: 0.6 * scale, minFloor: 8 },
+  { enemyId: 'enemy.skeleton_mage', weight: 1.6 * scale, minFloor: 6 },
+  { enemyId: 'enemy.storm_mage', weight: 1 * scale, minFloor: 7 },
 ];
 
 /**
  * 非人形怪物（10 樓以上，每一兩層加入一兩種）：
  * 掠界獸、甲殼蟲與節肢、巨獸、噴吐異種、漂浮異體、寄生變異體。
+ * scale 讓 23 樓以後的區間把比重讓給該區間的新怪物。
  */
+const creatures = (scale = 1): FloorInput['monsterPool'] => CREATURES.map((m) => ({ ...m, weight: m.weight! * scale }));
 const CREATURES: FloorInput['monsterPool'] = [
   { enemyId: 'enemy.bone_hound', weight: 3, minFloor: 10 },
   { enemyId: 'enemy.acid_beetle', weight: 2.5, minFloor: 10 },
@@ -39,6 +49,24 @@ const CREATURES: FloorInput['monsterPool'] = [
   { enemyId: 'enemy.soul_flower', weight: 1.5, minFloor: 20 },
   { enemyId: 'enemy.void_spore', weight: 2.5, minFloor: 22 },
   { enemyId: 'enemy.burrower', weight: 2.5, minFloor: 22 },
+];
+
+/**
+ * 23～35 樓的新怪物：依樓層主題加權（自己的區間最多，之後的區間減少），
+ * 讓每個主題的新怪物約占該層的 30～40%。
+ */
+const LATE_FORTRESS = (scale = 1): FloorInput['monsterPool'] => [
+  { enemyId: 'enemy.chain_warden', weight: 9 * scale, minFloor: 23 },
+  { enemyId: 'enemy.rampart_golem', weight: 5 * scale, minFloor: 23 },
+];
+const LATE_ABYSS = (scale = 1): FloorInput['monsterPool'] => [
+  { enemyId: 'enemy.crystal_weaver', weight: 7 * scale, minFloor: 25 },
+  { enemyId: 'enemy.shade_stalker', weight: 7 * scale, minFloor: 26 },
+  { enemyId: 'enemy.void_maw', weight: 4 * scale, minFloor: 28 },
+];
+const LATE_TEMPLE: FloorInput['monsterPool'] = [
+  { enemyId: 'enemy.abyss_priest', weight: 7, minFloor: 30 },
+  { enemyId: 'enemy.fallen_templar', weight: 8, minFloor: 30 },
 ];
 
 /** 樓層魔王：每個區間的第一層（5、10、15…）；深淵神殿（30 層起）每 5 層都是深淵魔王 */
@@ -65,7 +93,7 @@ const tier = (id: string, from: number, to: number, theme: FloorInput['theme'], 
 /** 深淵神殿（30 層起）的共通設定 */
 const TEMPLE: Partial<FloorInput> = {
   boss: boss('enemy.abyss_lord'),
-  monsterPool: [...humanoids(0.3), ...CREATURES],
+  monsterPool: [...humanoids(0.3), ...creatures(0.4), ...LATE_FORTRESS(0.45), ...LATE_ABYSS(0.6), ...LATE_TEMPLE],
   layout: { width: 225, height: 172, rooms: [42, 52], loops: 15 },
   density: 2.0,
   packSize: [4, 7],
@@ -116,7 +144,7 @@ export const floors: FloorInput[] = [
   // 破碎要塞：更複雜的迷宮
   tier('floor.fortress', 20, 24, 'fortress', {
     boss: boss('enemy.fallen_knight'),
-    monsterPool: [...humanoids(0.5), ...CREATURES],
+    monsterPool: [...humanoids(0.5), ...creatures(0.6), ...LATE_FORTRESS()],
     layout: { width: 210, height: 158, rooms: [39, 47], loops: 14 },
     density: 1.8,
     packSize: [4, 6],
@@ -128,7 +156,7 @@ export const floors: FloorInput[] = [
   // 深淵通道：大型開放空間
   tier('floor.abyss', 25, 29, 'abyss', {
     boss: boss('enemy.spider_queen'),
-    monsterPool: [...humanoids(0.3), ...CREATURES],
+    monsterPool: [...humanoids(0.3), ...creatures(0.5), ...LATE_FORTRESS(0.5), ...LATE_ABYSS()],
     layout: { width: 218, height: 165, rooms: [31, 39], loops: 15 },
     density: 1.9,
     packSize: [4, 7],

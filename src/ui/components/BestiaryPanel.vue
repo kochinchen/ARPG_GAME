@@ -79,6 +79,7 @@ const portrait = (id: string) => bestiaryBridge.portrait(id);
               <p class="lore">{{ selected.lore }}</p>
               <p class="meta">
                 體型：{{ selected.size }}<br />
+                <template v-if="selected.resist">抗性：{{ selected.resist }}<br /></template>
                 移動速度 {{ selected.moveSpeed }} · 攻擊速度 {{ selected.attackSpeed }} / 秒 · 已擊敗 {{ kills[selected.id] ?? 0 }} 次
               </p>
             </div>

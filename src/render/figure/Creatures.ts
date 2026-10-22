@@ -246,15 +246,19 @@ export function quadPoses(o: { splay?: number; heavy?: boolean; limbs?: QuadLimb
   const k = o.heavy ? 0.6 : 1;
   return {
     ready: (t) => plus(ready, { torso: [Math.sin(t * 2) * 0.02, 0, 0], neck: [Math.sin(t * 1.3) * 0.06, Math.sin(t * 0.7) * 0.15, 0], ponytail: [0, Math.sin(t * 1.8) * 0.3, 0] }, Math.sin(t * 2) * 0.4),
-    // 小跑：對角的兩隻腳一起動（左後 + 右前）
+    // 小跑：對角的兩隻腳一起動（左後 + 右前）。脊椎跟著步伐左右扭（臀部與胸口反向）、
+    // 巨獸的肩膀與骨盆左右搖晃；脖子反向修正讓頭維持朝前、隨步伐點頭；尾巴慢半拍地甩
     run: (p) => {
       const s = Math.sin(p) * k;
+      const sway = o.heavy ? 0.07 : 0.035;
       return plus(
         ready,
         {
-          torso: [Math.cos(p * 2) * 0.04, 0, 0],
-          neck: [0.15 + Math.cos(p * 2) * 0.05, 0, 0],
-          ponytail: [-0.25, Math.sin(p) * 0.3, 0],
+          root: [0, 0.1 * Math.sin(p), sway * Math.sin(p)],
+          torso: [Math.cos(p * 2) * 0.04, -0.2 * Math.sin(p), -sway * 1.6 * Math.sin(p)],
+          neck: [0.15 + Math.cos(p * 2) * (o.heavy ? 0.08 : 0.05), 0.12 * Math.sin(p), sway * Math.sin(p)],
+          head: [-Math.cos(p * 2) * 0.04, 0, 0],
+          ponytail: [-0.25 + Math.cos(p * 2) * 0.08, 0.45 * Math.sin(p - 1.2), 0],
           thighL: [0.5 * s, 0, 0],
           shinL: [0.45 * Math.max(0, -s), 0, 0],
           thighR: [-0.5 * s, 0, 0],
@@ -306,7 +310,7 @@ const LEG_JOINTS: Record<'L' | 'R', Joint[]> = {
   R: ['upperArmR', 'forearmR', 'handR', 'thighR'],
 };
 
-interface BugOptions {
+export interface BugOptions {
   /** 身體中心高度 */
   hip: number;
   body: Mesh[];
@@ -329,9 +333,11 @@ interface BugOptions {
   /** 頭上的顎 / 鉤爪（掛在 shinL / shinR，左右對稱，函式給出 +X 那一側） */
   pincer?: (side: 1 | -1) => Mesh[];
   pincerAt?: V3;
+  /** 自訂腳的網格（膝蓋 kneeP、腳尖 footP，座標以腳根為原點；i = 第幾對腳）；省略為平滑的兩節腳 */
+  legMesh?: (kneeP: V3, footP: V3, side: 1 | -1, i: number) => Mesh[];
 }
 
-function arthropod(o: BugOptions): PartDef[] {
+export function arthropod(o: BugOptions): PartDef[] {
   const pairs = o.legs / 2;
   const parts: PartDef[] = [
     { joint: 'root', parent: null, offset: [0, 0, 0], meshes: o.body },
@@ -349,7 +355,7 @@ function arthropod(o: BugOptions): PartDef[] {
         joint: LEG_JOINTS[s][i]!,
         parent: 'root',
         offset: [side * o.bodyHalfWidth, 0, o.legZ[i]!],
-        meshes: [seg([0, 0, 0], kneeP, o.legR * 1.2, o.legR, o.legColor, 7), lowSphere(o.legR * 1.3, o.jointColor ?? o.legColor, kneeP, 8, 4), seg(kneeP, footP, o.legR, 0.25, o.legColor, 7)],
+        meshes: o.legMesh?.(kneeP, footP, side, i) ?? [seg([0, 0, 0], kneeP, o.legR * 1.2, o.legR, o.legColor, 7), lowSphere(o.legR * 1.3, o.jointColor ?? o.legColor, kneeP, 8, 4), seg(kneeP, footP, o.legR, 0.25, o.legColor, 7)],
       });
     }
     if (o.pincer) parts.push({ joint: `shin${s}`, parent: 'head', offset: [side * (o.pincerAt?.[0] ?? 2), o.pincerAt?.[1] ?? 0, o.pincerAt?.[2] ?? 3], meshes: o.pincer(side) });
@@ -357,7 +363,7 @@ function arthropod(o: BugOptions): PartDef[] {
   return parts;
 }
 
-function bugPoses(o: { legs: 6 | 8; hip: number; bigPincers?: boolean }): PoseSet {
+export function bugPoses(o: { legs: 6 | 8; hip: number; bigPincers?: boolean }): PoseSet {
   const pairs = o.legs / 2;
   const legAngles = (swing: (i: number, side: 1 | -1) => number, lift: (i: number, side: 1 | -1) => number): Angles => {
     const a: Angles = {};

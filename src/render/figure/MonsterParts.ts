@@ -112,6 +112,17 @@ export function humanoid(o: HumanoidOptions): PartDef[] {
 
 export type AttackStyle = 'chop' | 'claw' | 'bow' | 'slam';
 export type CastStyle = 'staff' | 'summon';
+/**
+ * 走路的樣子：
+ * - stride：一般的步伐（雙手垂在身側小幅擺動）
+ * - swagger：重甲的豪邁大步（右手單手拎著武器、左手大幅外擺、肩膀左右晃、每一步重重踩下）
+ * - lope：食屍鬼的彎腰小跑（雙手垂在前面晃盪、頭一點一點、步伐大而有彈性）
+ * - stalk：弓手的潛行（半蹲、弓拿低在身前、上身斜向一側、頭穩定地看著前方）
+ * - glide：法師的滑行（上身挺直、起伏很小、法杖隨步伐往前點地、長袍下擺晃動）
+ * - march：持盾騎士的行軍（盾牌舉在身前、上身挺直、步伐穩重，武器垂在身側小幅晃）
+ * - hover：沒有腳的影魔（上身前傾、雙爪往後拖、身體上下飄浮）
+ */
+export type Gait = 'stride' | 'swagger' | 'lope' | 'stalk' | 'glide' | 'march' | 'hover';
 
 export interface PoseOptions {
   attack: AttackStyle;
@@ -120,6 +131,8 @@ export interface PoseOptions {
   hunch?: number;
   /** 雙手握武器（重甲、骷髏王） */
   twoHanded?: boolean;
+  /** 走路的樣子（省略 = stride） */
+  gait?: Gait;
 }
 
 export const pose = (rootY: number, angles: Angles): Pose => ({ rootY, angles });
@@ -191,18 +204,7 @@ export function monsterPoses(o: PoseOptions): PoseSet {
 
   return {
     ready: (t) => plus(ready, { torso: [Math.sin(t * 2) * 0.03, Math.sin(t * 1.1) * 0.05, 0], head: [0, Math.sin(t * 0.7) * 0.15, 0] }, ready.rootY + Math.sin(t * 2) * 0.4),
-    run: (p) => {
-      const s = Math.sin(p);
-      return plus(ready, {
-        torso: [0.1, 0.1 * s, 0],
-        thighR: [-0.6 * s, 0, 0],
-        thighL: [0.6 * s, 0, 0],
-        shinR: [0.8 * Math.max(0, s), 0, 0],
-        shinL: [0.8 * Math.max(0, -s), 0, 0],
-        upperArmR: [o.twoHanded ? 0 : 0.35 * s, 0, 0],
-        upperArmL: [o.twoHanded ? 0 : -0.45 * s, 0, 0],
-      }, -1 + Math.abs(Math.cos(p)) * 1.2);
-    },
+    run: (p) => gaitPose(o.gait ?? 'stride', p, ready, hunch, !!o.twoHanded),
     attackWindup: plus(ready, aw),
     attackStrike: plus(ready, as),
     castWindup: plus(ready, cw),
@@ -222,3 +224,122 @@ export function monsterPoses(o: PoseOptions): PoseSet {
   };
 }
 
+
+/**
+ * 走路的一個瞬間（p = 步伐相位，弧度）。s = sin(p)：s > 0 時左腳在前、右手在前。
+ * 擺動中的那條腿膝蓋彎起（抬腳），身體在兩腳交錯時最高、踩地時最低。
+ */
+function gaitPose(gait: Gait, p: number, ready: Pose, hunch: number, twoHanded: boolean): Pose {
+  const s = Math.sin(p);
+  const c = Math.cos(p);
+  /** 腿：stride = 步幅、knee = 抬腳時膝蓋彎多少、bend = 一直保持的屈膝、spread = 兩腳外開 */
+  const legs = (stride: number, knee: number, bend = 0, spread = 0): Angles => ({
+    thighL: [-0.1 - bend - stride * s, 0, spread],
+    thighR: [-0.1 - bend + stride * s, 0, -spread],
+    shinL: [0.15 + bend * 1.6 + knee * Math.max(0, c), 0, 0],
+    shinR: [0.15 + bend * 1.6 + knee * Math.max(0, -c), 0, 0],
+    footL: [-0.1, 0, 0],
+    footR: [-0.1, 0, 0],
+  });
+  switch (gait) {
+    case 'swagger': {
+      // 重甲：骨盆與肩膀反向大幅扭轉、重心左右移到踩地的那隻腳；胸口挺出、頭維持朝前
+      const stomp = Math.abs(c);
+      return pose(-2.2 + stomp * 1.8, {
+        root: [0.04, -0.2 * s, 0.07 * s],
+        torso: [-0.06, 0.42 * s, -0.08 * s],
+        neck: [0.04, -0.12 * s, 0.04 * s],
+        head: [0, -0.1 * s, 0],
+        ...legs(0.5, 0.95, 0.08, 0.16),
+        // 右手把巨斧扛在肩上（斧柄往後斜上、斧頭在背後），隨步伐上下顛；左手握拳往外大幅擺動
+        upperArmR: [-0.9 + 0.06 * s, 0, -0.12],
+        forearmR: [-2.3 + 0.05 * stomp, 0, 0],
+        handR: [-1.3, 0, 0],
+        upperArmL: [-0.05 + 0.55 * s, 0, 0.38],
+        forearmL: [-0.45 - 0.35 * Math.max(0, -s), 0, 0],
+        handL: [0, 0, 0],
+      });
+    }
+    case 'lope': {
+      // 食屍鬼：彎腰前衝，雙手垂在身前、比步伐慢半拍地晃盪；頭一點一點
+      const bob = Math.cos(p * 2);
+      return pose(-3 + Math.abs(c) * 2, {
+        torso: [0.25 + hunch + bob * 0.05, 0.16 * s, 0.05 * c],
+        neck: [-0.25 - hunch * 0.6 - bob * 0.08, -0.08 * s, 0],
+        head: [-0.15 - hunch * 0.4 + bob * 0.1, -0.08 * s, 0],
+        ...legs(0.7, 1.15, 0.22, 0.12),
+        upperArmR: [-0.45 - 0.55 * Math.sin(p - 0.6), 0, 0.15],
+        upperArmL: [-0.45 + 0.55 * Math.sin(p - 0.6), 0, -0.15],
+        forearmR: [-0.5 - 0.35 * Math.max(0, Math.sin(p - 1.1)), 0, 0],
+        forearmL: [-0.5 - 0.35 * Math.max(0, -Math.sin(p - 1.1)), 0, 0],
+      });
+    }
+    case 'stalk':
+      // 弓手：半蹲、上身轉向持弓的一側，弓拿低在身前；右手靠近箭筒、幾乎不擺
+      return pose(-3 + Math.abs(c) * 0.9, {
+        torso: [0.22, 0.25 + 0.05 * s, 0],
+        neck: [-0.1, -0.12, 0],
+        head: [-0.12, -0.13 - 0.05 * s, 0],
+        ...legs(0.42, 0.75, 0.2, 0.1),
+        upperArmL: [-0.55 + 0.08 * s, 0, -0.08],
+        forearmL: [-0.55, 0, 0],
+        upperArmR: [-0.05 - 0.12 * s, 0, 0.15],
+        forearmR: [-0.7, 0, 0],
+      });
+    case 'glide':
+      // 法師：上身挺直、幾乎沒有起伏；法杖（左手）保持直立、隨步伐往前點地，右手收在胸前
+      return pose(-1.2 + Math.cos(p * 2) * 0.25, {
+        torso: [0.06, 0.08 * s, 0.03 * c],
+        neck: [-0.04, -0.06 * s, 0],
+        head: [-0.04, -0.04 * s, 0],
+        // 腿藏在長袍裡：步幅小，腳尖不會露到袍子外
+        ...legs(0.18, 0.25),
+        upperArmL: [-0.55 - 0.3 * s, 0, -0.05],
+        forearmL: [-0.3 + 0.15 * s, 0, 0],
+        handL: [0.95 + 0.1 * s, 0, 0],
+        upperArmR: [-0.35, 0, 0.12],
+        forearmR: [-1.2, 0, 0],
+      });
+    case 'march':
+      // 持盾騎士：左手的盾一直舉在身前、上身挺直；右手武器垂在身側隨步伐小幅晃；步伐穩重
+      return pose(-1.8 + Math.abs(c) * 1.2, {
+        root: [0.04, -0.12 * s, 0.04 * s],
+        torso: [0.04, 0.18 * s, -0.04 * s],
+        neck: [0, -0.06 * s, 0],
+        head: [0, -0.06 * s, 0],
+        ...legs(0.4, 0.8, 0.06, 0.1),
+        upperArmL: [-0.55, 0, -0.1],
+        forearmL: [-0.9, 0, 0],
+        handL: [0.3, 0, 0],
+        upperArmR: [-0.1 - 0.25 * s, 0, -0.18],
+        forearmR: [-0.35, 0, 0],
+        handR: [-0.2 + 0.2 * Math.sin(p - 0.7), 0, 0],
+      });
+    case 'hover':
+      // 影魔：沒有腳，上身前傾、雙爪往後拖並交替擺動；身體上下飄浮、左右擺
+      return pose(Math.sin(p * 2) * 1.2, {
+        root: [0.2, 0.1 * s, 0.05 * c],
+        torso: [0.25, -0.12 * s, 0],
+        neck: [-0.25, 0.05 * s, 0],
+        head: [-0.2, 0, 0],
+        upperArmR: [0.55 + 0.25 * s, 0, -0.25],
+        upperArmL: [0.55 - 0.25 * s, 0, 0.25],
+        forearmR: [-0.35, 0, 0],
+        forearmL: [-0.35, 0, 0],
+      });
+    default:
+      return plus(
+        ready,
+        {
+          torso: [0.1, 0.1 * s, 0],
+          thighR: [-0.6 * s, 0, 0],
+          thighL: [0.6 * s, 0, 0],
+          shinR: [0.8 * Math.max(0, s), 0, 0],
+          shinL: [0.8 * Math.max(0, -s), 0, 0],
+          upperArmR: [twoHanded ? 0 : 0.35 * s, 0, 0],
+          upperArmL: [twoHanded ? 0 : -0.45 * s, 0, 0],
+        },
+        -1 + Math.abs(c) * 1.2,
+      );
+  }
+}

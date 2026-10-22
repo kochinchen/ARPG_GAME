@@ -62,13 +62,31 @@ describe('非人形怪物的出現樓層', () => {
   });
 
   it('越深的樓層人形怪的比重越低', () => {
-    const humanShare = (floor: number) => {
+    // 1～9 樓的人形怪（含變種）；23 樓以後的新怪物另外計算
+    const HUMANOID_IDS = poolOn(9);
+    const share = (floor: number, ids: string[]) => {
       const pool = openPool(floor);
       const total = pool.reduce((s, m) => s + m.weight, 0);
-      return pool.filter((m) => !CREATURE_IDS.includes(m.enemyId)).reduce((s, m) => s + m.weight, 0) / total;
+      return pool.filter((m) => ids.includes(m.enemyId)).reduce((s, m) => s + m.weight, 0) / total;
     };
-    expect(humanShare(25)).toBeLessThan(humanShare(15));
-    expect(humanShare(15)).toBeLessThan(humanShare(10));
+    expect(share(25, HUMANOID_IDS)).toBeLessThan(share(15, HUMANOID_IDS));
+    expect(share(15, HUMANOID_IDS)).toBeLessThan(share(10, HUMANOID_IDS));
+  });
+
+  it('23 樓以後，該主題的新怪物約占 30～40%', () => {
+    const share = (floor: number, ids: string[]) => {
+      const pool = openPool(floor);
+      const total = pool.reduce((s, m) => s + m.weight, 0);
+      return pool.filter((m) => ids.includes(m.enemyId)).reduce((s, m) => s + m.weight, 0) / total;
+    };
+    const fortress = ['enemy.chain_warden', 'enemy.rampart_golem'];
+    const abyss = ['enemy.crystal_weaver', 'enemy.shade_stalker', 'enemy.void_maw'];
+    const temple = ['enemy.abyss_priest', 'enemy.fallen_templar'];
+    expect(share(22, fortress)).toBe(0);
+    expect(share(23, fortress)).toBeGreaterThan(0.25);
+    expect(share(28, abyss)).toBeGreaterThan(0.3);
+    expect(share(30, temple)).toBeGreaterThan(0.25);
+    expect(share(30, temple)).toBeLessThan(0.45);
   });
 
   it('每種怪物都有自己的多面體模型', () => {
@@ -113,5 +131,45 @@ describe('非人形怪物的行為', () => {
   it('震地獸靠近後使用震地踐踏', () => {
     const { casts } = fight('enemy.quake_beast', [3.5, 2.5], 8);
     expect(casts).toContain('enemy.quake_stomp');
+  });
+});
+
+describe('23～35 樓新怪物的行為', () => {
+  const fight = (enemyId: string, at: [number, number], seconds: number) => {
+    const { world, events } = createWorldWithMap(ROOM, [{ enemyId, at }]);
+    makeInvulnerable(world.player);
+    const [enemy] = enemiesOf(world);
+    const casts: string[] = [];
+    events.on('SkillCast', (e) => {
+      if (e.actorId === enemy!.id) casts.push(e.skillId);
+    });
+    run(world, seconds);
+    return { world, enemy: enemy!, casts };
+  };
+
+  it('深淵祭司會召喚小惡魔（最多同時 4 隻），也會放連鎖雷', () => {
+    const { world, enemy, casts } = fight('enemy.abyss_priest', [7.5, 3.5], 6);
+    expect(casts).toContain('enemy.summon_imps');
+    expect(casts).toContain('enemy.chain_bolt');
+    const imps = world.actors.filter((a) => a.summonedBy === enemy.id);
+    expect(imps.length).toBeGreaterThan(0);
+    expect(imps.length).toBeLessThanOrEqual(4);
+    expect(imps.every((a) => a.defId === 'enemy.imp')).toBe(true);
+  });
+
+  it('要塞魔像會從遠處發射落石砲', () => {
+    const { casts } = fight('enemy.rampart_golem', [6.5, 3.5], 4);
+    expect(casts).toContain('enemy.boulder_volley');
+  });
+
+  it('鎖鏈獄卒會甩鎖鏈突進、深淵影魔會衝刺穿過玩家', () => {
+    expect(fight('enemy.chain_warden', [6.5, 3.5], 3).casts).toContain('enemy.chain_rush');
+    expect(fight('enemy.shade_stalker', [5.5, 3.5], 3).casts).toContain('enemy.shade_step');
+  });
+
+  it('晶刺織網蛛、虛空吞噬者、墮落聖殿騎士會使用各自的特殊技能', () => {
+    expect(fight('enemy.crystal_weaver', [7.5, 3.5], 6).casts).toContain('enemy.crystal_web');
+    expect(fight('enemy.void_maw', [3.5, 2.5], 8).casts).toContain('enemy.void_rift');
+    expect(fight('enemy.fallen_templar', [5.5, 3.5], 8).casts).toContain('enemy.judgment');
   });
 });
