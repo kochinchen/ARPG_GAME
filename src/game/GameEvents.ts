@@ -113,7 +113,8 @@ export interface GameEvents {
   WaypointUsed: { from: Vec2; to: Vec2 };
   ExitOpened: { floor: number };
   /** 點了尚未開啟的出口；boss = Boss 層（擊敗 Boss 才開） */
-  ExitLocked: { remaining: number; boss: boolean };
+  /** champion：首領還活著（擊敗首領後出口才會開） */
+  ExitLocked: { remaining: number; boss: boolean; champion: boolean };
   /** 要離開樓層，但地上還有稀有以上的物品：等待玩家確認（ConfirmLeaveFloor） */
   LeaveFloorConfirm: { direction: 'down' | 'up'; toFloor: number; valuableItems: number };
   /** 一般模式最後一層的出口：詢問是否進入極限挑戰（進入後回不到 1～30 層；確認 = ConfirmEnterChallenge） */

@@ -115,6 +115,16 @@ export const balance: z.input<typeof BalanceSchema> = {
     lootTable: 'loot.elite',
     floorResist: { minFloor: 10, perFloor: { elite: 0.015, boss: 0.02 }, max: 0.4 },
   },
+  // 每層的首領：比精英（HP ×3、傷害 ×1.8）強一截、體型 ×1.5；出口的安全範圍是 12 格，首領站在 16 格外
+  champion: {
+    hpMultiplier: 6,
+    damageMultiplier: 2,
+    xpMultiplier: 8,
+    radiusMultiplier: 1.5,
+    affixCount: [2, 3],
+    guardDistance: 16,
+    chestLootTable: 'loot.champion_chest',
+  },
   affixPower: {
     levelsPerTier: 10,
     maxTier: 5,

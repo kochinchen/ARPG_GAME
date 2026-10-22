@@ -61,7 +61,7 @@ export const gameView = reactive({
   },
   /** 樓層進度（固定地圖模式 floor = 0） */
   /** lastFloor：最後一層（王座廳，沒有出口） */
-  floor: { floor: 0, killed: 0, total: 0, remaining: 0, exitOpen: false, bossFloor: false, lastFloor: false },
+  floor: { floor: 0, killed: 0, total: 0, remaining: 0, exitOpen: false, bossFloor: false, champion: false, lastFloor: false },
   /** 交戰中的 Boss（畫面上方的大血條）；沒有時為 null */
   /** 怪物圖鑑：EnemyDef ID → 擊敗次數 */
   bestiary: {} as Record<string, number>,

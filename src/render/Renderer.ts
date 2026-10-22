@@ -233,7 +233,11 @@ export class Renderer {
     world.events.on('CheckpointActivated', (e) => say(e.position, e.kind === 'boss' ? '魔王門前存檔點已啟動' : '存檔點已啟動', PALETTE.manaText));
     world.events.on('ExitOpened', () => say(world.player.position, '出口已開啟', 0xe0c8ff));
     world.events.on('ExitLocked', (e) =>
-      say(world.player.position, e.boss ? '擊敗 Boss 後出口才會開啟' : `還需擊敗 ${e.remaining} 隻`, PALETTE.manaText),
+      say(
+        world.player.position,
+        e.boss ? '擊敗 Boss 後出口才會開啟' : e.champion && e.remaining === 0 ? '擊敗首領後出口才會開啟' : `還需擊敗 ${e.remaining} 隻${e.champion ? '與首領' : ''}`,
+        PALETTE.manaText,
+      ),
     );
     world.events.on('StatusTriggered', (e) => {
       const actor = world.targeting.getActor(e.actorId);

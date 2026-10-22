@@ -160,6 +160,19 @@ export const BalanceSchema = z.strictObject({
   /** 精英怪（每群隊長）的共通強化 */
   elite: EliteConfigSchema,
   /**
+   * 每層的首領（沒有魔王的樓層）：從該層的怪物池抽一隻，精英強化改用這些倍率、詞綴 affixCount 個；
+   * 守在出口前 guardDistance 格，擊敗後出口才會開（清怪比例照舊），原地出現首領寶箱（chestLootTable）
+   */
+  champion: z.strictObject({
+    hpMultiplier: z.number().positive(),
+    damageMultiplier: z.number().positive(),
+    xpMultiplier: z.number().positive(),
+    radiusMultiplier: z.number().positive(),
+    affixCount: z.tuple([z.int().positive(), z.int().positive()]),
+    guardDistance: z.number().positive(),
+    chestLootTable: IdSchema,
+  }),
+  /**
    * 怪物的隨機體型（常態分佈，限制在 min～max）：近戰（物理）怪體型差異大，HP 與傷害跟著提高；
    * 遠程 / 法術怪差異小、數值不變。倍率 = 1 + (體型 − 1) × statPerSize。Boss 與訓練木樁不套用。
    */

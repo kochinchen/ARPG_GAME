@@ -114,7 +114,8 @@ export class SpawnSystem {
 }
 
 /** 這一群的隊長是否成為精英；是的話回傳詞綴 ID（不重複） */
-function rollElite(elite: EliteRoll): string[] | null {
+/** 擲精英詞綴（chance = 1 時一定成為精英，用在每層的首領） */
+export function rollElite(elite: EliteRoll): string[] | null {
   if (elite.pool.length === 0 || !elite.rng.chance(elite.chance)) return null;
   const count = Math.min(elite.rng.int(elite.count[0], elite.count[1]), elite.pool.length);
   const remaining = [...elite.pool];

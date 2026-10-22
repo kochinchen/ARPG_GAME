@@ -161,6 +161,9 @@ export class DataRegistry {
     if (balance && !lootTables.has(balance.endgame.miniBoss.lootTable)) {
       problems.push(`balance.endgame.miniBoss 引用不存在的 lootTable '${balance.endgame.miniBoss.lootTable}'`);
     }
+    if (balance && !lootTables.has(balance.champion.chestLootTable)) {
+      problems.push(`balance.champion 引用不存在的 lootTable '${balance.champion.chestLootTable}'`);
+    }
     if (balance && !lootTables.has(balance.elite.lootTable)) {
       problems.push(`balance.elite 引用不存在的 lootTable '${balance.elite.lootTable}'`);
     }

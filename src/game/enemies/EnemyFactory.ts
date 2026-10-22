@@ -50,10 +50,11 @@ export function applyFloorResist(actor: Actor, resist: FloorResist): void {
   }
 }
 
-/** 精英怪：共通強化 + 詞綴 */
+/** 精英怪：共通強化 + 詞綴；title 加在名稱最前面（每層的首領） */
 export interface EliteSpec {
   config: Balance['elite'];
   affixes: readonly EliteAffixDef[];
+  title?: string;
 }
 
 /**
@@ -90,7 +91,7 @@ export class EnemyFactory {
     const actor = new Actor({
       id,
       faction: 'enemy',
-      name: elite ? `${elite.affixes.map((a) => a.name).join(' ')} ${def.name}` : def.name,
+      name: elite ? `${elite.title ?? ''}${elite.affixes.map((a) => a.name).join(' ')} ${def.name}` : def.name,
       defId: def.id,
       position,
       radius: Math.min(def.boss ? MAX_BOSS_RADIUS : MAX_RADIUS, def.radius * def.size * size.scale * (e?.radiusMultiplier ?? 1)),

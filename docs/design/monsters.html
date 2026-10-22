@@ -164,14 +164,14 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   <header>
     <div class="eyebrow">地牢冒險 Dungeon Adventure · 資料表 · 由遊戲的 DataRegistry 直接輸出</div>
     <h1>怪物屬性與樓層變化</h1>
-    <p>整理一般怪物、樓層魔王、中途小王、精英詞綴，以及第 1～35 層（含 31～35 極限挑戰）的設定。拖動下方的樓層，表格會換算成該層的實際數值與出現比例。切到「模型」可以看每隻怪物的多面體模型，旁邊站著女主角當比例尺。</p>
+    <p>整理一般怪物、樓層魔王、中途小王、每層的首領、精英詞綴，以及第 1～35 層（含 31～35 極限挑戰）的設定。拖動下方的樓層，表格會換算成該層的實際數值與出現比例。切到「模型」可以看每隻怪物的多面體模型，旁邊站著女主角當比例尺。</p>
     <div class="viewswitch" role="group" aria-label="切換畫面">
       <button type="button" id="btnTable" aria-pressed="true">資料表</button>
       <button type="button" id="btnModels" aria-pressed="false">模型</button>
     </div>
     <nav class="toc" id="toc">
       <a href="#monsters">怪物屬性</a><a href="#appear">出現樓層</a><a href="#tiers">樓層區間</a><a href="#scaling">難度成長</a>
-      <a href="#elite">精英怪</a><a href="#challenge">極限挑戰</a><a href="#bosses">魔王</a>
+      <a href="#elite">精英怪</a><a href="#champion">每層首領</a><a href="#challenge">極限挑戰</a><a href="#bosses">魔王</a>
     </nav>
   </header>
 
@@ -263,6 +263,30 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     <div class="two">
       <div class="tbl"><table><thead><tr><th>共通強化</th><th class="n">數值</th></tr></thead><tbody id="eliteBase"></tbody></table></div>
       <div class="tbl"><table><thead><tr><th>詞綴</th><th>效果</th><th class="n">出現</th><th class="n">權重</th></tr></thead><tbody id="eliteAffixes"></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="champion">
+    <div class="sec-head">
+      <div class="eyebrow">balance.champion · loot.champion_chest</div>
+      <h2>每層的首領</h2>
+      <p>沒有魔王的樓層（1～4、6～9、11～14…26～29 層）都有一隻首領：從該層的怪物池抽一隻，守在出口前約 16 格（出口的安全範圍 12 格之外）。名稱前面有「首領・」，腳下有精英的金色光圈。種類與位置由世界種子決定，讀檔後不變。</p>
+    </div>
+    <div class="two">
+      <div class="tbl"><table><thead><tr><th>首領強化</th><th class="n">數值</th></tr></thead><tbody>
+        <tr><td>HP</td><td class="n">×6（精英 ×3）</td></tr>
+        <tr><td>傷害</td><td class="n">×2（精英 ×1.8）</td></tr>
+        <tr><td>經驗</td><td class="n">×8</td></tr>
+        <tr><td>體型</td><td class="n">×1.5</td></tr>
+        <tr><td>精英詞綴</td><td class="n">2～3 個（第 1 層起就有）</td></tr>
+        <tr><td>樓層減傷</td><td class="n">第 10 層起，物理與元素都有（精英的數值）</td></tr>
+      </tbody></table></div>
+      <ul class="notes">
+        <li><b>出口</b>：清怪比例達到、而且擊敗首領後才開啟（畫面上方顯示「還需 N 隻＋首領」）。</li>
+        <li><b>掉落</b>：首領本身的掉落＋精英掉落表；擊敗後原地出現<b>首領寶箱</b>。</li>
+        <li><b>首領寶箱</b>：擲 6 次（一般寶箱 3 次）、必出 1 件裝備；金幣比重 35%、每次 40～100 金幣（一般寶箱 15%、10～30），是金幣的另一個來源。每層只能開一次。</li>
+        <li>重新進入樓層時首領會重生，但寶箱開過就不會再出現。</li>
+      </ul>
     </div>
   </section>
 

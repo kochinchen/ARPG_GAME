@@ -111,7 +111,7 @@ describe('樓層模式（M7）', () => {
     expect(world.exit?.open).toBe(false);
   });
 
-  it('出口未開啟時點擊：提示還需擊敗幾隻；擊敗足夠比例後開啟', () => {
+  it('出口未開啟時點擊：提示還需擊敗幾隻；擊敗足夠比例、也擊敗首領後開啟', () => {
     const { world, commands, events } = floorWorld(1);
     const onLocked = vi.fn();
     const onOpened = vi.fn();
@@ -120,12 +120,17 @@ describe('樓層模式（M7）', () => {
     const needed = Math.ceil(world.floors.total * world.floors.defFor(1).clearRatio);
 
     useExit(world, commands);
-    expect(onLocked).toHaveBeenCalledWith({ remaining: needed, boss: false });
+    expect(onLocked).toHaveBeenCalledWith({ remaining: needed, boss: false, champion: true });
     expect(world.floors.floor).toBe(1);
 
     kill(world, needed - 1);
     expect(world.exit?.open).toBe(false);
     kill(world, 1);
+    // 清怪比例達到，首領還活著：出口仍關著
+    expect(world.floors.remainingToOpen).toBe(0);
+    expect(world.exit?.open).toBe(false);
+    enemies(world).find((e) => e.name.startsWith('首領・'))!.hp = 0;
+    run(world, 1 / 60);
     expect(onOpened).toHaveBeenCalledWith({ floor: 1 });
     expect(world.exit?.open).toBe(true);
   });

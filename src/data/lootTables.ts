@@ -84,4 +84,18 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     gold: [10, 30],
     rarityWeights: { normal: 40, magic: 45, rare: 15, epic: 1.5, legendary: 0.25, mythic: 0.03 },
   },
+  {
+    // 首領寶箱（擊敗每層的首領後出現）：擲骰次數是一般寶箱的兩倍、必出 1 件裝備；金幣比重與數量都較多（金幣的另一個來源）
+    id: 'loot.champion_chest',
+    rolls: 6,
+    guaranteedItems: 1,
+    entries: [
+      { kind: 'nothing', weight: 5 },
+      { kind: 'item', weight: 45 },
+      { kind: 'potion', weight: 15 },
+      { kind: 'gold', weight: 35 },
+    ],
+    gold: [40, 100],
+    rarityWeights: { normal: 40, magic: 45, rare: 15, epic: 1.5, legendary: 0.25, mythic: 0.03 },
+  },
 ];

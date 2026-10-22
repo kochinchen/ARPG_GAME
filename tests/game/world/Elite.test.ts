@@ -24,9 +24,11 @@ function world(floor: number, seed = 1) {
   return new GameWorld({ data, floor, commands: new CommandQueue<GameCommand>(), events: new EventBus<GameEvents>(), seed });
 }
 const enemies = (w: GameWorld) => w.actors.filter((a) => a.faction === 'enemy');
+/** 每層的首領也是精英（另有測試：Champion.test.ts），這裡只看每群的隊長 */
+const champion = (a: { name: string }) => a.name.startsWith('首領・');
 const elitesOn = (floor: number, seeds = 15) => {
   let count = 0;
-  for (let seed = 1; seed <= seeds; seed++) count += enemies(world(floor, seed)).filter((e) => e.elite).length;
+  for (let seed = 1; seed <= seeds; seed++) count += enemies(world(floor, seed)).filter((e) => e.elite && !champion(e)).length;
   return count;
 };
 
@@ -152,7 +154,7 @@ describe('精英 / Boss 的樓層減傷', () => {
           expect(physical(e) + elemental(e)).toBe(0);
           continue;
         }
-        if (e.isBoss) continue;
+        if (e.isBoss || champion(e)) continue;
         const value = floorResistFor(12, false, resist);
         expect([physical(e), elemental(e)].sort()).toEqual([0, value].sort());
         kinds.add(physical(e) > 0 ? 'physical' : 'elemental');

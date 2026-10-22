@@ -88,7 +88,7 @@ describe('Boss 層', () => {
     kill(w, w.actors.filter((a) => a.faction === 'enemy' && !a.isBoss));
     expect(w.floors.exitOpen).toBe(false);
     w.useExit();
-    expect(locked).toHaveBeenCalledWith({ remaining: 1, boss: true });
+    expect(locked).toHaveBeenCalledWith({ remaining: 1, boss: true, champion: false });
 
     kill(w, [boss]);
     expect(w.floors.bossDefeated).toBe(true);

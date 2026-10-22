@@ -96,6 +96,7 @@ export class ViewSync {
     gameView.floor.remaining = floors.remainingToOpen;
     gameView.floor.exitOpen = floors.exitOpen;
     gameView.floor.bossFloor = floors.bossFloor;
+    gameView.floor.champion = floors.championAlive;
     gameView.floor.lastFloor = floors.floor >= this.data.balance.endgame.lastFloor;
     this.updateBoss();
     gameView.respawnIn = world.deathHandler.secondsUntilRespawn;

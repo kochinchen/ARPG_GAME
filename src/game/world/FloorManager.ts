@@ -11,13 +11,15 @@ export interface FloorBeginOptions {
   exitOpen?: boolean;
   /** Boss 層：Boss 的生成索引。出口只在 Boss 被擊敗後開啟（不看清怪比例） */
   bossIndex?: number;
+  /** 一般樓層的首領：生成索引。清怪比例達到、而且首領被擊敗後出口才開 */
+  championIndex?: number;
 }
 
 type FloorData = Pick<DataRegistry, 'floors' | 'maps'>;
 
 /**
  * 目前樓層、該層設定與出口狀態。
- * 擊敗本層 clearRatio 比例的怪物後出口開啟；實際換層由 GameWorld 在 Tick 結尾執行。
+ * 擊敗本層 clearRatio 比例的怪物（有首領的樓層還要擊敗首領）後出口開啟；實際換層由 GameWorld 在 Tick 結尾執行。
  * 也記錄存檔需要的樓層狀態：本層已擊殺的怪物、每層已開啟的寶箱。
  */
 export class FloorManager {
@@ -36,6 +38,8 @@ export class FloorManager {
   private readonly spawnIndexOf = new Map<ActorId, number>();
   /** Boss 層的 Boss 生成索引；一般樓層為 null */
   private bossIndex: number | null = null;
+  /** 首領的生成索引；沒有首領的樓層為 null */
+  private championIndex: number | null = null;
   private pendingFloor: number | null = null;
 
   constructor(
@@ -65,6 +69,11 @@ export class FloorManager {
     return Math.max(0, Math.ceil(this.total * this.def.clearRatio) - this.killed);
   }
 
+  /** 這一層的首領還活著（出口要等它被擊敗） */
+  get championAlive(): boolean {
+    return this.championIndex !== null && !this.killedSpawns.includes(this.championIndex);
+  }
+
   /** 目前是 Boss 層 */
   get bossFloor(): boolean {
     return this.bossIndex !== null;
@@ -83,6 +92,7 @@ export class FloorManager {
     this.killed = this.killedSpawns.length;
     this.spawnIndexOf.clear();
     this.bossIndex = options.bossIndex ?? null;
+    this.championIndex = options.championIndex ?? null;
     // 預先開啟時不發事件（不是這次擊殺造成的）
     this.exitOpen = options.exitOpen ?? false;
     this.checkExit();
@@ -130,7 +140,7 @@ export class FloorManager {
   }
 
   private checkExit(): void {
-    if (this.exitOpen || this.remainingToOpen > 0) return;
+    if (this.exitOpen || this.remainingToOpen > 0 || this.championAlive) return;
     this.exitOpen = true;
     this.events.emit('ExitOpened', { floor: this.floor });
   }

@@ -11,7 +11,8 @@ defineProps<{ floor: GameView['floor'] }>();
     <span v-if="floor.lastFloor" :class="floor.exitOpen ? 'exit-open' : 'boss'">{{ floor.exitOpen ? '已完成隱藏難關' : '最終魔王：深淵統御者' }}</span>
     <span v-else-if="floor.exitOpen" class="exit-open">出口已開啟</span>
     <span v-else-if="floor.bossFloor" class="boss">出口：擊敗 Boss 後開啟</span>
-    <span v-else>出口：還需 {{ floor.remaining }} 隻</span>
+    <span v-else-if="floor.champion && floor.remaining === 0" class="boss">出口：擊敗首領後開啟</span>
+    <span v-else>出口：還需 {{ floor.remaining }} 隻{{ floor.champion ? '＋首領' : '' }}</span>
   </div>
 </template>
 

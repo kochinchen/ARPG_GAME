@@ -3,6 +3,7 @@ import { Rng } from '../core/Rng';
 import { vec2, type Vec2 } from '../core/math/Vec2';
 import { RARITIES } from '../data/schema/item';
 import type { DataRegistry } from '../data/DataRegistry';
+import type { FloorDef } from '../data/schema/floor';
 import { MAP_TILES, type MapDef } from '../data/schema/map';
 import type { GameCommand } from './Commands';
 import type { GameEventBus } from './GameEvents';
@@ -58,17 +59,19 @@ import { PlayerProgress } from './progression/PlayerProgress';
 import { RegenSystem } from './stats/RegenSystem';
 import { StatBlock } from './stats/StatBlock';
 import { CheckpointSystem } from './world/CheckpointSystem';
-import { floorResistFor, scaleForFloor } from './world/DifficultyScaler';
+import { floorResistFor, scaleForFloor, type FloorScaling } from './world/DifficultyScaler';
 import { FloorManager, mapIdForFloor } from './world/FloorManager';
 import { canAscend, descendKind, selectableFloors } from './world/Endgame';
 import { generateMap, generatedMapId, generateThroneMap } from './world/MapGenerator';
-import { SpawnSystem } from './world/SpawnSystem';
+import { rollElite, SpawnSystem } from './world/SpawnSystem';
 import { findMarker, reachableTiles } from '../data/mapAnalysis';
 import { TargetingService } from './targeting/TargetingService';
 
 
 /** 魔王競技場的大小：魔王身體寬度的幾倍（19 × 19，約為原本 15 倍的 1.27 倍，大型魔王也不擁擠） */
 const ARENA_BODIES = 19;
+/** 首領寶箱的生成索引（一般寶箱是 0 起的流水號，不會撞到） */
+const CHAMPION_CHEST_INDEX = 1000;
 /** 讀檔時還原本層狀態（一般換層不需要） */
 export interface FloorRestore {
   /** 已擊殺怪物的生成索引 */
@@ -181,6 +184,8 @@ export class GameWorld {
   private readonly seed: number;
   private generated: { floor: number; map: MapDef } | null = null;
   private readonly enemyFactory = new EnemyFactory();
+  /** 本層活著的首領（被擊敗時在原地放首領寶箱）；沒有首領或已被擊敗為 null */
+  private champion: { actorId: number } | null = null;
 
   constructor(options: GameWorldOptions) {
     const { data } = options;
@@ -386,6 +391,10 @@ export class GameWorld {
         this.events.emit('GameCleared', { stage: 'hidden' });
       }
     });
+    // 首領被擊敗：原地出現首領寶箱
+    this.events.on('ActorDied', (e) => {
+      if (this.champion !== null && e.actorId === this.champion.actorId) this.placeChampionChest(e.position);
+    });
     this.events.on('ChestOpened', (e) => {
       const chest = this.chests.find((c) => c.id === e.chestId);
       if (chest?.spawnIndex !== undefined) this.floors.markChestOpened(this.floors.floor, chest.spawnIndex);
@@ -530,7 +539,12 @@ export class GameWorld {
       applyFloorResist(actor, { physical: eliteResist, elemental: eliteResist });
       spawnedIds.push([actor.id, index]);
     });
-    const monsterCount = miniStart + minis.length;
+    // 沒有魔王的樓層：出口前有一隻該層怪物的首領，生成索引接在最後（存檔的擊殺紀錄一併適用）
+    const championIndex = bossId === null && this.exit ? miniStart + minis.length : undefined;
+    this.champion = null;
+    const championSpot =
+      championIndex !== undefined ? this.spawnChampion(floor, pool.monsterPool, championIndex, killed.has(championIndex), scaling, eliteResist, spawnedIds) : null;
+    const monsterCount = championIndex !== undefined ? championIndex + 1 : miniStart + minis.length;
     const arenaZone = this.map.arena ? [{ center: vec2(this.map.arena.x, this.map.arena.y), radius: this.map.arena.radius + 2 }] : [];
     const chestCount = rng.int(def.chests[0], def.chests[1]);
     // 王座廳的寶箱沿外圈等距擺放（整層都是競技場，一般的擺放規則放不下）
@@ -543,7 +557,10 @@ export class GameWorld {
       killed: [...killed].filter((i) => i < monsterCount),
       exitOpen: restore?.exitOpen ?? false,
       ...(bossIndex === undefined ? {} : { bossIndex }),
+      ...(championIndex === undefined ? {} : { championIndex }),
     });
+    // 讀檔時首領已被擊敗、寶箱還沒開：寶箱放在首領原本站的位置
+    if (championSpot && championIndex !== undefined && killed.has(championIndex)) this.placeChampionChest(championSpot);
     for (const [actorId, index] of spawnedIds) this.floors.trackSpawn(actorId, index);
     if (this.exit) this.exit.open = this.floors.exitOpen;
     // 往上的樓梯：挑戰的第一層不能回到一般模式（完成隱藏難關後解除）
@@ -564,6 +581,44 @@ export class GameWorld {
     // 讀檔：回到最後啟動的存檔點（一般換層從樓梯口開始）
     if (restore) this.placePlayer(this.checkpoints.respawn.position);
     this.events.emit('FloorEntered', { floor, mapId: this.map.id });
+  }
+
+  /**
+   * 每層的首領：從本層的怪物池抽一隻（獨立亂數，不改變其他怪物與寶箱），套用首領倍率與 2～3 個精英詞綴，
+   * 站在出口前 guardDistance 格的空地。回傳站的位置（讀檔時已被擊敗：不生成，寶箱放這裡）。
+   */
+  private spawnChampion(
+    floor: number,
+    monsterPool: FloorDef['monsterPool'],
+    index: number,
+    defeated: boolean,
+    scaling: FloorScaling,
+    resist: number,
+    spawnedIds: [number, number][],
+  ): Vec2 {
+    const config = this.data.balance.champion;
+    const rng = new Rng(this.seed).fork(`champion-${floor}`);
+    const def = this.data.enemies.get(rng.weighted(monsterPool).enemyId);
+    const affixes = rollElite({ chance: 1, count: config.affixCount, pool: this.data.eliteAffixes.all.filter((a) => a.minFloor <= floor), rng }) ?? [];
+    const spot = this.spotNear(this.exit!.position, config.guardDistance, Math.min(0.8, def.radius * def.size * config.radiusMultiplier));
+    if (defeated) return spot;
+    const eliteSpec = {
+      config: { ...this.data.balance.elite, ...config },
+      affixes: affixes.map((id) => this.data.eliteAffixes.get(id)),
+      title: '首領・',
+    };
+    const actor = this.addActor(this.enemyFactory.create(def, this.nextActorId++, spot, scaling, eliteSpec));
+    applyFloorResist(actor, { physical: resist, elemental: resist });
+    this.champion = { actorId: actor.id };
+    spawnedIds.push([actor.id, index]);
+    return spot;
+  }
+
+  /** 首領寶箱（每層只能開一次；已開過就不再出現） */
+  private placeChampionChest(at: Vec2): void {
+    if (this.floors.isChestOpened(this.floors.floor, CHAMPION_CHEST_INDEX)) return;
+    const position = this.spotNear(at, 0, 0.45);
+    this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position, lootTable: this.data.balance.champion.chestLootTable, opened: false, spawnIndex: CHAMPION_CHEST_INDEX });
   }
 
   /**
@@ -739,7 +794,7 @@ export class GameWorld {
   /** 玩家點了出口。地上還有稀有以上物品時先詢問（換層後地上物品會消失） */
   useExit(): void {
     if (!this.floors.exitOpen) {
-      this.events.emit('ExitLocked', { remaining: this.floors.remainingToOpen, boss: this.floors.bossFloor });
+      this.events.emit('ExitLocked', { remaining: this.floors.remainingToOpen, boss: this.floors.bossFloor, champion: this.floors.championAlive });
       return;
     }
     const kind = descendKind(this.floors.floor, this.progress, this.data.balance.endgame);
