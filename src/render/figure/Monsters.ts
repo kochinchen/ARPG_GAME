@@ -1,3 +1,4 @@
+import { ABERRATION_MODELS } from './Aberrations';
 import { BEAST_MODELS } from './Beasts';
 import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
@@ -384,6 +385,7 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.training_dummy': DUMMY,
   ...scaled(CREATURE_MODELS),
   ...scaled(BEAST_MODELS),
+  ...scaled(ABERRATION_MODELS),
   ...scaled(BOSS_MODELS),
 };
 

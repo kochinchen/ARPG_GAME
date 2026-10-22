@@ -3,7 +3,7 @@ import type { FigureModel, PartDef } from './FigureModel';
 import { box, lowSphere, normalize, prism, type Mesh, type V3 } from './Poly3D';
 
 /**
- * 掠界獸系與巨獸系的「生物化」多面體（骨刺獵獸、血鱗獵蜥、暗影獵豹、角甲巨獸、震地獸）。
+ * 掠界獸系與巨獸系的「生物化」多面體（骨刺獵獸、血鱗獵蜥、暗影獵豹、角甲巨獸、震地獸、熔顎巨獸）。
  * 參考設定圖右側的模型結構：身體由多塊肌肉團塊組成（臀、腰、胸、肩、腹），頂點稍微錯開讓構面不規則；
  * 表面再貼上沿著身體曲面排列的甲片 / 鱗片、脊椎上的骨刺列、外露的肋骨；
  * 腿有大腿肌肉、小腿、腳踝與三趾爪；頭有頭骨、口鼻、張開的上下顎與齒列、眉骨與發光的眼睛。
@@ -20,17 +20,17 @@ function noise(x: number, y: number, z: number, salt: number): number {
 }
 
 /** 讓網格的頂點稍微錯開（不規則的構面，像生物而不是幾何體） */
-function organic(mesh: Mesh, amount: number, salt = 7): Mesh {
+export function organic(mesh: Mesh, amount: number, salt = 7): Mesh {
   mesh.verts = mesh.verts.map(([x, y, z]) => [x + noise(x, y, z, salt) * amount, y + noise(x, y, z, salt + 1) * amount, z + noise(x, y, z, salt + 2) * amount]);
   return mesh;
 }
 
 /** 肌肉 / 骨骼團塊：radii 為三個方向的半徑 */
-const mass = (color: number, c: V3, radii: V3, rough = 0.1, lon = 9, lat = 6): Mesh =>
+export const mass = (color: number, c: V3, radii: V3, rough = 0.1, lon = 9, lat = 6): Mesh =>
   organic(lowSphere(1, color, c, lon, lat, radii), Math.min(...radii) * rough, Math.round(c[0] * 13 + c[1] * 7 + c[2] * 3));
 
 /** 貼在表面、法線為 n 的片狀零件（甲片、鱗片、岩塊）：w × d 大小、t 厚 */
-function plate(c: V3, n: V3, w: number, d: number, t: number, color: number, rough = 0): Mesh {
+export function plate(c: V3, n: V3, w: number, d: number, t: number, color: number, rough = 0): Mesh {
   const normal = normalize(n);
   const ref: V3 = Math.abs(normal[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
   const cr = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -45,7 +45,7 @@ function plate(c: V3, n: V3, w: number, d: number, t: number, color: number, rou
  * 沿著橢球上半部排列的甲片：rows 沿身體前後、cols 從左側繞過背到右側。
  * 每片往後傾一點，像鱗片或甲殼一樣前片壓著後片。
  */
-function shell(center: V3, radii: V3, rows: number, cols: number, colors: number[], size: number, opts: { from?: number; to?: number; arc?: number; thick?: number; rough?: number } = {}): Mesh[] {
+export function shell(center: V3, radii: V3, rows: number, cols: number, colors: number[], size: number, opts: { from?: number; to?: number; arc?: number; thick?: number; rough?: number } = {}): Mesh[] {
   const out: Mesh[] = [];
   const [rx, ry, rz] = radii;
   const from = opts.from ?? -0.85;
@@ -65,7 +65,7 @@ function shell(center: V3, radii: V3, rows: number, cols: number, colors: number
 }
 
 /** 脊椎上的一列尖刺：points = [z, 高度（離身體中心）, 長度]，往後上方斜 */
-const spineRow = (points: [number, number, number][], r: number, colors: number[], lean = 0.55, x = 0): Mesh[] =>
+export const spineRow = (points: [number, number, number][], r: number, colors: number[], lean = 0.55, x = 0): Mesh[] =>
   points.map(([z, y, len], i) => spike([x, y, z], [x, y + len, z - len * lean], r * (0.8 + (i % 3) * 0.15), colors[i % colors.length]!));
 
 /** 腳掌：腳墊 + 三趾 + 爪 */
@@ -242,7 +242,7 @@ function beastModel(o: BeastOptions, referenceRadius: number, heavy = false): Fi
 }
 
 /** 張開的嘴：上顎齒列朝下、下顎齒列朝上 */
-function teeth(z0: number, z1: number, count: number, halfWidth: number, upperY: number, lowerY: number, lowerDrop: number, len: number, color: number): Mesh[] {
+export function teeth(z0: number, z1: number, count: number, halfWidth: number, upperY: number, lowerY: number, lowerDrop: number, len: number, color: number): Mesh[] {
   const out: Mesh[] = [];
   for (let i = 0; i < count; i++) {
     const t = count === 1 ? 0 : i / (count - 1);
@@ -568,6 +568,81 @@ const QUAKE_BEAST = beastModel(
   true,
 );
 
+// ═══════════════════════════ 熔顎巨獸 ═══════════════════════════
+
+const M1 = { rock: 0x3a2c26, dark: 0x201814, belly: 0x5a2a16, plate: 0x4a3a32, plateDark: 0x2c221c, obsidian: 0x16100e, crack: 0xff7a20, glow: 0xffc040 };
+/** 甲片底下的熔岩層：比甲殼小一圈、連成一片的發光薄片，只從甲片之間的縫隙透出來（像裂縫） */
+const magma = (center: V3, radii: V3, rows: number, cols: number, size: number): Mesh[] =>
+  shell(center, [radii[0] * 0.95, radii[1] * 0.95, radii[2] * 0.95], rows, cols, [M1.crack, M1.crack, M1.glow], size, { thick: 0.5, rough: 0.15, arc: 0.85 });
+const MOLTEN_BRUTE = beastModel(
+  {
+    hip: 22,
+    // 巨獸的站姿：四肢粗壯地彎曲外張、手肘與膝蓋朝外
+    limbs: BRUTE_LIMBS,
+    splay: 0.36,
+    length: 32,
+    width: 17,
+    height: 15,
+    skin: M1.rock,
+    dark: M1.dark,
+    belly: M1.belly,
+    claw: M1.crack,
+    legR: 2.4,
+    frontLegR: 2.8,
+    shoulderRaise: 3,
+    neckLength: 4,
+    neckUp: 0,
+    neckR: 4.8,
+    bulk: 1.05,
+    head: [
+      // 岩石頭骨、厚重的額甲；下顎燒得通紅、張開的嘴裡透出熔岩光
+      mass(M1.rock, [0, 0.6, 2.6], [4.8, 4, 4.6]),
+      organic(seg([0, 0.2, 5], [0, -0.6, 11], 3.6, 2.6, M1.rock, 8), 0.3),
+      armor([0, 3.6, 3.6], [0, 1, 0.3], 5, M1.plate),
+      armor([0, 2.4, 8], [0, 1, 0.2], 3.4, M1.plateDark),
+      organic(seg([0, -3, 4], [0, -4.8, 10.6], 3, 2, M1.crack, 8), 0.25),
+      mass(M1.glow, [0, -2.4, 7.2], [2.3, 1, 3.4], 0.05, 7, 4),
+      ...teeth(5.6, 10.4, 4, 2.1, -1.4, -3.4, 1.2, 1.6, M1.glow),
+      ...[1, -1].flatMap((x) => [
+        lowSphere(0.9, M1.glow, [x * 3.1, 1.6, 6.2], 6, 4),
+        armor([x * 3.4, 2.4, 5.6], [x * 0.6, 1, 0.4], 2.2, M1.plateDark),
+        armor([x * 4.4, 0, 3], [x, 0.3, 0.1], 2.8, M1.plate),
+        // 往後彎的黑曜石角（兩段）與頰刺
+        seg([x * 3, 3, 1.6], [x * 5.2, 6.6, -1.6], 1.5, 1.1, M1.obsidian, 7),
+        spike([x * 5.2, 6.6, -1.6], [x * 5.8, 8.8, -5.4], 1.1, M1.obsidian),
+        spike([x * 3.8, -2.6, 4], [x * 6, -2, 1.6], 0.7, M1.obsidian),
+        plate([x * 4.5, -1.2, 5], [x, 0, 0.2], 0.5, 3.6, 0.3, M1.crack),
+      ]),
+    ],
+    tail: {
+      length: 12,
+      r: 2.4,
+      droop: 0.6,
+      // 尾端的岩錘：一團岩塊、三根黑曜石刺、中間的熔岩裂縫
+      extras: (end) => [
+        mass(M1.rock, end, [2.8, 2.5, 3.2], 0.16, 8, 5),
+        plate([end[0], end[1] + 1.6, end[2]], [0, 1, 0], 0.6, 4, 0.3, M1.crack),
+        ...[[0, 1, 0], [1, 0.2, -0.3], [-1, 0.2, -0.3]].map((d) => spike(end, [end[0] + d[0]! * 4, end[1] + d[1]! * 4, end[2] + d[2]! * 4 - 1.5], 0.9, M1.obsidian)),
+      ],
+    },
+    // 背上一層層岩甲，甲片之間的縫隙透出熔岩光；脊椎上一列黑曜石刺
+    rear: [
+      ...magma([0, 0.5, 5], [8.8, 7.6, 10], 4, 6, 3.6),
+      ...shell([0, 0.5, 5], [8.8, 7.6, 10], 3, 5, [M1.plate, M1.rock, M1.plateDark], 4.8, { thick: 2.2, rough: 0.8, arc: 0.85 }),
+      ...spineRow([[-3, 7.4, 5], [3, 7.8, 6], [9, 7.8, 5.4]], 1.8, [M1.obsidian, M1.dark]),
+      ...[1, -1].map((x) => armor([x * 8.6, -1, 3], [x, 0.3, 0], 4.2, M1.plateDark)),
+    ],
+    front: [
+      ...magma([0, 2.5, 23], [9.6, 9.2, 10], 4, 6, 3.9),
+      ...shell([0, 2.5, 23], [9.6, 9.2, 10], 3, 5, [M1.plateDark, M1.plate, M1.rock], 5.2, { thick: 2.4, rough: 0.9, arc: 0.85 }),
+      ...spineRow([[17, 11, 6], [22, 11.4, 7.4], [27, 10.6, 6]], 1.9, [M1.obsidian, M1.dark]),
+      ...[1, -1].flatMap((x) => [armor([x * 9.4, 1, 24], [x, 0.3, 0.1], 4.8, M1.plate), spike([x * 6, 10, 25], [x * 8.4, 14.6, 21], 1.4, M1.obsidian)]),
+    ],
+  },
+  0.48,
+  true,
+);
+
 /** EnemyDef ID → 生物化的掠界獸與巨獸 */
 export const BEAST_MODELS: Record<string, FigureModel> = {
   'enemy.bone_hound': BONE_HOUND,
@@ -575,4 +650,5 @@ export const BEAST_MODELS: Record<string, FigureModel> = {
   'enemy.shadow_panther': SHADOW_PANTHER,
   'enemy.horned_brute': HORNED_BRUTE,
   'enemy.quake_beast': QUAKE_BEAST,
+  'enemy.molten_brute': MOLTEN_BRUTE,
 };

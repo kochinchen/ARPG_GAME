@@ -8,9 +8,9 @@ import { box, lowSphere, normalize, placeMesh, prism, type Mesh, type V3 } from 
  * 五種體型：
  * - 四足（掠界獸、巨獸、部分噴吐異種）
  * - 節肢（甲蟲、蜘蛛、鉤爪蟲、卵囊母體）：6 或 8 隻腳
- * - 漂浮（單眼、腦海、虛空孢子、寒霜孢子體）：浮在空中、下方垂著觸手
+ * - 漂浮（單眼、腦海、虛空孢子、寒霜孢子體；模型在 Aberrations.ts）：浮在空中、下方垂著觸手
  * - 寄生植物（奪魂寄生花）：固定在地上
- * - 蠕蟲（鑽地寄生蟲）：一節一節的身體
+ * - 蠕蟲（鑽地寄生蟲；模型在 Aberrations.ts）：一節一節的身體
  *
  * 模型座標：Y 向上、Z 為前方、+X 為左邊。
  */
@@ -406,7 +406,7 @@ const TENTACLES: [Joint, Joint, Joint][] = [
   ['thighR', 'shinR', 'footR'],
 ];
 
-interface FloaterOptions {
+export interface FloaterOptions {
   hover: number;
   core: Mesh[];
   /** 眼睛 / 臉（掛在 head，會轉向、施法時發光的部分） */
@@ -418,14 +418,14 @@ interface FloaterOptions {
   /** 四條觸手：每條 3 節，掛點在 core 下方 */
   tentacleLength: number;
   tentacleR: number;
-  tentacleColor: number;
-  tentacleTip?: number;
+  /** 一節觸手的網格：k = 第幾節（0 = 根部）、從原點往下延伸到 -length，半徑由 r0 漸變到 r1 */
+  tentacle: (k: 0 | 1 | 2, length: number, r0: number, r1: number) => Mesh[];
   /** 觸手掛點離中心的距離、高度 */
   tentacleRadius: number;
   tentacleY: number;
 }
 
-function floater(o: FloaterOptions): PartDef[] {
+export function floater(o: FloaterOptions): PartDef[] {
   const parts: PartDef[] = [{ joint: 'root', parent: null, offset: [0, 0, 0], meshes: o.core }];
   if (o.face) parts.push({ joint: 'head', parent: 'root', offset: o.faceAt ?? [0, 0, 0], meshes: o.face });
   if (o.crest) parts.push({ joint: 'ponytail', parent: 'root', offset: o.crestAt ?? [0, 0, 0], meshes: o.crest });
@@ -439,15 +439,15 @@ function floater(o: FloaterOptions): PartDef[] {
   ];
   TENTACLES.forEach(([a, b, c], i) => {
     parts.push(
-      { joint: a, parent: 'root', offset: at[i]!, meshes: [prism(9, 0, -l, [r, r], [r * 0.8, r * 0.8], o.tentacleColor)] },
-      { joint: b, parent: a, offset: [0, -l, 0], meshes: [prism(9, 0, -l, [r * 0.8, r * 0.8], [r * 0.55, r * 0.55], o.tentacleColor)] },
-      { joint: c, parent: b, offset: [0, -l, 0], meshes: [prism(8, 0, -l, [r * 0.55, r * 0.55], [0.15, 0.15], o.tentacleTip ?? o.tentacleColor)] },
+      { joint: a, parent: 'root', offset: at[i]!, meshes: o.tentacle(0, l, r, r * 0.8) },
+      { joint: b, parent: a, offset: [0, -l, 0], meshes: o.tentacle(1, l, r * 0.8, r * 0.55) },
+      { joint: c, parent: b, offset: [0, -l, 0], meshes: o.tentacle(2, l, r * 0.55, 0.15) },
     );
   });
   return parts;
 }
 
-function floaterPoses(o: { hover: number; bob?: number; rest: number }): PoseSet {
+export function floaterPoses(o: { hover: number; bob?: number; rest: number }): PoseSet {
   const bob = o.bob ?? 2;
   /** 觸手擺動：每條觸手相位不同，越末端擺得越大 */
   const sway = (t: number, amount: number, lean = 0): Angles => {
@@ -482,7 +482,7 @@ function floaterPoses(o: { hover: number; bob?: number; rest: number }): PoseSet
 const WORM_FRONT: Joint[] = ['torso', 'neck', 'head'];
 const WORM_BACK: Joint[] = ['ponytail', 'thighL', 'shinL', 'footL'];
 
-function wormPoses(hip: number): PoseSet {
+export function wormPoses(hip: number): PoseSet {
   const wave = (p: number, amount: number): Angles => {
     const a: Angles = { root: [0, Math.sin(p) * amount, 0] };
     WORM_FRONT.forEach((j, i) => (a[j] = [0, Math.sin(p + (i + 1) * 0.9) * amount, 0]));
@@ -505,56 +505,7 @@ function wormPoses(hip: number): PoseSet {
   };
 }
 
-// ═══════════════════════════ 掠界獸系與巨獸系（骨刺獵獸、血鱗獵蜥、暗影獵豹、角甲巨獸、震地獸）見 Beasts.ts ═══════════════════════════
-
-// ═══════════════════════════ 巨獸系：熔顎巨獸 ═══════════════════════════
-
-const MOLTEN = { rock: 0x3a2c26, dark: 0x201814, crack: 0xff7a20, glow: 0xffc040 };
-/** 熔顎巨獸：岩石般的外皮、裂縫透出熔岩光、下顎燒得通紅 */
-const MOLTEN_BRUTE = quadModel(
-  {
-    hip: 22,
-    // 巨獸的站姿：四肢粗壯地彎曲外張、手肘與膝蓋朝外
-    limbs: { rear: [-0.45, 0.85], front: [0.35, -0.75], kneeIn: 1.7 },
-    splay: 0.36,
-    length: 32,
-    width: 17,
-    height: 15,
-    skin: MOLTEN.rock,
-    dark: MOLTEN.dark,
-    belly: MOLTEN.crack,
-    legR: 2.4,
-    frontLegR: 2.8,
-    shoulderRaise: 3,
-    neckLength: 4,
-    neckUp: 0,
-    head: [
-      along(-2, 8, [5, 4], [4.2, 3.2], MOLTEN.rock),
-      // 發光的巨大下顎與牙齒
-      along(1, 11, [4.6, 2.2], [3.6, 1.8], MOLTEN.crack, [0, -3.6, 0]),
-      along(3, 10.5, [3.4, 0.8], [2.8, 0.6], MOLTEN.glow, [0, -2.2, 0]),
-      ...[-2.4, 0, 2.4].map((x) => spike([x, -1.6, 10], [x, 0.6, 10.4], 0.6, MOLTEN.glow)),
-      ...eyes(3.2, 1.8, 6.4, 0.9, MOLTEN.glow),
-      spike([3, 3, 2], [5, 7, -3], 1.3, MOLTEN.dark),
-      spike([-3, 3, 2], [-5, 7, -3], 1.3, MOLTEN.dark),
-    ],
-    tailLength: 12,
-    tailR: 2.4,
-    tailDroop: 0.6,
-    tailExtras: [spike([0, 1, -6], [0, 4, -8], 1, MOLTEN.crack)],
-    rearExtras: [
-      ...[-3, 4, 11].map((z, i) => spike([i - 1, 6, z], [(i - 1) * 2, 11, z - 2], 1.8, MOLTEN.dark)),
-      along(-2, 14, [8.8, 0.7], [9, 0.7], MOLTEN.crack, [0, 2, 0]),
-    ],
-    frontExtras: [
-      ...[3, 10].map((z, i) => spike([(i - 0.5) * 2, 9, z], [(i - 0.5) * 4, 15, z - 3], 2, MOLTEN.dark)),
-      along(1, 15, [9.2, 0.7], [9.4, 0.7], MOLTEN.crack, [0, 3, 0]),
-    ],
-    claw: MOLTEN.crack,
-  },
-  0.48,
-  true,
-);
+// ═══════ 掠界獸系與巨獸系（骨刺獵獸、血鱗獵蜥、暗影獵豹、角甲巨獸、震地獸、熔顎巨獸）見 Beasts.ts；漂浮異體、寒霜孢子體、鑽地寄生蟲見 Aberrations.ts ═══════
 
 // ═══════════════════════════ 噴吐異種 ═══════════════════════════
 
@@ -614,128 +565,6 @@ const FIRE_CRAWLER = quadModel(
   },
   0.34,
 );
-
-const FROST = { cap: 0x8ec8e4, capDark: 0x5a98bc, spot: 0xf0fbff, stem: 0xd6e2e8, gill: 0x7a8c9a, eye: 0x2a5a8a };
-/** 寒霜孢子體：走動的冰藍色蕈菇，傘蓋上有白色斑點，根鬚當腳 */
-const FROST_SPORELING: FigureModel = {
-  parts: floater({
-    hover: 9,
-    core: [
-      prism(12, -9, 4, [4.2, 4.2], [3.4, 3.4], FROST.stem),
-      // 傘蓋：上半球 + 下緣
-      lowSphere(9, FROST.cap, [0, 5, 0], 12, 6, [1, 0.62, 1], (c) => c[1] > -0.5),
-      prism(10, 4.6, 3.4, [9, 9], [7.6, 7.6], FROST.gill),
-      ...[[4, 9.4, 2], [-3.5, 9.6, -2.5], [0, 10.4, -4.5], [-4.4, 8.6, 4], [5, 8.4, -3.6]].map((p) => lowSphere(1.2, FROST.spot, p as V3, 8, 4)),
-      spike([6, 6, 5], [9, 9.5, 8], 0.7, FROST.spot),
-      spike([-6, 6.4, -4], [-9, 10, -6], 0.7, FROST.spot),
-    ],
-    face: [box(1.2, 1.6, 0.8, FROST.eye, [1.5, 0, 3.6]), box(1.2, 1.6, 0.8, FROST.eye, [-1.5, 0, 3.6]), box(2.4, 0.6, 0.6, FROST.eye, [0, -2, 3.5])],
-    faceAt: [0, 0, 0],
-    tentacleLength: 9,
-    tentacleR: 1.1,
-    tentacleColor: FROST.stem,
-    tentacleTip: FROST.capDark,
-    tentacleRadius: 4,
-    tentacleY: -8,
-  }),
-  hipHeight: 17,
-  referenceRadius: 0.32,
-  poses: floaterPoses({ hover: 17, bob: 0.6, rest: 6 }),
-};
-
-// ═══════════════════════════ 漂浮異體 ═══════════════════════════
-
-const EYE = { flesh: 0x8c5464, fleshDark: 0x5a3040, white: 0xeee6dc, iris: 0xd03028, pupil: 0x140808, vein: 0xb04050 };
-/** 單眼浮體：一顆巨大的眼珠、肉質的眼瞼與背上的小觸角，下方垂著觸手 */
-const EYE_FLOATER: FigureModel = {
-  parts: floater({
-    hover: 30,
-    core: [lowSphere(8, EYE.flesh, [0, 0, -1], 12, 7), lowSphere(8.4, EYE.fleshDark, [0, 1.5, -2], 12, 7, [1, 0.9, 1], (c) => c[2] < -2 || c[1] > 6)],
-    face: [
-      lowSphere(6.2, EYE.white, [0, 0, 3], 12, 7, [1, 1, 0.8]),
-      lowSphere(3.2, EYE.iris, [0, 0, 6.6], 11, 5, [1, 1, 0.45]),
-      lowSphere(1.5, EYE.pupil, [0, 0, 7.8], 9, 4, [1, 1, 0.4]),
-      box(8, 1.2, 1, EYE.vein, [0, 4.6, 5]),
-      box(1, 5, 1, EYE.vein, [4.6, 0.6, 4.2]),
-    ],
-    crest: [spike([2, 6, -3], [4, 13, -6], 0.9, EYE.fleshDark), spike([-2, 6, -3], [-4, 12, -7], 0.9, EYE.fleshDark), spike([0, 7, -5], [0, 12, -10], 0.8, EYE.flesh)],
-    tentacleLength: 18,
-    tentacleR: 1.3,
-    tentacleColor: EYE.flesh,
-    tentacleTip: EYE.fleshDark,
-    tentacleRadius: 5,
-    tentacleY: -5,
-  }),
-  hipHeight: 30,
-  referenceRadius: 0.33,
-  poses: floaterPoses({ hover: 30, rest: 8 }),
-};
-
-const BRAIN = { lobe: 0xd48c9c, fold: 0xa85e70, stem: 0x8c4e5e, eye: 0xf0e060, vein: 0x6a2a40 };
-/** 腦海浮體：裸露的大腦（左右兩半、皺褶）、下方一對小眼睛和長觸手 */
-const BRAIN_FLOATER: FigureModel = {
-  parts: floater({
-    hover: 30,
-    core: [
-      lowSphere(6.4, BRAIN.lobe, [3.2, 3, 0], 11, 6, [0.9, 0.85, 1.25]),
-      lowSphere(6.4, BRAIN.lobe, [-3.2, 3, 0], 11, 6, [0.9, 0.85, 1.25]),
-      ...[-4, 0, 4].flatMap((z) => [box(5, 1, 1.2, BRAIN.fold, [3.2, 8, z]), box(5, 1, 1.2, BRAIN.fold, [-3.2, 8, z])]),
-      box(1, 3, 15, BRAIN.vein, [0, 7, 0]),
-      prism(12, -1, -6, [4, 4], [2.2, 2.2], BRAIN.stem),
-    ],
-    face: [...eyes(1.6, -2, 4.2, 1, BRAIN.eye)],
-    crest: [lowSphere(2.4, BRAIN.fold, [0, 0, 0], 9, 4)],
-    crestAt: [0, 4, -7],
-    tentacleLength: 22,
-    tentacleR: 1.2,
-    tentacleColor: BRAIN.stem,
-    tentacleTip: BRAIN.vein,
-    tentacleRadius: 3,
-    tentacleY: -5,
-  }),
-  hipHeight: 32,
-  referenceRadius: 0.35,
-  poses: floaterPoses({ hover: 32, rest: 7 }),
-};
-
-const VOID = { shell: 0x3a1c5c, dark: 0x220e38, spike: 0x8a4ad0, core: 0xd090ff };
-/** 虛空孢子：紫黑色的孢子球、四面八方長著發光尖刺、中心透出光 */
-const VOID_SPORE: FigureModel = {
-  parts: floater({
-    hover: 20,
-    core: [
-      lowSphere(6.5, VOID.shell, [0, 0, 0], 12, 7),
-      ...(
-        [
-          [1, 0.2, 0],
-          [-1, 0.2, 0],
-          [0, 1, 0],
-          [0, 0.3, 1],
-          [0, 0.3, -1],
-          [0.7, 0.7, 0.7],
-          [-0.7, 0.7, -0.7],
-          [0.7, -0.5, -0.7],
-          [-0.7, -0.5, 0.7],
-          [0.7, 0.6, -0.6],
-          [-0.6, 0.6, 0.7],
-        ] as V3[]
-      ).map((d) => {
-        const n = normalize(d);
-        return spike([n[0] * 5, n[1] * 5, n[2] * 5], [n[0] * 12, n[1] * 12, n[2] * 12], 1.3, VOID.spike);
-      }),
-    ],
-    face: [lowSphere(3.2, VOID.core, [0, 0, 5], 11, 5, [1, 1, 0.5])],
-    tentacleLength: 9,
-    tentacleR: 0.9,
-    tentacleColor: VOID.dark,
-    tentacleTip: VOID.spike,
-    tentacleRadius: 3,
-    tentacleY: -5,
-  }),
-  hipHeight: 20,
-  referenceRadius: 0.3,
-  poses: floaterPoses({ hover: 20, bob: 3, rest: 6 }),
-};
 
 // ═══════════════════════════ 甲殼蟲與節肢系 ═══════════════════════════
 
@@ -934,56 +763,13 @@ const SOUL_FLOWER: FigureModel = {
   })(),
 };
 
-const WORM = { flesh: 0x9a7262, ring: 0x5c4436, plate: 0x7a5a48, jaw: 0xe0d0b0, eye: 0xff8040 };
-/** 蠕蟲的一節：肉色身體 + 深色環節 + 背甲 */
-const wormSegment = (r: number): Mesh[] => [
-  along(-3.2, 3.2, [r, r * 0.9], [r, r * 0.9], WORM.flesh),
-  along(2.4, 3.4, [r * 1.08, r], [r * 1.08, r], WORM.ring),
-  along(-2.6, 2.2, [r * 0.8, r * 0.3], [r * 0.7, r * 0.25], WORM.plate, [0, r * 0.8, 0]),
-];
-/** 鑽地寄生蟲：一節一節的長蟲，頭部有四片顎，背上有甲片 */
-const BURROWER: FigureModel = {
-  parts: [
-    { joint: 'root', parent: null, offset: [0, 0, 0], meshes: wormSegment(4.4) },
-    { joint: 'torso', parent: 'root', offset: [0, 0.4, 6], meshes: wormSegment(4.2) },
-    { joint: 'neck', parent: 'torso', offset: [0, 0.4, 6], meshes: wormSegment(3.8) },
-    {
-      joint: 'head',
-      parent: 'neck',
-      offset: [0, 0.4, 5.6],
-      meshes: [
-        lowSphere(4, WORM.flesh, [0, 0, 1.5], 11, 6, [1, 0.9, 1.2]),
-        lowSphere(2.2, 0x2a1010, [0, 0, 5.2], 9, 4, [1, 1, 0.4]),
-        ...eyes(2.4, 2, 3.6, 0.6, WORM.eye),
-        spike([0, 3, 3], [0, 5.5, 6], 0.8, WORM.jaw),
-        spike([0, -3, 3], [0, -4.5, 6.5], 0.8, WORM.jaw),
-      ],
-    },
-    { joint: 'handL', parent: 'head', offset: [2.6, 0, 4], meshes: [spike([0, 0, 0], [-0.8, 0, 5], 0.9, WORM.jaw)] },
-    { joint: 'handR', parent: 'head', offset: [-2.6, 0, 4], meshes: [spike([0, 0, 0], [0.8, 0, 5], 0.9, WORM.jaw)] },
-    { joint: 'ponytail', parent: 'root', offset: [0, -0.2, -6], meshes: wormSegment(4) },
-    { joint: 'thighL', parent: 'ponytail', offset: [0, -0.3, -6], meshes: wormSegment(3.4) },
-    { joint: 'shinL', parent: 'thighL', offset: [0, -0.3, -5.6], meshes: wormSegment(2.8) },
-    { joint: 'footL', parent: 'shinL', offset: [0, -0.2, -5], meshes: [along(-1, -6, [2.2, 2], [0.3, 0.3], WORM.flesh), spike([0, 1.5, -2], [0, 4, -4], 0.6, WORM.plate)] },
-  ],
-  hipHeight: 4,
-  referenceRadius: 0.3,
-  poses: wormPoses(4),
-};
-
 /** EnemyDef ID → 非人形模型 */
 export const CREATURE_MODELS: Record<string, FigureModel> = {
   'enemy.acid_beetle': ACID_BEETLE,
   'enemy.hatchling_spider': HATCHLING,
   'enemy.hook_claw': HOOK_CLAW,
-  'enemy.molten_brute': MOLTEN_BRUTE,
   'enemy.poison_spitter': POISON_SPITTER,
-  'enemy.frost_sporeling': FROST_SPORELING,
   'enemy.fire_crawler': FIRE_CRAWLER,
-  'enemy.eye_floater': EYE_FLOATER,
-  'enemy.brain_floater': BRAIN_FLOATER,
-  'enemy.void_spore': VOID_SPORE,
   'enemy.egg_matron': EGG_MATRON,
   'enemy.soul_flower': SOUL_FLOWER,
-  'enemy.burrower': BURROWER,
 };
