@@ -2,7 +2,7 @@ import type { DataRegistry } from '../../../data/DataRegistry';
 import { hasRunes, itemThemes, RARITY_TINT, themeColors, THEMES, tintTones, type GearTheme } from '../gear/GearTheme';
 import type { Rarity, WeaponType } from '../../../data/schema/item';
 import type { ItemInstance } from '../../../game/items/ItemInstance';
-import { apply, jointRotation, placeMesh, type Mesh, type V3 } from '../Poly3D';
+import { apply, jointRotation, placeMesh, stretchMeshes, type Mesh, type V3 } from '../Poly3D';
 import { SWORD_CANT } from '../heroine/HeroineWeapon';
 import type { WeaponMount } from '../PolyFigure';
 import {
@@ -75,9 +75,17 @@ export interface WeaponLook {
 
 // ─────────────────────────── 各種類的造型 ───────────────────────────
 
+/** 尺寸倍率（設計者 2026-10-22）：劍身長、斧頭的金屬頭、弓的長寬、杖頭 */
+const SWORD_LENGTH_SCALE = 1.3;
+const AXE_HEAD_SCALE = 2;
+const BOW_SCALE = 1.2;
+const STAFF_HEAD_SCALE = 2;
+
+const scaleAround = (v: V3, o: V3, k: number): V3 => [o[0] + (v[0] - o[0]) * k, o[1] + (v[1] - o[1]) * k, o[2] + (v[2] - o[2]) * k];
+
 
 function swordLook(s: SwordSpec): Omit<WeaponLook, 'hand' | 'kind'> {
-  const b = blade(s);
+  const b = blade({ ...s, length: s.length * SWORD_LENGTH_SCALE });
   return {
     meshes: [...hilt(s.pommel, s.grip ?? LEATHER, s.guardColors, s.gem), ...guard(s.guard, s.guardWidth ?? 3.1, s.guardColors), ...b.meshes],
     tip: b.tip,
@@ -86,18 +94,25 @@ function swordLook(s: SwordSpec): Omit<WeaponLook, 'hand' | 'kind'> {
 }
 
 function axeLook(s: AxeOptions): Omit<WeaponLook, 'hand' | 'kind'> {
-  const a = axe(s);
+  const a = axe({ ...s, size: s.size * AXE_HEAD_SCALE });
   return { meshes: a.meshes, tip: a.edgeBottom, axis: [a.edgeTop, a.edgeBottom], focus: a.head };
 }
 
 function bowLook(s: BowOptions): Omit<WeaponLook, 'hand' | 'kind'> {
+  // 以握點為中心整把放大
   const b = bow(s);
-  return { meshes: b.meshes, tip: b.top, axis: [b.top, b.bottom], focus: [0, 0, s.bend * 0.3] };
+  const k = (v: V3): V3 => scaleAround(v, [0, 0, 0], BOW_SCALE);
+  return { meshes: stretchMeshes(b.meshes, [BOW_SCALE, BOW_SCALE, BOW_SCALE]), tip: k(b.top), axis: [k(b.top), k(b.bottom)], focus: k([0, 0, s.bend * 0.3]) };
 }
 
 function staffLook(s: StaffOptions): Omit<WeaponLook, 'hand' | 'kind'> {
+  // 杖頭（杖身末端以外的零件：套環、寶珠、尖角）以杖身末端為中心放大
   const st = staff(s);
-  return { meshes: st.meshes, tip: st.focus, axis: [[0, -s.length * 0.55, 0], st.focus], focus: st.focus };
+  const end: V3 = [0, 1 - s.length, 0];
+  const isHead = (m: Mesh) => m.verts.every((v) => v[1] <= end[1] + 0.01);
+  const meshes = st.meshes.map((m) => (isHead(m) ? { ...m, verts: m.verts.map((v) => scaleAround(v, end, STAFF_HEAD_SCALE)) } : m));
+  const focus = scaleAround(st.focus, end, STAFF_HEAD_SCALE);
+  return { meshes, tip: focus, axis: [[0, -s.length * 0.55, 0], focus], focus };
 }
 
 
@@ -271,9 +286,9 @@ function build(spec: Spec): WeaponLook {
 
 /**
  * 平常拿武器的方式（攻擊時轉回 HOLD 的角度）：劍尖朝前下；斧柄朝前、斧刃朝下（2026-10-18 設計者回饋：原本斧刃朝上；
- * 這組角度讓斧柄方向與原本相同，只繞斧柄轉半圈）；法杖杖頭往前傾；弓直立在身前（上弓臂朝前、弓背朝外）。
+ * 這組角度讓斧柄方向與原本相同，只繞斧柄轉半圈）；法杖杖頭往前傾、往外偏（杖頭放大 2 倍後不擋臉）；弓直立在身前（上弓臂朝前、弓背朝外）。
  */
-const REST: Partial<Record<WeaponType, V3>> = { axe: [2.26, -3.04, 0.11], staff: [0.35, 0, 0], bow: [0.8, 0, 0] };
+const REST: Partial<Record<WeaponType, V3>> = { axe: [2.26, -3.04, 0.11], staff: [0.35, 0, 0.3], bow: [0.8, 0, 0] };
 
 /** 造型 → 掛到角色手上的資料（PolyFigure.setWeapon） */
 export function mountFor(look: WeaponLook): WeaponMount {

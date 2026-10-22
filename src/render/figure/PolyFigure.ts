@@ -78,6 +78,8 @@ export interface FigureDebug {
 export class PolyFigure {
   /** 所有角色共用的除錯疊圖設定 */
   static debug: FigureDebug = {};
+  /** 所有角色共用的光影（viewer 的 ?light= 試驗用）；null = 照各模型的 lighting */
+  static lighting: FigureModel['lighting'] | null = null;
   readonly graphics = new Graphics();
   private time = 0;
   private runPhase = 0;
@@ -304,9 +306,15 @@ export class PolyFigure {
           }
           const d = dot(n, LIGHT);
           const lit = soft ? Math.max(0, (d + 0.45) / 1.45) : Math.max(0, d);
-          let color = shade(face.color, AMBIENT + DIFFUSE * lit);
-          // 輪廓光：接近輪廓（幾乎側對鏡頭）且背光的面，加一點暖色
-          if (rim > 0) color = addRim(color, rim * Math.max(0, 1 - facingView * 2.2) * (1 - lit));
+          const mode = PolyFigure.lighting ?? this.model.lighting ?? 'normal';
+          let color: number;
+          if (mode === 'flat') color = face.base ?? face.color;
+          else if (mode === 'toon') color = shade(face.base ?? face.color, lit > 0.55 ? 1.02 : lit > 0.25 ? 0.86 : 0.7);
+          else {
+            color = shade(face.color, AMBIENT + DIFFUSE * lit);
+            // 輪廓光：接近輪廓（幾乎側對鏡頭）且背光的面，加一點暖色
+            if (rim > 0) color = addRim(color, rim * Math.max(0, 1 - facingView * 2.2) * (1 - lit));
+          }
           faces.push({ depth: depth / face.idx.length, color, points });
         }
       }

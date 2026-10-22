@@ -24,6 +24,7 @@ export function tone(mesh: Mesh, colors: readonly number[], seed = 0): Mesh {
   const base = colors[0]!;
   const alt = colors[1] ?? base;
   mesh.faces.forEach((f, i) => {
+    f.base = base;
     f.color = mix(base, alt, hash(i, seed) * 0.4, 0.97 + hash(i + 101, seed) * 0.06);
   });
   return mesh;
@@ -119,7 +120,7 @@ export function facetize(mesh: Mesh, bump = 0.12, seed = 0): Mesh {
     const apex = verts.push([c[0] + (n[0] / nl) * h, c[1] + (n[1] / nl) * h, c[2] + (n[2] / nl) * h]) - 1;
     f.idx.forEach((i, k) => {
       const j = f.idx[(k + 1) % f.idx.length]!;
-      faces.push({ idx: [i, j, apex], color: mix(f.color, f.color, 0, 0.97 + hash(fi * 13 + k, seed + 3) * 0.06) });
+      faces.push({ idx: [i, j, apex], color: mix(f.color, f.color, 0, 0.97 + hash(fi * 13 + k, seed + 3) * 0.06), base: f.base ?? f.color });
     });
   });
   const out: Mesh = { verts, faces };

@@ -9,6 +9,8 @@ export interface Face {
   /** 頂點索引（逆時針朝外） */
   idx: number[];
   color: number;
+  /** 材質原色（tone / facetize 加上色差之前）：卡通光影試驗時用 */
+  base?: number;
 }
 
 export interface Mesh {
@@ -157,6 +159,11 @@ export function placeMesh(mesh: Mesh, rotation: V3, offset: V3): Mesh {
       const r = apply(m, v);
       return [r[0] + offset[0], r[1] + offset[1], r[2] + offset[2]] as V3;
     }),
-    faces: mesh.faces.map((f) => ({ idx: [...f.idx], color: f.color })),
+    faces: mesh.faces.map((f) => ({ idx: [...f.idx], color: f.color, ...(f.base !== undefined ? { base: f.base } : {}) })),
   };
+}
+
+/** 以原點為中心、三個軸各自縮放（拉長靴筒、縮小頭部）；面的順序與顏色不變 */
+export function stretchMeshes(meshes: readonly Mesh[], [sx, sy, sz]: V3): Mesh[] {
+  return meshes.map((m) => ({ ...m, verts: m.verts.map(([x, y, z]) => [x * sx, y * sy, z * sz] as V3) }));
 }

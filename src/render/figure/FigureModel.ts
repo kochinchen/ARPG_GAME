@@ -119,6 +119,11 @@ export interface FigureModel {
   gaitRate?: number;
   /** 柔和光線（wrap lighting）：背光面不會一下子變很暗，明暗沿著表面漸變 */
   softLight?: boolean;
+  /**
+   * 光影：normal（預設）= 逐面明暗 + 色差；toon = 材質原色 + 亮 / 中 / 暗三階色塊（卡通）；
+   * flat = 材質原色、不打光
+   */
+  lighting?: 'normal' | 'toon' | 'flat';
   /** 魔王階段變化時不再畫的關節（index = 階段；例如第 2 階段盾牌碎裂、第 3 階段巨劍落地） */
   phaseHidden?: readonly (readonly Joint[])[];
   /** 魔王階段變化時掉在地上、留在場上的物件（index = 階段；模型與相對魔王的位置） */

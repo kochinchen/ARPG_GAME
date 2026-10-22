@@ -2,9 +2,9 @@ import type { DataRegistry } from '../../../data/DataRegistry';
 import type { Rarity } from '../../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from '../../../game/items/ItemInstance';
 import type { Joint } from '../FigureModel';
-import type { Mesh } from '../Poly3D';
+import { stretchMeshes, type Mesh } from '../Poly3D';
 import { pelvisArmor } from '../heroine/HeroineArmor';
-import { heroineForearm, heroineHand, heroineHead, heroineThigh, heroineUpperArm } from '../heroine/HeroineBody';
+import { heroineForearm, heroineHand, heroineHead, heroineThigh, heroineUpperArm, scaleHead, BOOT_STRETCH } from '../heroine/HeroineBody';
 import { scarfWrap } from '../heroine/HeroineHair';
 import type { UniqueArmor } from './uniques/types';
 import { helmetUniques } from './uniques/helmet';
@@ -258,7 +258,7 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
   if (helmet) {
     // 全罩頭盔蓋住臉與頭髮；帽子與開放式露出臉（頭髮收進頭盔，馬尾從後方垂下）
     const hat = placeHelmet(helmetMeshes(helmet));
-    parts.set('head', helmet.style === 'closed' ? hat : [...heroineHead(), ...hat]);
+    parts.set('head', scaleHead(helmet.style === 'closed' ? hat : [...heroineHead(), ...hat]));
   }
   if (armor) {
     parts.set('chest', [...chestPiece(armor), ...scarfWrap()]);
@@ -270,8 +270,8 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
   if (boots) {
     parts.set('thighL', [...heroineThigh(1), ...bootCuffPiece(boots)]);
     parts.set('thighR', [...heroineThigh(2), ...bootCuffPiece(boots)]);
-    parts.set('shinL', bootShinPiece(boots));
-    parts.set('shinR', bootShinPiece(boots));
+    parts.set('shinL', stretchMeshes(bootShinPiece(boots), [1, BOOT_STRETCH, 1]));
+    parts.set('shinR', stretchMeshes(bootShinPiece(boots), [1, BOOT_STRETCH, 1]));
     parts.set('footL', bootFootPiece(boots));
     parts.set('footR', bootFootPiece(boots));
   }

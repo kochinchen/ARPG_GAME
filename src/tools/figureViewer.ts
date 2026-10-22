@@ -157,6 +157,10 @@ const ROWS: Row[] = animRows() ?? [
   P.deathKeys ? { label: '死亡（播放）', play: 'death' } : { label: '倒地', pose: P.dead },
 ];
 
+/** ?light=normal / toon / flat：所有模型改用同一種光影（比較用） */
+const LIGHT_MODE = params.get('light');
+if (LIGHT_MODE === 'normal' || LIGHT_MODE === 'toon' || LIGHT_MODE === 'flat') PolyFigure.lighting = LIGHT_MODE;
+
 /** ?debug=joints,bones,edges,pivot,facing,anchor（或 debug=all）：除錯疊圖 */
 const DEBUG = params.get('debug');
 if (DEBUG) {
@@ -278,8 +282,14 @@ function closeUp(app: Application): void {
     figure.showPose(P.ready(0), d.facing);
     // 依模型大小自動縮放
     const b = figure.graphics.getLocalBounds();
-    const k = Math.min((w * 0.85) / Math.max(1, b.width), (h * 0.7) / Math.max(1, b.height));
+    // head=1：只看頭與上半身（放大 3.2 倍）；head=2：只看臉（放大 5 倍）。頭頂對齊格子上緣
+    const head = params.get('head') === '1' || params.get('head') === '2';
+    const k = Math.min((w * 0.85) / Math.max(1, b.width), (h * 0.7) / Math.max(1, b.height)) * (params.get('head') === '2' ? 5 : head ? 3.2 : 1);
     figure.graphics.scale.set(k);
+    if (head) {
+      cell.position.y = 70 - b.y * k;
+      cell.mask = new Graphics().rect(16 + i * w + 2, 50, w - 4, h + 20).fill(0xffffff);
+    }
     const shadow = new Graphics();
     shadow.scale.set(k);
     const ground = new Graphics().ellipse(0, 0, w * 0.35, w * 0.12).fill({ color: 0x2a241e });

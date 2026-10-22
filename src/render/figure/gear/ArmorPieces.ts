@@ -1,5 +1,6 @@
 import { detail, facetize, loft, tone, type Ring } from '../Facets';
 import { box, lowSphere, orient, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
+import { THIGH_LENGTH } from '../heroine/HeroineBody';
 import { BLACK_STEEL, chain, gem, taper, type Tones } from '../weapons/WeaponParts';
 
 /**
@@ -196,8 +197,8 @@ export interface BootSpec {
 
 /** 靴口（thigh 關節，膝上） */
 export const bootCuffPiece = (s: BootSpec): Mesh[] => [
-  loft([{ y: -9.4, rx: 2.6, rz: 2.7, cz: 0.2 }, { y: -13.2, rx: 2.2, rz: 2.35 }], 9, s.mat, 1),
-  F(t(prism(9, -9.2, -10.1, [2.75, 2.85], [2.7, 2.8], (s.cuff ?? HIDE_DARK)[0]!, [0, 0, 0.2]), s.cuff ?? HIDE_DARK, 2), 2, 0.12),
+  loft([{ y: 3.6 - THIGH_LENGTH, rx: 2.6, rz: 2.7, cz: 0.2 }, { y: -0.2 - THIGH_LENGTH, rx: 2.2, rz: 2.35 }], 9, s.mat, 1),
+  F(t(prism(9, 3.8 - THIGH_LENGTH, 2.9 - THIGH_LENGTH, [2.75, 2.85], [2.7, 2.8], (s.cuff ?? HIDE_DARK)[0]!, [0, 0, 0.2]), s.cuff ?? HIDE_DARK, 2), 2, 0.12),
 ];
 
 /** 靴筒（shin 關節）：護膝、脛甲、綁帶、尖刺、腳踝的翅膀 */
@@ -347,8 +348,8 @@ export function shieldMeshes(s: ShieldSpec): Mesh[] {
   return out;
 }
 
-/** 盾牌拿在左手（weaponL 關節）：盾面朝外側偏前、在前臂旁 */
-export const placeShield = (meshes: Mesh[]): Mesh[] => scaleMeshes(meshes, 1.9, [0, 0, 0]).map((m) => placeMesh(m, [0, -1, 0], [2, 4.6, 1.3]));
+/** 盾牌拿在左手（weaponL 關節）：盾面朝外側偏前、在前臂旁；放大 1.9 × 1.7 倍（設計者 2026-10-22 加大到 1.7 倍） */
+export const placeShield = (meshes: Mesh[]): Mesh[] => scaleMeshes(meshes, 1.9 * 1.7, [0, 0, 0]).map((m) => placeMesh(m, [0, -1, 0], [2, 4.6, 1.3]));
 
 export function scaleMeshes(meshes: readonly Mesh[], s: number, [ox, oy, oz]: V3): Mesh[] {
   return meshes.map((m) => ({ ...m, verts: m.verts.map(([x, y, z]) => [x * s + ox, y * s + oy, z * s + oz] as V3) }));

@@ -9,8 +9,9 @@ import { BLADE, GOLD, LEATHER_DARK } from './HeroinePalette';
  */
 
 export const SWORD_CANT = 0.8;
-const BLADE_LEN = 20;
-const TIP = 3.4;
+/** 劍身（-2.4 起）與劍尖長：原本 17.6 + 3.4，放大到 1.3 倍 */
+const BLADE_LEN = 2.4 + 17.6 * 1.3;
+const TIP = 3.4 * 1.3;
 
 function swordMeshes(): Mesh[] {
   const blade = prism(4, -2.4, -BLADE_LEN, [0.3, 1.35], [0.26, 1.15], BLADE[0], [0, 0, 0], 0);
