@@ -157,7 +157,7 @@ describe('融合擲骰', () => {
     expect(fuse(inputs, [], data, new Rng(42), 'c1')).toEqual(fuse(inputs, [], data, new Rng(42), 'c1'));
   });
 
-  it('1,000 次分佈（範例 #3）：印記約 35%、核色倍率在紫 1.2～1.5、副屬性 2 條不重複、五個部位都有主屬性', () => {
+  it('1,000 次分佈（範例 #3）：印記約 35%、核色倍率在紫 1.2～1.5、副屬性 2 條不重複、六個部位都有主屬性', () => {
     const rng = new Rng(7);
     const inputs = ex3();
     let brands = 0;
@@ -169,7 +169,7 @@ describe('融合擲骰', () => {
       expect(core.power).toBeLessThanOrEqual(1.5);
       expect(core.secondary).toHaveLength(2);
       expect(new Set(core.secondary.map((s) => s.lineId)).size).toBe(2);
-      for (const slot of ['weapon', 'helmet', 'armor', 'gloves', 'boots'] as const) expect(core.main[slot]).toHaveLength(1);
+      for (const slot of ['weapon', 'helmet', 'armor', 'gloves', 'boots', 'shield'] as const) expect(core.main[slot]).toHaveLength(1);
       for (const s of core.secondary) secondaryIds.set(s.lineId, (secondaryIds.get(s.lineId) ?? 0) + 1);
       if (core.brand) {
         brands++;
@@ -178,9 +178,10 @@ describe('融合擲骰', () => {
     }
     expect(brands / 1000).toBeGreaterThan(0.31);
     expect(brands / 1000).toBeLessThan(0.39);
-    // 副屬性池：重核在武器以外的部位 5 條 ＋ 通用 5 條，藥水效果重複只算一次 = 9 條，每條約 2/9；不會抽到武器欄的屬性
-    expect(secondaryIds.size).toBe(9);
-    for (const count of secondaryIds.values()) expect(count / 1000).toBeGreaterThan(0.17);
+    // 副屬性池：重核在武器以外的部位 6 條（盾牌欄的物理減傷與衣裝欄重複）＋ 盾擊傷害 ＋ 通用 5 條，藥水效果重複只算一次 = 10 條，每條約 2/10；不會抽到武器欄的屬性
+    expect(secondaryIds.size).toBe(10);
+    expect(secondaryIds.has('core.heavy.shield_bash')).toBe(true);
+    for (const count of secondaryIds.values()) expect(count / 1000).toBeGreaterThan(0.15);
     expect([...secondaryIds.keys()]).not.toContain('core.shared.potion');
     expect([...secondaryIds.keys()]).not.toContain('core.heavy.heavy_damage');
     expect([...secondaryIds.keys()]).not.toContain('core.heavy.knockback');
@@ -243,13 +244,13 @@ describe('防具融合（2026-10-18 提前到 v0.5.0）', () => {
     expect([pv.types[0], pv.hasElement, pv.element]).toEqual(['crown', true, 'fire']);
   });
 
-  it('副屬性不抽護核的武器欄屬性；擲出的熔核五個部位都有主屬性', () => {
+  it('副屬性不抽護核的武器欄屬性；擲出的熔核六個部位都有主屬性', () => {
     const inputs = [0, 1, 2].map(() => gear('gloves', 'epic', 30));
     const pv = previewFusion(inputs, [], data);
     expect(pv.secondary.map((x) => x.line.id)).not.toContain('core.grip.crit_damage');
     const core = fuse(inputs, [], data, new Rng(9), 'g1');
     expect(core.types).toEqual(['grip']);
-    for (const slot of ['weapon', 'helmet', 'armor', 'gloves', 'boots'] as const) expect(core.main[slot]).toHaveLength(1);
+    for (const slot of ['weapon', 'helmet', 'armor', 'gloves', 'boots', 'shield'] as const) expect(core.main[slot]).toHaveLength(1);
   });
 
   it('橘色防具的強屬性也能成為印記', () => {

@@ -10,8 +10,10 @@ import { STAT_LABELS } from './ItemDescriber';
 /**
  * 熔核的數值（v0.5.0，SPEC §1.3、§1.6、§2.3）。純函式：
  * - 每條屬性 = T1 範圍擲骰 × 核階倍率（T5 有 t5Value 時改用它）× 核色倍率（core.power）；混核的主屬性再 × mixedMultiplier；
- *   再 × 裝備稀有度倍率（白 0.5 … 橘 1.25；固定數值的屬性如穿透 +1 不乘）
- * - 全身上限：同一條屬性全身合計 ≤ 一顆 T5 橘核的最高值 × bodyCap；同一條印記 ≤ 單顆 × bodyCap（超過的部分不生效）
+ *   再 × 同核加成（孔都鑲滿、核種相同時 1 + 孔數 × matchBonus；固定數值的屬性如穿透 +1 不乘）
+ * - 鑲在武器：另外依核階給武器傷害 +%（weaponDamage，也乘同核加成），由 ItemStats 加到主倍率上
+ * - 全身上限：同一條屬性全身合計 ≤ 一顆 T5 橘核的最高值 ×（bodyCap ＋ 有提供這條的每件同核鑲滿裝備 孔數 × matchCapPerSocket）；
+ *   印記同理（單顆為準）；超過的部分不生效
  * - 印記：投入的橘武器的強屬性（◆）× brand.valueMultiplier；整數（箭數、穿透…）四捨五入、至少 1；永遠不傳效果（✦）
  */
 
@@ -32,11 +34,12 @@ export interface CoreEffects {
   capped: string[];
 }
 
-/** 鑲在某個部位的一顆熔核；host = 那件裝備的稀有度倍率（balance.sockets.hostPower，省略 = 1） */
+/** 鑲在某個部位的一顆熔核；bonus = 那件裝備的同核加成（SocketBonus.socketBonus，省略 = 1）；matchedHoles = 那件裝備同核鑲滿時的孔數（否則 0） */
 export interface SocketedCore {
   slot: CoreSlot;
   core: CoreInstance;
-  host?: number;
+  bonus?: number;
+  matchedHoles?: number;
 }
 
 const ELEMENT_STATS: Record<CoreElement, { damage: StatId; resist: StatId }> = {
@@ -71,7 +74,7 @@ function groupKey(line: CoreLine, element: CoreElement | undefined): string | nu
   return `mods:${line.mod}:${JSON.stringify(line.when)}`;
 }
 
-/** 每一組的全身上限：該組所有屬性行中，一顆 T5 橘核最高值的最大者 × bodyCap */
+/** 每一組的單顆基準：該組所有屬性行中，一顆 T5 橘核最高值的最大者（全身上限 = 基準 × 份數） */
 const capCache = new WeakMap<Data['cores'], Map<string, number>>();
 function groupCaps(data: Data): Map<string, number> {
   let caps = capCache.get(data.cores);
@@ -79,7 +82,7 @@ function groupCaps(data: Data): Map<string, number> {
   caps = new Map();
   for (const line of data.cores.lines.all) {
     const keys = line.type === 'element' ? (Object.keys(ELEMENT_STATS) as CoreElement[]).map((el) => groupKey(line, el)!) : [groupKey(line, undefined)!];
-    const max = coreLineMax(line, data.balance) * data.balance.sockets.bodyCap;
+    const max = coreLineMax(line, data.balance);
     for (const key of keys) caps.set(key, Math.max(caps.get(key) ?? 0, max));
   }
   capCache.set(data.cores, caps);
@@ -99,21 +102,26 @@ export function brandLine(core: CoreInstance, data: Pick<DataRegistry, 'legendar
  */
 export function coreEffects(sockets: readonly SocketedCore[], data: Data): CoreEffects {
   const caps = groupCaps(data);
-  const bodyCap = data.balance.sockets.bodyCap;
+  const { bodyCap, matchCapPerSocket } = data.balance.sockets;
   const brandFactor = data.balance.fusion.brand.valueMultiplier;
-  const groups = new Map<string, { line: CoreLine; element: CoreElement | undefined; total: number }>();
-  const brands = new Map<string, { def: LegendaryDef; line: LegendaryDef['lines'][number]; count: number; rolls: number[] }>();
+  // matched = 有提供這一組的同核鑲滿裝備（部位 → 孔數）：每件讓上限多 孔數 × matchCapPerSocket 份
+  const groups = new Map<string, { line: CoreLine; element: CoreElement | undefined; total: number; matched: Map<CoreSlot, number> }>();
+  const brands = new Map<string, { def: LegendaryDef; line: LegendaryDef['lines'][number]; count: number; rolls: number[]; matched: Map<CoreSlot, number> }>();
+  const copiesOf = (matched: Map<CoreSlot, number>) => bodyCap + [...matched.values()].reduce((sum, holes) => sum + holes * matchCapPerSocket, 0);
 
+  let current: { slot: CoreSlot; holes: number } = { slot: 'weapon', holes: 0 };
   const add = (line: CoreLine, value: number, element: CoreElement | undefined) => {
     const key = groupKey(line, element);
     if (!key) return;
-    const g = groups.get(key) ?? { line, element, total: 0 };
+    const g = groups.get(key) ?? { line, element, total: 0, matched: new Map() };
     g.total += value;
+    if (current.holes > 0) g.matched.set(current.slot, current.holes);
     groups.set(key, g);
   };
-  for (const { slot, core, host = 1 } of sockets) {
+  for (const { slot, core, bonus = 1, matchedHoles = 0 } of sockets) {
+    current = { slot, holes: matchedHoles };
     const mixed = core.types.length === 2;
-    const lineValue = (line: CoreLine, roll: number, m: boolean) => coreLineValue(line, core, roll, data.balance, m) * (line.scaling === 'none' ? 1 : host);
+    const lineValue = (line: CoreLine, roll: number, m: boolean) => coreLineValue(line, core, roll, data.balance, m) * (line.scaling === 'none' ? 1 : bonus);
     for (const r of core.main[slot] ?? []) {
       if (data.cores.lines.has(r.lineId)) add(data.cores.lines.get(r.lineId), lineValue(data.cores.lines.get(r.lineId), r.roll, mixed), core.element);
     }
@@ -123,18 +131,19 @@ export function coreEffects(sockets: readonly SocketedCore[], data: Data): CoreE
     const brand = brandLine(core, data);
     if (brand) {
       const key = `${core.brand!.legendaryId}:${core.brand!.line}`;
-      const b = brands.get(key) ?? { ...brand, count: 0, rolls: [] };
-      // 份量：每顆印記依所在裝備的稀有度倍率計算
-      b.count += host;
+      const b = brands.get(key) ?? { ...brand, count: 0, rolls: [] as number[], matched: new Map<CoreSlot, number>() };
+      if (matchedHoles > 0) b.matched.set(slot, matchedHoles);
+      // 份量：每顆印記依所在裝備的同核加成計算
+      b.count += bonus;
       // 數值行：各顆用投入那件傳奇擲到的數值（沒有記錄時用上限）
-      if (brand.line.type === 'stat') b.rolls.push((core.brand!.roll ?? brand.line.value[1]) * host);
+      if (brand.line.type === 'stat') b.rolls.push((core.brand!.roll ?? brand.line.value[1]) * bonus);
       brands.set(key, b);
     }
   }
 
   const result: CoreEffects = { stats: [], mechanics: [], capped: [] };
   for (const [key, g] of groups) {
-    const cap = caps.get(key) ?? Infinity;
+    const cap = (caps.get(key) ?? Infinity) * copiesOf(g.matched);
     const value = Math.min(g.total, cap);
     if (g.total > cap + 1e-9) result.capped.push(lineLabel(g.line, g.element));
     if (g.line.type === 'mods') {
@@ -146,16 +155,17 @@ export function coreEffects(sockets: readonly SocketedCore[], data: Data): CoreE
       result.stats.push({ stat, kind, value });
     }
   }
-  // 印記：同一條全身合計 ≤ 單顆 × bodyCap（單顆 = 強屬性 × brandFactor）
+  // 印記：同一條全身合計 ≤ 單顆 × 份數（單顆 = 強屬性 × brandFactor）
   for (const [key, b] of brands) {
-    const copies = Math.min(b.count, bodyCap);
-    if (b.count > bodyCap + 1e-9) result.capped.push(b.line.type === 'effect' ? b.line.text : b.def.name);
+    const cap = copiesOf(b.matched);
+    const copies = Math.min(b.count, cap);
+    if (b.count > cap + 1e-9) result.capped.push(b.line.type === 'effect' ? b.line.text : b.def.name);
     const factor = brandFactor * copies;
     if (b.line.type === 'stat') {
-      // 數值行：合計再夾到「單顆（強屬性上限）× bodyCap」
+      // 數值行：合計再夾到「單顆（強屬性上限）× 份數」
       const single = b.line.value[1] * brandFactor;
       const total = b.rolls.reduce((sum, r) => sum + r * brandFactor, 0);
-      result.stats.push({ stat: b.line.stat, kind: b.line.modifier, value: Math.min(total, single * bodyCap) });
+      result.stats.push({ stat: b.line.stat, kind: b.line.modifier, value: Math.min(total, single * cap) });
     } else {
       b.line.mechanics.forEach((m, j) => result.mechanics.push({ key: `brand:${key}:${j}`, mechanic: scaleMechanic(m, factor) }));
     }

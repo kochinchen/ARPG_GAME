@@ -4,6 +4,7 @@ import type { StatId } from '../../data/schema/common';
 import type { AffixDef, ItemBaseDef } from '../../data/schema/item';
 import type { LegendaryDef } from '../../data/schema/legendary';
 import type { ItemInstance } from './ItemInstance';
+import { socketsWeaponDamage } from './SocketBonus';
 
 /** 主倍率套用在哪裡：武器 = 基礎傷害（法杖 = 法術強度）、防具 = 基礎防禦、飾品 = 所有詞綴 */
 export type MainRollTarget = 'damage' | 'spellPower' | 'defense' | 'affixes';
@@ -16,6 +17,8 @@ export interface ItemStats {
   affixes: { def: AffixDef; value: number }[];
   /** 主倍率（0 = 無） */
   quality: number;
+  /** 鑲在武器的熔核給的武器傷害 +%（和主倍率相加；非武器 = 0） */
+  coreDamage: number;
   mainTarget: MainRollTarget;
 }
 
@@ -31,12 +34,14 @@ export function mainTargetOf(base: ItemBaseDef): MainRollTarget {
  * 一件物品實際提供的屬性（裝備時的 Modifier 與 Tooltip 共用，確保兩者一致）：
  * 主倍率只乘在基礎傷害（劍、斧、弓）、法術強度（法杖，武器傷害不乘）或基礎防禦（防具）；飾品則乘在所有詞綴。
  */
-export function itemStats(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): ItemStats {
+export function itemStats(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'balance'>): ItemStats {
   const base = data.items.get(item.baseId);
   const legendary = item.legendaryId !== undefined && data.legendaries.has(item.legendaryId) ? data.legendaries.get(item.legendaryId) : null;
   const quality = item.quality ?? 0;
   const mainTarget = mainTargetOf(base);
-  const mult = 1 + quality;
+  const coreDamage = base.slot === 'weapon' ? socketsWeaponDamage(item.sockets, data.balance) : 0;
+  // 基礎攻防乘（主倍率 + 熔核武器傷害）；飾品的詞綴只乘主倍率
+  const mult = 1 + quality + coreDamage;
   const baseStats: Partial<Record<StatId, number>> = { ...base.baseStats };
   if (mainTarget === 'damage') {
     if (baseStats.damageMin !== undefined) baseStats.damageMin = Math.round(baseStats.damageMin * mult);
@@ -47,15 +52,15 @@ export function itemStats(item: ItemInstance, data: Pick<DataRegistry, 'items' |
     baseStats.defense = Math.round(baseStats.defense * mult);
   }
   // 傳奇 / 神話：固定屬性行（主倍率只作用在基礎攻防；飾品沒有主倍率）
-  if (legendary) return { base, baseStats, affixes: legendaryAffixes(legendary, item), quality, mainTarget };
+  if (legendary) return { base, baseStats, affixes: legendaryAffixes(legendary, item), quality, coreDamage, mainTarget };
   const affixes = item.affixes.map((a) => {
     const def = data.affixes.get(a.id);
     const raw = a.rolls[0] ?? 0;
     if (mainTarget !== 'affixes' || quality === 0) return { def, value: capSteal(def.stat, raw) };
-    const scaled = raw * mult;
+    const scaled = raw * (1 + quality);
     return { def, value: capSteal(def.stat, Number.isInteger(raw) ? Math.round(scaled) : Math.round(scaled * 10000) / 10000) };
   });
-  return { base, baseStats, affixes, quality, mainTarget };
+  return { base, baseStats, affixes, quality, coreDamage, mainTarget };
 }
 
 /** 傳奇 / 神話的固定屬性行，轉成與詞綴相同的格式（裝備與 Tooltip 共用） */

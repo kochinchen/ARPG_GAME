@@ -8,8 +8,8 @@ import { SkillFilterSchema } from './legendary';
  * 同一顆熔核鑲在不同部位效果不同；每條屬性在 T1 範圍內擲骰，再乘核階倍率與核色倍率（見 balance.fusion）。
  */
 
-/** 可以鑲嵌的部位（第二期加盾牌） */
-export const CoreSlotSchema = z.enum(['weapon', 'helmet', 'armor', 'gloves', 'boots']);
+/** 可以鑲嵌的部位（盾牌 2026-10-19 提前到 v0.5.0；放最後，融合的擲骰順序不變） */
+export const CoreSlotSchema = z.enum(['weapon', 'helmet', 'armor', 'gloves', 'boots', 'shield']);
 export type CoreSlot = z.infer<typeof CoreSlotSchema>;
 export const CORE_SLOTS: readonly CoreSlot[] = CoreSlotSchema.options;
 
@@ -76,7 +76,7 @@ export const CoreTypeDefSchema = z.strictObject({
   sourceSlots: z.array(EquipSlotSchema).optional(),
   /** false = 資料先寫好但還不能融合出來 */
   enabled: z.boolean(),
-  /** 鑲在各部位的主屬性；啟用的核種五個部位都要有 */
+  /** 鑲在各部位的主屬性；啟用的核種六個部位都要有 */
   slots: z.partialRecord(CoreSlotSchema, SlotLinesSchema),
 });
 export type CoreTypeDef = z.infer<typeof CoreTypeDefSchema>;

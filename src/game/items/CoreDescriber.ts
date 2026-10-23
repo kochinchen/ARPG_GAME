@@ -4,6 +4,8 @@ import { RARITY_LABELS } from '../../data/schema/item';
 import type { StatId } from '../../data/schema/common';
 import type { CoreInstance, CoreRoll } from './CoreInstance';
 import { brandLine, coreLineValue } from './CoreStats';
+import { coreWeaponDamage, socketBonus } from './SocketBonus';
+import { mainTargetOf } from './ItemStats';
 import { formatValue, SLOT_LABELS, STAT_LABELS } from './ItemDescriber';
 import type { ItemInstance } from './ItemInstance';
 
@@ -47,29 +49,30 @@ export function coreRangeText(line: CoreLine, [lo, hi]: [number, number], elemen
   return highText.replace(/^\+?[\d.]+/, `+${num(lowText)}～${num(highText)}`);
 }
 
-/** host = 裝備稀有度倍率（熔核單獨看時為 1，以紫裝為準） */
-function rollText(r: CoreRoll, core: CoreInstance, data: Data, mixed: boolean, host: number): string | null {
+/** bonus = 所在裝備的同核加成（熔核單獨看時為 1） */
+function rollText(r: CoreRoll, core: CoreInstance, data: Data, mixed: boolean, bonus: number): string | null {
   if (!data.cores.lines.has(r.lineId)) return null;
   const line = data.cores.lines.get(r.lineId);
-  return coreLineText(line, coreLineValue(line, core, r.roll, data.balance, mixed) * (line.scaling === 'none' ? 1 : host), core.element);
+  return coreLineText(line, coreLineValue(line, core, r.roll, data.balance, mixed) * (line.scaling === 'none' ? 1 : bonus), core.element);
 }
 
-/** 熔核鑲在某個部位時的主屬性文字 */
-export function coreMainTexts(core: CoreInstance, slot: CoreSlot, data: Data, host = 1): string[] {
-  return (core.main[slot] ?? []).flatMap((r) => rollText(r, core, data, core.types.length === 2, host) ?? []);
+/** 熔核鑲在某個部位時的主屬性文字；武器另有「+X% 武器傷害」（法杖寫成法術強度） */
+export function coreMainTexts(core: CoreInstance, slot: CoreSlot, data: Data, bonus = 1, damageLabel = '武器傷害'): string[] {
+  const damage = slot === 'weapon' ? [`+${Math.round(coreWeaponDamage(core, data.balance) * bonus * 100)}% ${damageLabel}`] : [];
+  return [...damage, ...(core.main[slot] ?? []).flatMap((r) => rollText(r, core, data, core.types.length === 2, bonus) ?? [])];
 }
 
 /** 副屬性與印記的文字 */
-export function coreExtraTexts(core: CoreInstance, data: Data, host = 1): { secondary: string[]; brand: string | null } {
-  const secondary = core.secondary.flatMap((r) => rollText(r, core, data, false, host) ?? []);
+export function coreExtraTexts(core: CoreInstance, data: Data, bonus = 1): { secondary: string[]; brand: string | null } {
+  const secondary = core.secondary.flatMap((r) => rollText(r, core, data, false, bonus) ?? []);
   const b = brandLine(core, data);
   let brand: string | null = null;
   if (b) {
     const f = data.balance.fusion.brand.valueMultiplier;
     brand =
       b.line.type === 'stat'
-        ? `印記（${b.def.name}）：${formatValue(b.line.stat, b.line.modifier, (core.brand!.roll ?? b.line.value[1]) * f * host, true)} ${STAT_LABELS[b.line.stat]}`
-        : `印記（${b.def.name}）：${b.line.text} × ${+(f * host).toFixed(3)}`;
+        ? `印記（${b.def.name}）：${formatValue(b.line.stat, b.line.modifier, (core.brand!.roll ?? b.line.value[1]) * f * bonus, true)} ${STAT_LABELS[b.line.stat]}`
+        : `印記（${b.def.name}）：${b.line.text} × ${+(f * bonus).toFixed(3)}`;
   }
   return { secondary, brand };
 }
@@ -77,7 +80,7 @@ export function coreExtraTexts(core: CoreInstance, data: Data, host = 1): { seco
 export interface CoreDescription {
   name: string;
   subtitle: string;
-  /** 五個部位各自的主屬性 */
+  /** 六個部位各自的主屬性 */
   slots: { slot: CoreSlot; label: string; texts: string[] }[];
   secondary: string[];
   brand: string | null;
@@ -89,7 +92,7 @@ export function describeCore(core: CoreInstance, data: Data): CoreDescription {
   const notes: string[] = [];
   if (core.pure) notes.push('純核（四件同一類，屬性多一條）');
   if (core.types.length === 2) notes.push(`混核：每個部位兩個核種各一條，數值 ×${data.balance.fusion.mixedMultiplier}`);
-  notes.push(`數值以紫裝為準；鑲在${hostPowerText(data)}`);
+  notes.push(matchBonusText(data));
   return {
     name: coreName(core, data),
     subtitle: `${RARITY_LABELS[core.rarity]}熔核 · T${core.tier}`,
@@ -100,25 +103,25 @@ export function describeCore(core: CoreInstance, data: Data): CoreDescription {
   };
 }
 
-/** 「白裝 ×0.5、藍裝 ×0.6 …」 */
-export function hostPowerText(data: Pick<DataRegistry, 'balance'>): string {
-  const p = data.balance.sockets.hostPower;
-  const color = { normal: '白', magic: '藍', rare: '黃', epic: '紫', legendary: '橘' } as const;
-  return (['normal', 'magic', 'rare', 'epic', 'legendary'] as const).map((r) => `${color[r]}裝 ×${p[r]}`).join('、');
+/** 「同核加成：一件裝備的孔都鑲滿同一種熔核，數值 +孔數 × 10%」 */
+export function matchBonusText(data: Pick<DataRegistry, 'balance'>): string {
+  return `同核加成：一件裝備的孔都鑲滿同一種熔核，數值 +孔數 × ${Math.round(data.balance.sockets.matchBonus * 100)}%`;
 }
 
 /** 裝備的孔位列：已鑲入的熔核（在這個部位的效果）與空孔 */
 export function socketLines(item: ItemInstance, data: Data & Pick<DataRegistry, 'items'>): { text: string; rarity: CoreInstance['rarity'] | null }[] {
   const sockets = item.sockets;
   if (!sockets || sockets.max === 0) return [];
-  const slot = data.items.get(item.baseId).slot as CoreSlot;
-  const host = data.balance.sockets.hostPower[item.rarity];
+  const base = data.items.get(item.baseId);
+  const slot = base.slot as CoreSlot;
+  const bonus = socketBonus(sockets, data.balance);
+  const damageLabel = mainTargetOf(base) === 'spellPower' ? '法術強度' : '武器傷害';
   const lines: { text: string; rarity: CoreInstance['rarity'] | null }[] = sockets.cores.map((core) => {
-    const { secondary, brand } = coreExtraTexts(core, data, host);
-    const parts = [...coreMainTexts(core, slot, data, host), ...secondary, ...(brand ? [brand] : [])];
+    const { secondary, brand } = coreExtraTexts(core, data, bonus);
+    const parts = [...coreMainTexts(core, slot, data, bonus, damageLabel), ...secondary, ...(brand ? [brand] : [])];
     return { text: `◆ ${coreName(core, data)} T${core.tier}：${parts.join('、')}`, rarity: core.rarity };
   });
   for (let i = sockets.cores.length; i < sockets.max; i++) lines.push({ text: '◇ 空孔', rarity: null });
-  if (host !== 1) lines.push({ text: `${RARITY_LABELS[item.rarity]}裝備：熔核數值 ×${host}`, rarity: null });
+  if (bonus !== 1) lines.push({ text: `同核加成（${sockets.max} 孔都是${coreName(sockets.cores[0]!, data)}）：熔核數值 ×${+bonus.toFixed(2)}`, rarity: null });
   return lines;
 }

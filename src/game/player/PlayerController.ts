@@ -104,6 +104,9 @@ export class PlayerController {
       case 'EquipmentClick':
         this.items.clickEquipment(command.slot);
         break;
+      case 'RemoveCore':
+        this.items.removeCore(command.from);
+        break;
       case 'LearnSkill':
         this.learn(command.skillId);
         break;

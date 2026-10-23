@@ -388,3 +388,39 @@ describe('存檔欄位', () => {
     expect((await loadedGold(service)).data.character.gold).toBe(5);
   });
 });
+
+describe('Migration v15 → v16（盾牌鑲嵌）', () => {
+  const oldCore = (uid: string, types: string[], armorRolls: number[]) => ({
+    uid,
+    types,
+    tier: 2,
+    rarity: 'rare',
+    power: 1,
+    itemLevel: 12,
+    main: { weapon: [], helmet: [], armor: armorRolls.map((roll) => ({ lineId: 'x', roll })), gloves: [], boots: [] },
+    secondary: [],
+  });
+
+  it('舊熔核補上盾牌欄：沿用衣裝欄的擲骰值；兩條候選時依 uid 固定選一條；背包與裝備的孔都補', () => {
+    const v15 = sample(30) as unknown as Record<string, unknown>;
+    (v15.inventory as SaveData['inventory']).cells[1] = { kind: 'core', core: oldCore('c-bag', ['arcane', 'wall'], [0.3, 0.8]) } as never;
+    (v15.equipment as Record<string, unknown>).helmet = { uid: 'h', baseId: data.items.all.find((b) => b.slot === 'helmet')!.id, rarity: 'magic', itemLevel: 5, affixes: [], sockets: { max: 1, cores: [oldCore('c-worn', ['sharp'], [0.6])] } };
+    const v16 = SaveDataSchema.parse(migrate(v15, 15));
+    const bag = v16.inventory.cells[1];
+    expect(bag?.kind === 'core' && bag.core.main.shield).toEqual([
+      { lineId: 'core.arcane.element_resist_shield', roll: 0.3 },
+      { lineId: expect.stringMatching(/^core\.wall\.(block|defense)_shield$/), roll: 0.8 },
+    ]);
+    const worn = v16.equipment.helmet!.sockets!.cores[0]!;
+    expect(worn.main.shield).toHaveLength(1);
+    expect(worn.main.shield[0]!.roll).toBe(0.6);
+    expect(['core.sharp.dodge_shield', 'core.sharp.attack_speed_shield']).toContain(worn.main.shield[0]!.lineId);
+    // 同一份存檔轉兩次結果相同
+    expect(migrate(v15, 15)).toEqual(migrate(v15, 15));
+  });
+
+  it('沒有熔核的存檔原樣不變', () => {
+    const v15 = sample(1) as unknown as Record<string, unknown>;
+    expect(migrate(v15, 15)).toBe(v15);
+  });
+});

@@ -325,7 +325,7 @@ function parseTable<T extends { id: string }>(
   return new DataTable(kind, parsed);
 }
 
-/** 熔核：核種、屬性行 ID 不重複；啟用的核種五個部位都有；每種武器剛好一種攻核、每個防具部位剛好一種護核；不得有吸取 / 回魔 */
+/** 熔核：核種、屬性行 ID 不重複；啟用的核種六個部位都有；每種武器剛好一種攻核、每個防具部位剛好一種護核；不得有吸取 / 回魔 */
 function parseCores(value: unknown, problems: string[]): CoreTables {
   const data = parseOne('cores', CoreDataSchema, value, problems);
   const types = new DataTable<CoreTypeDef>('coreType', []);

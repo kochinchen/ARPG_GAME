@@ -204,12 +204,15 @@ export const balance: z.input<typeof BalanceSchema> = {
     dropWeights: { normal: [60, 30, 10], magic: [60, 30, 10], rare: [65, 25, 10], epic: [1], legendary: [1], mythic: [1] },
     drillGold: 30,
     drillEssence: 3,
-    insertGold: 10,
-    removeGold: 20,
     bodyCap: 1.5,
-    maxCores: 25,
-    // 熔核強度跟著裝備稀有度（2026-10-18 設計者定案）：白裝 5 孔 × 0.5 ≈ 2.5 孔，比不上紫裝 2 孔＋詞綴；紅裝沒有孔
-    hostPower: { normal: 0.5, magic: 0.6, rare: 0.75, epic: 1, legendary: 1.25, mythic: 1.25 },
+    maxCores: 30,
+    // 熔核不看裝備稀有度（2026-10-23 設計者定案）：白裝 5 孔可以打造成符合自己需求的強裝
+    // 同核加成：孔都鑲滿、每顆核種相同 → 這件裝備上的熔核數值 ×（1 + 孔數 × matchBonus）
+    matchBonus: 0.1,
+    // 同核鑲滿的裝備也放寬全身上限：它提供的屬性，上限多「孔數 × 0.5 顆」（白裝 5 孔 +2.5 顆；其他配法維持 bodyCap 1.5 顆；2026-10-23）
+    matchCapPerSocket: 0.5,
+    // 鑲在武器的熔核：武器傷害 +%（依核階 T1～T5，和主倍率相加；法杖放大法術強度）
+    weaponDamage: [0.16, 0.32, 0.48, 0.64, 0.8],
   },
   // 融合（v0.5.0）：費用在 P9 砍半（2026-10-18）——Lv40 四把紫約 2,060 金幣（約賣價的一半）、武器精華 34（≈ 拆掉這四把的 28～44）
   fusion: {

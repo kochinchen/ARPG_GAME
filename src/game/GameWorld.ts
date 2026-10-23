@@ -931,12 +931,6 @@ export class GameWorld {
       case 'ShopDrill':
         this.shop.drill();
         return true;
-      case 'ShopInsertCore':
-        this.shop.insertCore(command.cell);
-        return true;
-      case 'ShopRemoveCore':
-        this.shop.removeCore(command.index);
-        return true;
       case 'ShopFusionSlotClick':
         this.shop.clickFusionSlot(command.zone, command.index);
         return true;

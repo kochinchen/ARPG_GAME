@@ -41,7 +41,7 @@ describe('熔核資料', () => {
     expect(data.cores.lines.get('core.crown.damage')).toMatchObject({ stat: 'damageBonus', value: [0.04, 0.06] });
   });
 
-  it('所有核種五個部位都有主屬性（武器、頭盔、衣裝、手套、鞋子），每格 1～2 條', () => {
+  it('所有核種六個部位都有主屬性（武器、頭盔、衣裝、手套、鞋子、盾牌），每格 1～2 條', () => {
     for (const type of data.cores.types.all.filter((t) => t.enabled)) {
       for (const slot of CORE_SLOTS) {
         const lines = type.slots[slot]!;
@@ -49,6 +49,26 @@ describe('熔核資料', () => {
         expect(lines.length, `${type.id}.${slot}`).toBeLessThanOrEqual(2);
       }
     }
+  });
+
+  it('盾牌欄（2026-10-19）：範圍不高於其他部位欄的同一種屬性（全身上限不變）；唯一的新屬性是只對盾擊有效的重核', () => {
+    const key = (l: (typeof data.cores.lines.all)[number]) => (l.type === 'stat' ? `stat:${l.stat}:${l.modifier}` : l.type === 'element' ? `element:${l.kind}` : `mods:${l.mod}:${JSON.stringify(l.when)}`);
+    const others = new Map<string, number>();
+    for (const type of data.cores.types.all)
+      for (const slot of CORE_SLOTS) if (slot !== 'shield') for (const l of type.slots[slot] ?? []) others.set(key(l), Math.max(others.get(key(l)) ?? 0, l.value[1]));
+    for (const l of data.cores.shared) others.set(key(l), Math.max(others.get(key(l)) ?? 0, l.value[1]));
+    const fresh: string[] = [];
+    for (const type of data.cores.types.all) {
+      for (const l of type.slots.shield!) {
+        const max = others.get(key(l));
+        if (max === undefined) fresh.push(l.id);
+        else expect(l.value[1], l.id).toBeLessThanOrEqual(max);
+      }
+    }
+    expect(fresh).toEqual(['core.heavy.shield_bash']);
+    expect(data.cores.lines.get('core.heavy.shield_bash')).toMatchObject({ type: 'mods', mod: 'damage', value: [0.08, 0.12], when: { skills: ['melee.shield_bash'] } });
+    expect(data.cores.lines.get('core.wall.block_shield')).toMatchObject({ stat: 'blockChance', value: [0.02, 0.04] });
+    expect(data.cores.lines.get('core.grip.block')).toMatchObject({ stat: 'blockChance', value: [0.015, 0.03] });
   });
 
   it('SPEC §3.1 的代表數值：重擊技傷、射擊距離（T5 另有範圍）、穿透 +1 固定且紫以上', () => {

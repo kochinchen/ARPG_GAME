@@ -81,7 +81,7 @@ export class InteractableLayer {
   constructor(
     private readonly projection: IsoProjection,
     private readonly objectLayer: Container,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores' | 'balance'>,
   ) {}
 
   setHovered(id: number | null): void {

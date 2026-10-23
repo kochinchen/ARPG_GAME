@@ -168,7 +168,7 @@ export class Renderer {
     world.events.on('PotionPickedUp', (e) => say(e.position, `+${e.count} 藥水`, PALETTE.healText));
     world.events.on('PickupFailed', (e) => say(world.player.position, e.reason === 'potionCap' ? '藥水已達上限' : '背包已滿', PALETTE.manaText));
     world.events.on('EquipFailed', (e) =>
-      say(world.player.position, e.reason === 'level' ? '等級不足' : e.reason === 'shield' ? '盾牌只能搭配劍或斧' : '無法裝備在這裡', PALETTE.manaText),
+      say(world.player.position, e.reason === 'level' ? '等級不足' : e.reason === 'shield' ? '盾牌只能搭配劍或斧' : e.reason === 'noSocket' ? '這件裝備沒有空孔' : '無法裝備在這裡', PALETTE.manaText),
     );
     world.events.on('PlayerLeveledUp', (e) => {
       this.floatingText.spawnText(projection.toScreen(world.player.position), `升級！Lv ${e.level}`, PALETTE.marker, 20);
@@ -190,7 +190,6 @@ export class Renderer {
         materials: '材料不足',
         cannotReroll: '無法重鑄',
         cannotDrill: '無法再鑿孔',
-        cannotInsert: '沒有空孔或沒有熔核',
         cannotSell: '熔核不能賣',
         cannotFuse: '無法融合',
         needsConfirm: '請先確認投入傳奇 / 神話裝備',

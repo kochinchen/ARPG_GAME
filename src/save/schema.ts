@@ -18,10 +18,11 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v13：連段增加為七組（Q / W / E / R / A / S / D）。
  * v14：雙重斬換成盾擊（技能等級、左鍵、連段格轉移）。
  * v15：鑲嵌與融合——裝備的孔位與熔核（sockets）、背包 / 地上 / 拆解區的熔核、商人的融合格（fusion）。
+ * v16：盾牌也能鑲嵌——熔核主屬性多了盾牌欄（main.shield）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -40,7 +41,7 @@ export const CoreInstanceSchema = z.object({
   itemLevel: int.min(1),
   element: CoreElementSchema.optional(),
   pure: z.boolean().optional(),
-  main: z.object({ weapon: coreSlots, helmet: coreSlots, armor: coreSlots, gloves: coreSlots, boots: coreSlots }),
+  main: z.object({ weapon: coreSlots, helmet: coreSlots, armor: coreSlots, gloves: coreSlots, boots: coreSlots, shield: coreSlots }),
   secondary: coreSlots,
   brand: z.object({ legendaryId: z.string(), line: nonNegInt, roll: finite.optional() }).optional(),
 });

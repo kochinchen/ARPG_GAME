@@ -111,7 +111,8 @@ export const Sim = {
   isRangeSequenceValid,
   fusionPreview,
   uniqueWeapons,
-  hostPower: data.balance.sockets.hostPower,
+  matchBonus: data.balance.sockets.matchBonus,
+  weaponDamage: data.balance.sockets.weaponDamage,
 };
 
 (globalThis as { Sim?: typeof Sim }).Sim = Sim;

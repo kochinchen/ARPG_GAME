@@ -189,8 +189,55 @@ const v13ToV14: Migration = (v13) => {
  */
 const v14ToV15: Migration = (v14) => ({ ...v14, fusion: v14.fusion ?? { inputs: [null, null, null, null], jewelry: [null, null] } });
 
+/**
+ * v15 → v16：盾牌也能鑲嵌（2026-10-19）。熔核的主屬性多了盾牌欄：舊熔核沿用自己衣裝欄的擲骰值（同一個核種同一個位置），
+ * 盾牌欄有兩條候選時依熔核 uid 的雜湊固定選一條。熔核可能在背包、身上裝備的孔、地上、拆解區、融合格，所以整份存檔走一遍。
+ * 屬性 ID 照 v16 當時的 data/cores.ts 寫死（之後改資料也不影響這一步）。
+ */
+const V16_SHIELD_LINES: Record<string, string[]> = {
+  sharp: ['core.sharp.dodge_shield', 'core.sharp.attack_speed_shield'],
+  heavy: ['core.heavy.shield_bash', 'core.heavy.physical_resist_shield'],
+  pierce: ['core.pierce.slow_resist_shield', 'core.pierce.move_speed_shield'],
+  arcane: ['core.arcane.element_resist_shield'],
+  wall: ['core.wall.block_shield', 'core.wall.defense_shield'],
+  swift: ['core.swift.move_speed_shield', 'core.swift.slow_resist_shield'],
+  grip: ['core.grip.block', 'core.grip.knockback_resist_shield'],
+  crown: ['core.crown.stun_resist_shield', 'core.crown.element_resist_shield'],
+};
+function uidHash(uid: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < uid.length; i++) h = Math.imul(h ^ uid.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+/** 沒有熔核的部分原樣回傳（不複製） */
+function addShieldMain(node: unknown): unknown {
+  if (Array.isArray(node)) {
+    const next = node.map(addShieldMain);
+    return next.some((v, i) => v !== node[i]) ? next : node;
+  }
+  if (!node || typeof node !== 'object') return node;
+  const obj = node as Record<string, unknown>;
+  let out = obj;
+  for (const [k, v] of Object.entries(obj)) {
+    const next = addShieldMain(v);
+    if (next !== v) out = { ...out, [k]: next };
+  }
+  const main = out.main as Record<string, { roll?: number }[] | undefined> | undefined;
+  if (typeof out.uid === 'string' && Array.isArray(out.types) && main && typeof main === 'object' && Array.isArray(main.armor) && !main.shield) {
+    const uid = out.uid;
+    const armor = main.armor;
+    const shield = (out.types as string[]).flatMap((type, i) => {
+      const lines = V16_SHIELD_LINES[type];
+      return lines ? [{ lineId: lines[uidHash(uid, i) % lines.length]!, roll: armor[i]?.roll ?? 0.5 }] : [];
+    });
+    out = { ...out, main: { ...main, shield } };
+  }
+  return out;
+}
+const v15ToV16: Migration = (v15) => addShieldMain(v15) as Record<string, unknown>;
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16];
 
 export class MigrationError extends Error {}
 

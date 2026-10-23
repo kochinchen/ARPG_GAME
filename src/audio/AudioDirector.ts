@@ -59,6 +59,7 @@ export class AudioDirector {
     events.on('PlayerLeveledUp', () => this.engine.play('levelUp', { reverb: 0.35 }));
     events.on('ItemEquipped', () => this.engine.play('equip', { reverb: 0.05 }));
     events.on('ItemUnequipped', () => this.engine.play('unequip', { reverb: 0.05 }));
+    events.on('CoreSocketed', (e) => this.engine.play(e.action === 'insert' ? 'equip' : 'unequip', { reverb: 0.05 }));
     events.on('ShopTransaction', (e) => this.engine.play(e.kind === 'ascend' ? 'ascend' : 'coins', { reverb: 0.1 }));
     events.on('ItemDropped', () => this.engine.play('drop', { reverb: 0.05 }));
     events.on('ItemsSalvaged', () => this.engine.play('salvage', { reverb: 0.15 }));

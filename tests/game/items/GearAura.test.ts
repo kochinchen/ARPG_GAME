@@ -26,7 +26,7 @@ describe('Gear Aura Score', () => {
   it('熔核：核階加進總分（T1 = 1 … T5 = 5），50、80 加開兩階；核光取全身最多的核種', () => {
     const core = (types: ['sharp'] | ['pierce'] | ['arcane'], tier: number) => ({
       uid: 'c', types, tier, rarity: 'epic' as const, power: 1, itemLevel: 1, element: 'fire' as const,
-      main: { weapon: [], helmet: [], armor: [], gloves: [], boots: [] }, secondary: [],
+      main: { weapon: [], helmet: [], armor: [], gloves: [], boots: [], shield: [] }, secondary: [],
     });
     const socketed = (rarity: Rarity, cores: ReturnType<typeof core>[]) => ({ uid: 'x', baseId: 'ring.plain', rarity, itemLevel: 1, affixes: [], sockets: { max: cores.length, cores } });
     // 4 件史詩（16）+ 兩顆 T3 穿核、一顆 T2 銳核（8）= 24 → 強

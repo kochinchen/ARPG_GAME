@@ -4,9 +4,11 @@ import type { Actor } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
 import type { EquipSlot, WeaponType } from '../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from './ItemInstance';
+import type { Sockets } from './CoreInstance';
 import { itemStats } from './ItemStats';
 import { CORE_SLOTS } from '../../data/schema/core';
 import { coreEffects, type CoreEffects, type SocketedCore } from './CoreStats';
+import { socketBonus } from './SocketBonus';
 
 const CORE_SOURCE = 'cores';
 const NO_CORES: CoreEffects = { stats: [], mechanics: [], capped: [] };
@@ -48,8 +50,9 @@ export class Equipment {
   socketedCores(): SocketedCore[] {
     return CORE_SLOTS.flatMap((slot) => {
       const item = this.slots.get(slot);
-      const host = item ? this.data.balance.sockets.hostPower[item.rarity] : 1;
-      return (item?.sockets?.cores ?? []).map((core) => ({ slot, core, host }));
+      const bonus = socketBonus(item?.sockets, this.data.balance);
+      const matchedHoles = bonus > 1 ? item!.sockets!.max : 0;
+      return (item?.sockets?.cores ?? []).map((core) => ({ slot, core, bonus, matchedHoles }));
     });
   }
 
@@ -124,6 +127,18 @@ export class Equipment {
     this._version++;
     this.events.emit('ItemUnequipped', { uid: item.uid, slot });
     return item;
+  }
+
+  /** 鑲嵌 / 取下熔核：換掉身上這件裝備的孔位內容（武器傷害 +% 會變，所以這件裝備的屬性也重加） */
+  setSockets(slot: EquipmentSlot, sockets: Sockets): void {
+    const item = this.slots.get(slot);
+    if (!item) return;
+    const next = { ...item, sockets };
+    this.slots.set(slot, next);
+    this.owner.stats.removeBySource(sourceOf(item));
+    this.applyModifiers(next);
+    this.refreshCores();
+    this._version++;
   }
 
   private applyModifiers(item: ItemInstance): void {

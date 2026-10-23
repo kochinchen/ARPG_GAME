@@ -21,6 +21,8 @@ const mods = (id: string, label: string, mod: Extract<CoreLine, { type: 'mods' }
 
 const HEAVY: SkillFilter = { tags: ['Heavy'] };
 const PROJECTILE: SkillFilter = { tags: ['Projectile'] };
+// 盾牌只能配劍、斧：盾牌欄偏防禦與控制抗性，唯一的輸出是只對盾擊一招有效的重核
+const SHIELD_BASH: SkillFilter = { skills: ['melee.shield_bash'] };
 
 export const cores: Input = {
   types: [
@@ -37,6 +39,7 @@ export const cores: Input = {
         armor: [stat('core.sharp.dodge', 'dodgeChance', [0.02, 0.04])],
         gloves: [stat('core.sharp.crit_damage', 'critDamageBonus', [0.08, 0.12])],
         boots: [inc('core.sharp.move_speed', 'moveSpeed', [0.03, 0.05])],
+        shield: [stat('core.sharp.dodge_shield', 'dodgeChance', [0.02, 0.04]), inc('core.sharp.attack_speed_shield', 'attackSpeed', [0.03, 0.06])],
       },
     },
     {
@@ -54,6 +57,10 @@ export const cores: Input = {
         armor: [stat('core.heavy.physical_resist', 'physicalResist', [0.03, 0.05]), stat('core.heavy.knockback_resist', 'knockbackResist', [0.15, 0.25])],
         gloves: [mods('core.heavy.knockback_gloves', '擊退距離', 'knockback', [0.15, 0.25])],
         boots: [stat('core.heavy.stun_resist', 'stunResist', [0.15, 0.25])],
+        shield: [
+          mods('core.heavy.shield_bash', '盾擊傷害', 'damage', [0.08, 0.12], { when: SHIELD_BASH }),
+          stat('core.heavy.physical_resist_shield', 'physicalResist', [0.02, 0.04]),
+        ],
       },
     },
     {
@@ -71,6 +78,7 @@ export const cores: Input = {
         armor: [stat('core.pierce.slow_resist', 'slowResist', [0.15, 0.25]), inc('core.pierce.move_speed', 'moveSpeed', [0.03, 0.05])],
         gloves: [mods('core.pierce.projectile_attack_speed', '投射物技能攻擊速度', 'attackSpeed', [0.04, 0.08], { when: PROJECTILE })],
         boots: [stat('core.pierce.slow_resist_boots', 'slowResist', [0.15, 0.25])],
+        shield: [stat('core.pierce.slow_resist_shield', 'slowResist', [0.15, 0.25]), inc('core.pierce.move_speed_shield', 'moveSpeed', [0.03, 0.05])],
       },
     },
     {
@@ -85,10 +93,12 @@ export const cores: Input = {
         armor: [element('core.arcane.element_resist', 'resist', [0.06, 0.1])],
         gloves: [stat('core.arcane.cast_speed', 'castSpeed', [0.04, 0.08])],
         boots: [element('core.arcane.element_resist_boots', 'resist', [0.06, 0.1])],
+        shield: [element('core.arcane.element_resist_shield', 'resist', [0.06, 0.1])],
       },
     },
 
     // ── 護核（防具融合：頭盔、盔甲、手套、鞋子、盾牌；2026-10-18 提前到 v0.5.0）──
+    // 盾牌欄（2026-10-19）：範圍都不高於其他部位欄的同一種屬性，全身上限不變
     {
       id: 'wall',
       name: '壁核',
@@ -101,6 +111,7 @@ export const cores: Input = {
         armor: [inc('core.wall.defense', 'defense', [0.04, 0.08]), stat('core.wall.damage_reduction', 'damageReduction', [0.03, 0.05])],
         gloves: [stat('core.wall.block', 'blockChance', [0.02, 0.04])],
         boots: [stat('core.wall.physical_resist', 'physicalResist', [0.02, 0.04])],
+        shield: [stat('core.wall.block_shield', 'blockChance', [0.02, 0.04]), inc('core.wall.defense_shield', 'defense', [0.04, 0.08])],
       },
     },
     {
@@ -115,6 +126,7 @@ export const cores: Input = {
         armor: [stat('core.swift.dodge', 'dodgeChance', [0.02, 0.04]), stat('core.swift.slow_resist', 'slowResist', [0.15, 0.25])],
         gloves: [inc('core.swift.attack_speed_gloves', 'attackSpeed', [0.03, 0.06])],
         boots: [inc('core.swift.move_speed_boots', 'moveSpeed', [0.04, 0.06])],
+        shield: [inc('core.swift.move_speed_shield', 'moveSpeed', [0.03, 0.05]), stat('core.swift.slow_resist_shield', 'slowResist', [0.15, 0.25])],
       },
     },
     {
@@ -129,6 +141,7 @@ export const cores: Input = {
         armor: [stat('core.grip.knockback_resist', 'knockbackResist', [0.15, 0.25])],
         gloves: [stat('core.grip.crit', 'critChance', [0.015, 0.03])],
         boots: [stat('core.grip.knockback_resist_boots', 'knockbackResist', [0.15, 0.25])],
+        shield: [stat('core.grip.block', 'blockChance', [0.015, 0.03]), stat('core.grip.knockback_resist_shield', 'knockbackResist', [0.15, 0.25])],
       },
     },
     {
@@ -143,6 +156,7 @@ export const cores: Input = {
         armor: [element('core.crown.element_resist', 'resist', [0.06, 0.1]), stat('core.crown.stun_resist', 'stunResist', [0.15, 0.25])],
         gloves: [stat('core.crown.spell_damage', 'spellDamageBonus', [0.04, 0.08])],
         boots: [stat('core.crown.stun_resist_boots', 'stunResist', [0.15, 0.25])],
+        shield: [stat('core.crown.stun_resist_shield', 'stunResist', [0.15, 0.25]), element('core.crown.element_resist_shield', 'resist', [0.06, 0.1])],
       },
     },
   ],

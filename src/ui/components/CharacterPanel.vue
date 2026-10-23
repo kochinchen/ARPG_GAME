@@ -79,7 +79,7 @@ function add(e: MouseEvent, attribute: string) {
           <span class="value">{{ r.value }}</span>
         </div>
       </section>
-      <p v-if="view.coreCapped.length" class="core-cap" title="同一條屬性全身熔核合計，最多一顆 T5 橘核最高值的 1.5 倍；超過的部分不生效">
+      <p v-if="view.coreCapped.length" class="core-cap" title="同一條屬性全身熔核合計，最多一顆 T5 橘核最高值的 1.5 倍；每件同核鑲滿、有提供這條屬性的裝備再多「孔數 × 0.5」倍；超過的部分不生效">
         已達熔核上限：{{ view.coreCapped.join('、') }}
       </p>
     </div>

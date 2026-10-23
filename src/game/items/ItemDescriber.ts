@@ -121,7 +121,7 @@ export const SLOT_LABELS: Record<EquipSlot, string> = {
 /**
  * 由 ItemInstance（ID + 擲骰值）推導顯示用的名稱與屬性說明。
  */
-export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): ItemDescription {
+export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'balance'>): ItemDescription {
   const stats = itemStats(item, data);
   const base = stats.base;
   const affixes = stats.affixes;
@@ -133,8 +133,8 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
 
   const baseLines: string[] = [];
   const { damageMin, damageMax, ...rest } = stats.baseStats;
-  // 有主倍率時，最終值後面附上基礎值，例如「傷害 16–31（基礎 5–10）」
-  const boosted = stats.quality > 0;
+  // 有主倍率或熔核武器傷害時，最終值後面附上基礎值，例如「傷害 16–31（基礎 5–10）」
+  const boosted = stats.quality > 0 || stats.coreDamage > 0;
   if (damageMin !== undefined || damageMax !== undefined) {
     const raw = base.baseStats;
     baseLines.push(`傷害 ${damageMin ?? 0}–${damageMax ?? 0}${boosted && stats.mainTarget === 'damage' ? `（基礎 ${raw.damageMin ?? 0}–${raw.damageMax ?? 0}）` : ''}`);
@@ -183,7 +183,7 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
 }
 
 /** 每一條詞綴（傳奇 / 神話為每一條固定屬性）的說明文字，順序與 item.affixes / legendaryRolls 相同 */
-export function affixLineTexts(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): string[] {
+export function affixLineTexts(item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'balance'>): string[] {
   return itemStats(item, data).affixes.map(({ def, value }) => `${formatValue(def.stat, def.modifier, value, true)} ${STAT_LABELS[def.stat]}`);
 }
 

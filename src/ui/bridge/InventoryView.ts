@@ -14,6 +14,7 @@ import { affixTier } from '../../game/items/ItemGenerator';
 import { itemIcon, potionIcon } from '../../render/icons/ItemIcons';
 
 export type { EquipmentSlot };
+export type { CoreHost } from '../../game/player/ItemActions';
 
 /** 格子裡顯示的內容（有模型的裝備用圖示，其他用單字代表） */
 export interface EntryView {
@@ -166,7 +167,7 @@ export function coreEntryView(core: CoreInstance, data: DataRegistry): EntryView
     glyph: '核',
     icon: coreIcon(core),
     slotLabel: d.subtitle,
-    baseLines: [...d.notes, '在商人的鍛造格鑲進裝備的孔'],
+    baseLines: [...d.notes, '拿著熔核點有空孔的裝備鑲入；右鍵裝備取回背包'],
     coreSlots: d.slots.map((s) => ({ label: `鑲${s.label}`, texts: s.texts })),
     mainLine: null,
     strongLines: d.brand ? [d.brand] : [],

@@ -8,7 +8,8 @@ import type { ItemInstance } from '../../game/items/ItemInstance';
 import { itemStats } from '../../game/items/ItemStats';
 import { buyPrice, sellPrice } from '../../game/items/Pricing';
 import { coreEntryView, itemEntryView, type EntryView } from './InventoryView';
-import { CORE_ELEMENT_LABELS, coreExtraTexts, coreRangeText, hostPowerText } from '../../game/items/CoreDescriber';
+import { CORE_ELEMENT_LABELS, coreExtraTexts, coreRangeText, matchBonusText } from '../../game/items/CoreDescriber';
+import { coreWeaponDamage } from '../../game/items/SocketBonus';
 import { coreGem, type CoreGem } from '../../render/icons/CoreIcons';
 import { describeItem, STAT_LABELS } from '../../game/items/ItemDescriber';
 import type { StatId } from '../../data/schema/common';
@@ -62,17 +63,13 @@ export interface ShopView {
     rerolls: number;
     note: string;
   } | null;
-  /** 鑲嵌：鍛造格裡裝備的孔位、費用；背包裡可以鑲的熔核（沒放裝備時為 null） */
+  /** 鑲嵌：鍛造格裡裝備的孔位與鑿孔費用（沒放裝備時為 null）；鑲嵌 / 取下熔核在背包自己做 */
   sockets: {
     socketable: boolean;
     limit: number;
     holes: number;
     cores: { index: number; entry: EntryView }[];
     drill: { gold: number; essence: number; affordable: boolean } | null;
-    insertPrice: number;
-    removePrice: number;
-    /** 背包裡的熔核（點一下鑲進空孔） */
-    available: { cell: number; entry: EntryView }[];
     note: string;
   } | null;
   /** 融合：4 格合成區、2 格飾品區與確認面板 */
@@ -209,25 +206,21 @@ export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
   };
 }
 
-/** 鑲嵌：鍛造格裡裝備的孔位與費用 */
+/** 鑲嵌：鍛造格裡裝備的孔位與鑿孔費用 */
 function socketsView(world: GameWorld, data: DataRegistry, item: ItemInstance, gold: number): ShopView['sockets'] {
   const info = world.shop.socketInfo(item);
   const cores = (item.sockets?.cores ?? []).map((core, index) => ({ index, entry: coreEntryView(core, data) }));
-  const available = world.inventory.cells.flatMap((c, cell) => (c?.kind === 'core' ? [{ cell, entry: coreEntryView(c.core, data) }] : []));
   const note = !info.socketable
-    ? '只有武器、頭盔、盔甲、手套、鞋子可以鑲嵌'
+    ? '只有武器、盾牌、頭盔、盔甲、手套、鞋子可以鑲嵌'
     : info.limit === 0
       ? '神話裝備不能打孔'
-      : `${RARITY_LABELS[item.rarity]}裝備最多 ${info.limit} 孔；鑲入後不能換，拆下時熔核會毀掉（孔保留）`;
+      : `${RARITY_LABELS[item.rarity]}裝備最多 ${info.limit} 孔。鑲嵌不用找商人：在背包拿著熔核點有空孔的裝備；右鍵裝備把熔核一顆一顆取回背包`;
   return {
     socketable: info.socketable,
     limit: info.limit,
     holes: info.holes,
     cores,
     drill: info.drill ? { ...info.drill, affordable: gold >= info.drill.gold && world.materials.get('armorEssence') >= info.drill.essence } : null,
-    insertPrice: info.insertPrice,
-    removePrice: info.removePrice,
-    available,
     note,
   };
 }
@@ -258,10 +251,14 @@ function fusionPanel(world: GameWorld, data: DataRegistry, pv: FusionPreview, go
     for (const c of pv.brand.candidates) chance.push(`可能印記：${data.legendaries.get(c.legendaryId).name}「${c.roll === undefined ? c.text : STAT_LABELS[c.text as StatId]}」× ${f}`);
   } else chance.push('沒有印記（投入橘色裝備才有機會傳入強屬性）');
   if (pv.secondary.length && pv.lineCount > 1) chance.push(`副屬性：從 ${pv.secondary.length} 條中抽 ${pv.lineCount - 1} 條，每條 ${pct(pv.secondary[0]!.chance)}`);
-  chance.push(`部位範圍以紫裝為準；鑲在${hostPowerText(data)}`);
+  chance.push(matchBonusText(data));
   const slots = pv.slots.map((s) => ({
     label: `鑲${SLOT_LABELS[s.slot]}`,
-    lines: s.options.map((o) => o.lines.map((l) => coreRangeText(l.line, l.range, pv.element)).join(' 或 ')),
+    lines: [
+      // 鑲武器：依核階的武器傷害（法杖為法術強度）
+      ...(s.slot === 'weapon' ? [`+${Math.round(coreWeaponDamage({ tier: pv.tier }, data.balance) * 100)}% 武器傷害（法杖：法術強度）`] : []),
+      ...s.options.map((o) => o.lines.map((l) => coreRangeText(l.line, l.range, pv.element)).join(' 或 ')),
+    ],
   }));
   const nameOf = (uid: string) => {
     const item = [...world.shop.fusionInputs].find((i) => i?.uid === uid);

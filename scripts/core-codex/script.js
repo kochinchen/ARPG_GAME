@@ -4,7 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const RAR = ['normal', 'magic', 'rare', 'epic', 'legendary', 'mythic'];
   const SHORT = { normal: '白', magic: '藍', rare: '黃', epic: '紫', legendary: '橘', mythic: '紅' };
-  const SLOTS = [['weapon', '武器'], ['helmet', '頭盔'], ['armor', '衣裝'], ['gloves', '手套'], ['boots', '鞋子']];
+  const SLOTS = [['weapon', '武器'], ['helmet', '頭盔'], ['armor', '衣裝'], ['gloves', '手套'], ['boots', '鞋子'], ['shield', '盾牌']];
   const pct = (v) => `${Math.round(v * 1000) / 10}%`;
   const gem = (types, tier, rarity, element, branded) => {
     try { return window.ItemIcons && ItemIcons.gemIcon ? ItemIcons.gemIcon(types, tier, rarity, element, branded) : ''; } catch (e) { return ''; }
@@ -18,13 +18,13 @@
 
   // 孔數
   const s = C.sockets;
-  $('socketTable').innerHTML = `<thead><tr><th>稀有度</th><th class="n">孔數上限</th><th class="n">掉落時 0 / 1 / 2 孔</th><th class="n">熔核倍率</th></tr></thead><tbody>${RAR.map((r) => {
+  $('socketTable').innerHTML = `<thead><tr><th>稀有度</th><th class="n">孔數上限</th><th class="n">掉落時 0 / 1 / 2 孔</th><th class="n">鑲滿同核加成</th></tr></thead><tbody>${RAR.map((r) => {
     const w = s.dropWeights[r];
     const total = w.reduce((a, b) => a + b, 0);
     const drop = w.length > 1 ? w.map((x) => pct(x / total)).join(' / ') : '0 孔（要鑿）';
-    return `<tr><td class="rowh rar r-${r}">${SHORT[r]}</td><td class="n">${s.max[r]}</td><td class="n">${s.max[r] === 0 ? '不能打孔' : drop}</td><td class="n">${s.max[r] === 0 ? '—' : '×' + s.hostPower[r]}</td></tr>`;
+    return `<tr><td class="rowh rar r-${r}">${SHORT[r]}</td><td class="n">${s.max[r]}</td><td class="n">${s.max[r] === 0 ? '不能打孔' : drop}</td><td class="n">${s.max[r] === 0 ? '—' : '×' + +(1 + s.max[r] * s.matchBonus).toFixed(2)}</td></tr>`;
   }).join('')}</tbody>`;
-  $('socketNote').textContent = `可以鑲的部位：武器、頭盔、衣裝、手套、鞋子（盾牌在第二期）。熔核鑲在哪一種稀有度的裝備上，數值就乘上該稀有度的倍率（固定數值的屬性如穿透 +1 不乘）：白裝 5 孔 ×0.5 ≈ 2.5 孔，比不上紫裝 2 孔＋詞綴，好裝備仍然值得追。全身上限：同一條屬性所有熔核合計，最多是「一顆 T5 橘核最高值」的 ${s.bodyCap} 倍；同一條印記最多是單顆的 ${s.bodyCap} 倍，超過的部分不生效。`;
+  $('socketNote').textContent = `可以鑲的部位：武器、頭盔、衣裝、手套、鞋子、盾牌（盾牌只能配劍、斧）。熔核不看裝備稀有度，白裝也能打造成符合自己需求的強裝。同核加成：一件裝備的孔都鑲滿、每顆核種相同（混核要兩個核種都相同），那件裝備上的熔核數值 ×（1 + 孔數 × ${Math.round(s.matchBonus * 100)}%）（固定數值的屬性如穿透 +1 不乘）。鑲在武器的熔核另外依核階加武器傷害 ${s.weaponDamage.map((v, i) => `T${i + 1} +${Math.round(v * 100)}%`).join('、')}（和裝備主倍率相加，法杖放大法術強度；同核加成也乘，不受全身上限），白裝 5 顆 T5 同核 = +${Math.round(s.weaponDamage[4] * 5 * (1 + 5 * s.matchBonus) * 100)}%。全身上限：同一條屬性所有熔核合計，最多是「一顆 T5 橘核最高值」的 ${s.bodyCap} 倍；每件同核鑲滿、而且有提供這條屬性的裝備，再多「孔數 × ${s.matchCapPerSocket}」倍（白裝 5 孔 +${5 * s.matchCapPerSocket}、紫裝 2 孔 +${2 * s.matchCapPerSocket}）。印記同理（以單顆為準），超過的部分不生效。`;
 
   // 核階、核色
   const f = C.fusion;
@@ -50,17 +50,17 @@
     '精華跟著多數決：武器多付武器精華、防具多付防具精華；一樣多時各付一半。',
     '副屬性：從核種在武器以外各部位的屬性＋通用池中均等抽，不重複；不會抽到武器欄的屬性（輸出主要靠武器欄的主屬性）。',
     `印記：投入的每件橘色裝備各有 ${pct(b.chance)}＋飾品加成的機率，把它的強屬性（◆）傳進熔核，數值 ×${b.valueMultiplier}（整數四捨五入、至少 1）；總機率最多 ${pct(b.chanceCap)}；永遠不傳傳奇 / 神話效果（✦）。紅色裝備沒有強屬性，只貢獻核色。`,
-    '按下融合前，面板就會顯示核種（票數）、核階、核色（距下一級還差多少）、元素、條數、印記機率與候選、五個部位的主屬性範圍與費用；只隱藏骰子本身。投入傳奇 / 神話時要二次確認。',
+    '按下融合前，面板就會顯示核種（票數）、核階、核色（距下一級還差多少）、元素、條數、印記機率與候選、六個部位的主屬性範圍與費用；只隱藏骰子本身。投入傳奇 / 神話時要二次確認。',
   ].map((t) => `<li>${t}</li>`).join('');
   $('fusionFormula').textContent = `金幣 = ${f.cost.goldBase} + ${f.cost.goldPerItemLevel} × Σ物品等級；精華 = ${f.cost.essenceBase} + Σ⌈物品等級 ÷ ${f.cost.essenceLevelDivisor}⌉`;
-  $('socketFormula').textContent = `鑿第 n 孔：金幣 ${s.drillGold} × 物品等級 × n、防具精華 ${s.drillEssence} × n；鑲嵌：金幣 ${s.insertGold} × 物品等級；拆卸：金幣 ${s.removeGold} × 物品等級`;
+  $('socketFormula').textContent = `鑿第 n 孔：金幣 ${s.drillGold} × 物品等級 × n、防具精華 ${s.drillEssence} × n（商人的鍛造格）；鑲嵌、取下：免費，在背包自己做`;
 
   // 核種 × 部位
   const enabled = C.types.filter((t) => t.enabled);
   $('coreTable').innerHTML = `<thead><tr><th>核種（來源）</th>${SLOTS.map(([, l]) => `<th>鑲${l}</th>`).join('')}</tr></thead><tbody>${enabled.map((t) =>
     `<tr><td class="rowh"><span class="core-name">${img(gem([t.id], 3, 'epic', t.id === 'arcane' ? 'fire' : undefined), 28)}${t.name}<small>（${t.source}）</small></span></td>${SLOTS.map(([k]) => `<td class="small">${t.slots[k].join('<br>或 ')}</td>`).join('')}</tr>`).join('')}
-    <tr><td class="rowh">通用副屬性池</td><td class="small" colspan="5">${C.shared.join('、')}</td></tr></tbody>`;
-  $('coreNote').textContent = '實際數值 = T1 範圍 × 核階倍率 × 核色倍率 × 裝備稀有度倍率。攻核的武器欄偏專精（例：重擊類技能傷害），護核的武器欄偏通用（近戰傷害、所有傷害）；護核鑲在防具上偏防禦。';
+    <tr><td class="rowh">通用副屬性池</td><td class="small" colspan="${SLOTS.length}">${C.shared.join('、')}</td></tr></tbody>`;
+  $('coreNote').textContent = '實際數值 = T1 範圍 × 核階倍率 × 核色倍率（× 同核加成）；不看裝備稀有度。攻核的武器欄偏專精（例：重擊類技能傷害），護核的武器欄偏通用（近戰傷害、所有傷害）；護核鑲在防具上偏防禦。盾牌欄偏防禦與控制抗性（只有近戰能配盾），唯一的輸出是重核的盾擊傷害；每條範圍都不高於其他部位欄的同一種屬性，所以全身上限不變。';
 
   // 範例
   $('exampleTable').innerHTML = `<thead><tr><th>投入</th><th>熔核</th><th class="n">核階</th><th>核色</th><th class="n">條數</th><th class="n">印記機率</th><th class="n">金幣 / 精華</th></tr></thead><tbody>${C.examples.map((e) =>

@@ -53,14 +53,6 @@ function drill(e: MouseEvent) {
   blur(e);
   gameBridge.send({ type: 'ShopDrill' });
 }
-function insertCore(e: MouseEvent, cell: number) {
-  blur(e);
-  gameBridge.send({ type: 'ShopInsertCore', cell });
-}
-function removeCore(e: MouseEvent, index: number, price: number) {
-  blur(e);
-  if (window.confirm(`拆下這顆熔核？熔核會毀掉（孔保留），費用 ${price} 金幣。`)) gameBridge.send({ type: 'ShopRemoveCore', index });
-}
 function fusionSlot(e: MouseEvent, zone: 'inputs' | 'jewelry', index: number) {
   blur(e);
   gameBridge.send({ type: 'ShopFusionSlotClick', zone, index });
@@ -197,33 +189,12 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
         <ul class="sockets">
           <li v-for="c in view.sockets.cores" :key="c.index" @pointerenter="hover($event, c.entry, 0, [])" @pointerleave="hovered = null">
             <span class="line" :class="`t-${c.entry.rarity}`">◆ {{ c.entry.name }} T{{ c.entry.tier }}</span>
-            <button type="button" :disabled="view.gold < view.sockets.removePrice" :title="`拆下（熔核毀掉）：${view.sockets.removePrice} 金幣`" @click="removeCore($event, c.index, view.sockets.removePrice)">拆下 ● {{ view.sockets.removePrice }}</button>
           </li>
           <li v-for="n in view.sockets.holes - view.sockets.cores.length" :key="`e-${n}`" class="empty-hole"><span class="line">◇ 空孔</span></li>
         </ul>
         <button v-if="view.sockets.drill" type="button" class="ascend-go" :disabled="!view.sockets.drill.affordable" @click="drill">
           鑿孔：● {{ view.sockets.drill.gold }}・防具精華 {{ view.sockets.drill.essence }}
         </button>
-        <template v-if="view.sockets.holes > view.sockets.cores.length">
-          <p class="note">背包裡的熔核（點一下鑲進空孔：● {{ view.sockets.insertPrice }}）</p>
-          <p v-if="view.sockets.available.length === 0" class="empty">背包裡沒有熔核（在「融合」把用不到的武器熔成熔核）</p>
-          <div class="core-list">
-            <button
-              v-for="c in view.sockets.available"
-              :key="c.cell"
-              type="button"
-              class="card"
-              :class="`r-${c.entry.rarity}`"
-              :disabled="view.gold < view.sockets.insertPrice"
-              @click="insertCore($event, c.cell)"
-              @pointerenter="hover($event, c.entry, 0, [])"
-              @pointerleave="hovered = null"
-            >
-              <span class="icon"><ItemCell :entry="c.entry" size="slot" /></span>
-              <span class="card-name" :class="`t-${c.entry.rarity}`">{{ c.entry.name }} T{{ c.entry.tier }}</span>
-            </button>
-          </div>
-        </template>
       </template>
 
     </section>

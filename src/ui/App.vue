@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
   <!-- 拿在滑鼠上的物品 -->
   <div v-if="gameView.inventory.held" class="held" :style="heldStyle">
     <ItemCell :entry="gameView.inventory.held" size="slot" />
-    <span class="held-hint">點背包 / 裝備欄放下 · 點地面丟棄</span>
+    <span class="held-hint">{{ gameView.inventory.held.kind === 'core' ? '點有空孔的裝備鑲入 · 點背包放下 · 點地面丟棄' : '點背包 / 裝備欄放下 · 點地面丟棄' }}</span>
   </div>
 
   <LeavePrompt v-if="gameView.leavePrompt" :prompt="gameView.leavePrompt" @close="gameView.leavePrompt = null" />

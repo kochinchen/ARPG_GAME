@@ -42,15 +42,13 @@ export interface AscendInfo {
   reason: 'jewelry' | 'maxTier' | null;
 }
 
-/** 鑿孔 / 鑲嵌 / 拆卸的預覽（v0.5.0）：limit = 這個稀有度的孔數上限；drill = 下一孔的費用（不能鑿時為 null） */
+/** 鑿孔的預覽（v0.5.0）：limit = 這個稀有度的孔數上限；drill = 下一孔的費用（不能鑿時為 null） */
 export interface SocketInfo {
   socketable: boolean;
   limit: number;
   holes: number;
   cores: number;
   drill: { gold: number; essence: number } | null;
-  insertPrice: number;
-  removePrice: number;
 }
 
 /** 重鑄的一行：一般詞綴（affix）或傳奇 / 神話的固定屬性（legendary）；locked = 不能重鑄（紫裝決定名稱的強屬性） */
@@ -402,8 +400,6 @@ export class ShopSystem {
       holes,
       cores: item.sockets?.cores.length ?? 0,
       drill: n <= limit ? { gold: s.drillGold * item.itemLevel * n, essence: s.drillEssence * n } : null,
-      insertPrice: s.insertGold * item.itemLevel,
-      removePrice: s.removeGold * item.itemLevel,
     };
   }
 
@@ -426,38 +422,6 @@ export class ShopSystem {
     this.ascendSlot = { ...item, sockets: { max: info.holes + 1, cores: [...(item.sockets?.cores ?? [])] } };
     this._version++;
     this.events.emit('ShopTransaction', { kind: 'drill', gold: -info.drill.gold, rarity: item.rarity });
-    return true;
-  }
-
-  /** 鑲嵌：把背包某一格的熔核鑲進空孔（付金幣 insertGold × 物品等級）；鑲入後不能換，只能拆 */
-  insertCore(cell: number): boolean {
-    if (!this.canTrade()) return false;
-    const item = this.ascendSlot;
-    const entry = this.ctx.inventory.get(cell);
-    const info = item ? this.socketInfo(item) : null;
-    if (!item || !info || entry?.kind !== 'core' || info.cores >= info.holes) {
-      this.fail('cannotInsert');
-      return false;
-    }
-    if (!this.pay(info.insertPrice)) return false;
-    this.ctx.inventory.take(cell);
-    this.ascendSlot = { ...item, sockets: { max: info.holes, cores: [...item.sockets!.cores, entry.core] } };
-    this._version++;
-    this.events.emit('ShopTransaction', { kind: 'insert', gold: -info.insertPrice, rarity: item.rarity });
-    return true;
-  }
-
-  /** 拆卸：付金幣 removeGold × 物品等級；熔核毀掉、孔保留 */
-  removeCore(index: number): boolean {
-    if (!this.canTrade()) return false;
-    const item = this.ascendSlot;
-    const cores = item?.sockets?.cores ?? [];
-    if (!item || index < 0 || index >= cores.length) return false;
-    const price = this.socketInfo(item).removePrice;
-    if (!this.pay(price)) return false;
-    this.ascendSlot = { ...item, sockets: { max: item.sockets!.max, cores: cores.filter((_, i) => i !== index) } };
-    this._version++;
-    this.events.emit('ShopTransaction', { kind: 'remove', gold: -price, rarity: item.rarity });
     return true;
   }
 

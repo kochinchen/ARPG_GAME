@@ -4,6 +4,8 @@ import { DataRegistry } from '../../../src/data/DataRegistry';
 import type { CoreSlot } from '../../../src/data/schema/core';
 import type { CoreInstance, CoreRoll } from '../../../src/game/items/CoreInstance';
 import { coreEffects, coreLineMax, coreLineValue } from '../../../src/game/items/CoreStats';
+import { coreWeaponDamage, socketBonus } from '../../../src/game/items/SocketBonus';
+import { itemStats } from '../../../src/game/items/ItemStats';
 import type { ItemInstance } from '../../../src/game/items/ItemInstance';
 import { castRange } from '../../../src/game/skills/SkillSystem';
 import { NO_MODS } from '../../../src/game/combo/StepMods';
@@ -14,7 +16,7 @@ const data = DataRegistry.load(gameData);
 const line = (id: string) => data.cores.lines.get(id);
 const close = (a: number, b: number) => expect(a).toBeCloseTo(b, 6);
 
-const EMPTY_MAIN: Record<CoreSlot, CoreRoll[]> = { weapon: [], helmet: [], armor: [], gloves: [], boots: [] };
+const EMPTY_MAIN: Record<CoreSlot, CoreRoll[]> = { weapon: [], helmet: [], armor: [], gloves: [], boots: [], shield: [] };
 function core(over: Partial<CoreInstance> & Pick<CoreInstance, 'types'>): CoreInstance {
   return { uid: 'c', tier: 1, rarity: 'normal', power: 1, itemLevel: 1, main: { ...EMPTY_MAIN }, secondary: [], ...over };
 }
@@ -46,6 +48,36 @@ describe('全身熔核效果', () => {
     const crit = fx.stats.find((s) => s.stat === 'critChance')!;
     close(crit.value, 0.14 * 1.5);
     expect(fx.capped).toContain('暴擊率');
+  });
+
+  it('同核鑲滿的裝備放寬它提供的屬性上限：多「孔數 × 0.5 顆」；其他配法維持 1.5 顆', () => {
+    const big = core({ types: ['sharp'], tier: 5, rarity: 'legendary', power: 2, main: { ...EMPTY_MAIN, weapon: [{ lineId: 'core.sharp.crit', roll: 1 }], gloves: [{ lineId: 'core.sharp.crit_damage', roll: 1 }] } });
+    const crit = (fx: ReturnType<typeof coreEffects>) => fx.stats.find((s) => s.stat === 'critChance')!.value;
+    const five = (extra: { bonus?: number; matchedHoles?: number }) => Array.from({ length: 5 }, () => ({ slot: 'weapon' as const, core: big, ...extra }));
+    // 沒有同核鑲滿：1.5 顆 = 21%
+    close(crit(coreEffects(five({}), data)), 0.14 * 1.5);
+    // 白裝 5 孔同核鑲滿：14% × 5 × 1.5 = 105%，上限 (1.5 + 2.5) 顆 = 56%
+    const matched = coreEffects(five({ bonus: 1.5, matchedHoles: 5 }), data);
+    close(crit(matched), 0.14 * 4);
+    expect(matched.capped).toContain('暴擊率');
+    // 同核鑲滿的手套不提供暴擊率：不放寬武器的暴擊率上限
+    const gloves = { slot: 'gloves' as const, core: big, bonus: 1.2, matchedHoles: 2 };
+    close(crit(coreEffects([...five({}), gloves], data)), 0.14 * 1.5);
+    // 兩件同核鑲滿的裝備都提供暴擊率：各自放寬（1.5 + 2.5 + 1 顆）
+    const helmetCrit = core({ types: ['sharp'], tier: 5, rarity: 'legendary', power: 2, main: { ...EMPTY_MAIN, helmet: [{ lineId: 'core.sharp.crit', roll: 1 }] } });
+    close(crit(coreEffects([...five({ bonus: 1.5, matchedHoles: 5 }), { slot: 'helmet', core: helmetCrit, bonus: 1.2, matchedHoles: 2 }], data)), 0.14 * 5);
+  });
+
+  it('身上的白裝武器 5 孔鑲滿同一種核：暴擊率吃到放寬後的上限', () => {
+    const { world } = createWorld();
+    const sword = data.items.all.find((b) => b.weaponType === 'sword' && b.tier === 1)!;
+    const big = core({ types: ['sharp'], tier: 5, rarity: 'legendary', power: 2, main: { ...EMPTY_MAIN, weapon: [{ lineId: 'core.sharp.crit', roll: 1 }] } });
+    const before = world.player.stats.get('critChance');
+    world.equipment.equip({ uid: 'w', baseId: sword.id, rarity: 'normal', itemLevel: 1, affixes: [], sockets: { max: 5, cores: [big, big, big, big, big] } });
+    expect(world.player.stats.get('critChance') - (before + (sword.baseStats.critChance ?? 0))).toBeCloseTo(0.14 * 4);
+    // 少鑲一顆：沒有同核鑲滿，回到 1.5 顆
+    world.equipment.setSockets('weapon', { max: 5, cores: [big, big, big, big] });
+    expect(world.player.stats.get('critChance') - (before + (sword.baseStats.critChance ?? 0))).toBeCloseTo(0.14 * 1.5);
   });
 
   it('主屬性依部位：同一顆銳核在鞋子給移動速度、在武器給暴擊率；副屬性不分部位', () => {
@@ -145,7 +177,7 @@ describe('裝備上的熔核', () => {
     expect(modsOf('melee.heavy_slash')).toBe(0);
   });
 
-  it('熔核強度跟著裝備稀有度：白 ×0.5、藍 ×0.6、黃 ×0.75、紫 ×1、橘 ×1.25（固定數值的穿透不乘）', () => {
+  it('熔核不看裝備稀有度：白～橘都 ×1', () => {
     const helmetOf = (rarity: ItemInstance['rarity']) => {
       const { world, data } = createWorld();
       const helmet = data.items.all.find((b) => b.slot === 'helmet')!.id;
@@ -153,16 +185,58 @@ describe('裝備上的熔核', () => {
       world.equipment.equip(socketed(helmet, [c], rarity));
       return world.player.stats.get('projectileRange');
     };
-    expect([helmetOf('normal'), helmetOf('magic'), helmetOf('rare'), helmetOf('epic'), helmetOf('legendary')].map((v) => +v.toFixed(3))).toEqual([0.5, 0.6, 0.75, 1, 1.25]);
-    const pierce = core({ types: ['pierce'], main: { ...EMPTY_MAIN, weapon: [{ lineId: 'core.pierce.pierce', roll: 1 }] } });
-    expect(coreEffects([{ slot: 'weapon', core: pierce, host: 0.5 }], data).mechanics[0]!.mechanic).toMatchObject({ mods: { pierce: 1 } });
+    expect([helmetOf('normal'), helmetOf('magic'), helmetOf('rare'), helmetOf('epic'), helmetOf('legendary')].map((v) => +v.toFixed(3))).toEqual([1, 1, 1, 1, 1]);
   });
 
-  it('白裝 5 孔 × 0.5 比不上紫裝 2 孔：同樣的熔核，白裝的合計約為紫裝的 1.25 倍而非 2.5 倍', () => {
+  it('同核加成：孔都鑲滿、核種相同 → 1 + 孔數 × 10%；沒鑲滿、核種不同時沒有', () => {
+    const sharp = core({ types: ['sharp'] });
+    const mixed = core({ types: ['sharp', 'heavy'] });
+    close(socketBonus({ max: 5, cores: [sharp, sharp, { ...sharp, tier: 5 }, sharp, sharp] }, data.balance), 1.5);
+    close(socketBonus({ max: 2, cores: [sharp, sharp] }, data.balance), 1.2);
+    expect(socketBonus({ max: 3, cores: [sharp, sharp] }, data.balance)).toBe(1);
+    expect(socketBonus({ max: 2, cores: [sharp, mixed] }, data.balance)).toBe(1);
+    // 混核：兩個核種都相同（順序不拘）才算
+    close(socketBonus({ max: 2, cores: [mixed, { ...mixed, types: ['heavy', 'sharp'] }] }, data.balance), 1.2);
+    expect(socketBonus(undefined, data.balance)).toBe(1);
+  });
+
+  it('同核加成乘在熔核數值上（固定數值的穿透不乘）', () => {
     // T1 白核：不會撞到全身上限
     const c = core({ types: ['sharp'], main: { ...EMPTY_MAIN, boots: [{ lineId: 'core.sharp.move_speed', roll: 0.5 }] } });
-    const total = (n: number, host: number) => coreEffects(Array.from({ length: n }, () => ({ slot: 'boots' as const, core: c, host })), data).stats[0]!.value;
-    expect(total(5, 0.5) / total(2, 1)).toBeCloseTo(1.25);
+    const total = (n: number, bonus: number) => coreEffects(Array.from({ length: n }, () => ({ slot: 'boots' as const, core: c, bonus })), data).stats[0]!.value;
+    expect(total(2, 1.2) / total(2, 1)).toBeCloseTo(1.2);
+    const pierce = core({ types: ['pierce'], main: { ...EMPTY_MAIN, weapon: [{ lineId: 'core.pierce.pierce', roll: 1 }] } });
+    expect(coreEffects([{ slot: 'weapon', core: pierce, bonus: 1.5 }], data).mechanics[0]!.mechanic).toMatchObject({ mods: { pierce: 1 } });
+  });
+
+  it('鑲在武器：依核階給武器傷害 +16%～80%，和主倍率相加（法杖放大法術強度）；同核加成也乘', () => {
+    expect([1, 2, 3, 4, 5].map((tier) => coreWeaponDamage({ tier }, data.balance))).toEqual([0.16, 0.32, 0.48, 0.64, 0.8]);
+    const sword = data.items.all.find((b) => b.weaponType === 'sword' && b.tier === 1)!;
+    const t5 = core({ types: ['sharp'], tier: 5 });
+    const white = (cores: CoreInstance[], max = 5): ItemInstance => ({ uid: 'w', baseId: sword.id, rarity: 'normal', itemLevel: 1, affixes: [], sockets: { max, cores } });
+    // 一顆 T5、孔沒鑲滿：+80%
+    expect(itemStats(white([t5]), data).coreDamage).toBeCloseTo(0.8);
+    // 五顆 T5 銳核鑲滿：80% × 5 × 同核加成 1.5 = +600%
+    const five = itemStats(white([t5, t5, t5, t5, t5]), data);
+    expect(five.coreDamage).toBeCloseTo(6);
+    expect(five.baseStats.damageMax).toBe(Math.round(sword.baseStats.damageMax! * 7));
+    // 主倍率與熔核相加
+    expect(itemStats({ ...white([t5]), quality: 1 }, data).baseStats.damageMax).toBe(Math.round(sword.baseStats.damageMax! * 2.8));
+    const staff = data.items.all.find((b) => b.weaponType === 'staff' && b.tier === 1)!;
+    expect(itemStats({ ...white([t5]), baseId: staff.id }, data).baseStats.spellPower).toBe(Math.round(staff.baseStats.spellPower! * 1.8));
+    // 防具沒有武器傷害
+    const helmet = data.items.all.find((b) => b.slot === 'helmet')!;
+    expect(itemStats({ ...white([t5]), baseId: helmet.id }, data).coreDamage).toBe(0);
+  });
+
+  it('身上的武器鑲上 / 取下熔核：武器傷害跟著變', () => {
+    const { world } = createWorld();
+    const sword = data.items.all.find((b) => b.weaponType === 'sword' && b.tier === 1)!;
+    world.equipment.equip({ uid: 'w', baseId: sword.id, rarity: 'normal', itemLevel: 1, affixes: [], sockets: { max: 2, cores: [] } });
+    const before = world.player.stats.get('damageMax');
+    world.equipment.setSockets('weapon', { max: 2, cores: [core({ types: ['sharp'], tier: 5 })] });
+    expect(world.player.stats.get('damageMax') - before).toBe(Math.round(sword.baseStats.damageMax! * 1.8) - sword.baseStats.damageMax!);
+    world.equipment.setSockets('weapon', { max: 2, cores: [] });
+    expect(world.player.stats.get('damageMax')).toBe(before);
   });
 });
-

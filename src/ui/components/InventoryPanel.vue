@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
-import type { EquipmentSlot, HoverTarget, InventoryView } from '../bridge/InventoryView';
+import type { CoreHost, EquipmentSlot, HoverTarget, InventoryView } from '../bridge/InventoryView';
 import HeroPreview from './HeroPreview.vue';
 import ItemCell from './ItemCell.vue';
 
@@ -12,6 +12,11 @@ function clickCell(e: MouseEvent, cell: number) {
   (e.currentTarget as HTMLElement).blur();
   if (props.shopOpen && (e.ctrlKey || e.metaKey) && props.view.cells[cell]) gameBridge.send({ type: 'ShopSell', cell });
   else gameBridge.send({ type: 'InventoryClick', cell });
+}
+
+/** 右鍵有熔核的裝備：取下最後鑲入的那顆，放進背包（背包滿了才拿在手上） */
+function removeCore(from: CoreHost) {
+  gameBridge.send({ type: 'RemoveCore', from });
 }
 
 function salvageClick(e: MouseEvent, slot: number) {
@@ -73,6 +78,7 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
         :style="{ gridArea: area }"
         :aria-label="bySlot.get(slot)?.label"
         @click="gameBridge.send({ type: 'EquipmentClick', slot })"
+        @contextmenu.prevent="removeCore({ kind: 'slot', slot })"
         @pointerenter="emit('hover', { kind: 'slot', slot })"
         @pointerleave="emit('hover', null)"
       >
@@ -126,6 +132,7 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
           type="button"
           class="cell"
           @click="clickCell($event, cell)"
+          @contextmenu.prevent="removeCore({ kind: 'cell', cell })"
           @pointerenter="emit('hover', { kind: 'cell', cell })"
           @pointerleave="emit('hover', null)"
         >
@@ -133,7 +140,7 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
         </button>
       </div>
       <p v-if="shopOpen" class="hint shop">Ctrl（Mac：⌘）+ 點擊：賣給商人 · 或拿起物品放到商人的「賣出」區</p>
-      <p v-else class="hint">點擊拿起 · 再點背包格或裝備欄放下 · 拿著物品點地面可丟棄</p>
+      <p v-else class="hint">點擊拿起 · 再點背包格或裝備欄放下 · 拿著物品點地面可丟棄 · 拿著熔核點有空孔的裝備鑲入，右鍵裝備取下熔核</p>
     </section>
   </aside>
 </template>

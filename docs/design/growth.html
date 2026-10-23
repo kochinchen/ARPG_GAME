@@ -938,7 +938,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     }
     const name = pv.mixed ? `混核（${pv.typeNames.map((n) => n.replace('核', '')).join('＋')}）` : pv.typeNames[0];
     const votes = Object.entries(pv.votes).map(([w, n]) => `${Object.fromEntries(W)[w]} ${n}`).join('、');
-    const slotNames = { weapon: '武器', helmet: '頭盔', armor: '衣裝', gloves: '手套', boots: '鞋子' };
+    const slotNames = { weapon: '武器', helmet: '頭盔', armor: '衣裝', gloves: '手套', boots: '鞋子', shield: '盾牌' };
     const pct = (v) => `${Math.round(v * 100)}%`;
     box.innerHTML = `
       <div class="fuse-head">${pv.icon ? `<img src="${pv.icon}" alt="">` : ''}<div><b>${esc(name)}${pv.elementLabel ? `（${pv.elementLabel}）` : pv.hasElement ? '（元素隨機）' : ''}</b><div class="small muted">${RN[pv.rarity]}核 · T${pv.tier} · ${pv.lineCount} 條${pv.pure ? ' · 純核' : ''}</div></div></div>

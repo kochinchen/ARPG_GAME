@@ -5,6 +5,7 @@ import type { SkillCategory } from '../data/schema/skill';
 import type { EquipmentSlot } from './items/ItemInstance';
 import type { EquipSlot } from '../data/schema/item';
 import type { LegendaryKind } from '../data/schema/legendary';
+import type { CoreHost } from './player/ItemActions';
 
 /**
  * Input / UI 能對遊戲送出的所有指令。
@@ -43,6 +44,8 @@ export type GameCommand =
   | { type: 'InventoryClick'; cell: number }
   /** 裝備欄：手上沒東西 → 拿起；有東西 → 穿上（互換） */
   | { type: 'EquipmentClick'; slot: EquipmentSlot }
+  /** 右鍵背包格 / 裝備欄：取下那件裝備最後鑲入的熔核，放進背包（背包滿了才拿在手上） */
+  | { type: 'RemoveCore'; from: CoreHost }
   /** 技能樹：學習或升級一級 */
   | { type: 'LearnSkill'; skillId: string }
   /** 技能樹：花一次開通次數打開某類別的 T4 */
@@ -85,10 +88,6 @@ export type GameCommand =
   | { type: 'ShopReroll'; index: number }
   /** 商人：鍛造格裡的裝備鑿一個孔（v0.5.0） */
   | { type: 'ShopDrill' }
-  /** 商人：把背包第 cell 格的熔核鑲進鍛造格裡裝備的空孔 */
-  | { type: 'ShopInsertCore'; cell: number }
-  /** 商人：拆下鍛造格裡裝備的第 index 顆熔核（熔核毀掉、孔保留） */
-  | { type: 'ShopRemoveCore'; index: number }
   /** 商人：點融合格（合成區 = 武器、飾品區 = 戒指 / 護身符）：放進 / 互換 / 拿回 */
   | { type: 'ShopFusionSlotClick'; zone: 'inputs' | 'jewelry'; index: number }
   /** 商人：融合；有傳奇 / 神話投入時要 confirm（介面先二次確認） */

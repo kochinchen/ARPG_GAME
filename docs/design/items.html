@@ -216,6 +216,12 @@ ul.rules { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
   
   
   
+  
+  
+  
+  
+  
+  
   <section id="cores">
     <div class="sec-head">
       <div class="eyebrow">v0.5.0 · data/cores.ts · balance.sockets · balance.fusion</div>
@@ -237,9 +243,9 @@ ul.rules { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
         <h3>融合規則</h3>
         <ul class="small rules" id="fusionRules"></ul>
         <div class="formula" id="fusionFormula"></div>
-        <h3>鑿孔、鑲嵌、拆卸（商人的鍛造格）</h3>
+        <h3>鑿孔（商人的鍛造格）、鑲嵌、取下（背包）</h3>
         <div class="formula" id="socketFormula"></div>
-        <p class="small muted">鑲入後不能換，只能拆；拆下時熔核毀掉、孔保留。熔核不能賣，可以在背包的拆解區拆成武器精華（數量依核色）。</p>
+        <p class="small muted">鑲嵌不用找商人：在背包拿著熔核點有空孔的裝備（身上或背包裡都可以）；右鍵裝備取下最後鑲入的熔核，放回背包（背包滿了才拿在手上）、孔保留；連按右鍵就能一顆一顆取下。熔核不能賣，可以在背包的拆解區拆成武器精華（數量依核色）。</p>
       </div>
     </div>
     <h3 style="margin-top:18px">核種 × 部位（T1 範圍；同一格兩條時擲骰選一條）</h3>
@@ -483,11 +489,11 @@ const G = {"rarities":[{"id":"normal","label":"普通","color":"#e8e2d4","affixe
 <script>
 // ── 熔核（v0.5.0）：由 update-codex 產生的資料 ──
 (() => {
-  const C = {"types":[{"id":"sharp","name":"銳核","enabled":true,"family":"attack","source":"劍","slots":{"weapon":["+2～4% 暴擊率","+4～8% 攻擊速度"],"helmet":["+4～8% 施法速度"],"armor":["+2～4% 閃避"],"gloves":["+8～12% 暴擊傷害"],"boots":["+3～5% 移動速度"]}},{"id":"heavy","name":"重核","enabled":true,"family":"attack","source":"斧","slots":{"weapon":["+8～12% 重擊類技能傷害","+15～25% 擊退距離"],"helmet":["+8～12% 藥水效果"],"armor":["+3～5% 物理減傷","+15～25% 擊退抗性"],"gloves":["+15～25% 擊退距離"],"boots":["+15～25% 暈眩時間減少"]}},{"id":"pierce","name":"穿核","enabled":true,"family":"attack","source":"弓","slots":{"weapon":["+8～12% 投射物速度","+1 投射物穿透（紫以上）"],"helmet":["+0.5～1.0 格射擊距離（T5：+1.5～2 格）"],"armor":["+15～25% 緩速抗性","+3～5% 移動速度"],"gloves":["+4～8% 投射物技能攻擊速度"],"boots":["+15～25% 緩速抗性"]}},{"id":"arcane","name":"靈核","enabled":true,"family":"attack","source":"法杖","slots":{"weapon":["+6～10% 附加元素傷害（核上的元素）"],"helmet":["+6～10% 魔力上限","+3～5% 魔力消耗降低"],"armor":["+6～10% 該元素抗性"],"gloves":["+4～8% 施法速度"],"boots":["+6～10% 該元素抗性"]}},{"id":"wall","name":"壁核","enabled":true,"family":"defense","source":"盔甲、盾牌","slots":{"weapon":["+8～12% 近戰傷害"],"helmet":["+8～12% 藥水效果"],"armor":["+4～8% 防禦","+3～5% 減傷"],"gloves":["+2～4% 格擋率"],"boots":["+2～4% 物理減傷"]}},{"id":"swift","name":"疾核","enabled":true,"family":"defense","source":"鞋子","slots":{"weapon":["+4～8% 攻擊速度"],"helmet":["+3～5% 移動速度"],"armor":["+2～4% 閃避","+15～25% 緩速抗性"],"gloves":["+3～6% 攻擊速度"],"boots":["+4～6% 移動速度"]}},{"id":"grip","name":"掌核","enabled":true,"family":"defense","source":"手套","slots":{"weapon":["+8～12% 暴擊傷害"],"helmet":["+4～8% 施法速度"],"armor":["+15～25% 擊退抗性"],"gloves":["+1.5～3% 暴擊率"],"boots":["+15～25% 擊退抗性"]}},{"id":"crown","name":"冠核","enabled":true,"family":"defense","source":"頭盔","slots":{"weapon":["+4～6% 傷害"],"helmet":["+6～10% 魔力上限","+3～5% 魔力消耗降低"],"armor":["+6～10% 該元素抗性","+15～25% 暈眩時間減少"],"gloves":["+4～8% 法術傷害"],"boots":["+15～25% 暈眩時間減少"]}}],"shared":["+3～6% 生命上限","+4～8% 防禦","+2～4% 傷害","+6～10% 暴擊傷害","+4～8% 藥水效果"],"examples":[{"label":"短劍（白 2）＋手斧（白 3）","core":"混核（重＋銳）","types":["heavy","sharp"],"tier":1,"rarity":"normal","element":null,"lines":1,"pure":false,"brand":0,"gold":123,"essence":8,"essenceText":"武器 8"},{"label":"四把弓（白 5、藍 8、黃 9、藍 13）","core":"穿核","types":["pierce"],"tier":2,"rarity":"magic","element":null,"lines":3,"pure":true,"brand":0,"gold":498,"essence":14,"essenceText":"武器 14"},{"label":"裂山（橘斧 18）＋鐵斧（黃 17）＋月刃斧（藍 19）","core":"重核","types":["heavy"],"tier":3,"rarity":"epic","element":null,"lines":3,"pure":false,"brand":35,"gold":735,"essence":16,"essenceText":"武器 16"},{"label":"騎士長劍（黃 12）＋月刃斧（藍 12）＋裂山（橘 18）＋短杖（白 1）＋黃戒指","core":"重核","types":["heavy"],"tier":2,"rarity":"epic","element":null,"lines":3,"pure":false,"brand":45,"gold":598,"essence":14,"essenceText":"武器 14"},{"label":"天穹裂弦（紅弓 30）＋焚星（橘杖 28）＋寒月（橘劍 29）＋水晶杖（黃 30，火焰詞綴）＋紫戒指＋橘護身符","core":"靈核（火）","types":["arcane"],"tier":4,"rarity":"legendary","element":"fire","lines":3,"pure":false,"brand":85,"gold":1523,"essence":26,"essenceText":"武器 26"},{"label":"四件鞋子（黃 20）","core":"疾核","types":["swift"],"tier":3,"rarity":"rare","element":null,"lines":3,"pure":true,"brand":0,"gold":1060,"essence":22,"essenceText":"防具 22"},{"label":"兩把長弓（藍 25）＋兩件手套（黃 25）","core":"混核（穿＋掌）","types":["pierce","grip"],"tier":4,"rarity":"rare","element":null,"lines":2,"pure":false,"brand":0,"gold":1310,"essence":26,"essenceText":"武器 13＋防具 13"}],"sockets":{"max":{"normal":5,"magic":4,"rare":3,"epic":2,"legendary":1,"mythic":0},"dropWeights":{"normal":[60,30,10],"magic":[60,30,10],"rare":[65,25,10],"epic":[1],"legendary":[1],"mythic":[1]},"drillGold":30,"drillEssence":3,"insertGold":10,"removeGold":20,"bodyCap":1.5,"maxCores":25,"hostPower":{"normal":0.5,"magic":0.6,"rare":0.75,"epic":1,"legendary":1.25,"mythic":1.25}},"fusion":{"inputs":{"min":2,"max":4},"jewelrySlots":2,"levelsPerTier":8,"tierMultiplier":[1,1.15,1.32,1.52,1.75],"rarityFrom":{"magic":2,"rare":5,"epic":9,"legendary":15},"lineCount":{"normal":1,"magic":2,"rare":2,"epic":3,"legendary":3},"pureBonusLines":1,"mixedMultiplier":0.7,"brand":{"chance":0.35,"chanceCap":0.85,"valueMultiplier":0.7},"jewelryBoost":{"normal":0,"magic":0.05,"rare":0.1,"epic":0.15,"legendary":0.2,"mythic":0.25},"cost":{"goldBase":60,"goldPerItemLevel":12.5,"essenceBase":6,"essenceLevelDivisor":6}},"rarityPower":{"normal":[1,1],"magic":[1,1],"rare":[1,1],"epic":[1.2,1.5],"legendary":[1.5,2],"mythic":[2,3]}};
+  const C = {"types":[{"id":"sharp","name":"銳核","enabled":true,"family":"attack","source":"劍","slots":{"weapon":["+2～4% 暴擊率","+4～8% 攻擊速度"],"helmet":["+4～8% 施法速度"],"armor":["+2～4% 閃避"],"gloves":["+8～12% 暴擊傷害"],"boots":["+3～5% 移動速度"],"shield":["+2～4% 閃避","+3～6% 攻擊速度"]}},{"id":"heavy","name":"重核","enabled":true,"family":"attack","source":"斧","slots":{"weapon":["+8～12% 重擊類技能傷害","+15～25% 擊退距離"],"helmet":["+8～12% 藥水效果"],"armor":["+3～5% 物理減傷","+15～25% 擊退抗性"],"gloves":["+15～25% 擊退距離"],"boots":["+15～25% 暈眩時間減少"],"shield":["+8～12% 盾擊傷害","+2～4% 物理減傷"]}},{"id":"pierce","name":"穿核","enabled":true,"family":"attack","source":"弓","slots":{"weapon":["+8～12% 投射物速度","+1 投射物穿透（紫以上）"],"helmet":["+0.5～1.0 格射擊距離（T5：+1.5～2 格）"],"armor":["+15～25% 緩速抗性","+3～5% 移動速度"],"gloves":["+4～8% 投射物技能攻擊速度"],"boots":["+15～25% 緩速抗性"],"shield":["+15～25% 緩速抗性","+3～5% 移動速度"]}},{"id":"arcane","name":"靈核","enabled":true,"family":"attack","source":"法杖","slots":{"weapon":["+6～10% 附加元素傷害（核上的元素）"],"helmet":["+6～10% 魔力上限","+3～5% 魔力消耗降低"],"armor":["+6～10% 該元素抗性"],"gloves":["+4～8% 施法速度"],"boots":["+6～10% 該元素抗性"],"shield":["+6～10% 該元素抗性"]}},{"id":"wall","name":"壁核","enabled":true,"family":"defense","source":"盔甲、盾牌","slots":{"weapon":["+8～12% 近戰傷害"],"helmet":["+8～12% 藥水效果"],"armor":["+4～8% 防禦","+3～5% 減傷"],"gloves":["+2～4% 格擋率"],"boots":["+2～4% 物理減傷"],"shield":["+2～4% 格擋率","+4～8% 防禦"]}},{"id":"swift","name":"疾核","enabled":true,"family":"defense","source":"鞋子","slots":{"weapon":["+4～8% 攻擊速度"],"helmet":["+3～5% 移動速度"],"armor":["+2～4% 閃避","+15～25% 緩速抗性"],"gloves":["+3～6% 攻擊速度"],"boots":["+4～6% 移動速度"],"shield":["+3～5% 移動速度","+15～25% 緩速抗性"]}},{"id":"grip","name":"掌核","enabled":true,"family":"defense","source":"手套","slots":{"weapon":["+8～12% 暴擊傷害"],"helmet":["+4～8% 施法速度"],"armor":["+15～25% 擊退抗性"],"gloves":["+1.5～3% 暴擊率"],"boots":["+15～25% 擊退抗性"],"shield":["+1.5～3% 格擋率","+15～25% 擊退抗性"]}},{"id":"crown","name":"冠核","enabled":true,"family":"defense","source":"頭盔","slots":{"weapon":["+4～6% 傷害"],"helmet":["+6～10% 魔力上限","+3～5% 魔力消耗降低"],"armor":["+6～10% 該元素抗性","+15～25% 暈眩時間減少"],"gloves":["+4～8% 法術傷害"],"boots":["+15～25% 暈眩時間減少"],"shield":["+15～25% 暈眩時間減少","+6～10% 該元素抗性"]}}],"shared":["+3～6% 生命上限","+4～8% 防禦","+2～4% 傷害","+6～10% 暴擊傷害","+4～8% 藥水效果"],"examples":[{"label":"短劍（白 2）＋手斧（白 3）","core":"混核（重＋銳）","types":["heavy","sharp"],"tier":1,"rarity":"normal","element":null,"lines":1,"pure":false,"brand":0,"gold":123,"essence":8,"essenceText":"武器 8"},{"label":"四把弓（白 5、藍 8、黃 9、藍 13）","core":"穿核","types":["pierce"],"tier":2,"rarity":"magic","element":null,"lines":3,"pure":true,"brand":0,"gold":498,"essence":14,"essenceText":"武器 14"},{"label":"裂山（橘斧 18）＋鐵斧（黃 17）＋月刃斧（藍 19）","core":"重核","types":["heavy"],"tier":3,"rarity":"epic","element":null,"lines":3,"pure":false,"brand":35,"gold":735,"essence":16,"essenceText":"武器 16"},{"label":"騎士長劍（黃 12）＋月刃斧（藍 12）＋裂山（橘 18）＋短杖（白 1）＋黃戒指","core":"重核","types":["heavy"],"tier":2,"rarity":"epic","element":null,"lines":3,"pure":false,"brand":45,"gold":598,"essence":14,"essenceText":"武器 14"},{"label":"天穹裂弦（紅弓 30）＋焚星（橘杖 28）＋寒月（橘劍 29）＋水晶杖（黃 30，火焰詞綴）＋紫戒指＋橘護身符","core":"靈核（火）","types":["arcane"],"tier":4,"rarity":"legendary","element":"fire","lines":3,"pure":false,"brand":85,"gold":1523,"essence":26,"essenceText":"武器 26"},{"label":"四件鞋子（黃 20）","core":"疾核","types":["swift"],"tier":3,"rarity":"rare","element":null,"lines":3,"pure":true,"brand":0,"gold":1060,"essence":22,"essenceText":"防具 22"},{"label":"兩把長弓（藍 25）＋兩件手套（黃 25）","core":"混核（穿＋掌）","types":["pierce","grip"],"tier":4,"rarity":"rare","element":null,"lines":2,"pure":false,"brand":0,"gold":1310,"essence":26,"essenceText":"武器 13＋防具 13"}],"sockets":{"max":{"normal":5,"magic":4,"rare":3,"epic":2,"legendary":1,"mythic":0},"dropWeights":{"normal":[60,30,10],"magic":[60,30,10],"rare":[65,25,10],"epic":[1],"legendary":[1],"mythic":[1]},"drillGold":30,"drillEssence":3,"bodyCap":1.5,"maxCores":30,"matchBonus":0.1,"matchCapPerSocket":0.5,"weaponDamage":[0.16,0.32,0.48,0.64,0.8]},"fusion":{"inputs":{"min":2,"max":4},"jewelrySlots":2,"levelsPerTier":8,"tierMultiplier":[1,1.15,1.32,1.52,1.75],"rarityFrom":{"magic":2,"rare":5,"epic":9,"legendary":15},"lineCount":{"normal":1,"magic":2,"rare":2,"epic":3,"legendary":3},"pureBonusLines":1,"mixedMultiplier":0.7,"brand":{"chance":0.35,"chanceCap":0.85,"valueMultiplier":0.7},"jewelryBoost":{"normal":0,"magic":0.05,"rare":0.1,"epic":0.15,"legendary":0.2,"mythic":0.25},"cost":{"goldBase":60,"goldPerItemLevel":12.5,"essenceBase":6,"essenceLevelDivisor":6}},"rarityPower":{"normal":[1,1],"magic":[1,1],"rare":[1,1],"epic":[1.2,1.5],"legendary":[1.5,2],"mythic":[2,3]}};
   const $ = (id) => document.getElementById(id);
   const RAR = ['normal', 'magic', 'rare', 'epic', 'legendary', 'mythic'];
   const SHORT = { normal: '白', magic: '藍', rare: '黃', epic: '紫', legendary: '橘', mythic: '紅' };
-  const SLOTS = [['weapon', '武器'], ['helmet', '頭盔'], ['armor', '衣裝'], ['gloves', '手套'], ['boots', '鞋子']];
+  const SLOTS = [['weapon', '武器'], ['helmet', '頭盔'], ['armor', '衣裝'], ['gloves', '手套'], ['boots', '鞋子'], ['shield', '盾牌']];
   const pct = (v) => `${Math.round(v * 1000) / 10}%`;
   const gem = (types, tier, rarity, element, branded) => {
     try { return window.ItemIcons && ItemIcons.gemIcon ? ItemIcons.gemIcon(types, tier, rarity, element, branded) : ''; } catch (e) { return ''; }
@@ -501,13 +507,13 @@ const G = {"rarities":[{"id":"normal","label":"普通","color":"#e8e2d4","affixe
 
   // 孔數
   const s = C.sockets;
-  $('socketTable').innerHTML = `<thead><tr><th>稀有度</th><th class="n">孔數上限</th><th class="n">掉落時 0 / 1 / 2 孔</th><th class="n">熔核倍率</th></tr></thead><tbody>${RAR.map((r) => {
+  $('socketTable').innerHTML = `<thead><tr><th>稀有度</th><th class="n">孔數上限</th><th class="n">掉落時 0 / 1 / 2 孔</th><th class="n">鑲滿同核加成</th></tr></thead><tbody>${RAR.map((r) => {
     const w = s.dropWeights[r];
     const total = w.reduce((a, b) => a + b, 0);
     const drop = w.length > 1 ? w.map((x) => pct(x / total)).join(' / ') : '0 孔（要鑿）';
-    return `<tr><td class="rowh rar r-${r}">${SHORT[r]}</td><td class="n">${s.max[r]}</td><td class="n">${s.max[r] === 0 ? '不能打孔' : drop}</td><td class="n">${s.max[r] === 0 ? '—' : '×' + s.hostPower[r]}</td></tr>`;
+    return `<tr><td class="rowh rar r-${r}">${SHORT[r]}</td><td class="n">${s.max[r]}</td><td class="n">${s.max[r] === 0 ? '不能打孔' : drop}</td><td class="n">${s.max[r] === 0 ? '—' : '×' + +(1 + s.max[r] * s.matchBonus).toFixed(2)}</td></tr>`;
   }).join('')}</tbody>`;
-  $('socketNote').textContent = `可以鑲的部位：武器、頭盔、衣裝、手套、鞋子（盾牌在第二期）。熔核鑲在哪一種稀有度的裝備上，數值就乘上該稀有度的倍率（固定數值的屬性如穿透 +1 不乘）：白裝 5 孔 ×0.5 ≈ 2.5 孔，比不上紫裝 2 孔＋詞綴，好裝備仍然值得追。全身上限：同一條屬性所有熔核合計，最多是「一顆 T5 橘核最高值」的 ${s.bodyCap} 倍；同一條印記最多是單顆的 ${s.bodyCap} 倍，超過的部分不生效。`;
+  $('socketNote').textContent = `可以鑲的部位：武器、頭盔、衣裝、手套、鞋子、盾牌（盾牌只能配劍、斧）。熔核不看裝備稀有度，白裝也能打造成符合自己需求的強裝。同核加成：一件裝備的孔都鑲滿、每顆核種相同（混核要兩個核種都相同），那件裝備上的熔核數值 ×（1 + 孔數 × ${Math.round(s.matchBonus * 100)}%）（固定數值的屬性如穿透 +1 不乘）。鑲在武器的熔核另外依核階加武器傷害 ${s.weaponDamage.map((v, i) => `T${i + 1} +${Math.round(v * 100)}%`).join('、')}（和裝備主倍率相加，法杖放大法術強度；同核加成也乘，不受全身上限），白裝 5 顆 T5 同核 = +${Math.round(s.weaponDamage[4] * 5 * (1 + 5 * s.matchBonus) * 100)}%。全身上限：同一條屬性所有熔核合計，最多是「一顆 T5 橘核最高值」的 ${s.bodyCap} 倍；每件同核鑲滿、而且有提供這條屬性的裝備，再多「孔數 × ${s.matchCapPerSocket}」倍（白裝 5 孔 +${5 * s.matchCapPerSocket}、紫裝 2 孔 +${2 * s.matchCapPerSocket}）。印記同理（以單顆為準），超過的部分不生效。`;
 
   // 核階、核色
   const f = C.fusion;
@@ -533,17 +539,17 @@ const G = {"rarities":[{"id":"normal","label":"普通","color":"#e8e2d4","affixe
     '精華跟著多數決：武器多付武器精華、防具多付防具精華；一樣多時各付一半。',
     '副屬性：從核種在武器以外各部位的屬性＋通用池中均等抽，不重複；不會抽到武器欄的屬性（輸出主要靠武器欄的主屬性）。',
     `印記：投入的每件橘色裝備各有 ${pct(b.chance)}＋飾品加成的機率，把它的強屬性（◆）傳進熔核，數值 ×${b.valueMultiplier}（整數四捨五入、至少 1）；總機率最多 ${pct(b.chanceCap)}；永遠不傳傳奇 / 神話效果（✦）。紅色裝備沒有強屬性，只貢獻核色。`,
-    '按下融合前，面板就會顯示核種（票數）、核階、核色（距下一級還差多少）、元素、條數、印記機率與候選、五個部位的主屬性範圍與費用；只隱藏骰子本身。投入傳奇 / 神話時要二次確認。',
+    '按下融合前，面板就會顯示核種（票數）、核階、核色（距下一級還差多少）、元素、條數、印記機率與候選、六個部位的主屬性範圍與費用；只隱藏骰子本身。投入傳奇 / 神話時要二次確認。',
   ].map((t) => `<li>${t}</li>`).join('');
   $('fusionFormula').textContent = `金幣 = ${f.cost.goldBase} + ${f.cost.goldPerItemLevel} × Σ物品等級；精華 = ${f.cost.essenceBase} + Σ⌈物品等級 ÷ ${f.cost.essenceLevelDivisor}⌉`;
-  $('socketFormula').textContent = `鑿第 n 孔：金幣 ${s.drillGold} × 物品等級 × n、防具精華 ${s.drillEssence} × n；鑲嵌：金幣 ${s.insertGold} × 物品等級；拆卸：金幣 ${s.removeGold} × 物品等級`;
+  $('socketFormula').textContent = `鑿第 n 孔：金幣 ${s.drillGold} × 物品等級 × n、防具精華 ${s.drillEssence} × n（商人的鍛造格）；鑲嵌、取下：免費，在背包自己做`;
 
   // 核種 × 部位
   const enabled = C.types.filter((t) => t.enabled);
   $('coreTable').innerHTML = `<thead><tr><th>核種（來源）</th>${SLOTS.map(([, l]) => `<th>鑲${l}</th>`).join('')}</tr></thead><tbody>${enabled.map((t) =>
     `<tr><td class="rowh"><span class="core-name">${img(gem([t.id], 3, 'epic', t.id === 'arcane' ? 'fire' : undefined), 28)}${t.name}<small>（${t.source}）</small></span></td>${SLOTS.map(([k]) => `<td class="small">${t.slots[k].join('<br>或 ')}</td>`).join('')}</tr>`).join('')}
-    <tr><td class="rowh">通用副屬性池</td><td class="small" colspan="5">${C.shared.join('、')}</td></tr></tbody>`;
-  $('coreNote').textContent = '實際數值 = T1 範圍 × 核階倍率 × 核色倍率 × 裝備稀有度倍率。攻核的武器欄偏專精（例：重擊類技能傷害），護核的武器欄偏通用（近戰傷害、所有傷害）；護核鑲在防具上偏防禦。';
+    <tr><td class="rowh">通用副屬性池</td><td class="small" colspan="${SLOTS.length}">${C.shared.join('、')}</td></tr></tbody>`;
+  $('coreNote').textContent = '實際數值 = T1 範圍 × 核階倍率 × 核色倍率（× 同核加成）；不看裝備稀有度。攻核的武器欄偏專精（例：重擊類技能傷害），護核的武器欄偏通用（近戰傷害、所有傷害）；護核鑲在防具上偏防禦。盾牌欄偏防禦與控制抗性（只有近戰能配盾），唯一的輸出是重核的盾擊傷害；每條範圍都不高於其他部位欄的同一種屬性，所以全身上限不變。';
 
   // 範例
   $('exampleTable').innerHTML = `<thead><tr><th>投入</th><th>熔核</th><th class="n">核階</th><th>核色</th><th class="n">條數</th><th class="n">印記機率</th><th class="n">金幣 / 精華</th></tr></thead><tbody>${C.examples.map((e) =>

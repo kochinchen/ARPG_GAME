@@ -280,8 +280,8 @@ export const BalanceSchema = z.strictObject({
     utility: CategoryTraitsSchema,
   }),
   /**
-   * 鑲嵌（v0.5.0）：孔數上限（與稀有度反向）、掉落時的孔數權重（index = 孔數）、商人的鑿孔 / 鑲嵌 / 拆卸費用、
-   * 全身上限（同一條屬性全身熔核合計 ≤ 一顆 T5 橘核最高值 × bodyCap；同一條印記 ≤ 單顆 × bodyCap）。
+   * 鑲嵌（v0.5.0）：孔數上限（與稀有度反向）、掉落時的孔數權重（index = 孔數）、商人的鑿孔費用（鑲嵌 / 取下熔核由玩家自己在背包做，免費）、
+   * 全身上限（同一條屬性全身熔核合計 ≤ 一顆 T5 橘核最高值 ×（bodyCap ＋ 提供這條的同核鑲滿裝備 孔數 × matchCapPerSocket）；印記同理）。
    */
   sockets: z.strictObject({
     max: z.record(RaritySchema, z.int().min(0).max(5)),
@@ -289,13 +289,14 @@ export const BalanceSchema = z.strictObject({
     /** 鑿第 n 孔：金幣 drillGold × 物品等級 × n、防具精華 drillEssence × n */
     drillGold: z.int().nonnegative(),
     drillEssence: z.int().nonnegative(),
-    /** 鑲嵌 / 拆卸：金幣 × 物品等級（拆卸時熔核毀掉、孔保留） */
-    insertGold: z.int().nonnegative(),
-    removeGold: z.int().nonnegative(),
     bodyCap: z.number().positive(),
     maxCores: z.int().positive(),
-    /** 熔核鑲在這個稀有度的裝備上時，數值（固定數值的屬性除外）× 倍率：好裝備讓熔核更強，白裝不能取代打寶 */
-    hostPower: z.record(RaritySchema, z.number().positive()),
+    /** 同核加成：一件裝備的孔都鑲滿、每顆熔核核種相同時，那件裝備上的熔核數值（固定數值的屬性除外）×（1 + 孔數 × matchBonus） */
+    matchBonus: z.number().nonnegative(),
+    /** 同核鑲滿的裝備放寬全身上限：它提供的每一條屬性（含印記），上限多 孔數 × matchCapPerSocket 份（一份 = 一顆 T5 橘核最高值） */
+    matchCapPerSocket: z.number().nonnegative(),
+    /** 鑲在武器的熔核：武器傷害 +%（index = 核階 − 1），和主倍率相加 */
+    weaponDamage: z.array(z.number().nonnegative()).length(5),
   }),
   /**
    * 融合（v0.5.0）：2～4 把武器 → 一顆熔核；飾品區最多 2 件戒指 / 護身符，只提高印記機率。

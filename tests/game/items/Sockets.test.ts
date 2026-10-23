@@ -16,11 +16,11 @@ import { SaveMapper } from '../../../src/save/SaveMapper';
 import { repairSave } from '../../../src/save/SaveRepair';
 import { run } from '../helpers';
 
-/** 孔位與商人的鑿孔 / 鑲嵌 / 拆卸（v0.5.0 P4） */
+/** 孔位、商人的鑿孔、玩家自己鑲嵌 / 取下熔核（v0.5.0 P4） */
 const data = DataRegistry.load(gameData);
 const base = (slot: string) => data.items.all.find((b) => b.slot === slot)!;
 
-const EMPTY: Record<CoreSlot, CoreRoll[]> = { weapon: [], helmet: [], armor: [], gloves: [], boots: [] };
+const EMPTY: Record<CoreSlot, CoreRoll[]> = { weapon: [], helmet: [], armor: [], gloves: [], boots: [], shield: [] };
 const core = (uid: string, over: Partial<CoreInstance> = {}): CoreInstance => ({
   uid,
   types: ['sharp'],
@@ -46,7 +46,7 @@ function setup() {
     commands.push(c);
     run(world, 1 / 60);
   };
-  return { world, send, failures };
+  return { world, send, failures, events };
 }
 const item = (slot: string, rarity: ItemInstance['rarity'], itemLevel = 10, sockets?: ItemInstance['sockets']): ItemInstance => ({
   uid: `${slot}-${rarity}`,
@@ -55,6 +55,113 @@ const item = (slot: string, rarity: ItemInstance['rarity'], itemLevel = 10, sock
   itemLevel,
   affixes: [],
   ...(sockets ? { sockets } : {}),
+});
+
+describe('自己鑲嵌 / 取下（不需商人、不花錢）', () => {
+  /** 離商人很遠：鑲嵌不經過商人 */
+  function farSetup() {
+    const s = setup();
+    s.world.player.position = { x: s.world.player.position.x + 1000, y: s.world.player.position.y };
+    s.world.player.prevPosition = s.world.player.position;
+    s.world.wallet.gold = 0;
+    s.world.inventory.restore(s.world.inventory.cells.map(() => null));
+    return s;
+  }
+
+  it('拿著熔核點身上裝備的空孔 → 鑲入、屬性生效；右鍵取下 → 熔核放回背包、孔保留', () => {
+    const { world, send } = farSetup();
+    world.equipment.equip(item('weapon', 'epic', 12, { max: 2, cores: [] }));
+    const before = world.player.stats.get('critChance');
+    world.inventory.addCore(core('c1'));
+    send({ type: 'InventoryClick', cell: 0 });
+    expect(world.cursor.entry?.kind).toBe('core');
+    send({ type: 'EquipmentClick', slot: 'weapon' });
+    expect(world.cursor.entry).toBeNull();
+    expect(world.equipment.get('weapon')!.sockets).toEqual({ max: 2, cores: [core('c1')] });
+    // 紫裝 ×1；銳核武器欄暴擊 4% × 核色 1.2
+    expect(world.player.stats.get('critChance')).toBeCloseTo(before + 0.04 * 1.2);
+
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' } });
+    expect(world.cursor.entry).toBeNull();
+    expect(world.inventory.get(0)).toEqual({ kind: 'core', core: core('c1') });
+    expect(world.equipment.get('weapon')!.sockets).toEqual({ max: 2, cores: [] });
+    expect(world.player.stats.get('critChance')).toBeCloseTo(before);
+    expect(world.wallet.gold).toBe(0);
+  });
+
+  it('背包裡的裝備也能鑲：拿著熔核點有空孔的裝備 → 鑲入；孔滿了就照常互換', () => {
+    const { world, send } = farSetup();
+    world.inventory.place(0, { kind: 'item', item: item('helmet', 'rare', 10, { max: 1, cores: [] }) });
+    world.cursor.set({ kind: 'core', core: core('h1') });
+    send({ type: 'InventoryClick', cell: 0 });
+    expect(world.cursor.entry).toBeNull();
+    const helmet = world.inventory.get(0);
+    expect(helmet?.kind === 'item' && helmet.item.sockets).toEqual({ max: 1, cores: [core('h1')] });
+
+    // 孔滿了：照常互換（熔核放進格子、頭盔拿到手上）
+    world.cursor.set({ kind: 'core', core: core('h2') });
+    send({ type: 'InventoryClick', cell: 0 });
+    expect(world.inventory.get(0)).toEqual({ kind: 'core', core: core('h2') });
+    expect(world.cursor.entry?.kind).toBe('item');
+    send({ type: 'InventoryClick', cell: 1 });
+
+    send({ type: 'RemoveCore', from: { kind: 'cell', cell: 1 } });
+    expect(world.cursor.entry).toBeNull();
+    expect(world.inventory.get(2)).toEqual({ kind: 'core', core: core('h1') });
+    const emptied = world.inventory.get(1);
+    expect(emptied?.kind === 'item' && emptied.item.sockets).toEqual({ max: 1, cores: [] });
+  });
+
+  it('身上的裝備沒有空孔：熔核留在手上並提示；手上拿著東西時右鍵照樣取回背包', () => {
+    const { world, send, events } = farSetup();
+    const failed: string[] = [];
+    events.on('EquipFailed', (e) => failed.push(e.reason));
+    world.equipment.equip(item('weapon', 'normal', 12, { max: 1, cores: [core('full')] }));
+    world.cursor.set({ kind: 'core', core: core('c2') });
+    send({ type: 'EquipmentClick', slot: 'weapon' });
+    expect(failed).toEqual(['noSocket']);
+    expect(world.cursor.entry).toEqual({ kind: 'core', core: core('c2') });
+    send({ type: 'EquipmentClick', slot: 'ring1' }); // 空欄位
+    expect(failed).toEqual(['noSocket', 'noSocket']);
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' } });
+    expect(world.equipment.get('weapon')!.sockets!.cores).toEqual([]);
+    expect(world.inventory.get(0)).toEqual({ kind: 'core', core: core('full') });
+    expect(world.cursor.entry).toEqual({ kind: 'core', core: core('c2') });
+  });
+
+  it('多顆：連按右鍵從最後鑲入的開始一顆一顆取回背包；右鍵空格不動作', () => {
+    const { world, send } = farSetup();
+    world.equipment.equip(item('weapon', 'normal', 12, { max: 3, cores: [core('a'), core('b'), core('c')] }));
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' } });
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' } });
+    expect(world.equipment.get('weapon')!.sockets!.cores.map((c) => c.uid)).toEqual(['a']);
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' } });
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' } }); // 已經沒有熔核：不動作
+    expect(world.equipment.get('weapon')!.sockets).toEqual({ max: 3, cores: [] });
+    expect([0, 1, 2, 3].map((i) => world.inventory.get(i))).toEqual([
+      { kind: 'core', core: core('c') },
+      { kind: 'core', core: core('b') },
+      { kind: 'core', core: core('a') },
+      null,
+    ]);
+    expect(world.cursor.entry).toBeNull();
+    send({ type: 'RemoveCore', from: { kind: 'cell', cell: 5 } }); // 空格：不動作
+    expect(world.cursor.entry).toBeNull();
+  });
+
+  it('背包滿了：取下的熔核拿在手上；手上也有東西時不取並提示背包已滿', () => {
+    const { world, send, events } = farSetup();
+    const failed: string[] = [];
+    events.on('PickupFailed', (e) => failed.push(e.reason));
+    world.equipment.equip(item('weapon', 'normal', 12, { max: 2, cores: [core('a'), core('b')] }));
+    world.inventory.restore(world.inventory.cells.map((_, i) => ({ kind: 'core' as const, core: core(`fill${i}`) })));
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' } });
+    expect(world.cursor.entry).toEqual({ kind: 'core', core: core('b') });
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' } });
+    expect(failed).toEqual(['inventoryFull']);
+    expect(world.equipment.get('weapon')!.sockets!.cores.map((c) => c.uid)).toEqual(['a']);
+    expect(world.cursor.entry).toEqual({ kind: 'core', core: core('b') });
+  });
 });
 
 describe('掉落時的孔數', () => {
@@ -73,6 +180,8 @@ describe('掉落時的孔數', () => {
     expect(count('rare', 'helmet')[0]).toBeGreaterThan(0.6);
     expect(count('epic', 'armor')).toEqual([1, 0, 0]);
     expect(count('magic', 'ring')).toEqual([1, 0, 0]);
+    // 盾牌（2026-10-19）也會帶孔
+    expect(count('normal', 'shield')[0]).toBeLessThan(0.65);
   });
 
   it('擲孔用獨立的序列：同一個種子，加上孔數後其他內容不變', () => {
@@ -109,25 +218,6 @@ describe('商人：鑿孔、鑲嵌、拆卸', () => {
     expect(failures.filter((f) => f === 'cannotDrill')).toHaveLength(3);
   });
 
-  it('鑲嵌：背包的熔核放進空孔（金幣 10 × 物品等級）；沒有空孔時失敗；拆卸：熔核毀掉、孔保留', () => {
-    const { world, send, failures } = setup();
-    world.wallet.gold = 1000;
-    world.shop.ascendSlot = item('weapon', 'normal', 12, { max: 1, cores: [] });
-    world.inventory.restore(world.inventory.cells.map(() => null));
-    world.inventory.addCore(core('c1'));
-    world.inventory.addCore(core('c2'));
-    send({ type: 'ShopInsertCore', cell: 0 });
-    expect(world.shop.ascendSlot.sockets!.cores.map((c) => c.uid)).toEqual(['c1']);
-    expect(world.wallet.gold).toBe(1000 - 120);
-    expect(world.inventory.get(0)).toBeNull();
-    send({ type: 'ShopInsertCore', cell: 1 });
-    expect(failures.at(-1)).toBe('cannotInsert');
-    expect(world.inventory.get(1)?.kind).toBe('core');
-    send({ type: 'ShopRemoveCore', index: 0 });
-    expect(world.shop.ascendSlot.sockets).toEqual({ max: 1, cores: [] });
-    expect(world.wallet.gold).toBe(1000 - 120 - 240);
-  });
-
   it('鑲好熔核的裝備可以飛昇：孔與熔核保留；飛昇的金幣與精華是 v0.5.0 前的 2 倍', () => {
     const { world, send } = setup();
     const t1 = data.items.all.find((b) => b.weaponType === 'sword' && b.tier === 1)!;
@@ -146,13 +236,37 @@ describe('商人：鑿孔、鑲嵌、拆卸', () => {
     expect(world.wallet.gold).toBe(0);
   });
 
+  it('盾牌可以鑿孔（孔數上限照稀有度，付防具精華）', () => {
+    const { world, send } = setup();
+    world.wallet.gold = 10000;
+    world.materials.add('armorEssence', 50);
+    world.shop.ascendSlot = item('shield', 'rare', 10);
+    expect(world.shop.socketInfo(world.shop.ascendSlot)).toMatchObject({ socketable: true, limit: 3 });
+    send({ type: 'ShopDrill' });
+    expect(world.shop.ascendSlot.sockets).toEqual({ max: 1, cores: [] });
+    expect(world.materials.get('armorEssence')).toBe(50 - 3);
+  });
+
+  it('盾牌上的熔核用盾牌欄的主屬性（配劍穿上後生效）', () => {
+    const { world } = setup();
+    const sword = data.items.all.find((b) => b.weaponType === 'sword')!;
+    world.equipment.equip({ uid: 'sw', baseId: sword.id, rarity: 'normal', itemLevel: 5, affixes: [] });
+    world.equipment.equip(item('shield', 'epic', 12, { max: 1, cores: [] }));
+    const before = world.player.stats.get('dodgeChance');
+    const shieldCore = core('sh', { main: { ...EMPTY, shield: [{ lineId: 'core.sharp.dodge_shield', roll: 1 }] } });
+    world.equipment.equip(item('shield', 'epic', 12, { max: 1, cores: [shieldCore] }));
+    // 紫裝 ×1；銳核盾牌欄閃避 4% × 核色 1.2
+    expect(world.player.stats.get('dodgeChance')).toBeCloseTo(before + 0.04 * 1.2);
+    expect(world.equipment.socketedCores().map((c) => c.slot)).toEqual(['shield']);
+  });
+
   it('鑲好熔核的裝備穿上後屬性生效', () => {
     const { world } = setup();
-    world.equipment.equip(item('weapon', 'normal', 12, { max: 1, cores: [] }));
+    world.equipment.equip(item('weapon', 'normal', 12, { max: 2, cores: [] }));
     const before = world.player.stats.get('critChance');
-    world.equipment.equip(item('weapon', 'normal', 12, { max: 1, cores: [core('c1')] }));
-    // 白裝：熔核數值 ×0.5
-    expect(world.player.stats.get('critChance')).toBeCloseTo(before + 0.04 * 1.2 * 0.5);
+    world.equipment.equip(item('weapon', 'normal', 12, { max: 2, cores: [core('c1')] }));
+    // 不看裝備稀有度（白裝也 ×1）；孔沒鑲滿，沒有同核加成
+    expect(world.player.stats.get('critChance')).toBeCloseTo(before + 0.04 * 1.2);
     world.equipment.unequip('weapon');
     expect(world.player.stats.get('critChance')).toBeLessThan(before);
   });

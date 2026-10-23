@@ -133,8 +133,10 @@ export interface GameEvents {
   ItemEquipped: { uid: string; slot: EquipmentSlot };
   ItemUnequipped: { uid: string; slot: EquipmentSlot };
   /** 手上的物品不能穿在這個欄位，或等級不足 */
-  /** shield = 盾牌只能搭配劍、斧（拿弓 / 法杖時不能裝盾，或盾牌放不回背包） */
-  EquipFailed: { slot: EquipmentSlot; reason: 'wrongSlot' | 'level' | 'shield' };
+  /** shield = 盾牌只能搭配劍、斧（拿弓 / 法杖時不能裝盾，或盾牌放不回背包）；noSocket = 拿著熔核點的裝備沒有空孔 */
+  EquipFailed: { slot: EquipmentSlot; reason: 'wrongSlot' | 'level' | 'shield' | 'noSocket' };
+  /** 玩家自己把熔核鑲進裝備的空孔，或從裝備取下（放回背包，背包滿了拿在手上） */
+  CoreSocketed: { action: 'insert' | 'remove' };
   XpGained: { amount: number };
   PlayerLeveledUp: { level: number };
   SkillLearned: { skillId: string; rank: number };
@@ -146,13 +148,13 @@ export interface GameEvents {
   /** 點了商人（UI 開啟商店） */
   ShopOpened: Record<string, never>;
   /** 商店交易：gold 為金幣變化（買 / 賭博為負） */
-  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll' | 'drill' | 'insert' | 'remove' | 'fuse'; gold: number; rarity?: Rarity };
+  ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll' | 'drill' | 'fuse'; gold: number; rarity?: Rarity };
   /** 融合完成（結果動畫：核色、核階、印記是否命中） */
   CoreFused: { uid: string; rarity: Rarity; tier: number; branded: boolean };
   /** 洗點完成（gold = 花費）或失敗（金幣不足、沒有點數可以重置） */
   Respec: { kind: 'skills' | 'attributes'; gold: number };
   RespecFailed: { kind: 'skills' | 'attributes'; reason: 'gold' | 'nothing' };
-  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotInsert' | 'cannotSell' | 'cannotFuse' | 'needsConfirm' };
+  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotSell' | 'cannotFuse' | 'needsConfirm' };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }
