@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three.js 畫面比較</title>
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #16130f; color: #d8cbb4; font: 14px sans-serif; }
+      #bar { position: fixed; top: 0; left: 0; right: 0; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: #1f1a15; border-bottom: 1px solid #3a3027; box-sizing: border-box; flex-wrap: nowrap; overflow-x: auto; }
+      #bar b { color: #e8c47a; white-space: nowrap; }
+      #bar .group { display: flex; gap: 2px; }
+      #bar button, #bar select { padding: 3px 8px; font: 13px sans-serif; color: #d8cbb4; background: #2a231d; border: 1px solid #5a4c3e; cursor: pointer; white-space: nowrap; }
+      #bar button.on { background: #5a4630; color: #ffe3a8; border-color: #a8875a; }
+      #bar label { white-space: nowrap; cursor: pointer; }
+      #panels { position: fixed; top: 44px; left: 0; right: 0; bottom: 0; display: flex; }
+      .panel { position: relative; flex: 1; overflow: hidden; }
+      .panel + .panel { border-left: 1px solid #3a3027; }
+      .panel .caption { position: absolute; top: 10px; left: 12px; z-index: 1; pointer-events: none; line-height: 1.5; }
+      .panel .caption b { color: #e8c47a; font-size: 16px; }
+      .panel .caption span { color: #9c8c74; font-size: 12px; }
+      .panel .host { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="bar"></div>
+    <div id="panels">
+      <div class="panel">
+        <div class="caption"><b>現在：PixiJS（CPU 投影成 2D 多邊形）</b><br /><span>每個面依固定光線算明暗，影子是貼圖橢圓</span></div>
+        <div class="host" id="pixi"></div>
+      </div>
+      <div class="panel">
+        <div class="caption"><b>試驗：Three.js（GPU 3D）</b><br /><span id="three-info">同一份模型與動作，即時光源 + 投射陰影</span></div>
+        <div class="host" id="three"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/tools/threeCompare.ts"></script>
+  </body>
+</html>

@@ -26,8 +26,10 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-vue": "^6.0.9",
     "dependency-cruiser": "^18.4.0",
+    "three": "^0.186.1",
     "typescript": "~5.9",
     "vite": "^8.3.1",
     "vitest": "^5.0.2",

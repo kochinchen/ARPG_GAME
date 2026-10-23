@@ -25,7 +25,7 @@
 
 ## 指令
 
-- `npm run dev`：開發伺服器（http://localhost:5173）；角色樣態預覽 http://localhost:5173/viewer.html
+- `npm run dev`：開發伺服器（http://localhost:5173）；角色樣態預覽 http://localhost:5173/viewer.html；Three.js 畫面試驗（與現在的畫法並排比較，`?monster=lava_behemoth` 換怪物）http://localhost:5173/viewer-three.html
 - `npm test`：單元測試
 - `npm run lint`：型別檢查（含無 DOM 的 `tsconfig.logic.json`）+ 依賴方向檢查
 - `npm run build`：正式版建置
