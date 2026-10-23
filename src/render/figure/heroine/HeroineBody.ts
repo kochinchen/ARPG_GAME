@@ -86,21 +86,24 @@ export const heroineNeck = (): Mesh[] => [
   ),
 ];
 
-/** 胸（chest 關節，0～10.6）：白色內衣（胸廓往上變寬到肩膀）與豐滿的胸部 */
+/** 胸（chest 關節，0～10.6）：米白短上衣（平口、包住胸部），上胸、鎖骨與肩膀露出；豐滿的胸部 */
 export function heroineChest(): Mesh[] {
+  const neckline = { y: 7.4, rx: 5.8, rz: 3.75, cz: 0.05 };
   return [
     loft(
       [
         { y: 0, rx: 4.1, rz: 3 },
         { y: 2.5, rx: 5, rz: 3.6 },
         { y: 5.2, rx: 5.5, rz: 3.9, cz: 0.2 },
-        { y: 8.2, rx: 5.9, rz: 3.7 },
-        { y: 10.2, rx: 4.2, rz: 3, cz: -0.3 },
+        neckline,
       ],
       16,
       SHIRT,
       1,
     ),
+    loft([neckline, { y: 8.2, rx: 5.9, rz: 3.7 }, { y: 10.2, rx: 4.2, rz: 3, cz: -0.3 }], 16, SKIN, 5),
+    // 上衣的細肩帶
+    ...mirror((s) => [bar([2.7 * s, 7.6, 3.6], [3.5 * s, 10.1, 0.5], 0.75, 0.35, SHIRT, 6)]),
     // 胸部：往前明顯隆起（上緣較平、下緣較圓）
     facetize(tone(lowSphere(3.05, SHIRT[0], [2, 5.1, 3.3], 11, 7, [1, 0.95, 0.9]), SHIRT, 2), 0.08, 2),
     facetize(tone(lowSphere(3.05, SHIRT[0], [-2, 5.1, 3.3], 11, 7, [1, 0.95, 0.9]), SHIRT, 3), 0.08, 3),

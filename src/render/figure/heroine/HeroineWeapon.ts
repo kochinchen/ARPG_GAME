@@ -14,11 +14,12 @@ const BLADE_LEN = 2.4 + 17.6 * 1.3;
 const TIP = 3.4 * 1.3;
 
 function swordMeshes(): Mesh[] {
-  const blade = prism(4, -2.4, -BLADE_LEN, [0.3, 1.35], [0.26, 1.15], BLADE[0], [0, 0, 0], 0);
+  // 寬刃長劍（設定圖）：劍身比原本寬一點
+  const blade = prism(4, -2.4, -BLADE_LEN, [0.32, 1.6], [0.27, 1.3], BLADE[0], [0, 0, 0], 0);
   // 四個側面依序：亮、中、暗、中（兩個端面用中間色）
   const sides = [BLADE[0], BLADE[1], BLADE[2], BLADE[3], BLADE[1], BLADE[1]];
   blade.faces.forEach((f, i) => (f.color = sides[i] ?? BLADE[1]));
-  const tip = prism(4, -BLADE_LEN, -BLADE_LEN - TIP, [0.26, 1.15], [0.03, 0.05], BLADE[0], [0, 0, 0], 0);
+  const tip = prism(4, -BLADE_LEN, -BLADE_LEN - TIP, [0.27, 1.3], [0.03, 0.05], BLADE[0], [0, 0, 0], 0);
   tip.faces.forEach((f, i) => (f.color = sides[i] ?? BLADE[1]));
   return [
     tone(lowSphere(1, GOLD[0], [0, 3.4, 0], 6, 3), GOLD),
@@ -32,7 +33,7 @@ function swordMeshes(): Mesh[] {
       ...[1.8, 0.2].map((y) => tone(prism(6, y + 0.25, y - 0.25, [0.72, 0.72], [0.72, 0.72], GOLD[2]), GOLD)),
     ]),
     // 邊緣亮面（放大時才看得到）
-    ...detail(2, [box(0.12, BLADE_LEN - 3, 0.25, 0xf6f8fb, [0, -BLADE_LEN / 2 - 1.5, 1.2]), box(0.12, BLADE_LEN - 3, 0.25, 0xf6f8fb, [0, -BLADE_LEN / 2 - 1.5, -1.2])]),
+    ...detail(2, [box(0.12, BLADE_LEN - 3, 0.25, 0xf6f8fb, [0, -BLADE_LEN / 2 - 1.5, 1.4]), box(0.12, BLADE_LEN - 3, 0.25, 0xf6f8fb, [0, -BLADE_LEN / 2 - 1.5, -1.4])]),
   ];
 }
 

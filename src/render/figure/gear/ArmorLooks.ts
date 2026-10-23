@@ -5,7 +5,6 @@ import type { Joint } from '../FigureModel';
 import { stretchMeshes, type Mesh } from '../Poly3D';
 import { pelvisArmor } from '../heroine/HeroineArmor';
 import { heroineForearm, heroineHand, heroineHead, heroineThigh, heroineUpperArm, scaleHead, BOOT_STRETCH } from '../heroine/HeroineBody';
-import { scarfWrap } from '../heroine/HeroineHair';
 import type { UniqueArmor } from './uniques/types';
 import { helmetUniques } from './uniques/helmet';
 import { armorUniques } from './uniques/armor';
@@ -261,7 +260,7 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
     parts.set('head', scaleHead(helmet.style === 'closed' ? hat : [...heroineHead(), ...hat]));
   }
   if (armor) {
-    parts.set('chest', [...chestPiece(armor), ...scarfWrap()]);
+    parts.set('chest', chestPiece(armor));
     parts.set('torso', waistPiece(armor));
     parts.set('upperArmL', [...heroineUpperArm(1), ...shoulderPiece(armor, 1)]);
     parts.set('upperArmR', [...heroineUpperArm(2), ...shoulderPiece(armor, -1)]);

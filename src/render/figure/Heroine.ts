@@ -1,21 +1,21 @@
 import type { FigureModel, PartDef } from './FigureModel';
-import { prism, stretchMeshes } from './Poly3D';
-import { tone } from './Facets';
+import { stretchMeshes } from './Poly3D';
 import { backCloth, bootCuff, bootFoot, bootShin, bracer, chestArmor, frontCloth, pauldron, pelvisArmor } from './heroine/HeroineArmor';
 import { BOOT_STRETCH, FOREARM_LENGTH, HEAD_SCALE, heroineChest, heroineForearm, heroineHand, heroineHead, heroineNeck, heroineThigh, heroineUpperArm, heroineWaist, scaleHead, SHIN_LENGTH, THIGH_LENGTH, UPPER_ARM_LENGTH } from './heroine/HeroineBody';
-import { heroineHairOnHead, ponytailRoot, ponytailSegment, ponytailTip, scarfTail, scarfWrap } from './heroine/HeroineHair';
-import { LEATHER_DARK, SCARF } from './heroine/HeroinePalette';
+import { heroineHairOnHead, ponytailRoot, ponytailSegment, ponytailTip } from './heroine/HeroineHair';
+import { LEATHER_DARK } from './heroine/HeroinePalette';
 import { heroinePoses } from './heroine/HeroinePose';
 import { heroineSword, SWORD_TIP } from './heroine/HeroineWeapon';
 
 /**
- * 女主角（暗黑奇幻、多切面 low-poly 的女劍士，約 7.3 頭身，長腿）：
- * 深紅棕高馬尾（紅髮帶、四段馬尾）、紅色短圍巾、白色內衣與棕色皮甲、斜背帶、腰帶與小腰包、
- * 紅色腰布、深色短褲與裙片、金屬肩甲、護腕、棕色長靴、右手單手長劍。
+ * 女主角（暗黑奇幻、多切面 low-poly 的女劍士，約 7.3 頭身，長腿；照設定圖）：
+ * 深緋紅的蓬鬆高馬尾（垂到腰）與側分長瀏海、米白平口短上衣、兩肩收成 V 字的皮帶與金環、胸下束腰皮帶、
+ * 兩條腰帶（金扣）與兩側小腰包、左後腰短劍、暗紅長腰布、深藍灰短裙、藍灰鋼肩甲、護腕、
+ * 有鋼護膝與脛甲的棕色長靴、右手單手長劍。
  *
  * 主角是畫面焦點：圓形截面的邊數、球體分段約為怪物的兩倍（更細的切面）。
  *
- * 零件與姿勢分在 heroine/ 目錄：Palette（色階）、Body（身體）、Hair（頭髮與圍巾）、
+ * 零件與姿勢分在 heroine/ 目錄：Palette（色階）、Body（身體）、Hair（頭髮）、
  * Armor（皮甲與配件）、Weapon（劍）、Pose（站姿與動畫）；繪製由 PolyFigure 負責。
  */
 
@@ -45,16 +45,14 @@ const PARTS: PartDef[] = [
   { joint: 'cloth', parent: 'root', offset: [0, 2.4, 0], meshes: frontCloth() },
   { joint: 'clothBack', parent: 'root', offset: [0, 2.4, 0], meshes: backCloth() },
   { joint: 'torso', parent: 'root', offset: [0, 3.4, -0.2], meshes: heroineWaist() },
-  { joint: 'chest', parent: 'torso', offset: [0, 6.2, 0], meshes: [...heroineChest(), ...chestArmor(), ...scarfWrap()] },
+  { joint: 'chest', parent: 'torso', offset: [0, 6.2, 0], meshes: [...heroineChest(), ...chestArmor()] },
   { joint: 'neck', parent: 'chest', offset: [0, 10.4, -0.4], meshes: heroineNeck() },
   { joint: 'head', parent: 'neck', offset: [0, 2.7, 0.3], meshes: scaleHead([...heroineHead(), ...heroineHairOnHead()]) },
   { joint: 'ponytail', parent: 'head', offset: [0, 8.8 * HEAD_SCALE, -4.2 * HEAD_SCALE], meshes: ponytailRoot() },
-  { joint: 'ponytail2', parent: 'ponytail', offset: [0, -6, 0], meshes: [ponytailSegment(2.1, 2.4, 1.8, 6.5, 4)] },
-  { joint: 'ponytail3', parent: 'ponytail2', offset: [0, -6.5, 0], meshes: [ponytailSegment(1.8, 1.9, 1.3, 6, 5)] },
-  { joint: 'ponytail4', parent: 'ponytail3', offset: [0, -6, 0], meshes: ponytailTip() },
-  { joint: 'scarfA', parent: 'chest', offset: [1.8, 10, -3.1], meshes: scarfTail(5.5, 1.4, 1.1, 1) },
-  { joint: 'scarfA2', parent: 'scarfA', offset: [0, -5.5, 0], meshes: [tone(prism(4, 0.3, -4.5, [1.1, 0.3], [0.12, 0.2], SCARF[0]), SCARF, 2)] },
-  { joint: 'scarfB', parent: 'chest', offset: [2.9, 10.2, -2.4], meshes: [tone(prism(4, 0.3, -6, [1.1, 0.3], [0.1, 0.2], SCARF[2]), SCARF, 3)] },
+  // 馬尾垂到腰：三段 7 長 + 尖端
+  { joint: 'ponytail2', parent: 'ponytail', offset: [0, -6, 0], meshes: ponytailSegment(2.5, 2.9, 2.3, 7, 4) },
+  { joint: 'ponytail3', parent: 'ponytail2', offset: [0, -7, 0], meshes: ponytailSegment(2.3, 2.5, 2.1, 7, 5) },
+  { joint: 'ponytail4', parent: 'ponytail3', offset: [0, -7, 0], meshes: ponytailTip() },
   ...arm(1),
   ...arm(-1),
   { joint: 'weapon', parent: 'handR', offset: [0, -2.3, 0.35], meshes: heroineSword() },
@@ -82,9 +80,6 @@ export const HEROINE: FigureModel = {
     ponytail2: { rate: 14, gravity: 0.45, clampTo: 'chest', maxZ: -0.1 },
     ponytail3: { rate: 9, gravity: 0.55, clampTo: 'chest', maxZ: 0.1 },
     ponytail4: { rate: 6, gravity: 0.6, clampTo: 'chest', maxZ: 0.2 },
-    scarfA: { rate: 12, gravity: 0.4, clampTo: 'chest', maxZ: -0.2 },
-    scarfA2: { rate: 8, gravity: 0.5 },
-    scarfB: { rate: 10, gravity: 0.4, clampTo: 'chest', maxZ: -0.2 },
     cloth: { rate: 14, gravity: 0.4 },
     clothBack: { rate: 10, gravity: 0.4 },
   },
