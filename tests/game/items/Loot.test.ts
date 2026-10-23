@@ -177,14 +177,25 @@ describe('掉寶的樓層成長', () => {
   it('lootTier 放大黃以上的權重，白 / 藍不變；超出設定的階級用最後一組', () => {
     const table = data.lootTables.get('loot.skeleton');
     expect(loot(1).rarityWeights(table)).toEqual(table.rarityWeights);
-    const deep = loot(4).rarityWeights(table);
-    const bonus = data.balance.loot.tierBonus[3]!;
+    const last = data.balance.loot.tierBonus.length;
+    const deep = loot(last).rarityWeights(table);
+    const bonus = data.balance.loot.tierBonus[last - 1]!;
     expect(deep.normal).toBe(table.rarityWeights.normal);
     expect(deep.magic).toBe(table.rarityWeights.magic);
     expect(deep.rare).toBeCloseTo(table.rarityWeights.rare * bonus.rare);
     expect(deep.legendary).toBeCloseTo(table.rarityWeights.legendary * bonus.legendary);
     expect(deep.mythic).toBeCloseTo(table.rarityWeights.mythic * bonus.mythic);
-    expect(loot(9).rarityWeights(table)).toEqual(deep);
+    expect(loot(last + 4).rarityWeights(table)).toEqual(deep);
+  });
+
+  it('20 層以後紫 / 橘的倍率約是 15～19 層的兩倍，紅不變；樓層對應到正確的 lootTier', () => {
+    const [, , mid, late, deep] = data.balance.loot.tierBonus;
+    expect(late!.epic).toBeCloseTo(mid!.epic * 2);
+    expect(late!.legendary).toBeCloseTo(mid!.legendary * 2);
+    expect(late!.mythic).toBe(mid!.mythic);
+    expect(deep!.epic).toBeGreaterThan(late!.epic);
+    const tierOf = (floor: number) => data.floors.all.find((f) => f.floors[0] <= floor && floor <= f.floors[1])!.lootTier;
+    expect([1, 5, 15, 19, 20, 24, 25, 30, 35].map(tierOf)).toEqual([1, 2, 3, 3, 4, 4, 5, 5, 5]);
   });
 
   it('精英額外掉落至少一件物品', () => {

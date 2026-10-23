@@ -99,7 +99,7 @@ const TEMPLE: Partial<FloorInput> = {
   packSize: [4, 7],
   eliteChance: 0.45,
   affixCount: [2, 2],
-  lootTier: 4,
+  lootTier: 5,
   chests: [7, 9],
 };
 
@@ -150,7 +150,7 @@ export const floors: FloorInput[] = [
     packSize: [4, 6],
     eliteChance: 0.35,
     affixCount: [1, 2],
-    lootTier: 3,
+    lootTier: 4,
     chests: [6, 8],
   }),
   // 深淵通道：大型開放空間
@@ -162,7 +162,7 @@ export const floors: FloorInput[] = [
     packSize: [4, 7],
     eliteChance: 0.4,
     affixCount: [2, 2],
-    lootTier: 4,
+    lootTier: 5,
     chests: [6, 8],
   }),
   // 深淵神殿：最大地圖；第 30 層是一般模式的最後一層（擊敗深淵魔王 = 已通關）
