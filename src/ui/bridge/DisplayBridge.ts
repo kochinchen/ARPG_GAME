@@ -23,6 +23,14 @@ export interface PreviewRect {
 let previewListener: ((rect: PreviewRect | null) => void) | null = null;
 let lastPreview: PreviewRect | null = null;
 
+/** 地圖：切換小地圖 / 全地圖、小地圖右邊讓出的寬度 */
+export interface MapControl {
+  toggle(): void;
+  setRightInset(px: number): void;
+}
+let map: MapControl | null = null;
+let lastInset = 0;
+
 function load(): DisplayState {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<DisplayState>;
@@ -44,6 +52,17 @@ export const displayBridge = {
   connectPreview(value: (rect: PreviewRect | null) => void): void {
     previewListener = value;
     value(lastPreview);
+  },
+  connectMap(value: MapControl): void {
+    map = value;
+    value.setRightInset(lastInset);
+  },
+  toggleMap(): void {
+    map?.toggle();
+  },
+  setMapInset(px: number): void {
+    lastInset = px;
+    map?.setRightInset(px);
   },
   setPreview(rect: PreviewRect | null): void {
     lastPreview = rect;

@@ -149,6 +149,16 @@ describe('自己鑲嵌 / 取下（不需商人、不花錢）', () => {
     expect(world.cursor.entry).toBeNull();
   });
 
+  it('觸控：指定第幾顆取下，其餘熔核保留原本順序', () => {
+    const { world, send } = farSetup();
+    world.equipment.equip(item('weapon', 'normal', 12, { max: 3, cores: [core('a'), core('b'), core('c')] }));
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' }, index: 1 });
+    expect(world.equipment.get('weapon')!.sockets!.cores.map((c) => c.uid)).toEqual(['a', 'c']);
+    expect(world.inventory.get(0)).toEqual({ kind: 'core', core: core('b') });
+    send({ type: 'RemoveCore', from: { kind: 'slot', slot: 'weapon' }, index: 5 }); // 沒有這一顆：不動作
+    expect(world.equipment.get('weapon')!.sockets!.cores.map((c) => c.uid)).toEqual(['a', 'c']);
+  });
+
   it('背包滿了：取下的熔核拿在手上；手上也有東西時不取並提示背包已滿', () => {
     const { world, send, events } = farSetup();
     const failed: string[] = [];

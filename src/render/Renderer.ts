@@ -319,13 +319,16 @@ export class Renderer {
     this.heroPreview.set(state);
   }
 
+  /** 小地圖右邊要讓出的寬度（觸控版 MP 球在右上角） */
+  minimapRightInset = 0;
+
   /** Tab：切換小地圖 / 全地圖 */
   toggleMap(): void {
     this.minimap.toggle();
   }
 
   private createMinimap(): MinimapView {
-    return new MinimapView(this.world.nav, this.world.floors.def?.theme, () => this.app.screen);
+    return new MinimapView(this.world.nav, this.world.floors.def?.theme, () => this.app.screen, () => this.minimapRightInset);
   }
 
   /** 小地圖上的標記（揭開後才顯示） */

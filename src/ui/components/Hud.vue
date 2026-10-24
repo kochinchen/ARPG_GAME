@@ -5,7 +5,8 @@ import type { GameView } from '../bridge/GameViewStore';
 import ResourceOrb from './ResourceOrb.vue';
 import SkillBar from './SkillBar.vue';
 
-const props = defineProps<{ hud: GameView['hud']; skillBar: GameView['skillBar'] }>();
+/** touch：iPad 版面（HP / MP 在上方，下方只留經驗條） */
+const props = defineProps<{ hud: GameView['hud']; skillBar: GameView['skillBar']; touch?: boolean }>();
 
 const xpPct = computed(() => Math.min(100, (props.hud.xp.value / Math.max(1, props.hud.xp.next)) * 100));
 
@@ -16,10 +17,10 @@ function usePotion(e: MouseEvent) {
 </script>
 
 <template>
-  <div class="orb-slot left" @pointerdown.stop>
+  <div class="orb-slot left" :class="{ touch }" @pointerdown.stop>
     <ResourceOrb id="hp-orb" label="HP" :value="hud.hp.value" :max="hud.hp.max" color="#b3261e" rim="#e0574b" />
   </div>
-  <div class="orb-slot right" @pointerdown.stop>
+  <div class="orb-slot right" :class="{ touch }" @pointerdown.stop>
     <ResourceOrb id="mp-orb" label="MP" :value="hud.mp.value" :max="hud.mp.max" color="#1f4fb8" rim="#5a8cf0" />
   </div>
 
@@ -33,7 +34,8 @@ function usePotion(e: MouseEvent) {
       <div class="xp-fill" :style="{ width: `${xpPct}%` }" />
       <span class="xp-text">Lv {{ hud.xp.level }} · {{ hud.xp.value }} / {{ hud.xp.next }}</span>
     </div>
-    <div class="row">
+    <!-- 觸控版：連段、藥水在右下的觸控按鈕，金幣在背包 -->
+    <div v-if="!touch" class="row">
       <button
         type="button"
         class="potion"
@@ -86,6 +88,20 @@ function usePotion(e: MouseEvent) {
 }
 .orb-slot.right {
   right: 16px;
+}
+/* 觸控版：放在上方兩角、縮小一點 */
+.orb-slot.touch {
+  top: 8px;
+  bottom: auto;
+  transform: scale(0.8);
+}
+.orb-slot.touch.left {
+  left: 8px;
+  transform-origin: top left;
+}
+.orb-slot.touch.right {
+  right: 8px;
+  transform-origin: top right;
 }
 .center {
   position: absolute;

@@ -80,7 +80,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
     </header>
 
     <!-- 賣出：拿著物品點這裡，或在背包 Ctrl + 點擊 -->
-    <button type="button" class="sell-zone" :class="{ ready: view.heldSellPrice !== null }" :disabled="view.heldSellPrice === null" @click="sellHeld">
+    <button type="button" class="sell-zone" data-drop="sell" :class="{ ready: view.heldSellPrice !== null }" :disabled="view.heldSellPrice === null" @click="sellHeld">
       <template v-if="view.heldSellPrice !== null">賣出手上的物品：+{{ view.heldSellPrice }} 金幣</template>
       <template v-else>賣出：從背包拿起物品後點這裡（或 Ctrl + 點擊背包物品）</template>
     </button>
@@ -143,6 +143,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
           class="ascend-slot"
           :class="{ filled: view.ascendSlot }"
           title="拿著裝備點這裡放進去；空手點這裡拿回來"
+          data-drop="ascend"
           @click="ascendSlot"
           @pointerenter="view.ascendSlot && hover($event, view.ascendSlot, 0, [])"
           @pointerleave="hovered = null"
@@ -211,6 +212,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
             class="ascend-slot"
             :class="{ filled: f }"
             title="拿著裝備（飾品以外）點這裡放進去；空手點這裡拿回來"
+            :data-drop="`fusion:${i}`"
             @click="fusionSlot($event, 'inputs', i)"
             @pointerenter="f && hover($event, f, 0, [])"
             @pointerleave="hovered = null"
@@ -227,6 +229,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
             class="ascend-slot jewel"
             :class="{ filled: f }"
             title="戒指或護身符（藍以上）：提高印記機率"
+            :data-drop="`jewel:${i}`"
             @click="fusionSlot($event, 'jewelry', i)"
             @pointerenter="f && hover($event, f, 0, [])"
             @pointerleave="hovered = null"

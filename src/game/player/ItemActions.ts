@@ -90,17 +90,19 @@ export class ItemActions {
   }
 
   /** 取下裝備上最後鑲入的熔核（孔保留）：放進背包，背包滿了才拿在手上（連按就一顆一顆取下）；背包滿、手上又有東西時不取 */
-  removeCore(from: CoreHost): void {
+  /** index：取下第幾顆（觸控點選熔核）；省略 = 最後鑲入的那顆 */
+  removeCore(from: CoreHost, index?: number): void {
     const item = from.kind === 'slot' ? this.equipment.get(from.slot) : itemIn(this.inventory.get(from.cell));
     const cores = item?.sockets?.cores ?? [];
-    const core = cores.at(-1);
+    const at = index ?? cores.length - 1;
+    const core = cores[at];
     if (!item || !core) return;
     // 背包滿了而且手上也拿著東西：放不下，不取
     if (this.inventory.isFull && this.cursor.entry) {
       this.events.emit('PickupFailed', { reason: 'inventoryFull' });
       return;
     }
-    const rest = cores.slice(0, -1);
+    const rest = cores.filter((_, i) => i !== at);
     if (from.kind === 'slot') this.equipment.setSockets(from.slot, { max: item.sockets!.max, cores: rest });
     else {
       this.inventory.take(from.cell);

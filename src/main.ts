@@ -125,6 +125,7 @@ async function bootstrap(): Promise<void> {
   const camera = new Camera(projection);
   const renderer = new Renderer(app, projection, world, camera, data);
   displayBridge.connect((s) => (renderer.showHelmet = s.showHelmet));
+  displayBridge.connectMap({ toggle: () => renderer.toggleMap(), setRightInset: (px) => (renderer.minimapRightInset = px) });
   // 預覽區是 UI 的畫面座標：換算成畫布座標
   displayBridge.connectPreview((rect) => {
     const canvas = app.canvas.getBoundingClientRect();

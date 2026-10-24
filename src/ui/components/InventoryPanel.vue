@@ -1,26 +1,70 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
-import type { CoreHost, EquipmentSlot, HoverTarget, InventoryView } from '../bridge/InventoryView';
+import { resolveHover, type CoreHost, type EquipmentSlot, type HoverTarget, type InventoryView } from '../bridge/InventoryView';
+import { createPress, isFinger } from '../bridge/TouchPress';
 import HeroPreview from './HeroPreview.vue';
 import ItemCell from './ItemCell.vue';
 
-const props = defineProps<{ view: InventoryView; gold: number; shopOpen?: boolean }>();
+/**
+ * touch：iPad 操作。手指輕點 = 選取（顯示說明與比較）；選取後長按 = 拿起，跟著手指拖到別的格子、裝備欄或商人放下（由 App 處理放下）。
+ * 手上已經拿著東西時，輕點照舊是放下。滑鼠操作不受影響。selected：目前選取的位置。
+ */
+const props = defineProps<{ view: InventoryView; gold: number; shopOpen?: boolean; touch?: boolean; selected?: HoverTarget | null }>();
+
+const press = createPress();
+/** 最近一次按下是手指：瀏覽器之後補發的 click 已由輕點 / 長按處理，不再當成滑鼠點擊（放下時 App 送的 click 不是使用者觸發，照常處理） */
+let fingerDown = false;
+const byFinger = (e: MouseEvent) => fingerDown && e.isTrusted;
+
+function command(target: HoverTarget) {
+  if (target.kind === 'cell') gameBridge.send({ type: 'InventoryClick', cell: target.cell });
+  else if (target.kind === 'slot') gameBridge.send({ type: 'EquipmentClick', slot: target.slot });
+  else gameBridge.send({ type: 'SalvageClick', slot: target.slot });
+}
+
+function sameTarget(a: HoverTarget | null | undefined, b: HoverTarget): boolean {
+  return a !== null && a !== undefined && JSON.stringify(a) === JSON.stringify(b);
+}
+
+function onPress(e: PointerEvent, target: HoverTarget) {
+  fingerDown = props.touch === true && isFinger(e);
+  if (!fingerDown) return;
+  const el = e.currentTarget as HTMLElement;
+  press.down(
+    e,
+    () => {
+      if (props.view.held) command(target);
+      else emit('select', target);
+    },
+    () => {
+      if (props.view.held) return;
+      if (sameTarget(props.selected, target) && resolveHover(props.view, target)) {
+        command(target);
+        emit('grab', el);
+      } else emit('select', target);
+    },
+  );
+}
 
 /** 商店開啟時 Ctrl + 點擊 = 賣出；否則拿起 / 放下 */
 function clickCell(e: MouseEvent, cell: number) {
   (e.currentTarget as HTMLElement).blur();
+  if (byFinger(e)) return;
   if (props.shopOpen && (e.ctrlKey || e.metaKey) && props.view.cells[cell]) gameBridge.send({ type: 'ShopSell', cell });
   else gameBridge.send({ type: 'InventoryClick', cell });
 }
 
 /** 右鍵有熔核的裝備：取下最後鑲入的那顆，放進背包（背包滿了才拿在手上） */
 function removeCore(from: CoreHost) {
+  // 手指長按在部分瀏覽器會觸發右鍵選單：觸控改在說明框點選熔核取下
+  if (fingerDown) return;
   gameBridge.send({ type: 'RemoveCore', from });
 }
 
 function salvageClick(e: MouseEvent, slot: number) {
   (e.currentTarget as HTMLElement).blur();
+  if (byFinger(e)) return;
   gameBridge.send({ type: 'SalvageClick', slot });
 }
 function salvageAll(e: MouseEvent) {
@@ -42,7 +86,20 @@ const emit = defineEmits<{
   close: [];
   /** 滑鼠所在的背包格 / 裝備欄（null = 離開） */
   hover: [target: HoverTarget | null];
+  /** 觸控：選取某一格（顯示說明） */
+  select: [target: HoverTarget];
+  /** 觸控：長按拿起了某一格的物品（origin = 那一格，放到無效位置時放回去） */
+  grab: [origin: HTMLElement];
 }>();
+
+/** 觸控時不送滑鼠 hover（手指按下也會觸發 pointerenter） */
+function hover(e: PointerEvent, target: HoverTarget | null) {
+  if (!isFinger(e)) emit('hover', target);
+}
+function clickEquip(e: MouseEvent, slot: EquipmentSlot) {
+  if (byFinger(e)) return;
+  gameBridge.send({ type: 'EquipmentClick', slot });
+}
 
 /** 裝備欄排列（紙娃娃式簡化版） */
 const LAYOUT: { slot: EquipmentSlot; area: string }[] = [
@@ -61,8 +118,17 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
 </script>
 
 <template>
-  <HeroPreview />
-  <aside class="panel" @pointerdown.stop @contextmenu.prevent @pointerleave="emit('hover', null)">
+  <HeroPreview v-if="!touch" />
+  <aside
+    class="panel"
+    :class="{ touch }"
+    @pointerdown.stop
+    @contextmenu.prevent
+    @pointerleave="hover($event, null)"
+    @pointermove="press.move"
+    @pointerup="press.up"
+    @pointercancel="press.cancel"
+  >
     <header>
       <span>角色 · 背包</span>
       <button type="button" class="sort" title="依裝備類別、物品等級（高到低）排列，藥水合併放最後" @click="sort">整理</button>
@@ -75,12 +141,15 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
         :key="slot"
         type="button"
         class="equip"
+        :class="{ selected: sameTarget(selected, { kind: 'slot', slot }) }"
         :style="{ gridArea: area }"
         :aria-label="bySlot.get(slot)?.label"
-        @click="gameBridge.send({ type: 'EquipmentClick', slot })"
+        :data-drop="`slot:${slot}`"
+        @click="clickEquip($event, slot)"
         @contextmenu.prevent="removeCore({ kind: 'slot', slot })"
-        @pointerenter="emit('hover', { kind: 'slot', slot })"
-        @pointerleave="emit('hover', null)"
+        @pointerdown="onPress($event, { kind: 'slot', slot })"
+        @pointerenter="hover($event, { kind: 'slot', slot })"
+        @pointerleave="hover($event, null)"
       >
         <ItemCell v-if="bySlot.get(slot)?.item" :entry="bySlot.get(slot)!.item" size="slot" />
         <span v-else class="slot-label">{{ bySlot.get(slot)?.label }}</span>
@@ -115,9 +184,12 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
           :key="slot"
           type="button"
           class="cell"
+          :class="{ selected: sameTarget(selected, { kind: 'salvage', slot }) }"
+          :data-drop="`salvage:${slot}`"
           @click="salvageClick($event, slot)"
-          @pointerenter="emit('hover', { kind: 'salvage', slot })"
-          @pointerleave="emit('hover', null)"
+          @pointerdown="onPress($event, { kind: 'salvage', slot })"
+          @pointerenter="hover($event, { kind: 'salvage', slot })"
+          @pointerleave="hover($event, null)"
         >
           <ItemCell :entry="entry" />
         </button>
@@ -131,15 +203,19 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
           :key="cell"
           type="button"
           class="cell"
+          :class="{ selected: sameTarget(selected, { kind: 'cell', cell }) }"
+          :data-drop="`cell:${cell}`"
           @click="clickCell($event, cell)"
           @contextmenu.prevent="removeCore({ kind: 'cell', cell })"
-          @pointerenter="emit('hover', { kind: 'cell', cell })"
-          @pointerleave="emit('hover', null)"
+          @pointerdown="onPress($event, { kind: 'cell', cell })"
+          @pointerenter="hover($event, { kind: 'cell', cell })"
+          @pointerleave="hover($event, null)"
         >
           <ItemCell :entry="entry" />
         </button>
       </div>
-      <p v-if="shopOpen" class="hint shop">Ctrl（Mac：⌘）+ 點擊：賣給商人 · 或拿起物品放到商人的「賣出」區</p>
+      <p v-if="touch" class="hint">點一下看內容 · 選取後長按拿起，拖到格子、裝備欄或商人放下</p>
+      <p v-else-if="shopOpen" class="hint shop">Ctrl（Mac：⌘）+ 點擊：賣給商人 · 或拿起物品放到商人的「賣出」區</p>
       <p v-else class="hint">點擊拿起 · 再點背包格或裝備欄放下 · 拿著物品點地面可丟棄 · 拿著熔核點有空孔的裝備鑲入，右鍵裝備取下熔核</p>
     </section>
   </aside>
@@ -229,6 +305,43 @@ section {
 .equip:hover,
 .cell:hover {
   border-color: #c8a25a;
+}
+/* 觸控：選取中的格子 */
+.equip.selected,
+.cell.selected {
+  border-color: #f0e2c0;
+  box-shadow: 0 0 0 1px #f0e2c0;
+}
+/* 觸控：面板高度要放得下整個背包（格子上不能捲動），裝備欄與數值並排 */
+.panel.touch {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-content: start;
+}
+.panel.touch > * {
+  grid-column: 1 / -1;
+}
+.panel.touch > .doll {
+  grid-column: 1;
+  grid-template-rows: 48px 60px 48px;
+  border-right: 1px solid #2a2420;
+}
+.panel.touch > .stats {
+  grid-column: 2;
+  padding-left: 8px;
+}
+.panel.touch .stats dl {
+  grid-template-columns: auto 1fr;
+  font-size: 11px;
+  line-height: 1.35;
+}
+/* 觸控：格子上不捲動、不跳出系統選單（長按要拿起物品） */
+.panel.touch .equip,
+.panel.touch .cell {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .slot-label {
   font-size: 11px;

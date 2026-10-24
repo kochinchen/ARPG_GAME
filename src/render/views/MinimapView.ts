@@ -45,6 +45,8 @@ export class MinimapView {
     private readonly nav: NavGrid,
     theme: DungeonTheme = 'crypt',
     private readonly screen: () => { width: number; height: number },
+    /** 小地圖右邊要讓出的寬度（觸控版 MP 球在右上角） */
+    private readonly rightInset: () => number = () => 0,
   ) {
     const t = THEMES[theme];
     this.floorColor = t.floorA + 0x181818;
@@ -71,7 +73,7 @@ export class MinimapView {
     const { width, height } = this.screen();
     const w = this.large ? width - 80 : SMALL.width;
     const h = this.large ? height - 160 : SMALL.height;
-    const x0 = this.large ? 40 : width - SMALL.width - 12;
+    const x0 = this.large ? 40 : width - SMALL.width - 12 - this.rightInset();
     const y0 = this.large ? 60 : 52;
 
     this.frame.clear();

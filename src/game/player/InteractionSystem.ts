@@ -1,4 +1,5 @@
-import { distance } from '../../core/math/Vec2';
+import { distance, type Vec2 } from '../../core/math/Vec2';
+import { RARITIES } from '../../data/schema/item';
 import type { Actor } from '../entities/Actor';
 import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp, Waypoint } from '../entities/Interactable';
 import type { GameEventBus } from '../GameEvents';
@@ -74,6 +75,54 @@ export class InteractionSystem {
 
   clear(): void {
     this.targetId = null;
+  }
+
+  /**
+   * 觸控「拿取」鈕：range 內最該撿的東西。順序：藥水（帶滿了跳過）→ 裝備與熔核（紅 → 橘 → 紫 → 黃 → 藍 → 白，
+   * 背包滿了跳過）→ 金幣、材料 → 寶箱 → 商人；同一級取最近的。玩家自己丟下的不撿。
+   * 附近有東西但全都放不下時回傳放不下的原因。
+   */
+  pickNearby(range: number): { id: number } | { failed: 'inventoryFull' | 'potionCap' } | null {
+    const near = (p: Vec2) => distance(this.player.position, p) <= range;
+    const rank = (target: Interactable): number | null => {
+      if (target.kind === 'chest') return 20;
+      if (target.kind === 'merchant') return 30;
+      if (target.kind !== 'ground' || target.droppedByPlayer) return null;
+      const c = target.content;
+      if (c.kind === 'potion') return this.inventory.potionRoom(c.potionId) > 0 ? 0 : null;
+      if (c.kind === 'item' || c.kind === 'core') {
+        if (this.inventory.isFull) return null;
+        // 稀有度高的先撿；同稀有度裝備先於熔核
+        const rarity = c.kind === 'item' ? c.item.rarity : c.core.rarity;
+        return 1 + (RARITIES.length - 1 - RARITIES.indexOf(rarity)) * 2 + (c.kind === 'core' ? 1 : 0);
+      }
+      return 15;
+    };
+    let best: { id: number; rank: number; d: number } | null = null;
+    let blocked: 'inventoryFull' | 'potionCap' | null = null;
+    const candidates: Interactable[] = [...this.world.groundItems, ...this.world.chests.filter((c) => !c.opened), ...this.world.merchants];
+    for (const target of candidates) {
+      if (!near(target.position)) continue;
+      const r = rank(target);
+      if (r === null) {
+        if (target.kind === 'ground' && !target.droppedByPlayer) blocked ??= target.content.kind === 'potion' ? 'potionCap' : 'inventoryFull';
+        continue;
+      }
+      const d = distance(this.player.position, target.position);
+      if (!best || r < best.rank || (r === best.rank && d < best.d)) best = { id: target.id, rank: r, d };
+    }
+    if (best) return { id: best.id };
+    return blocked ? { failed: blocked } : null;
+  }
+
+  /** range 內最近的商人 */
+  merchantNear(range: number): Merchant | null {
+    let best: Merchant | null = null;
+    for (const m of this.world.merchants) {
+      const d = distance(this.player.position, m.position);
+      if (d <= range && (!best || d < distance(this.player.position, best.position))) best = m;
+    }
+    return best;
   }
 
   update(): void {

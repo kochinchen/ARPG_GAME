@@ -21,6 +21,10 @@ const STICK_LOOKAHEAD = 2;
 const AUTO_AIM_RANGE = 8;
 /** 觸控攻擊附近沒有敵人時，朝面向前方多遠出手 */
 const AIR_SWING_DISTANCE = 2;
+/** 觸控拿取鈕：多遠內的東西算數（Tile） */
+const PICK_RANGE = 5;
+/** 觸控攻擊鈕：附近沒有敵人、商人在這個距離內時改成打開商人 */
+const MERCHANT_RANGE = 4;
 
 /**
  * 把 Command 轉成玩家意圖。只協調其他系統，不自己計算移動或傷害。
@@ -35,7 +39,8 @@ const AIR_SWING_DISTANCE = 2;
  *
  * 觸控（iPad）：
  * - 搖桿：朝方向持續移動；攻擊或連段進行中不會被搖桿打斷
- * - 攻擊鈕 / 招式鈕：自動瞄準範圍內最近的敵人；附近沒有敵人就原地朝面向出手
+ * - 攻擊鈕 / 招式鈕：自動瞄準範圍內最近的敵人；附近沒有敵人就原地朝面向出手（攻擊鈕在商人旁邊則打開商人）
+ * - 拿取鈕：走過去撿附近最該撿的東西，見 InteractionSystem.pickNearby
  */
 export class PlayerController {
   /** 這次左鍵按下時決定的模式，按住期間維持不變 */
@@ -91,6 +96,9 @@ export class PlayerController {
         else this.castRight(this.ahead(), null, true);
         break;
       }
+      case 'AutoInteract':
+        this.autoInteract();
+        break;
       case 'SelectRightSlot':
         // 還沒解鎖的按鍵不能選
         if (command.slot < this.unlockedKeys()) this.loadout.select(command.slot);
@@ -105,7 +113,7 @@ export class PlayerController {
         this.items.clickEquipment(command.slot);
         break;
       case 'RemoveCore':
-        this.items.removeCore(command.from);
+        this.items.removeCore(command.from, command.index);
         break;
       case 'LearnSkill':
         this.learn(command.skillId);
@@ -232,18 +240,49 @@ export class PlayerController {
     this.moveTo(add(this.player.position, scale(normalize(dir), STICK_LOOKAHEAD)));
   }
 
-  /** 觸控攻擊鈕：打最近的敵人；按住時持續攻擊同一目標，目標死了換下一個 */
+  /** 觸控攻擊鈕：打最近的敵人；按住時持續攻擊同一目標，目標死了換下一個。附近沒有敵人但有商人：走過去打開商店 */
   private autoAttack(held: boolean): void {
+    // 按下時改成走向商人：按住期間維持，不出手
+    if (held && this.holdMode === 'interact') return;
     if (!held) this.castCountAtPress = this.player.castCount;
-    this.holdMode = 'attack';
     const intent = this.player.intent;
     if (held && intent?.skillId === this.loadout.left && intent.targetId !== null && this.targeting.getValidTarget(this.player, intent.targetId)) {
+      this.holdMode = 'attack';
       intent.hold = true;
       return;
     }
     const target = this.targeting.nearestHostile(this.player, AUTO_AIM_RANGE);
+    if (!target && !held && this.openMerchantNearby()) return;
+    this.holdMode = 'attack';
     if (target) this.attack(target, true);
     else this.castInPlace(this.ahead(), null, held);
+  }
+
+  /** 觸控拿取鈕：附近有東西就走過去撿；都放不下時提示 */
+  private autoInteract(): void {
+    if (this.items.holding) return;
+    const pick = this.interaction.pickNearby(PICK_RANGE);
+    if (!pick) return;
+    if ('failed' in pick) {
+      this.events.emit('PickupFailed', { reason: pick.failed });
+      return;
+    }
+    this.startInteract(pick.id);
+  }
+
+  /** 商人在附近：走過去打開商店 */
+  private openMerchantNearby(): boolean {
+    const merchant = this.interaction.merchantNear(MERCHANT_RANGE);
+    if (!merchant) return false;
+    this.startInteract(merchant.id);
+    return true;
+  }
+
+  private startInteract(id: number): void {
+    this.holdMode = 'interact';
+    this.combos.cancel(this.player);
+    this.player.intent = null;
+    this.interaction.setTarget(id);
   }
 
   /** 面向前方的點（觸控沒有游標，附近沒有敵人時朝這裡出手） */

@@ -8,6 +8,9 @@ import type { GameWorld } from '../../game/GameWorld';
 import { slotsForBase } from '../../game/items/Equipment';
 import type { InventoryEntry } from '../../game/items/Inventory';
 import { describeItem, formatValue, SLOT_LABELS, STAT_LABELS } from '../../game/items/ItemDescriber';
+import { itemStats } from '../../game/items/ItemStats';
+import type { StatId } from '../../data/schema/common';
+import type { ModifierKind } from '../../game/stats/StatBlock';
 import { EQUIPMENT_SLOTS, type EquipmentSlot, type ItemInstance } from '../../game/items/ItemInstance';
 import { itemValue, sellPrice } from '../../game/items/Pricing';
 import { affixTier } from '../../game/items/ItemGenerator';
@@ -37,12 +40,14 @@ export interface EntryView {
   affixLines: string[];
   /** 孔位（v0.5.0）：已鑲入的熔核在這個部位的效果、空孔 */
   socketLines?: { text: string; rarity: Rarity | null }[] | undefined;
-  /** 孔位圖示（依孔的順序）：鑲好的孔是熔核縮圖、空孔是空心六角；格子角落與說明框底部都會顯示 */
-  sockets?: { icon: string; name: string | null }[] | undefined;
+  /** 孔位圖示（依孔的順序）：鑲好的孔是熔核縮圖、空孔是空心六角；格子角落與說明框底部都會顯示。core：觸控點選熔核時顯示的內容 */
+  sockets?: { icon: string; name: string | null; core?: EntryView }[] | undefined;
   /** 熔核：鑲在各部位的主屬性 */
   coreSlots?: { label: string; texts: string[] }[] | undefined;
   /** 物品可以穿在哪些裝備欄（比較用） */
   equipSlots: EquipmentSlot[];
+  /** 裝備的數值合計（比較差異用；key = 屬性|加成方式）：基礎屬性與詞綴，不含熔核與特殊效果 */
+  statTotals?: Record<string, number> | undefined;
   count: number;
   /** 物品等級（藥水為 0） */
   itemLevel: number;
@@ -146,15 +151,40 @@ export function itemEntryView(item: ItemInstance, data: DataRegistry): EntryView
       sockets: item.sockets?.max
         ? Array.from({ length: item.sockets.max }, (_, i) => {
             const core = item.sockets!.cores[i];
-            return core ? { icon: coreIcon(core), name: `${coreName(core, data)} T${core.tier}` } : { icon: EMPTY_SOCKET_ICON, name: null };
+            return core
+              ? { icon: coreIcon(core), name: `${coreName(core, data)} T${core.tier}`, core: coreEntryView(core, data) }
+              : { icon: EMPTY_SOCKET_ICON, name: null };
           })
         : undefined,
       equipSlots: slotsForBase(d.slot),
+      statTotals: statTotalsOf(item, data),
       count: 1,
       itemLevel: item.itemLevel,
       tier: affixTier(item.itemLevel, data.balance),
       sellPrice: itemValue(item, data),
     };
+}
+
+function statTotalsOf(item: ItemInstance, data: DataRegistry): Record<string, number> {
+  const stats = itemStats(item, data);
+  const totals: Record<string, number> = {};
+  const add = (key: string, value: number) => (totals[key] = (totals[key] ?? 0) + value);
+  for (const [stat, value] of Object.entries(stats.baseStats)) add(`${stat}|flat`, value);
+  for (const { def, value } of stats.affixes) add(`${def.stat}|${def.modifier}`, value);
+  return totals;
+}
+
+/** 換上 next 取代 current 後各屬性的增減（up = 變多）；只比較數值，不含熔核與特殊效果 */
+export function statDiff(next: EntryView, current: EntryView): { text: string; up: boolean }[] {
+  const a = next.statTotals ?? {};
+  const b = current.statTotals ?? {};
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
+  return keys.flatMap((key) => {
+    const d = (a[key] ?? 0) - (b[key] ?? 0);
+    if (Math.abs(d) < 1e-9) return [];
+    const [stat, kind] = key.split('|') as [StatId, ModifierKind];
+    return [{ text: `${formatValue(stat, kind, d, true)} ${STAT_LABELS[stat]}`, up: d > 0 }];
+  });
 }
 
 /** 熔核（v0.5.0）：各部位的主屬性、副屬性、印記 */

@@ -36,6 +36,8 @@ export type GameCommand =
   | { type: 'AutoAttack'; held: boolean }
   /** 觸控招式鈕：自動瞄準最近的敵人施放目前的 Q / W / E 連段 */
   | { type: 'AutoCastRight' }
+  /** 觸控拿取鈕：走過去撿附近最該撿的東西（藥水 → 裝備依稀有度 → 金幣材料 → 寶箱 → 商人） */
+  | { type: 'AutoInteract' }
   /** Q / W / E：選擇右鍵要施放的連段 */
   | { type: 'SelectRightSlot'; slot: ComboKey }
   /** Space：同時回復 HP 與 MP */
@@ -44,8 +46,8 @@ export type GameCommand =
   | { type: 'InventoryClick'; cell: number }
   /** 裝備欄：手上沒東西 → 拿起；有東西 → 穿上（互換） */
   | { type: 'EquipmentClick'; slot: EquipmentSlot }
-  /** 右鍵背包格 / 裝備欄：取下那件裝備最後鑲入的熔核，放進背包（背包滿了才拿在手上） */
-  | { type: 'RemoveCore'; from: CoreHost }
+  /** 右鍵背包格 / 裝備欄：取下那件裝備最後鑲入的熔核（觸控可指定第 index 顆），放進背包（背包滿了才拿在手上） */
+  | { type: 'RemoveCore'; from: CoreHost; index?: number }
   /** 技能樹：學習或升級一級 */
   | { type: 'LearnSkill'; skillId: string }
   /** 技能樹：花一次開通次數打開某類別的 T4 */

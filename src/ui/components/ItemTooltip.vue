@@ -7,7 +7,14 @@ defineProps<{
   caption?: string;
   /** 商人貨架：購買價格 */
   price?: number;
+  /** 觸控：孔位可以點（點 = 看熔核內容，選取後長按 = 取下） */
+  socketTouch?: boolean;
+  /** 觸控：選取中的孔 */
+  selectedSocket?: number | null;
+  /** 與目前裝備相比的增減（每件目前裝備一組） */
+  diffs?: { caption: string; lines: { text: string; up: boolean }[] }[];
 }>();
+const emit = defineEmits<{ socketPress: [e: PointerEvent, index: number] }>();
 </script>
 
 <template>
@@ -41,11 +48,23 @@ defineProps<{
       </template>
       <li v-for="(s, i) in entry.socketLines ?? []" :key="`k-${i}`" class="socket" :class="s.rarity ? `r-${s.rarity}` : 'empty'">{{ s.text }}</li>
     </ul>
+    <div v-for="(d, i) in diffs ?? []" :key="`d-${i}`" class="diff">
+      <div class="diff-caption">{{ d.caption }}</div>
+      <div v-for="l in d.lines" :key="l.text" :class="l.up ? 'up' : 'down'">{{ l.text }}</div>
+      <div v-if="d.lines.length === 0" class="same">數值相同</div>
+    </div>
     <div v-if="entry.legendary" class="lore">「{{ entry.legendary.lore }}」</div>
     <div v-if="entry.kind === 'core'" class="price">不能賣 · 可以拆解成武器精華</div>
     <div v-else class="price">賣出 {{ entry.sellPrice }} 金幣<template v-if="price !== undefined"> · 購買 {{ price }} 金幣</template></div>
     <div v-if="entry.sockets" class="socket-row" :aria-label="`孔位 ${entry.sockets.length}`">
-      <span v-for="(s, i) in entry.sockets" :key="i" class="socket" :class="{ empty: !s.name }" :title="s.name ?? '空孔'">
+      <span
+        v-for="(s, i) in entry.sockets"
+        :key="i"
+        class="socket"
+        :class="{ empty: !s.name, touchable: socketTouch && s.core, picked: socketTouch && selectedSocket === i }"
+        :title="s.name ?? '空孔'"
+        @pointerdown="socketTouch && s.core && emit('socketPress', $event, i)"
+      >
         <img :src="s.icon" alt="" />
       </span>
     </div>
@@ -70,6 +89,39 @@ defineProps<{
 }
 .socket-row .socket.empty img {
   opacity: 0.85;
+}
+/* 與目前裝備相比 */
+.diff {
+  margin-top: 6px;
+  padding-top: 4px;
+  font-size: 11px;
+  border-top: 1px solid #3d342c;
+}
+.diff-caption,
+.diff .same {
+  color: #8a7c68;
+}
+.diff .up {
+  color: #7fe07f;
+}
+.diff .down {
+  color: #ff7b6b;
+}
+/* 觸控：可以點的熔核（加大點擊範圍）、選取中的熔核 */
+.socket-row .socket.touchable {
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+.socket-row .socket.touchable img {
+  width: 40px;
+  height: 40px;
+}
+.socket-row .socket.picked {
+  border-color: #f0e2c0;
+  background: rgb(240 226 192 / 10%);
 }
 li.socket {
   font-size: 11px;

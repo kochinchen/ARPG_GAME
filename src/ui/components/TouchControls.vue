@@ -5,7 +5,7 @@ import type { ComboBarView, GameView } from '../bridge/GameViewStore';
 import { touchBridge } from '../bridge/TouchBridge';
 
 /**
- * iPad 觸控操作：左邊浮動搖桿，右邊攻擊（= 左鍵）、招式（= 右鍵）、Q / W / E / R、藥水。
+ * iPad 觸控操作：左下浮動搖桿；右下攻擊（= 左鍵）、拿取、Q / W / E / R（按下 = 對最近的敵人施放那一組連段）、藥水。
  * 平常半透明，按下時才亮起。只送 Command，不碰遊戲狀態。
  */
 const props = defineProps<{ skillBar: GameView['skillBar']; potions: number }>();
@@ -93,36 +93,52 @@ const stickStyle = computed(() =>
 const knobStyle = computed(() => ({ transform: `translate(${stick.dx}px, ${stick.dy}px)` }));
 
 // ---- 按鈕 ----
-const pressed = reactive({ attack: false, cast: false });
-const timers: Partial<Record<'attack' | 'cast', number>> = {};
+const pressed = reactive({ attack: false, combo: -1 });
+let attackTimer = 0;
+let comboTimer = 0;
 
-function hold(e: PointerEvent, which: 'attack' | 'cast') {
+function holdAttack(e: PointerEvent) {
   capture(e);
-  pressed[which] = true;
-  if (which === 'attack') {
-    gameBridge.send({ type: 'AutoAttack', held: false });
-    timers.attack = window.setInterval(() => gameBridge.send({ type: 'AutoAttack', held: true }), REPEAT_MS);
-  } else {
-    gameBridge.send({ type: 'AutoCastRight' });
-    timers.cast = window.setInterval(() => gameBridge.send({ type: 'AutoCastRight' }), REPEAT_MS);
-  }
+  pressed.attack = true;
+  gameBridge.send({ type: 'AutoAttack', held: false });
+  attackTimer = window.setInterval(() => gameBridge.send({ type: 'AutoAttack', held: true }), REPEAT_MS);
 }
 
-function release(which: 'attack' | 'cast') {
-  if (!pressed[which]) return;
-  pressed[which] = false;
-  window.clearInterval(timers[which]);
-  if (which === 'attack') gameBridge.send({ type: 'PrimaryRelease' });
+function releaseAttack() {
+  if (!pressed.attack) return;
+  pressed.attack = false;
+  window.clearInterval(attackTimer);
+  gameBridge.send({ type: 'PrimaryRelease' });
 }
 
-function selectCombo(combo: ComboBarView) {
+/** Q / W / E / R：選這一組並對最近的敵人施放；按住則這組結束後再施放 */
+function holdCombo(e: PointerEvent, combo: ComboBarView) {
   if (combo.unlockLevel !== null) return;
+  capture(e);
+  pressed.combo = combo.index;
   gameBridge.send({ type: 'SelectRightSlot', slot: combo.index });
+  gameBridge.send({ type: 'AutoCastRight' });
+  window.clearInterval(comboTimer);
+  comboTimer = window.setInterval(() => gameBridge.send({ type: 'AutoCastRight' }), REPEAT_MS);
+}
+
+function releaseCombo() {
+  pressed.combo = -1;
+  window.clearInterval(comboTimer);
 }
 
 /** 手機版只放 Q / W / E / R 四個按鈕（A / S / D 在小螢幕放不下，暫不提供） */
 const TOUCH_COMBOS = 4;
 const touchCombos = computed(() => props.skillBar.combos.slice(0, TOUCH_COMBOS));
+/** 連段按鈕上的小字：這組的第一招 */
+const comboLabel = (combo: ComboBarView) => combo.steps.find((step) => step.skill)?.skill?.name ?? '—';
+
+const picking = ref(false);
+function pick() {
+  gameBridge.send({ type: 'AutoInteract' });
+  picking.value = true;
+  window.setTimeout(() => (picking.value = false), 150);
+}
 
 const flash = ref(false);
 function drink() {
@@ -131,13 +147,10 @@ function drink() {
   window.setTimeout(() => (flash.value = false), 150);
 }
 
-const activeCombo = computed(() => props.skillBar.combos.find((c) => c.active) ?? null);
-const castLabel = computed(() => activeCombo.value?.steps.find((s) => s.skill)?.skill?.name ?? '—');
-
 onBeforeUnmount(() => {
   window.clearInterval(stickTimer);
-  window.clearInterval(timers.attack);
-  window.clearInterval(timers.cast);
+  window.clearInterval(attackTimer);
+  window.clearInterval(comboTimer);
 });
 </script>
 
@@ -156,39 +169,34 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- 右：攻擊、招式、Q / W / E / R、藥水 -->
+    <!-- 右下：攻擊（大）；Q / W / E / R 圍成弧形；拿取在左、藥水在上 -->
     <button
       type="button"
       class="btn attack"
       :class="{ on: pressed.attack, dim: skillBar.left && !skillBar.left.affordable }"
-      @pointerdown.stop.prevent="hold($event, 'attack')"
-      @pointerup="release('attack')"
-      @pointercancel="release('attack')"
+      @pointerdown.stop.prevent="holdAttack"
+      @pointerup="releaseAttack"
+      @pointercancel="releaseAttack"
     >
       <span class="big">攻擊</span>
       <span class="small">{{ skillBar.left?.name ?? '—' }}</span>
-    </button>
-    <button
-      type="button"
-      class="btn cast"
-      :class="{ on: pressed.cast }"
-      @pointerdown.stop.prevent="hold($event, 'cast')"
-      @pointerup="release('cast')"
-      @pointercancel="release('cast')"
-    >
-      <span class="big">{{ activeCombo?.key ?? '招式' }}</span>
-      <span class="small">{{ castLabel }}</span>
     </button>
     <button
       v-for="combo in touchCombos"
       :key="combo.key"
       type="button"
       class="btn combo"
-      :class="[`slot-${combo.index}`, { on: combo.active, locked: combo.unlockLevel !== null }]"
-      @pointerdown.stop.prevent="selectCombo(combo)"
+      :class="[`slot-${combo.index}`, { on: pressed.combo === combo.index, active: combo.active, locked: combo.unlockLevel !== null }]"
+      @pointerdown.stop.prevent="holdCombo($event, combo)"
+      @pointerup="releaseCombo"
+      @pointercancel="releaseCombo"
     >
-      {{ combo.key }}
-      <span v-if="combo.unlockLevel !== null" class="lock-level">Lv{{ combo.unlockLevel }}</span>
+      <span class="big">{{ combo.key }}</span>
+      <span v-if="combo.unlockLevel !== null" class="small">Lv{{ combo.unlockLevel }}</span>
+      <span v-else class="small">{{ comboLabel(combo) }}</span>
+    </button>
+    <button type="button" class="btn pick" :class="{ on: picking }" @pointerdown.stop.prevent="pick">
+      <span class="big">拿取</span>
     </button>
     <button
       type="button"
@@ -215,7 +223,7 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 
-/* 搖桿區：左半邊下方，避開頂端的樓層資訊 */
+/* 搖桿區：左半邊下方，避開左上角的 HP 球 */
 .stick-zone {
   position: absolute;
   left: 0;
@@ -227,7 +235,7 @@ onBeforeUnmount(() => {
 .stick {
   position: fixed;
   left: 150px;
-  bottom: 230px;
+  bottom: 150px;
   width: 128px;
   height: 128px;
   margin: -64px 0 -64px -64px;
@@ -294,60 +302,59 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 
-/* 位置：避開右下角的 MP 球與選單列（約 150px 高） */
+/*
+ * 位置：攻擊鈕在右下角（中心距右、下各 74px）；Q / W / E / R 在半徑 130px 的弧上（R 在左、E 在正上方），
+ * 拿取在更外圈的左邊、藥水在正上方。右上方的選單列直排在這些按鈕上面。
+ */
 .attack {
-  right: 28px;
-  bottom: 176px;
-  width: 96px;
-  height: 96px;
+  right: 24px;
+  bottom: 24px;
+  width: 100px;
+  height: 100px;
   background: rgb(90 30 20 / 55%);
 }
-.cast {
-  right: 134px;
-  bottom: 160px;
-  width: 74px;
-  height: 74px;
-  background: rgb(20 40 90 / 55%);
-}
 .combo {
-  width: 50px;
-  height: 50px;
+  width: 58px;
+  height: 58px;
+}
+.combo .big {
   font-size: 16px;
-  font-weight: bold;
 }
-.combo.on {
-  transform: none;
-}
-.combo.slot-0 {
-  right: 140px;
-  bottom: 248px;
-}
-.combo.slot-1 {
-  right: 92px;
-  bottom: 290px;
-}
-.combo.slot-2 {
-  right: 30px;
-  bottom: 292px;
+.combo.active {
+  border-color: rgb(120 160 255 / 80%);
 }
 .combo.slot-3 {
-  right: 196px;
-  bottom: 236px;
+  right: 175px;
+  bottom: 45px;
+}
+.combo.slot-0 {
+  right: 158px;
+  bottom: 110px;
+}
+.combo.slot-1 {
+  right: 110px;
+  bottom: 158px;
+}
+.combo.slot-2 {
+  right: 45px;
+  bottom: 175px;
 }
 .combo.locked {
-  opacity: 0.45;
+  opacity: 0.3;
 }
-.lock-level {
-  position: absolute;
-  bottom: 3px;
-  left: 0;
-  right: 0;
-  font-size: 9px;
-  font-weight: normal;
+.pick {
+  right: 262px;
+  bottom: 42px;
+  width: 64px;
+  height: 64px;
+  background: rgb(60 50 20 / 55%);
+}
+.pick .big {
+  font-size: 15px;
 }
 .potion {
-  right: 222px;
-  bottom: 172px;
+  right: 46px;
+  bottom: 262px;
   width: 56px;
   height: 56px;
 }
