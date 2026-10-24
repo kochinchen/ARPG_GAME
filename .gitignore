@@ -4,3 +4,8 @@ coverage/
 .DS_Store
 *.log
 release/
+
+# Blender 匯出前的自動備份
+art/heroine/*.bak-*
+*.blend1
+art/heroine/heroine-base.blend

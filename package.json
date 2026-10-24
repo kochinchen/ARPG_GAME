@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.logic.json",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
-    "lint": "npm run typecheck && npm run lint:deps"
+    "lint": "npm run typecheck && npm run lint:deps",
+    "art:heroine": "node scripts/export-heroine-blender.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.21.0",

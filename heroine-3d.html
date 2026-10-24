@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>女主角 3D 構面</title>
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #17130f; color: #d8cbb4; font: 14px sans-serif; }
+      #bar { position: fixed; top: 0; left: 0; right: 0; min-height: 44px; display: flex; align-items: center; gap: 14px; padding: 6px 12px; background: #1f1a15; border-bottom: 1px solid #3a3027; box-sizing: border-box; flex-wrap: wrap; z-index: 2; }
+      #bar b { color: #e8c47a; white-space: nowrap; }
+      #bar .group { display: flex; gap: 2px; align-items: center; }
+      #bar .group > span { color: #9c8c74; font-size: 12px; margin-right: 4px; }
+      #bar button { padding: 3px 8px; font: 13px sans-serif; color: #d8cbb4; background: #2a231d; border: 1px solid #5a4c3e; cursor: pointer; white-space: nowrap; }
+      #bar button.on { background: #5a4630; color: #ffe3a8; border-color: #a8875a; }
+      #view { position: fixed; inset: 0; }
+      #info { position: fixed; left: 12px; bottom: 10px; color: #9c8c74; font-size: 12px; pointer-events: none; }
+      #hint { position: fixed; right: 12px; bottom: 10px; color: #6f6352; font-size: 12px; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="view"></div>
+    <div id="bar"><b>女主角 3D 構面</b></div>
+    <div id="info"></div>
+    <div id="hint">左鍵拖曳旋轉 · 右鍵平移 · 滾輪縮放</div>
+    <script type="module" src="/src/tools/heroine3d/main.ts"></script>
+  </body>
+</html>

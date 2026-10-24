@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Female Hero — Faceted Three.js Prototype</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #15120f; color: #eee4d6;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif; }
+    #app { width: 100%; height: 100%; position: relative; }
+    canvas { display: block; }
+    .panel { position: absolute; left: 16px; top: 16px; width: 260px; padding: 14px; background: rgba(18, 15, 13, 0.88);
+      border: 1px solid #53493f; border-radius: 8px; backdrop-filter: blur(8px); }
+    .title { font-size: 18px; font-weight: 700; color: #e6bf7c; margin-bottom: 3px; }
+    .subtitle { color: #a89b8e; font-size: 12px; margin-bottom: 14px; line-height: 1.5; }
+    .section { margin-top: 12px; margin-bottom: 6px; color: #cdb58e; font-size: 12px; font-weight: 700; }
+    .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    button { min-height: 34px; border: 1px solid #5a5048; background: #26211d; color: #ddd4c9; border-radius: 5px; cursor: pointer; font-size: 12px; }
+    button:hover { background: #342d27; }
+    button.active { border-color: #c99755; color: #ffd99f; background: #3a2c20; }
+    .legend { position: absolute; right: 16px; bottom: 16px; padding: 10px 13px; border: 1px solid #51473e; border-radius: 7px;
+      background: rgba(18, 15, 13, 0.82); font-size: 11px; color: #aaa095; line-height: 1.65; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+    .joint { background: #ff6655; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="title">Female Hero</div>
+    <div class="subtitle">Procedural Faceted Low-Poly<br>Three.js Character Prototype</div>
+    <div class="section">Camera</div>
+    <div class="buttons">
+      <button data-view="front">正面</button>
+      <button data-view="front34">右前 3/4</button>
+      <button data-view="right">右側</button>
+      <button data-view="back34">右後 3/4</button>
+      <button data-view="back">背面</button>
+      <button data-view="reset">Reset</button>
+    </div>
+    <div class="section">Debug</div>
+    <div class="buttons">
+      <button id="wireframeBtn">Wireframe</button>
+      <button id="jointBtn">Joint Debug</button>
+    </div>
+  </div>
+  <div class="legend">
+    滑鼠左鍵：旋轉<br>滾輪：Zoom<br>右鍵：Pan<br><span class="dot joint"></span>Joint Debug
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ========================= Scene ========================= */
+const app = document.querySelector('#app');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#17130f');
+scene.fog = new THREE.Fog('#17130f', 14, 28);
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(7, 5.2, 9);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+app.prepend(renderer.domElement);
+
+/* ========================= Controls ========================= */
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 3.2, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minDistance = 4;
+controls.maxDistance = 18;
+controls.maxPolarAngle = Math.PI * 0.92;
+
+/* ========================= Lighting ========================= */
+const hemi = new THREE.HemisphereLight('#ccbfae', '#1c1714', 1.15);
+scene.add(hemi);
+
+const key = new THREE.DirectionalLight('#ffe0b8', 4.2);
+key.position.set(-5, 10, 7);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -8;
+key.shadow.camera.right = 8;
+key.shadow.camera.top = 10;
+key.shadow.camera.bottom = -2;
+scene.add(key);
+
+const rim = new THREE.DirectionalLight('#7892aa', 1.3);
+rim.position.set(7, 5, -8);
+scene.add(rim);
+
+/* ========================= Ground ========================= */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(18, 18),
+  new THREE.MeshStandardMaterial({ color: '#24201c', roughness: 1, metalness: 0 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* ========================= Palette ========================= */
+function material(color, roughness = 0.78, metalness = 0) {
+  return new THREE.MeshStandardMaterial({ color, roughness, metalness, flatShading: true });
+}
+
+const MAT = {
+  skin: material('#c98b68'),
+  skinDark: material('#945e49'),
+  hair: material('#582821', 0.88),
+  hairDark: material('#321b18', 0.9),
+  hairLight: material('#7a3a30', 0.82),
+  leather: material('#63402f'),
+  leatherDark: material('#3f2923'),
+  leatherLight: material('#8a5b42'),
+  white: material('#c8bfb0', 0.92),
+  red: material('#932c33'),
+  redDark: material('#641f24'),
+  redLight: material('#bf4146'),
+  metal: material('#7b8388', 0.38, 0.72),
+  metalLight: material('#b7bdc0', 0.28, 0.82),
+  metalDark: material('#4c5359', 0.4, 0.67),
+  boot: material('#352923'),
+  gold: material('#a77b42', 0.45, 0.55),
+};
+
+/* ========================= Geometry Utilities ========================= */
+
+/*
+  建立真正的大構面 Volume。
+  rings: [{ y, rx, rz, ox, oz }]
+  ox / oz 可以讓不同高度的截面偏移，避免模型像簡單 Cylinder。
+*/
+function createRingVolumeGeometry(rings, sides = 7) {
+  const vertices = [];
+  const indices = [];
+
+  for (let r = 0; r < rings.length; r++) {
+    const ring = rings[r];
+    for (let i = 0; i < sides; i++) {
+      const angle = (i / sides) * Math.PI * 2;
+      vertices.push(
+        (ring.ox ?? 0) + Math.cos(angle) * ring.rx,
+        ring.y,
+        (ring.oz ?? 0) + Math.sin(angle) * ring.rz
+      );
+    }
+  }
+
+  for (let r = 0; r < rings.length - 1; r++) {
+    for (let i = 0; i < sides; i++) {
+      const ni = (i + 1) % sides;
+      const a = r * sides + i;
+      const b = r * sides + ni;
+      const c = (r + 1) * sides + ni;
+      const d = (r + 1) * sides + i;
+      indices.push(a, b, d);
+      indices.push(b, c, d);
+    }
+  }
+
+  /* bottom cap */
+  const bottomCenter = vertices.length / 3;
+  const first = rings[0];
+  vertices.push(first.ox ?? 0, first.y, first.oz ?? 0);
+  for (let i = 0; i < sides; i++) {
+    indices.push(bottomCenter, (i + 1) % sides, i);
+  }
+
+  /* top cap */
+  const topCenter = vertices.length / 3;
+  const last = rings[rings.length - 1];
+  vertices.push(last.ox ?? 0, last.y, last.oz ?? 0);
+  const topStart = (rings.length - 1) * sides;
+  for (let i = 0; i < sides; i++) {
+    indices.push(topCenter, topStart + i, topStart + ((i + 1) % sides));
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/* Joint-to-joint tapered volume */
+function makeSegment(a, b, radiusA, radiusB, mat, sides = 6, middleBulge = 1.05) {
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const length = dir.length();
+
+  const geometry = createRingVolumeGeometry(
+    [
+      { y: -length / 2, rx: radiusA, rz: radiusA * 0.86 },
+      {
+        y: 0,
+        rx: Math.max(radiusA, radiusB) * middleBulge,
+        rz: Math.max(radiusA, radiusB) * middleBulge * 0.84,
+      },
+      { y: length / 2, rx: radiusB, rz: radiusB * 0.84 },
+    ],
+    sides
+  );
+
+  const mesh = new THREE.Mesh(geometry, mat);
+  mesh.position.copy(a).add(b).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.userData.characterPart = true;
+  return mesh;
+}
+
+/* Faceted elliptical joint / head volume. */
+function makeEllipsoid(radius, scale, mat, detail = 1) {
+  const geometry = new THREE.IcosahedronGeometry(radius, detail);
+  geometry.scale(scale.x, scale.y, scale.z);
+  const mesh = new THREE.Mesh(geometry, mat);
+  mesh.castShadow = true;
+  mesh.userData.characterPart = true;
+  return mesh;
+}
+
+/* Cloth / armor plate: 2D polygon + thickness. */
+function createPrismGeometry(points, depth) {
+  const vertices = [];
+  const indices = [];
+  const half = depth / 2;
+
+  /* front */
+  for (const p of points) vertices.push(p.x, p.y, half);
+  /* rear */
+  for (const p of points) vertices.push(p.x, p.y, -half);
+
+  const n = points.length;
+
+  /* front face */
+  for (let i = 1; i < n - 1; i++) indices.push(0, i, i + 1);
+  /* rear face */
+  for (let i = 1; i < n - 1; i++) indices.push(n, n + i + 1, n + i);
+  /* sides */
+  for (let i = 0; i < n; i++) {
+    const next = (i + 1) % n;
+    const a = i;
+    const b = next;
+    const c = n + next;
+    const d = n + i;
+    indices.push(a, b, d);
+    indices.push(b, c, d);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/* ========================= Character Root ========================= */
+const hero = new THREE.Group();
+scene.add(hero);
+
+/* ========================= Skeleton / Joints ========================= */
+const J = {
+  pelvis: new THREE.Vector3(0, 3.25, 0),
+  waist: new THREE.Vector3(0, 3.82, 0),
+  chest: new THREE.Vector3(0, 4.45, 0.02),
+  neck: new THREE.Vector3(0, 5.02, 0.02),
+  head: new THREE.Vector3(0, 5.58, 0.04),
+
+  /* Character-facing +Z. Character RIGHT = negative X */
+  shoulderR: new THREE.Vector3(-0.72, 4.64, 0),
+  elbowR: new THREE.Vector3(-0.93, 3.92, 0.16),
+  wristR: new THREE.Vector3(-0.85, 3.25, 0.42),
+
+  shoulderL: new THREE.Vector3(0.72, 4.6, 0),
+  elbowL: new THREE.Vector3(0.98, 3.92, 0.1),
+  wristL: new THREE.Vector3(1.02, 3.35, 0.18),
+
+  hipR: new THREE.Vector3(-0.42, 3.15, 0.02),
+  kneeR: new THREE.Vector3(-0.48, 1.92, 0.14),
+  ankleR: new THREE.Vector3(-0.4, 0.68, 0.12),
+  footR: new THREE.Vector3(-0.4, 0.28, 0.42),
+
+  hipL: new THREE.Vector3(0.42, 3.15, -0.02),
+  kneeL: new THREE.Vector3(0.53, 1.91, -0.1),
+  ankleL: new THREE.Vector3(0.48, 0.67, -0.08),
+  footL: new THREE.Vector3(0.48, 0.27, 0.17),
+};
+
+/* ========================= Pelvis ========================= */
+const pelvisGeo = createRingVolumeGeometry(
+  [
+    { y: -0.35, rx: 0.62, rz: 0.37 },
+    { y: 0, rx: 0.73, rz: 0.43 },
+    { y: 0.34, rx: 0.62, rz: 0.39 },
+  ],
+  7
+);
+const pelvis = new THREE.Mesh(pelvisGeo, MAT.leatherDark);
+pelvis.position.copy(J.pelvis);
+pelvis.rotation.y = THREE.MathUtils.degToRad(-5);
+pelvis.castShadow = true;
+pelvis.userData.characterPart = true;
+hero.add(pelvis);
+
+/* ========================= Waist ========================= */
+const waistGeo = createRingVolumeGeometry(
+  [
+    { y: -0.34, rx: 0.53, rz: 0.31 },
+    { y: 0, rx: 0.49, rz: 0.29 },
+    { y: 0.34, rx: 0.57, rz: 0.34 },
+  ],
+  7
+);
+const waist = new THREE.Mesh(waistGeo, MAT.skin);
+waist.position.copy(J.waist);
+waist.castShadow = true;
+waist.userData.characterPart = true;
+hero.add(waist);
+
+/* ========================= Rib Cage / Torso ========================= */
+const torsoGeo = createRingVolumeGeometry(
+  [
+    { y: -0.52, rx: 0.57, rz: 0.34 },
+    { y: -0.12, rx: 0.76, rz: 0.45, oz: 0.02 },
+    { y: 0.28, rx: 0.85, rz: 0.47, oz: 0.04 },
+    { y: 0.55, rx: 0.72, rz: 0.39 },
+  ],
+  8
+);
+const torso = new THREE.Mesh(torsoGeo, MAT.white);
+torso.position.copy(J.chest);
+torso.rotation.y = THREE.MathUtils.degToRad(4);
+torso.castShadow = true;
+torso.userData.characterPart = true;
+hero.add(torso);
+
+/* ========================= Leather Chest Armor ========================= */
+const chestArmorGeo = createRingVolumeGeometry(
+  [
+    { y: -0.2, rx: 0.68, rz: 0.43 },
+    { y: 0.16, rx: 0.79, rz: 0.49 },
+    { y: 0.34, rx: 0.74, rz: 0.44 },
+  ],
+  7
+);
+const chestArmor = new THREE.Mesh(chestArmorGeo, MAT.leather);
+chestArmor.position.set(0, 4.35, -0.01);
+chestArmor.scale.z = 1.04;
+chestArmor.castShadow = true;
+chestArmor.userData.characterPart = true;
+hero.add(chestArmor);
+
+/* ========================= Belt ========================= */
+const beltGeo = createRingVolumeGeometry(
+  [
+    { y: -0.08, rx: 0.61, rz: 0.36 },
+    { y: 0.08, rx: 0.61, rz: 0.36 },
+  ],
+  8
+);
+const belt = new THREE.Mesh(beltGeo, MAT.leatherLight);
+belt.position.set(0, 3.57, 0);
+belt.castShadow = true;
+belt.userData.characterPart = true;
+hero.add(belt);
+
+/* ========================= Belt Buckle ========================= */
+const buckle = makeEllipsoid(0.15, new THREE.Vector3(1.25, 0.72, 0.42), MAT.gold, 0);
+buckle.position.set(0, 3.56, 0.38);
+hero.add(buckle);
+
+/* ========================= Legs ========================= */
+hero.add(
+  makeSegment(J.hipR, J.kneeR, 0.31, 0.23, MAT.skin, 7, 1.08),
+  makeSegment(J.kneeR, J.ankleR, 0.21, 0.16, MAT.skin, 6, 1.08),
+  makeSegment(J.hipL, J.kneeL, 0.32, 0.23, MAT.skin, 7, 1.08),
+  makeSegment(J.kneeL, J.ankleL, 0.21, 0.16, MAT.skin, 6, 1.08)
+);
+
+/* ========================= Knee Armor ========================= */
+for (const knee of [J.kneeR, J.kneeL]) {
+  const armor = makeEllipsoid(0.28, new THREE.Vector3(0.9, 0.72, 0.65), MAT.metalDark, 0);
+  armor.position.copy(knee);
+  armor.position.z += 0.18;
+  hero.add(armor);
+}
+
+/* ========================= Boots ========================= */
+function makeBoot(ankle, foot) {
+  const group = new THREE.Group();
+
+  const shin = makeSegment(
+    new THREE.Vector3(ankle.x, ankle.y + 0.48, ankle.z),
+    ankle,
+    0.23,
+    0.2,
+    MAT.boot,
+    6,
+    1.02
+  );
+  group.add(shin);
+
+  const footGeo = createPrismGeometry(
+    [
+      new THREE.Vector2(-0.23, 0.18),
+      new THREE.Vector2(0.23, 0.18),
+      new THREE.Vector2(0.28, -0.17),
+      new THREE.Vector2(-0.18, -0.2),
+    ],
+    0.62
+  );
+  const footMesh = new THREE.Mesh(footGeo, MAT.boot);
+  footMesh.rotation.x = Math.PI / 2;
+  footMesh.rotation.z = Math.PI / 2;
+  footMesh.position.copy(foot);
+  footMesh.castShadow = true;
+  footMesh.userData.characterPart = true;
+  group.add(footMesh);
+
+  return group;
+}
+hero.add(makeBoot(J.ankleR, J.footR));
+hero.add(makeBoot(J.ankleL, J.footL));
+
+/* ========================= Shin Armor ========================= */
+function addShinArmor(knee, ankle) {
+  const mid = new THREE.Vector3().lerpVectors(knee, ankle, 0.55);
+  const armor = makeEllipsoid(0.33, new THREE.Vector3(0.63, 1.4, 0.42), MAT.metal, 0);
+  armor.position.copy(mid);
+  armor.position.z += 0.17;
+  hero.add(armor);
+}
+addShinArmor(J.kneeR, J.ankleR);
+addShinArmor(J.kneeL, J.ankleL);
+
+/* ========================= Arms ========================= */
+hero.add(
+  makeSegment(J.shoulderR, J.elbowR, 0.22, 0.17, MAT.skin, 6, 1.08),
+  makeSegment(J.elbowR, J.wristR, 0.17, 0.13, MAT.skin, 6, 1.05),
+  makeSegment(J.shoulderL, J.elbowL, 0.22, 0.17, MAT.skin, 6, 1.08),
+  makeSegment(J.elbowL, J.wristL, 0.17, 0.13, MAT.skin, 6, 1.05)
+);
+
+/* ========================= Shoulder Armor ========================= */
+const shoulderArmor = makeEllipsoid(0.43, new THREE.Vector3(1.0, 0.67, 0.82), MAT.metal, 0);
+shoulderArmor.position.copy(J.shoulderL);
+shoulderArmor.position.y += 0.05;
+shoulderArmor.position.x += 0.06;
+hero.add(shoulderArmor);
+
+/* Add secondary metal plate */
+const shoulderPlate2 = makeEllipsoid(0.31, new THREE.Vector3(1.05, 0.55, 0.72), MAT.metalLight, 0);
+shoulderPlate2.position.copy(J.shoulderL);
+shoulderPlate2.position.set(J.shoulderL.x + 0.14, J.shoulderL.y + 0.15, J.shoulderL.z + 0.03);
+hero.add(shoulderPlate2);
+
+/* ========================= Bracers ========================= */
+function addBracer(elbow, wrist) {
+  const a = elbow.clone().lerp(wrist, 0.35);
+  const b = elbow.clone().lerp(wrist, 0.78);
+  hero.add(makeSegment(a, b, 0.19, 0.15, MAT.leatherLight, 6, 1.0));
+}
+addBracer(J.elbowR, J.wristR);
+addBracer(J.elbowL, J.wristL);
+
+/* ========================= Hands ========================= */
+const handR = makeEllipsoid(0.17, new THREE.Vector3(0.75, 1.15, 0.6), MAT.skinDark, 0);
+handR.position.copy(J.wristR);
+hero.add(handR);
+
+const handL = makeEllipsoid(0.17, new THREE.Vector3(0.75, 1.15, 0.6), MAT.skinDark, 0);
+handL.position.copy(J.wristL);
+hero.add(handL);
+
+/* ========================= Neck ========================= */
+hero.add(makeSegment(new THREE.Vector3(0, 4.88, 0), J.neck, 0.19, 0.17, MAT.skin, 7, 1.0));
+
+/* ========================= Head ========================= */
+const headGeo = createRingVolumeGeometry(
+  [
+    { y: -0.44, rx: 0.23, rz: 0.22, oz: 0.02 },
+    { y: -0.22, rx: 0.34, rz: 0.3, oz: 0.035 },
+    { y: 0.08, rx: 0.39, rz: 0.34, oz: 0 },
+    { y: 0.34, rx: 0.33, rz: 0.32, oz: -0.02 },
+    { y: 0.48, rx: 0.22, rz: 0.24, oz: -0.03 },
+  ],
+  8
+);
+const head = new THREE.Mesh(headGeo, MAT.skin);
+head.position.copy(J.head);
+head.castShadow = true;
+head.userData.characterPart = true;
+hero.add(head);
+
+/* ========================= Nose Plane / Wedge ========================= */
+const noseGeo = createPrismGeometry(
+  [
+    new THREE.Vector2(-0.075, 0.13),
+    new THREE.Vector2(0.075, 0.13),
+    new THREE.Vector2(0.035, -0.16),
+    new THREE.Vector2(-0.035, -0.16),
+  ],
+  0.15
+);
+const nose = new THREE.Mesh(noseGeo, MAT.skinDark);
+nose.position.set(0, 5.6, 0.34);
+nose.rotation.x = -0.06;
+nose.castShadow = true;
+nose.userData.characterPart = true;
+hero.add(nose);
+
+/* ========================= Eyes ========================= */
+const eyeMat = material('#281b18', 0.9);
+for (const x of [-0.13, 0.13]) {
+  const eye = makeEllipsoid(0.045, new THREE.Vector3(1.0, 0.45, 0.24), eyeMat, 0);
+  eye.position.set(x, 5.72, 0.326);
+  hero.add(eye);
+}
+
+/* ========================= Hair Cap ========================= */
+const hairCapGeo = createRingVolumeGeometry(
+  [
+    { y: -0.15, rx: 0.39, rz: 0.34, oz: -0.03 },
+    { y: 0.18, rx: 0.44, rz: 0.38, oz: -0.04 },
+    { y: 0.46, rx: 0.34, rz: 0.33, oz: -0.04 },
+  ],
+  8
+);
+const hairCap = new THREE.Mesh(hairCapGeo, MAT.hair);
+hairCap.position.set(0, 5.86, -0.015);
+hairCap.castShadow = true;
+hairCap.userData.characterPart = true;
+hero.add(hairCap);
+
+/* ========================= Hair Bangs ========================= */
+function addBang(x, rotation, scale) {
+  const geo = createPrismGeometry(
+    [
+      new THREE.Vector2(-0.1, 0.3),
+      new THREE.Vector2(0.12, 0.24),
+      new THREE.Vector2(0.05, -0.3),
+      new THREE.Vector2(-0.08, -0.18),
+    ],
+    0.13
+  );
+  const mesh = new THREE.Mesh(geo, MAT.hairLight);
+  mesh.position.set(x, 5.9, 0.34);
+  mesh.rotation.z = rotation;
+  mesh.scale.setScalar(scale);
+  mesh.castShadow = true;
+  mesh.userData.characterPart = true;
+  hero.add(mesh);
+}
+addBang(-0.17, -0.25, 1.0);
+addBang(0.03, 0.05, 1.1);
+addBang(0.19, 0.28, 0.86);
+
+/* ========================= Ponytail ========================= */
+const ponytail = new THREE.Group();
+hero.add(ponytail);
+
+const ponyPoints = [
+  new THREE.Vector3(0, 6.02, -0.28),
+  new THREE.Vector3(0.08, 5.82, -0.72),
+  new THREE.Vector3(0.18, 5.45, -1.0),
+  new THREE.Vector3(0.14, 5.02, -1.08),
+  new THREE.Vector3(0.04, 4.66, -0.94),
+];
+
+for (let i = 0; i < ponyPoints.length - 1; i++) {
+  const segment = makeSegment(
+    ponyPoints[i],
+    ponyPoints[i + 1],
+    0.27 - i * 0.035,
+    0.23 - i * 0.042,
+    i % 2 === 0 ? MAT.hair : MAT.hairDark,
+    6,
+    1.16
+  );
+  segment.userData.ponyIndex = i;
+  ponytail.add(segment);
+}
+
+/* ========================= Red Hair Ribbon ========================= */
+const ribbon = new THREE.Mesh(
+  createPrismGeometry(
+    [
+      new THREE.Vector2(-0.14, 0.15),
+      new THREE.Vector2(0.14, 0.14),
+      new THREE.Vector2(0.09, -0.18),
+      new THREE.Vector2(-0.08, -0.22),
+    ],
+    0.12
+  ),
+  MAT.redLight
+);
+ribbon.position.set(0, 6.02, -0.4);
+ribbon.rotation.x = -0.25;
+ribbon.castShadow = true;
+ribbon.userData.characterPart = true;
+hero.add(ribbon);
+
+/* ========================= Skirt / Cloth ========================= */
+function addClothFlap(x, z, rotationY, width, length, mat) {
+  const geo = createPrismGeometry(
+    [
+      new THREE.Vector2(-width / 2, 0),
+      new THREE.Vector2(width / 2, 0),
+      new THREE.Vector2(width * 0.33, -length),
+      new THREE.Vector2(0, -length * 1.12),
+      new THREE.Vector2(-width * 0.35, -length),
+    ],
+    0.09
+  );
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, 3.34, z);
+  mesh.rotation.y = rotationY;
+  mesh.rotation.x = -0.03;
+  mesh.castShadow = true;
+  mesh.userData.characterPart = true;
+  hero.add(mesh);
+}
+addClothFlap(0, 0.42, 0, 0.55, 0.9, MAT.red);
+addClothFlap(-0.48, 0.12, 0.68, 0.45, 0.76, MAT.redDark);
+addClothFlap(0.48, 0.12, -0.68, 0.45, 0.76, MAT.red);
+addClothFlap(0, -0.38, Math.PI, 0.55, 0.7, MAT.redDark);
+
+/* ========================= Sword Geometry ========================= */
+const sword = new THREE.Group();
+
+/* Grip */
+const grip = new THREE.Mesh(
+  createRingVolumeGeometry(
+    [
+      { y: -0.28, rx: 0.065, rz: 0.055 },
+      { y: 0.28, rx: 0.065, rz: 0.055 },
+    ],
+    6
+  ),
+  MAT.leatherDark
+);
+grip.castShadow = true;
+sword.add(grip);
+
+/* Pommel */
+const pommel = makeEllipsoid(0.11, new THREE.Vector3(0.8, 1.0, 0.7), MAT.gold, 0);
+pommel.position.y = -0.36;
+sword.add(pommel);
+
+/* Guard */
+const guard = new THREE.Mesh(
+  createPrismGeometry(
+    [
+      new THREE.Vector2(-0.38, 0.07),
+      new THREE.Vector2(0.38, 0.07),
+      new THREE.Vector2(0.31, -0.07),
+      new THREE.Vector2(-0.31, -0.07),
+    ],
+    0.11
+  ),
+  MAT.gold
+);
+guard.position.y = 0.34;
+sword.add(guard);
+
+/* Diamond wedge blade */
+function createBladeGeometry() {
+  const v = [
+    /* base */
+    -0.15, 0.38, 0,
+    0.15, 0.38, 0,
+    0, 0.38, 0.07,
+    0, 0.38, -0.07,
+    /* upper blade */
+    -0.12, 2.05, 0,
+    0.12, 2.05, 0,
+    0, 2.05, 0.055,
+    0, 2.05, -0.055,
+    /* tip */
+    0, 2.42, 0,
+  ];
+
+  const i = [
+    /* left bevel front/rear */
+    0, 4, 2,
+    4, 6, 2,
+    0, 3, 4,
+    4, 3, 7,
+    /* right bevel */
+    1, 2, 5,
+    5, 2, 6,
+    1, 5, 3,
+    5, 7, 3,
+    /* tip */
+    4, 8, 6,
+    6, 8, 5,
+    4, 7, 8,
+    5, 8, 7,
+    /* base */
+    0, 2, 1,
+    0, 1, 3,
+  ];
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  geo.setIndex(i);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+const blade = new THREE.Mesh(createBladeGeometry(), MAT.metalLight);
+blade.castShadow = true;
+blade.userData.characterPart = true;
+sword.add(blade);
+
+/* Pose sword in right hand. */
+sword.position.copy(J.wristR);
+sword.rotation.z = THREE.MathUtils.degToRad(158);
+sword.rotation.x = THREE.MathUtils.degToRad(-8);
+sword.rotation.y = THREE.MathUtils.degToRad(16);
+hero.add(sword);
+
+/* ========================= Joint Debug ========================= */
+const debugGroup = new THREE.Group();
+debugGroup.visible = false;
+hero.add(debugGroup);
+
+const debugJointMat = new THREE.MeshBasicMaterial({ color: '#ff5544' });
+for (const p of Object.values(J)) {
+  const s = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), debugJointMat);
+  s.position.copy(p);
+  debugGroup.add(s);
+}
+
+const skeletonPairs = [
+  ['pelvis', 'waist'], ['waist', 'chest'], ['chest', 'neck'], ['neck', 'head'],
+  ['chest', 'shoulderR'], ['shoulderR', 'elbowR'], ['elbowR', 'wristR'],
+  ['chest', 'shoulderL'], ['shoulderL', 'elbowL'], ['elbowL', 'wristL'],
+  ['pelvis', 'hipR'], ['hipR', 'kneeR'], ['kneeR', 'ankleR'], ['ankleR', 'footR'],
+  ['pelvis', 'hipL'], ['hipL', 'kneeL'], ['kneeL', 'ankleL'], ['ankleL', 'footL'],
+];
+
+const linePositions = [];
+for (const [a, b] of skeletonPairs) {
+  linePositions.push(J[a].x, J[a].y, J[a].z, J[b].x, J[b].y, J[b].z);
+}
+const skeletonGeo = new THREE.BufferGeometry();
+skeletonGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+const skeletonLines = new THREE.LineSegments(skeletonGeo, new THREE.LineBasicMaterial({ color: '#70ff83' }));
+debugGroup.add(skeletonLines);
+
+/* ========================= Hero pose ========================= */
+hero.rotation.y = THREE.MathUtils.degToRad(-6);
+
+/* ========================= Wireframe ========================= */
+let wireframe = false;
+const wireBtn = document.querySelector('#wireframeBtn');
+wireBtn.addEventListener('click', () => {
+  wireframe = !wireframe;
+  hero.traverse((object) => {
+    if (object.isMesh && object.material && object.userData.characterPart) {
+      object.material.wireframe = wireframe;
+    }
+  });
+  wireBtn.classList.toggle('active', wireframe);
+});
+
+/* ========================= Joint debug toggle ========================= */
+const jointBtn = document.querySelector('#jointBtn');
+jointBtn.addEventListener('click', () => {
+  debugGroup.visible = !debugGroup.visible;
+  jointBtn.classList.toggle('active', debugGroup.visible);
+});
+
+/* ========================= Camera Views ========================= */
+const VIEW = {
+  front: [0, 4.2, 10],
+  front34: [7, 4.6, 8],
+  right: [10, 4.2, 0],
+  back34: [7, 4.6, -8],
+  back: [0, 4.2, -10],
+  reset: [7, 5.2, 9],
+};
+
+function setCameraView(key) {
+  const v = VIEW[key];
+  camera.position.set(v[0], v[1], v[2]);
+  controls.target.set(0, 3.15, 0);
+  controls.update();
+}
+
+document.querySelectorAll('[data-view]').forEach((button) => {
+  button.addEventListener('click', () => {
+    setCameraView(button.dataset.view);
+  });
+});
+
+/* ========================= Idle secondary motion ========================= */
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  /* Extremely subtle breathing. Do not deform geometry: move body as a sculptural unit. */
+  chestArmor.position.y = 4.35 + Math.sin(t * 1.7) * 0.008;
+
+  /* Ponytail inertia. */
+  ponytail.children.forEach((segment, index) => {
+    segment.rotation.z = Math.sin(t * 1.45 - index * 0.38) * (0.018 + index * 0.009);
+  });
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+/* ========================= Resize ========================= */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
