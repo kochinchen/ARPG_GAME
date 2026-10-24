@@ -1,25 +1,51 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
-import type { EntryView } from '../bridge/InventoryView';
+import { statDiff, type EntryView } from '../bridge/InventoryView';
+import { isFinger } from '../bridge/TouchPress';
 import type { ShopView } from '../bridge/ShopView';
 import ItemCell from './ItemCell.vue';
 import ItemTooltip from './ItemTooltip.vue';
 import CoreReveal from './CoreReveal.vue';
 
-defineProps<{ view: ShopView }>();
-const emit = defineEmits<{ close: [] }>();
+const props = defineProps<{ view: ShopView }>();
+export type ShopTab = 'buy' | 'gamble' | 'ascend' | 'fusion';
+/** tab：目前分頁（觸控在鍛造 / 融合頁點兩下背包物品時，App 依分頁放進對應的格子） */
+const emit = defineEmits<{ close: []; tab: [tab: ShopTab] }>();
 
-const tab = ref<'buy' | 'gamble' | 'ascend' | 'fusion'>('buy');
+const tab = ref<ShopTab>('buy');
+watch(tab, (t) => emit('tab', t), { immediate: true });
 const slotTab = ref(0);
 const hovered = ref<{ entry: EntryView; price: number; compare: EntryView[]; top: number } | null>(null);
 
 function blur(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
 }
+/**
+ * 觸控：手指點貨架只選取（顯示說明、比較與差異），按說明裡的「購買」才買。滑鼠照舊點一下就買。
+ * 記住貨架索引，買走或補貨後自動取消選取。
+ */
+const picked = ref<number | null>(null);
+let fingerDown = false;
+const pickedStock = computed(() => props.view.stock.find((s) => s.index === picked.value) ?? null);
+const pickedDiffs = computed(() =>
+  (pickedStock.value?.compare ?? []).map((c) => ({ caption: `換上後（與「${c.name}」相比，不含熔核與特殊效果）`, lines: statDiff(pickedStock.value!.entry, c) })),
+);
+function onPointerDown(e: PointerEvent) {
+  fingerDown = isFinger(e);
+}
 function buy(e: MouseEvent, index: number) {
   blur(e);
+  // 手指點的：已在 pointerup 選取，瀏覽器補發的 click 不買
+  if (fingerDown) return;
   gameBridge.send({ type: 'ShopBuy', index });
+}
+function pickCard(e: PointerEvent, index: number) {
+  if (isFinger(e)) picked.value = index;
+}
+function buyPicked() {
+  if (pickedStock.value) gameBridge.send({ type: 'ShopBuy', index: pickedStock.value.index });
+  picked.value = null;
 }
 function buyPotion(e: MouseEvent, count: number) {
   blur(e);
@@ -66,13 +92,15 @@ function fuse(e: MouseEvent, view: ShopView) {
   gameBridge.send({ type: 'ShopFuse', confirm });
 }
 function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryView[]) {
+  // 手指按下也會觸發 pointerenter：觸控改用選取，不顯示一閃即逝的說明
+  if (isFinger(e)) return;
   const top = Math.min((e.currentTarget as HTMLElement).getBoundingClientRect().top, window.innerHeight - 300);
   hovered.value = { entry, price, compare, top };
 }
 </script>
 
 <template>
-  <aside class="panel" @pointerdown.stop @contextmenu.prevent>
+  <aside class="panel" @pointerdown.stop="onPointerDown" @contextmenu.prevent>
     <header>
       <span>商人</span>
       <span class="gold">● {{ view.gold }}</span>
@@ -122,8 +150,9 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
           :key="s.index"
           type="button"
           class="card"
-          :class="[`r-${s.entry.rarity}`, { poor: !s.affordable }]"
+          :class="[`r-${s.entry.rarity}`, { poor: !s.affordable, picked: picked === s.index }]"
           @click="buy($event, s.index)"
+          @pointerup="pickCard($event, s.index)"
           @pointerenter="hover($event, s.entry, s.price, s.compare)"
           @pointerleave="hovered = null"
         >
@@ -132,7 +161,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
           <span class="card-price">● {{ s.price }}</span>
         </button>
       </div>
-      <p class="note">點擊購買 · 滑鼠移上可與目前裝備比較</p>
+      <p class="note">點擊購買 · 滑鼠移上可與目前裝備比較（觸控：點一下看說明，按「購買」才買）</p>
     </section>
 
     <section v-else-if="tab === 'ascend'" class="list">
@@ -289,6 +318,18 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
       </div>
       <p class="odds">{{ view.gambleOdds }}</p>
     </section>
+
+    <!-- 觸控：選取的貨架物品，顯示在右欄（蓋在背包上），按「購買」才買 -->
+    <div v-if="pickedStock && tab === 'buy'" class="picked-tips" @pointerdown.stop>
+      <ItemTooltip v-for="(c, i) in pickedStock.compare" :key="i" :entry="c" caption="目前裝備" />
+      <ItemTooltip :entry="pickedStock.entry" :price="pickedStock.price" :diffs="pickedDiffs" />
+      <div class="picked-actions">
+        <button type="button" class="buy-go" :disabled="!pickedStock.affordable" @click="buyPicked">
+          {{ pickedStock.affordable ? `購買 ● ${pickedStock.price}` : `金幣不足（● ${pickedStock.price}）` }}
+        </button>
+        <button type="button" class="buy-cancel" @click="picked = null">取消</button>
+      </div>
+    </div>
 
     <div v-if="hovered" class="tooltip-anchor" :style="{ top: `${hovered.top}px` }">
       <ItemTooltip :entry="hovered.entry" :price="hovered.price" />
@@ -666,6 +707,60 @@ button:disabled {
   color: #f2e2b8;
   border-color: #c8a25a;
   background: #3a2c18;
+}
+.card.picked {
+  outline: 2px solid #f0e2c0;
+  outline-offset: -2px;
+}
+/* 觸控：右欄（背包的位置，右邊讓出選單列） */
+.picked-tips {
+  position: fixed;
+  top: 12px;
+  right: 88px;
+  z-index: 2;
+  width: calc((100vw - 108px) / 2);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px;
+  background: rgb(0 0 0 / 70%);
+  border: 1px solid #5c5045;
+}
+.picked-tips :deep(.tooltip) {
+  flex: 1 1 0;
+  min-width: 180px;
+  max-width: none;
+}
+.picked-actions {
+  display: flex;
+  flex: 1 1 100%;
+  gap: 8px;
+}
+.buy-go,
+.buy-cancel {
+  height: 44px;
+  font: 15px/1 sans-serif;
+  cursor: pointer;
+  border: 1px solid #5a4c3e;
+}
+.buy-go {
+  flex: 2;
+  color: #f2e2b8;
+  background: #3a2c18;
+  border-color: #c8a25a;
+}
+.buy-go:disabled {
+  color: #8a7c68;
+  background: #1c1713;
+  border-color: #3d342c;
+}
+.buy-cancel {
+  flex: 1;
+  color: #b8ab94;
+  background: #1c1713;
 }
 .tooltip-anchor {
   position: fixed;

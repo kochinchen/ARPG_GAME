@@ -2,12 +2,13 @@
 import { computed } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
 import { resolveHover, type CoreHost, type EquipmentSlot, type HoverTarget, type InventoryView } from '../bridge/InventoryView';
-import { createPress, isFinger } from '../bridge/TouchPress';
+import { createPress, DOUBLE_TAP_MS, isFinger } from '../bridge/TouchPress';
 import HeroPreview from './HeroPreview.vue';
 import ItemCell from './ItemCell.vue';
 
 /**
- * touch：iPad 操作。手指輕點 = 選取（顯示說明與比較）；選取後長按 = 拿起，跟著手指拖到別的格子、裝備欄或商人放下（由 App 處理放下）。
+ * touch：iPad 操作。手指輕點 = 選取（顯示說明與比較）；點兩下 = 快速放到商人的鍛造 / 融合格（App 判斷目前分頁）；
+ * 長按 0.5 秒 = 拿起，跟著手指拖到別的格子、裝備欄或商人放下（由 App 處理放下）。
  * 手上已經拿著東西時，輕點照舊是放下。滑鼠操作不受影響。selected：目前選取的位置。
  */
 const props = defineProps<{ view: InventoryView; gold: number; shopOpen?: boolean; touch?: boolean; selected?: HoverTarget | null }>();
@@ -27,6 +28,9 @@ function sameTarget(a: HoverTarget | null | undefined, b: HoverTarget): boolean 
   return a !== null && a !== undefined && JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** 上一次輕點（判斷點兩下） */
+let lastTap: { target: HoverTarget; time: number } | null = null;
+
 function onPress(e: PointerEvent, target: HoverTarget) {
   fingerDown = props.touch === true && isFinger(e);
   if (!fingerDown) return;
@@ -34,15 +38,20 @@ function onPress(e: PointerEvent, target: HoverTarget) {
   press.down(
     e,
     () => {
-      if (props.view.held) command(target);
-      else emit('select', target);
+      if (props.view.held) return command(target);
+      const now = performance.now();
+      if (lastTap && sameTarget(lastTap.target, target) && now - lastTap.time < DOUBLE_TAP_MS) {
+        lastTap = null;
+        emit('quick', target);
+        return;
+      }
+      lastTap = { target, time: now };
+      emit('select', target);
     },
     () => {
-      if (props.view.held) return;
-      if (sameTarget(props.selected, target) && resolveHover(props.view, target)) {
-        command(target);
-        emit('grab', el);
-      } else emit('select', target);
+      if (props.view.held || !resolveHover(props.view, target)) return;
+      command(target);
+      emit('grab', el);
     },
   );
 }
@@ -90,6 +99,8 @@ const emit = defineEmits<{
   select: [target: HoverTarget];
   /** 觸控：長按拿起了某一格的物品（origin = 那一格，放到無效位置時放回去） */
   grab: [origin: HTMLElement];
+  /** 觸控：點兩下某一格 */
+  quick: [target: HoverTarget];
 }>();
 
 /** 觸控時不送滑鼠 hover（手指按下也會觸發 pointerenter） */
@@ -214,7 +225,7 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
           <ItemCell :entry="entry" />
         </button>
       </div>
-      <p v-if="touch" class="hint">點一下看內容 · 選取後長按拿起，拖到格子、裝備欄或商人放下</p>
+      <p v-if="touch" class="hint">點一下看內容 · 長按拿起，拖到格子、裝備欄或商人放下 · 商人鍛造 / 融合頁點兩下直接放入</p>
       <p v-else-if="shopOpen" class="hint shop">Ctrl（Mac：⌘）+ 點擊：賣給商人 · 或拿起物品放到商人的「賣出」區</p>
       <p v-else class="hint">點擊拿起 · 再點背包格或裝備欄放下 · 拿著物品點地面可丟棄 · 拿著熔核點有空孔的裝備鑲入，右鍵裝備取下熔核</p>
     </section>

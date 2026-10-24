@@ -266,8 +266,15 @@ function respec(e: MouseEvent) {
 
       <section v-if="category.kind === 'active'" class="loadout">
         <div class="left-slot">
-          <h3>左鍵 <small>點技能格上的「左」指定</small></h3>
-          <span class="slot left-current" :class="{ denied: view.left?.denied }">{{ view.left?.name ?? '—' }}</span>
+          <h3>左鍵 <small>點技能格上的「左」指定，或選取技能後點這裡</small></h3>
+          <button
+            type="button"
+            class="slot left-current"
+            :class="{ denied: view.left?.denied, target: placeable?.kind === 'active' && !placeable.isLeft }"
+            @click="placeable?.kind === 'active' && gameBridge.send({ type: 'AssignLeft', skillId: placeable.id })"
+          >
+            {{ view.left?.name ?? '—' }}
+          </button>
           <span v-if="view.left?.denied" class="blocked">無法使用：{{ view.left.denied }}</span>
         </div>
         <h3>Q / W / E / R / A / S / D 連段 <small>右鍵依序施放 · 點格子右上角 × 清空</small></h3>
@@ -520,6 +527,18 @@ section {
   border: 1px solid #3d342c;
   cursor: pointer;
 }
+/* 觸控：按鈕加大，手指按得到 */
+@media (pointer: coarse) {
+  .node {
+    min-height: 64px;
+  }
+  .left-btn,
+  .learn-btn {
+    min-width: 30px;
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+}
 .left-btn.on {
   color: #0b0a09;
   background: #c8a25a;
@@ -704,7 +723,6 @@ small {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: default;
 }
 .combo {
   margin-bottom: 2px;

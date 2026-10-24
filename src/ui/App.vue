@@ -22,7 +22,7 @@ import MenuBar, { type PanelName } from './components/MenuBar.vue';
 import Notices from './components/Notices.vue';
 import PauseMenu from './components/PauseMenu.vue';
 import SkillTreePanel from './components/SkillTreePanel.vue';
-import ShopPanel from './components/ShopPanel.vue';
+import ShopPanel, { type ShopTab } from './components/ShopPanel.vue';
 import TouchControls from './components/TouchControls.vue';
 import { isTouchDevice, touchOverride } from './bridge/TouchBridge';
 
@@ -223,6 +223,40 @@ function onSocketPress(e: PointerEvent, index: number) {
   );
 }
 
+/** 商人目前的分頁（點兩下背包物品時，放進鍛造格或融合格） */
+const shopTab = ref<ShopTab>('buy');
+watch(shopOpen, (isOpen) => {
+  if (!isOpen) shopTab.value = 'buy';
+});
+/** 送出「點這一格」：手上沒東西 = 拿起，拿著東西 = 放下 / 互換 */
+function clickTarget(target: HoverTarget) {
+  if (target.kind === 'cell') gameBridge.send({ type: 'InventoryClick', cell: target.cell });
+  else if (target.kind === 'slot') gameBridge.send({ type: 'EquipmentClick', slot: target.slot });
+}
+/**
+ * 觸控點兩下背包物品：商人在鍛造頁 → 放進飛昇格；在融合頁 → 放進第一個空的融合格（戒指、護身符放飾品區）。
+ * 拿起 → 點商人的格子 → 再點原來那一格：格子原本有東西（互換）或放不進去時，手上的東西放回原位。
+ */
+function onQuick(target: HoverTarget) {
+  selected.value = null;
+  if (!shopOpen.value || target.kind === 'salvage') return;
+  const entry = resolveHover(gameView.inventory, target)?.entry;
+  if (entry?.kind !== 'item') return;
+  let place: () => void;
+  if (shopTab.value === 'ascend') place = () => gameBridge.send({ type: 'ShopAscendSlotClick' });
+  else if (shopTab.value === 'fusion') {
+    const zone = entry.equipSlots.some((s) => s === 'ring1' || s === 'amulet') ? 'jewelry' : 'inputs';
+    const slots = gameView.shop.fusion[zone];
+    const empty = slots.indexOf(null);
+    const index = empty >= 0 ? empty : slots.length - 1;
+    if (index < 0) return;
+    place = () => gameBridge.send({ type: 'ShopFusionSlotClick', zone, index });
+  } else return;
+  clickTarget(target);
+  place();
+  clickTarget(target);
+}
+
 /** 長按拿起的那一格：手指放開時放到手指下的格子；放到無效位置則放回這一格 */
 const dragOrigin = ref<HTMLElement | null>(null);
 function onGrab(origin: HTMLElement) {
@@ -302,7 +336,7 @@ onBeforeUnmount(() => {
       <CharacterPanel v-if="open.character" :view="gameView.character" @close="open.character = false" />
       <SkillTreePanel v-if="open.skills" :view="gameView.skillTree" @close="open.skills = false" />
     </div>
-    <ShopPanel v-if="shopOpen" :view="gameView.shop" @close="shopOpen = false" />
+    <ShopPanel v-if="shopOpen" :view="gameView.shop" @close="shopOpen = false" @tab="(t) => (shopTab = t)" />
     <InventoryPanel
       v-if="open.inventory"
       :view="gameView.inventory"
@@ -314,6 +348,7 @@ onBeforeUnmount(() => {
       @hover="onHover"
       @select="(target) => (selected = target)"
       @grab="onGrab"
+      @quick="onQuick"
     />
   </div>
 

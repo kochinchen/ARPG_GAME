@@ -1,5 +1,5 @@
 /** 按住多久算長按（毫秒） */
-export const LONG_PRESS_MS = 450;
+export const LONG_PRESS_MS = 500;
 /** 手指移動超過這個距離就不算輕點或長按（px） */
 const MOVE_PX = 12;
 
@@ -42,6 +42,9 @@ export function createPress() {
     },
   };
 }
+
+/** 兩次輕點相隔多久內算「點兩下」（毫秒） */
+export const DOUBLE_TAP_MS = 350;
 
 /** 這次點擊是手指（或觸控筆）按的，不是滑鼠 */
 export function isFinger(e: PointerEvent): boolean {
