@@ -188,12 +188,13 @@ describe('掉寶的樓層成長', () => {
     expect(loot(last + 4).rarityWeights(table)).toEqual(deep);
   });
 
-  it('20 層以後紫 / 橘的倍率約是 15～19 層的兩倍，紅不變；樓層對應到正確的 lootTier', () => {
+  it('20 層以後紫 / 橘 / 紅的倍率是 15～19 層的兩倍；樓層對應到正確的 lootTier', () => {
     const [, , mid, late, deep] = data.balance.loot.tierBonus;
     expect(late!.epic).toBeCloseTo(mid!.epic * 2);
     expect(late!.legendary).toBeCloseTo(mid!.legendary * 2);
-    expect(late!.mythic).toBe(mid!.mythic);
+    expect(late!.mythic).toBeCloseTo(mid!.mythic * 2);
     expect(deep!.epic).toBeGreaterThan(late!.epic);
+    expect(deep!.mythic).toBeGreaterThan(late!.mythic);
     const tierOf = (floor: number) => data.floors.all.find((f) => f.floors[0] <= floor && floor <= f.floors[1])!.lootTier;
     expect([1, 5, 15, 19, 20, 24, 25, 30, 35].map(tierOf)).toEqual([1, 2, 3, 3, 4, 4, 5, 5, 5]);
   });

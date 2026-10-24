@@ -139,13 +139,13 @@ export const balance: z.input<typeof BalanceSchema> = {
   },
   loot: {
     // lootTier 1（1～4 層）不變；2（5～14）、3（15～19）、4（20～24）、5（25 層起）逐步提高黃以上的權重（白、藍不變）
-    // 20 層以後紫 / 橘約加倍（20～24 層 ×1.8 → ×3.6、25 層起 ×2.2 → ×4.4），紅不變
+    // 20 層以後紫 / 橘 / 紅約加倍（20～24 層紫橘 ×1.8 → ×3.6、紅 ×2 → ×4；25 層起紫橘 ×2.2 → ×4.4、紅 ×2.6 → ×5.2）
     tierBonus: [
       { rare: 1, epic: 1, legendary: 1, mythic: 1 },
       { rare: 1.2, epic: 1.4, legendary: 1.4, mythic: 1.5 },
       { rare: 1.4, epic: 1.8, legendary: 1.8, mythic: 2 },
-      { rare: 1.5, epic: 3.6, legendary: 3.6, mythic: 2 },
-      { rare: 1.6, epic: 4.4, legendary: 4.4, mythic: 2.6 },
+      { rare: 1.5, epic: 3.6, legendary: 3.6, mythic: 4 },
+      { rare: 1.6, epic: 4.4, legendary: 4.4, mythic: 5.2 },
     ],
     // 紫 / 橘 / 紅的基底：樓層階 −1 ～ +2，偏向樓層階與上一階（第 10 層多為 T2～T4、第 20 層 T3～T6、第 30 層 T6～T8），
     // 高於等級的基底要升級才能穿；早期拿到的好裝備要靠飛昇跟上樓層
