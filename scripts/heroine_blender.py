@@ -73,7 +73,12 @@ def tail_of(name, parent):
     if name.startswith("wrist") or name == "sword":
         base = pos[parent] if name.startswith("wrist") else None
         if name == "sword":
-            return p + Vector((-0.32, -1, 0.3)).normalized() * 0.12
+            # 與 skeleton.ts 的 SWORD_DIR 相同：從前臂方向往正前方轉 SWORD_ANGLE（80°）
+            d = (pos["wristR"] - pos["elbowR"]).normalized()
+            f = Vector((0, 0, 1))
+            fp = (f - d * f.dot(d)).normalized()
+            a = math.radians(80)
+            return p + (d * math.cos(a) + fp * math.sin(a)).normalized() * 0.12
         return p + (p - base).normalized() * 0.08
     kids = children.get(name, [])
     c = TAIL_CHILD.get(name) or (kids[0] if kids else None)

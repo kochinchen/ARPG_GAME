@@ -6,7 +6,7 @@ import {
   add, at, cross, dot, frame, hull, hullIn, len, lerp, loft, mirrorRing, mul, norm, poly, sub, Tris,
   type Frame, type Ring2, type Section, type V3,
 } from './facets';
-import { FLAPS, GRIP, HEAD, HEAD_SCALE, LIFT, LIMB_L, LIMB_R, NECK, PONY, SWORD_DIR, TOE_DOWN, type Limb } from './skeleton';
+import { FLAPS, GRIP, HEAD, HEAD_SCALE, LIFT, LIMB_L, LIMB_R, NECK, PONY, SHIELD_C, SHIELD_N, SWORD_DIR, TOE_DOWN, type Limb } from './skeleton';
 
 /** joint 名稱 → 該 joint 上的三角形 */
 export type Volumes = Map<string, Tris>;
@@ -36,6 +36,7 @@ export function buildVolumes(): Volumes {
   skirt(T('pelvis'));
   flaps(T);
   sword(T('sword'));
+  shield(T('shield'));
 
   // 頭部（含頭髮、馬尾）以 HEAD 為中心縮放到 8 頭身；整隻抬高 LIFT（粗跟靴）
   for (const [joint, t] of vols) {
@@ -674,8 +675,9 @@ function flaps(T: (j: string) => Tris): void {
 // ───────────────────────── 劍 ─────────────────────────
 
 function sword(t: Tris): void {
-  // 劍的座標系：u = 劍尖方向，s = 劍刃寬度方向（左右），f = 劍身厚度方向（劍面朝前）
-  const fr = frame(GRIP, add(GRIP, SWORD_DIR), [0.25, 0, 1], LEFT);
+  // 劍的座標系：u = 劍尖方向，s = 劍刃寬度方向，f = 劍身厚度方向
+  // 劍刃上下是刃口、左右兩面是劍面（劍往前指時，劍面朝左右）
+  const fr = frame(GRIP, add(GRIP, SWORD_DIR), [-1, 0, 0], UP);
   // 劍刃：中央平面 + 左右斜面（背面相同），楔形收到劍尖
   const blade = (w: number, th: number): Ring2 => [[w, 0], [0.36 * w, th], [-0.36 * w, th], [-w, 0], [-0.36 * w, -th], [0.36 * w, -th]];
   loft(t, fr, [
@@ -711,3 +713,40 @@ function sword(t: Tris): void {
     [0, -0.068, 0], [0, -0.112, 0],
   ]);
 }
+
+// ───────────────────────── 盾牌 ─────────────────────────
+
+/**
+ * 圓盾（綁在左前臂外側）：沿盾面法線排幾圈截面，做成中間微凸的穹頂。
+ * 由外到內：背面皮革 → 金屬包邊 → 皮革盾面 → 紅色圓環 → 金屬盾心；包邊上一圈銅鉚釘。
+ */
+function shield(t: Tris): void {
+  const fr = frame(SHIELD_C, add(SHIELD_C, SHIELD_N), UP, [0, 0, -1]);
+  const n = 12;
+  const disc = (r: number) => poly(n, r, r, { start: 90 / n });
+  loft(t, fr, [
+    { y: -0.014, pts: disc(0.255) },
+    { y: -0.004, pts: disc(0.27) },
+    { y: 0.008, pts: disc(0.27) },
+    { y: 0.016, pts: disc(0.238) },
+    { y: 0.03, pts: disc(0.17) },
+    { y: 0.04, pts: disc(0.115) },
+    { y: 0.046, pts: disc(0.072) },
+  ], { mats: ['leatherDark', 'metal', 'metal', 'leather', 'cloth', 'leather'], start: 'flat', end: { apex: [0, 0.052, 0] } });
+  // 盾心：凸起的金屬半球
+  const boss: [number, number, number][] = [];
+  for (const [y, r, k] of [[0.044, 0.06, 8], [0.07, 0.045, 8], [0.088, 0.02, 4]] as const) {
+    for (let i = 0; i < k; i++) {
+      const a = (i / k) * Math.PI * 2 + y * 20;
+      boss.push([Math.cos(a) * r, y, Math.sin(a) * r]);
+    }
+  }
+  hullIn(t, 'metal', fr, boss);
+  // 包邊的鉚釘
+  for (let i = 0; i < 8; i++) {
+    const a = ((i + 0.5) / 8) * Math.PI * 2;
+    const x = Math.cos(a) * 0.246, z = Math.sin(a) * 0.246;
+    hullIn(t, 'bronze', fr, [[x - 0.01, 0.014, z], [x + 0.01, 0.014, z], [x, 0.014, z - 0.01], [x, 0.014, z + 0.01], [x, 0.024, z]]);
+  }
+}
+

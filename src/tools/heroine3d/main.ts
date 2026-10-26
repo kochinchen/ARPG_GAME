@@ -2,8 +2,9 @@
  * 開發用：女主角 3D 構面模型（http://localhost:5173/heroine-3d.html）。
  * 骨架（skeleton.ts）→ 構面體積（volumes.ts）→ Three.js 場景；可自由轉動視角、切換構面線 / 骨架 / 素模 / 動畫。
  * 主光固定在畫面左上（跟著鏡頭轉），所以每個體積都是左上面亮、正面中亮、右下面暗。
- * Blender 版：`npm run art:heroine` 匯出 art/heroine/heroine.blend，在 Blender 修改後匯出成 art/heroine/heroine.glb，
- * 這個頁面會載入它，用同一組動作帶動（骨頭名稱 = joint 名稱），可以和程式版並排比較。
+ * Blender 版：`npm run art:heroine` 匯出 art/heroine/heroine.blend，在 Blender 修改後匯出成 art/heroine/heroine.glb；
+ * AI 版：AI 生成的模型經 scripts/heroine_ai.py 接上同一副骨架 → art/heroine/heroine-ai.glb。
+ * 兩者都用同一組動作帶動（骨頭名稱 = joint 名稱），可以和程式版並排比較。
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -248,8 +249,7 @@ function animate(t: number): void {
   });
 }
 
-// ── Blender 版（art/heroine/heroine.glb） ──
-const GLB_URL = '/art/heroine/heroine.glb';
+// ── 外部模型：Blender 版（art/heroine/heroine.glb）與 AI 版（art/heroine/heroine-ai.glb） ──
 interface BoneLink {
   bone: THREE.Object3D;
   group: THREE.Group;
@@ -258,33 +258,55 @@ interface BoneLink {
   restWorld: THREE.Quaternion;
   restPos: THREE.Vector3;
 }
-const blender = { model: null as THREE.Object3D | null, links: [] as BoneLink[], meshes: [] as THREE.Mesh[], edges: [] as THREE.Object3D[], status: '尚未載入' };
+interface GlbModel {
+  label: string;
+  url: string;
+  /** 找不到檔案時的提示 */
+  hint: string;
+  model: THREE.Object3D | null;
+  links: BoneLink[];
+  meshes: THREE.Mesh[];
+  edges: THREE.Object3D[];
+  status: string;
+}
+const glb = (label: string, url: string, hint: string): GlbModel => ({ label, url, hint, model: null, links: [], meshes: [], edges: [], status: '尚未載入' });
+const blender = glb('Blender 版', '/art/heroine/heroine.glb', '先執行 npm run art:heroine，或從 Blender 匯出到這個位置');
+const aiModel = glb('AI 版', '/art/heroine/heroine-ai.glb', '先用 scripts/heroine_ai.py 處理 AI 生成的模型');
+const GLBS = [blender, aiModel];
 /** 蒙皮網格的構面線：用同一副骨架的線框網格（一般的邊線不會跟著骨頭動） */
 const wireMat = new THREE.MeshBasicMaterial({ color: '#1a120c', wireframe: true, transparent: true, opacity: 0.45 });
 const loader = new GLTFLoader();
+/** 每個網格「原本」的材質（素模切換回來時用） */
+const baseMat = (m: THREE.Mesh): THREE.Material => m.userData.base as THREE.Material;
 
-function loadBlender(): void {
-  blender.status = '載入中…';
+function loadGlb(g: GlbModel): void {
+  g.status = '載入中…';
   updateInfo();
-  loader.load(`${GLB_URL}?t=${Date.now()}`, (gltf) => {
-    if (blender.model) scene.remove(blender.model);
+  loader.load(`${g.url}?t=${Date.now()}`, (gltf) => {
+    if (g.model) scene.remove(g.model);
     const model = gltf.scene;
-    blender.meshes = [];
-    blender.edges = [];
+    g.meshes = [];
+    g.edges = [];
     // 先收集再處理：處理時會加入構面線網格，不能邊走訪邊加
     const found: THREE.Mesh[] = [];
     model.traverse((o) => {
       if (o instanceof THREE.Mesh) found.push(o);
     });
     found.forEach((o) => {
-      // 依材質名稱換回調色盤（Blender 會加上 .001 之類的後綴）
-      const name = String((o.material as THREE.Material).name ?? '').replace(/\.\d+$/, '');
-      o.userData.mat = name;
-      o.material = PALETTE[name] ? mat(name) : new THREE.MeshPhongMaterial({ color: (o.material as THREE.MeshStandardMaterial).color, flatShading: true });
+      // 依材質名稱換回調色盤（Blender 會加上 .001 之類的後綴）；不在調色盤裡的（AI 生成的貼圖）保留貼圖、改成平面著色
+      const orig = o.material as THREE.MeshStandardMaterial;
+      const name = String(orig.name ?? '').replace(/\.\d+$/, '');
+      o.material = PALETTE[name]
+        ? mat(name)
+        : orig.map
+          ? // AI 生成的貼圖偏暗：顏色乘上 1.15，再用同一張貼圖當自發光把陰影面提亮（光影明亮、塊面仍分得出來）
+            new THREE.MeshPhongMaterial({ color: new THREE.Color(1.15, 1.15, 1.15), map: orig.map, emissive: '#5a524a', emissiveMap: orig.map, flatShading: true, shininess: 6, specular: '#181410' })
+          : new THREE.MeshPhongMaterial({ color: orig.color, flatShading: true, shininess: 6, specular: '#181410' });
+      o.userData.base = o.material;
       o.castShadow = true;
       o.receiveShadow = true;
       o.frustumCulled = false;
-      blender.meshes.push(o);
+      g.meshes.push(o);
       let e: THREE.Object3D;
       if (o instanceof THREE.SkinnedMesh) {
         const w = new THREE.SkinnedMesh(o.geometry, wireMat);
@@ -297,39 +319,39 @@ function loadBlender(): void {
         o.add(e);
       }
       e.visible = edgesOn;
-      blender.edges.push(e);
+      g.edges.push(e);
       if (clayOn) o.material = clay;
     });
     scene.add(model);
     model.updateMatrixWorld(true);
-    blender.links = [];
+    g.links = [];
     for (const j of JOINTS) {
       const bone = model.getObjectByName(j.name);
       if (!bone) continue;
-      blender.links.push({ bone, group: groups.get(j.name)!, parent: j.parent, restWorld: bone.getWorldQuaternion(new THREE.Quaternion()), restPos: bone.position.clone() });
+      g.links.push({ bone, group: groups.get(j.name)!, parent: j.parent, restWorld: bone.getWorldQuaternion(new THREE.Quaternion()), restPos: bone.position.clone() });
     }
-    blender.model = model;
-    blender.status = `已載入（骨頭 ${blender.links.length} / ${JOINTS.length}）`;
+    g.model = model;
+    g.status = `已載入（骨頭 ${g.links.length} / ${JOINTS.length}）`;
     applyCompare();
     updateInfo();
   }, undefined, () => {
-    blender.status = '找不到 art/heroine/heroine.glb（先執行 npm run art:heroine，或從 Blender 匯出到這個位置）';
+    g.status = `找不到 ${g.url.slice(1)}（${g.hint}）`;
     updateInfo();
   });
 }
 
-/** 把程式版 joint 的動作套到 Blender 骨頭：骨頭 World 旋轉 = joint 的 World 旋轉 × 骨頭靜止時的 World 旋轉 */
-const worldQ = new Map<string, THREE.Quaternion>();
+/** 把程式版 joint 的動作套到外部模型的骨頭：骨頭 World 旋轉 = joint 的 World 旋轉 × 骨頭靜止時的 World 旋轉 */
 const gq = new THREE.Quaternion();
 const pq = new THREE.Quaternion();
 const restRoot = new THREE.Vector3(...JOINTS[0]!.pos);
-function driveBlender(): void {
-  const model = blender.model;
+function driveGlb(g: GlbModel): void {
+  const model = g.model;
   if (!model || !model.visible) return;
+  const worldQ = new Map<string, THREE.Quaternion>();
   root.updateMatrixWorld(true);
   const rootQ = root.getWorldQuaternion(new THREE.Quaternion()).invert();
   const modelQ = model.getWorldQuaternion(new THREE.Quaternion());
-  for (const l of blender.links) {
+  for (const l of g.links) {
     l.group.getWorldQuaternion(gq).premultiply(rootQ);
     const target = gq.clone().multiply(l.restWorld);
     const pw = l.parent && worldQ.get(l.parent);
@@ -344,16 +366,28 @@ function driveBlender(): void {
   }
 }
 
-type Compare = 'code' | 'blender' | 'both';
+/** 比較模式：單獨看某一版，或兩版並排 */
+type Compare = 'code' | 'blender' | 'ai' | 'code+ai' | 'blender+ai';
 let compare: Compare = 'code';
 function applyCompare(): void {
-  root.visible = compare !== 'blender';
-  root.position.x = compare === 'both' ? -0.42 : 0;
-  if (blender.model) {
-    blender.model.visible = compare !== 'code';
-    blender.model.position.x = compare === 'both' ? 0.42 : 0;
+  const shown: Record<string, number | null> = { code: null, blender: null, ai: null };
+  const parts = compare.split('+');
+  parts.forEach((k, i) => (shown[k] = parts.length === 1 ? 0 : i === 0 ? -0.45 : 0.45));
+  root.visible = shown.code !== null;
+  root.position.x = shown.code ?? 0;
+  for (const [key, g] of [['blender', blender], ['ai', aiModel]] as const) {
+    const x = shown[key];
+    if (x === null || x === undefined) {
+      if (g.model) g.model.visible = false;
+      continue;
+    }
+    if (!g.model) {
+      if (g.status !== '載入中…') loadGlb(g);
+      continue;
+    }
+    g.model.visible = true;
+    g.model.position.x = x;
   }
-  if (compare !== 'code' && !blender.model) loadBlender();
 }
 
 // ── UI ──
@@ -404,11 +438,12 @@ let edgesOn = false;
 let clayOn = false;
 toggle('構面線', false, (on) => {
   edgesOn = on;
-  [...edges, ...blender.edges].forEach((e) => (e.visible = on));
+  [...edges, ...GLBS.flatMap((g) => g.edges)].forEach((e) => (e.visible = on));
 }, show);
 toggle('素模', false, (on) => {
   clayOn = on;
-  [...meshes, ...blender.meshes].forEach((m) => (m.material = on ? clay : mat(m.userData.mat as string)));
+  meshes.forEach((m) => (m.material = on ? clay : mat(m.userData.mat as string)));
+  GLBS.flatMap((g) => g.meshes).forEach((m) => (m.material = on ? clay : baseMat(m)));
 }, show);
 toggle('骨架', false, setSkeleton, show);
 toggle('光源跟著鏡頭', true, (on) => (lightFollowsCamera = on), show);
@@ -426,7 +461,7 @@ for (const [label, m] of [['待機', 'idle'], ['走路', 'walk'], ['靜止', 'st
 }
 const cmp = group('比較');
 const cmpButtons: HTMLButtonElement[] = [];
-for (const [label, c] of [['程式版', 'code'], ['Blender 版', 'blender'], ['並排', 'both']] as const) {
+for (const [label, c] of [['程式版', 'code'], ['Blender 版', 'blender'], ['AI 版', 'ai'], ['程式 / AI 並排', 'code+ai'], ['Blender / AI 並排', 'blender+ai']] as const) {
   const b = button(label, () => {
     compare = c;
     cmpButtons.forEach((x) => x.classList.toggle('on', x === b));
@@ -435,10 +470,10 @@ for (const [label, c] of [['程式版', 'code'], ['Blender 版', 'blender'], ['�
   b.classList.toggle('on', c === compare);
   cmpButtons.push(b);
 }
-button('重新載入 .glb', () => loadBlender(), cmp);
+button('重新載入 .glb', () => GLBS.forEach((g) => g.model && loadGlb(g)), cmp);
 
 function updateInfo(): void {
-  info.textContent = `程式版：構面 ≈ ${planeCount}（含背面與內側）· 三角形 ${triCount} · joint ${JOINTS.length}　｜　Blender 版：${blender.status}`;
+  info.textContent = `程式版：構面 ≈ ${planeCount}（含背面與內側）· 三角形 ${triCount} · joint ${JOINTS.length}　｜　${GLBS.map((g) => `${g.label}：${g.status}`).join('　｜　')}`;
 }
 updateInfo();
 
@@ -465,7 +500,7 @@ renderer.setAnimationLoop(() => {
   }
   controls.update();
   animate(clock.elapsedTime);
-  driveBlender();
+  GLBS.forEach(driveGlb);
 
   const dir = lightFollowsCamera ? tmp.copy(KEY_DIR_CAM).applyQuaternion(camera.quaternion) : tmp.copy(fixedKeyDir);
   key.target.position.copy(controls.target);

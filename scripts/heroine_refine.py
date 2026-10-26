@@ -5,7 +5,7 @@ Blender 端第二步：把 heroine.blend 的網格整理成參考圖（模型結
       --python scripts/heroine_refine.py -- art/heroine
 
 造型（8 頭身、粗跟靴、高馬尾、護膝、短裙……）都已經在程式版（src/tools/heroine3d/）裡，這裡只做：
-- 劍分成獨立物件保持銳利；
+- 劍與盾牌分成獨立物件保持銳利；
 - 身體三角化、長邊切一刀、頂點沿法線微幅推拉（固定亂數），面變多、每個面的角度略有不同，輪廓不變；臉不動。
 只能對 npm run art:heroine 剛產生的檔案執行一次（重複執行會直接停止）；修整前的版本會另存成 heroine-base.blend。
 """
@@ -43,7 +43,7 @@ def activate(obj, mode="OBJECT"):
         bpy.ops.object.mode_set(mode=mode)
 
 
-# ───── 劍分開、身體加密構面 ─────
+# ───── 劍、盾牌分開，身體加密構面 ─────
 activate(body, "EDIT")
 bpy.ops.mesh.select_all(action="DESELECT")
 body.vertex_groups.active_index = body.vertex_groups["sword"].index
@@ -52,6 +52,15 @@ bpy.ops.mesh.separate(type="SELECTED")
 bpy.ops.object.mode_set(mode="OBJECT")
 sword = [o for o in bpy.data.objects if o.type == "MESH" and o.name.startswith("Heroine.")][0]
 sword.name = "HeroineSword"
+# 盾牌也分開（保持乾淨的大面）
+activate(body, "EDIT")
+bpy.ops.mesh.select_all(action="DESELECT")
+body.vertex_groups.active_index = body.vertex_groups["shield"].index
+bpy.ops.object.vertex_group_select()
+bpy.ops.mesh.separate(type="SELECTED")
+bpy.ops.object.mode_set(mode="OBJECT")
+shield = [o for o in bpy.data.objects if o.type == "MESH" and o.name.startswith("Heroine.")][0]
+shield.name = "HeroineShield"
 
 before = len(body.data.polygons)
 # 不用細分曲面（會把頭髮束、布片這些薄的體積縮成一團）：
@@ -76,7 +85,7 @@ bm.free()
 for p in body.data.polygons:
     p.use_smooth = False
 
-for o in (body, sword):
+for o in (body, sword, shield):
     for m in list(o.modifiers):
         if m.type == "ARMATURE":
             o.modifiers.remove(m)

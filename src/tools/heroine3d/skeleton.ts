@@ -5,7 +5,7 @@
  * 依設定稿（女主角設計圖/低多邊形女戰士角色轉面圖.png）：約 8 頭身（頭部整體縮成 HEAD_SCALE）、穿粗跟靴（整隻抬高 LIFT）。
  * 這裡的座標都是「抬高前」的；JOINTS 與 volumes 的輸出會一起加上 LIFT。
  */
-import { add, type V3 } from './facets';
+import { add, lerp, mul, norm, type V3 } from './facets';
 
 export interface Joint {
   name: string;
@@ -58,14 +58,23 @@ const limb = (side: 1 | -1, arm: { elbow: V3; wrist: V3 }): Limb => {
 export const LIMB_L = limb(1, { elbow: [0.222, 1.122, -0.045], wrist: [0.262, 0.895, -0.005] });
 export const LIMB_R = limb(-1, { elbow: [0.228, 1.125, -0.03], wrist: [0.272, 0.905, 0.045] });
 
-// ── 劍：右手握著，劍尖朝下、略往外與往前 ──
+// ── 劍：右手握著，劍柄與劍身跟前臂成 SWORD_ANGLE（80°）：前臂往下時，劍朝前方略往下指 ──
+export const SWORD_ANGLE = (80 * Math.PI) / 180;
 export const SWORD_DIR: V3 = (() => {
-  const d: V3 = [-0.32, -1, 0.3];
-  const l = Math.hypot(...d);
-  return [d[0] / l, d[1] / l, d[2] / l];
+  const d = norm([LIMB_R.wrist[0] - LIMB_R.elbow[0], LIMB_R.wrist[1] - LIMB_R.elbow[1], LIMB_R.wrist[2] - LIMB_R.elbow[2]]);
+  // 在「前臂 + 正前方」這個平面上，從前臂方向往前轉 SWORD_ANGLE
+  const f: V3 = [0, 0, 1];
+  const k = f[0] * d[0] + f[1] * d[1] + f[2] * d[2];
+  const fp = norm([f[0] - k * d[0], f[1] - k * d[1], f[2] - k * d[2]]);
+  const c = Math.cos(SWORD_ANGLE), s = Math.sin(SWORD_ANGLE);
+  return norm([d[0] * c + fp[0] * s, d[1] * c + fp[1] * s, d[2] * c + fp[2] * s]);
 })();
 /** 握把中心（拳頭裡） */
 export const GRIP = joint('sword', 'wristR', add(LIMB_R.wrist, [-0.012, -0.06, 0.012]));
+
+// ── 盾牌：綁在左前臂外側，盾面朝外、略朝前 ──
+export const SHIELD_N: V3 = norm([1, 0, 0.35]);
+export const SHIELD_C = joint('shield', 'elbowL', add(lerp(LIMB_L.elbow, LIMB_L.wrist, 0.5), mul(SHIELD_N, 0.062)));
 
 // ── 馬尾：高馬尾，髮圈綁在頭頂偏後；先往上翹、往後散開，再垂到上背。每一節都是一根骨頭 ──
 /** 頭部縮放前的座標（頭髮在 volumes 裡也用這組畫，最後整體縮放） */
