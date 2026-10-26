@@ -47,6 +47,38 @@ export type Joint =
   /** 模型自訂的額外關節（手指、腳趾、披風、翅膀、尾巴、多隻腳…），名稱以 ex_ 開頭 */
   | `ex_${string}`;
 
+/**
+ * 蒙皮網格：一整張連續的網格，每個頂點依權重跟著幾個關節動（AI 生成的女主角用）。
+ * verts 是靜止姿勢、模型座標中的位置；rest 是靜止姿勢時各關節的位置。
+ * 每個面有一個部位（region：關節名稱或 'hair' 等），穿上裝備時被蓋住的部位不畫。
+ */
+export interface SkinMesh {
+  verts: V3[];
+  infl: { joint: Joint; w: number }[][];
+  faces: { idx: [number, number, number]; color: number; region: string }[];
+  rest: Partial<Record<Joint, V3>>;
+}
+
+/** 蒙皮網格目前的頂點位置：Σ 權重 ×（關節位置 + 關節旋轉 ×（頂點 − 關節靜止位置）） */
+export function skinVerts(skin: SkinMesh, world: JointFrames): V3[] {
+  const out: V3[] = new Array(skin.verts.length);
+  for (let i = 0; i < skin.verts.length; i++) {
+    const v = skin.verts[i]!;
+    let x = 0, y = 0, z = 0;
+    for (const { joint, w } of skin.infl[i]!) {
+      const f = world.get(joint);
+      const r = skin.rest[joint];
+      if (!f || !r) continue;
+      const o = apply(f.m, [v[0] - r[0], v[1] - r[1], v[2] - r[2]]);
+      x += (f.p[0] + o[0]) * w;
+      y += (f.p[1] + o[1]) * w;
+      z += (f.p[2] + o[2]) * w;
+    }
+    out[i] = [x, y, z];
+  }
+  return out;
+}
+
 export interface PartDef {
   joint: Joint;
   parent: Joint | null;
@@ -124,6 +156,8 @@ export interface FigureModel {
    * flat = 材質原色、不打光
    */
   lighting?: 'normal' | 'toon' | 'flat';
+  /** 蒙皮網格（整張連續的身體；與 parts 上的網格一起畫） */
+  skin?: SkinMesh;
   /** 魔王階段變化時不再畫的關節（index = 階段；例如第 2 階段盾牌碎裂、第 3 階段巨劍落地） */
   phaseHidden?: readonly (readonly Joint[])[];
   /** 魔王階段變化時掉在地上、留在場上的物件（index = 階段；模型與相對魔王的位置） */

@@ -19,7 +19,7 @@ const outDir = resolve(process.argv[2] ?? join(root, 'release', '設計文件', 
 const vite = await createServer({ root, logLevel: 'error', server: { middlewareMode: true, hmr: false }, appType: 'custom' });
 try {
   const { enemies } = await vite.ssrLoadModule('/src/data/enemies.ts');
-  const { solveJoints } = await vite.ssrLoadModule('/src/render/figure/FigureModel.ts');
+  const { skinVerts, solveJoints } = await vite.ssrLoadModule('/src/render/figure/FigureModel.ts');
   const { HEROINE } = await vite.ssrLoadModule('/src/render/figure/Heroine.ts');
   const { MONSTER_MODELS } = await vite.ssrLoadModule('/src/render/figure/Monsters.ts');
   const { apply, dot, faceNormal, normalize } = await vite.ssrLoadModule('/src/render/figure/Poly3D.ts');
@@ -42,14 +42,24 @@ try {
     const soft = model.softLight ?? false;
     const rim = model.rimLight ?? 0;
     const out = [];
+    // 每一組（頂點、面）：關節上的網格，加上蒙皮網格（AI 版女主角的整張身體）
+    const groups = [];
     for (const part of model.parts) {
       const { m, p } = world.get(part.joint);
       for (const mesh of part.meshes) {
-        const verts = mesh.verts.map((v) => {
-          const r = apply(m, v);
-          return [p[0] + r[0], p[1] + r[1], p[2] + r[2]];
+        groups.push({
+          verts: mesh.verts.map((v) => {
+            const r = apply(m, v);
+            return [p[0] + r[0], p[1] + r[1], p[2] + r[2]];
+          }),
+          faces: mesh.faces,
         });
-        for (const f of mesh.faces) {
+      }
+    }
+    if (model.skin) groups.push({ verts: skinVerts(model.skin, world), faces: model.skin.faces });
+    {
+      for (const { verts, faces: fs } of groups) {
+        for (const f of fs) {
           const n = normalize(faceNormal(verts, f.idx));
           const fv = dot(n, VIEW);
           if (fv <= 0) continue;

@@ -3,8 +3,8 @@ import type { Rarity } from '../../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from '../../../game/items/ItemInstance';
 import type { Joint } from '../FigureModel';
 import { stretchMeshes, type Mesh } from '../Poly3D';
-import { pelvisArmor } from '../heroine/HeroineArmor';
-import { heroineForearm, heroineHand, heroineHead, heroineThigh, heroineUpperArm, scaleHead, BOOT_STRETCH } from '../heroine/HeroineBody';
+import { AI_LIMB, AI_TORSO } from '../HeroineAI';
+import { FOREARM_LENGTH, heroineHand, scaleHead, THIGH_LENGTH } from '../heroine/HeroineBody';
 import type { UniqueArmor } from './uniques/types';
 import { helmetUniques } from './uniques/helmet';
 import { armorUniques } from './uniques/armor';
@@ -239,42 +239,57 @@ export function specForItem<K extends ArmorSlot>(slot: K, item: ItemInstance, da
   return armorSpec(slot, tier, item.rarity, item.rarity === 'normal' ? [] : itemThemes(item, data));
 }
 
-/** 主角身上被換掉的關節網格（沒穿的部位保留原本的皮甲、長靴與頭髮） */
-export type OutfitParts = ReadonlyMap<Joint, Mesh[]>;
+/**
+ * 主角身上的裝備網格（關節 → 疊上去的網格）；hideSkin：AI 版身體（蒙皮網格）中被裝備蓋住、不畫的部位。
+ * 裝備零件原本依舊版女主角的骨架長度設計，這裡沿骨頭方向拉伸到 AI 版的長度。
+ */
+export type OutfitParts = ReadonlyMap<Joint, Mesh[]> & { readonly hideSkin?: ReadonlySet<string> };
+
+/** 沿骨頭（Y 軸）拉伸 */
+const along = (meshes: Mesh[], k: number): Mesh[] => stretchMeshes(meshes, [1, k, 1]);
+/** 舊版女主角的長度（裝備零件依這些長度設計） */
+const OLD = { forearm: FOREARM_LENGTH, thigh: THIGH_LENGTH, bootShin: 12.6, chest: 10.4, waist: 6.2 };
 
 export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; gloves?: GloveSpec; boots?: BootSpec; shield?: ShieldSpec }): OutfitParts {
   const parts = new Map<Joint, Mesh[]>();
+  const hide = new Set<string>();
   const { helmet, armor, gloves, boots, shield } = specs;
   if (gloves) {
-    // 護手取代皮護腕、手套換顏色；指節甲、爪、尖刺只在放大時畫（角色預覽）
-    parts.set('forearmL', [...heroineForearm(3), ...gauntletPiece(gloves)]);
-    parts.set('forearmR', [...heroineForearm(4), ...gauntletPiece(gloves)]);
+    // 護手套在前臂外面；手換成手套（藏起 AI 版的手）；指節甲、爪、尖刺只在放大時畫（角色預覽）
+    const k = AI_LIMB.forearm / OLD.forearm;
+    parts.set('forearmL', along(gauntletPiece(gloves), k));
+    parts.set('forearmR', along(gauntletPiece(gloves), k));
     parts.set('handL', [...heroineHand(false, gloves.hand), ...gloveHandDetails(gloves)]);
     parts.set('handR', [...heroineHand(true, gloves.hand), ...gloveHandDetails(gloves)]);
+    hide.add('handL').add('handR');
   }
   // 盾牌拿在左手（只會和劍、斧一起裝備；弓也在左手，但兩者不會同時出現）
   if (shield) parts.set('weaponL', placeShield(shieldMeshes(shield)));
   if (helmet) {
     // 全罩頭盔蓋住臉與頭髮；帽子與開放式露出臉（頭髮收進頭盔，馬尾從後方垂下）
-    const hat = placeHelmet(helmetMeshes(helmet));
-    parts.set('head', scaleHead(helmet.style === 'closed' ? hat : [...heroineHead(), ...hat]));
+    parts.set('head', scaleHead(placeHelmet(helmetMeshes(helmet))));
+    hide.add('hair');
+    if (helmet.style === 'closed') hide.add('head');
   }
   if (armor) {
-    parts.set('chest', chestPiece(armor));
-    parts.set('torso', waistPiece(armor));
-    parts.set('upperArmL', [...heroineUpperArm(1), ...shoulderPiece(armor, 1)]);
-    parts.set('upperArmR', [...heroineUpperArm(2), ...shoulderPiece(armor, -1)]);
-    if (armor.tassets) parts.set('root', [...pelvisArmor(), ...tassetPiece(armor)]);
+    parts.set('chest', along(chestPiece(armor), AI_TORSO.chest / OLD.chest));
+    parts.set('torso', along(waistPiece(armor), AI_TORSO.waist / OLD.waist));
+    parts.set('upperArmL', shoulderPiece(armor, 1));
+    parts.set('upperArmR', shoulderPiece(armor, -1));
+    if (armor.tassets) parts.set('root', tassetPiece(armor));
+    hide.add('chest').add('torso');
   }
   if (boots) {
-    parts.set('thighL', [...heroineThigh(1), ...bootCuffPiece(boots)]);
-    parts.set('thighR', [...heroineThigh(2), ...bootCuffPiece(boots)]);
-    parts.set('shinL', stretchMeshes(bootShinPiece(boots), [1, BOOT_STRETCH, 1]));
-    parts.set('shinR', stretchMeshes(bootShinPiece(boots), [1, BOOT_STRETCH, 1]));
+    const k = AI_LIMB.thigh / OLD.thigh;
+    parts.set('thighL', along(bootCuffPiece(boots), k));
+    parts.set('thighR', along(bootCuffPiece(boots), k));
+    parts.set('shinL', along(bootShinPiece(boots), AI_LIMB.shin / OLD.bootShin));
+    parts.set('shinR', along(bootShinPiece(boots), AI_LIMB.shin / OLD.bootShin));
     parts.set('footL', bootFootPiece(boots));
     parts.set('footR', bootFootPiece(boots));
+    hide.add('shinL').add('shinR').add('footL').add('footR');
   }
-  return parts;
+  return Object.assign(parts, { hideSkin: hide });
 }
 
 const cache = new Map<string, OutfitParts>();

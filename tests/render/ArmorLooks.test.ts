@@ -39,9 +39,13 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
   });
 
   it('全罩頭盔蓋住臉；帽子與開放式頭盔露出臉', () => {
-    const faces = (tier: number) => heroineOutfit({ helmet: armorSpec('helmet', tier, 'normal', []) }).get('head')!.length;
-    // T1 皮帽（露臉）比只有頭盔的 T3 全罩多了臉的網格
-    expect(faces(1)).toBeGreaterThan(heroineOutfit({ helmet: { ...armorSpec('helmet', 1, 'normal', []), style: 'closed' } }).get('head')!.length);
+    // AI 版身體：頭盔都會收起頭髮；只有全罩頭盔把臉也藏起來
+    const open = heroineOutfit({ helmet: armorSpec('helmet', 1, 'normal', []) });
+    const closed = heroineOutfit({ helmet: { ...armorSpec('helmet', 1, 'normal', []), style: 'closed' } });
+    expect(open.get('head')!.length).toBeGreaterThan(0);
+    expect(open.hideSkin?.has('hair')).toBe(true);
+    expect(open.hideSkin?.has('head')).toBe(false);
+    expect(closed.hideSkin?.has('head')).toBe(true);
     expect(armorSpec('helmet', 3, 'normal', []).style).toBe('closed');
   });
 

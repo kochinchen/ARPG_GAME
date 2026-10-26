@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
 import type { Vec2 } from '../../core/math/Vec2';
-import { IDLE_ROAR_OFFSET, lerpPose, samplePoses, solveJoints, type AttackVariant, type FigureModel, type Joint, type JointFrames, type Pose } from './FigureModel';
+import { IDLE_ROAR_OFFSET, lerpPose, samplePoses, skinVerts, solveJoints, type AttackVariant, type FigureModel, type Joint, type JointFrames, type Pose } from './FigureModel';
 import { apply, dot, faceNormal, jointRotation, normalize, rotY, type M3, type Mesh, type V3 } from './Poly3D';
 
 /** 模型單位 → 畫面像素（45° 等角：地面 2:1，垂直略為縮短） */
@@ -99,8 +99,8 @@ export class PolyFigure {
   weaponAxis: { a: ScreenPoint; b: ScreenPoint; mid: ScreenPoint; focus: ScreenPoint | null; front: boolean } | null = null;
   /** undefined = 模型原本的武器；null = 空手 */
   private mount: WeaponMount | null | undefined = undefined;
-  /** 換掉的關節網格（主角穿上的頭盔、盔甲、靴子）；沒有列出的關節用模型原本的網格 */
-  private outfit: ReadonlyMap<Joint, Mesh[]> | null = null;
+  /** 換掉的關節網格（主角穿上的頭盔、盔甲、靴子）；沒有列出的關節用模型原本的網格。hideSkin：蒙皮網格中被裝備蓋住、不畫的部位 */
+  private outfit: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string> }) | null = null;
   /** 不畫的關節（魔王階段變化：盾牌碎裂、巨劍落地） */
   private hidden: ReadonlySet<Joint> = new Set();
   /** 腳下影子（相對腳底，px；模型有 dynamicShadow 時才有）：中心與水平半徑 */
@@ -125,7 +125,7 @@ export class PolyFigure {
   }
 
   /** 換裝：關節 → 取代的網格（null = 模型原本的外觀） */
-  setOutfit(parts: ReadonlyMap<Joint, Mesh[]> | null): void {
+  setOutfit(parts: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string> }) | null): void {
     this.outfit = parts;
   }
 
@@ -268,6 +268,31 @@ export class PolyFigure {
     const tipLocal = mount === undefined ? this.model.weaponTip : mount?.tip;
     this.weaponTip = null;
     this.weaponAxis = null;
+    const mode = PolyFigure.lighting ?? this.model.lighting ?? 'normal';
+    /** 一個面：背面剔除、依光線上色、記下深度（之後由遠到近畫） */
+    const emit = (verts: readonly V3[], idx: readonly number[], faceColor: number, base?: number) => {
+      const n = normalize(faceNormal(verts, idx));
+      const facingView = dot(n, VIEW);
+      if (facingView <= 0) return;
+      let depth = 0;
+      const points: number[] = [];
+      for (const i of idx) {
+        const v = verts[i]!;
+        depth += dot(v, VIEW);
+        points.push(...toScreen(v));
+      }
+      const d = dot(n, LIGHT);
+      const lit = soft ? Math.max(0, (d + 0.45) / 1.45) : Math.max(0, d);
+      let color: number;
+      if (mode === 'flat') color = base ?? faceColor;
+      else if (mode === 'toon') color = shade(base ?? faceColor, lit > 0.55 ? 1.02 : lit > 0.25 ? 0.86 : 0.7);
+      else {
+        color = shade(faceColor, AMBIENT + DIFFUSE * lit);
+        // 輪廓光：接近輪廓（幾乎側對鏡頭）且背光的面，加一點暖色
+        if (rim > 0) color = addRim(color, rim * Math.max(0, 1 - facingView * 2.2) * (1 - lit));
+      }
+      faces.push({ depth: depth / idx.length, color, points });
+    };
     for (const part of this.model.parts) {
       const { m, p } = world.get(part.joint)!;
       const at = (v: V3): V3 => {
@@ -293,30 +318,17 @@ export class PolyFigure {
           const r = apply(m, v);
           return [p[0] + r[0], p[1] + r[1], p[2] + r[2]] as V3;
         });
-        for (const face of mesh.faces) {
-          const n = normalize(faceNormal(verts, face.idx));
-          const facingView = dot(n, VIEW);
-          if (facingView <= 0) continue;
-          let depth = 0;
-          const points: number[] = [];
-          for (const i of face.idx) {
-            const v = verts[i]!;
-            depth += dot(v, VIEW);
-            points.push(...toScreen(v));
-          }
-          const d = dot(n, LIGHT);
-          const lit = soft ? Math.max(0, (d + 0.45) / 1.45) : Math.max(0, d);
-          const mode = PolyFigure.lighting ?? this.model.lighting ?? 'normal';
-          let color: number;
-          if (mode === 'flat') color = face.base ?? face.color;
-          else if (mode === 'toon') color = shade(face.base ?? face.color, lit > 0.55 ? 1.02 : lit > 0.25 ? 0.86 : 0.7);
-          else {
-            color = shade(face.color, AMBIENT + DIFFUSE * lit);
-            // 輪廓光：接近輪廓（幾乎側對鏡頭）且背光的面，加一點暖色
-            if (rim > 0) color = addRim(color, rim * Math.max(0, 1 - facingView * 2.2) * (1 - lit));
-          }
-          faces.push({ depth: depth / face.idx.length, color, points });
-        }
+        for (const face of mesh.faces) emit(verts, face.idx, face.color, face.base);
+      }
+    }
+    // 蒙皮網格（整張連續的身體）：被裝備蓋住的部位不畫
+    const skin = this.model.skin;
+    if (skin) {
+      const verts = skinVerts(skin, world);
+      const hide = this.outfit?.hideSkin;
+      for (const face of skin.faces) {
+        if (hide?.has(face.region) || this.hidden.has(face.region as Joint)) continue;
+        emit(verts, face.idx, face.color);
       }
     }
     if (this.model.dynamicShadow) this.shadow = footprint([world.get('footL')?.p, world.get('footR')?.p, world.get('head')?.p], world.get('root')!.p, toScreen, k);

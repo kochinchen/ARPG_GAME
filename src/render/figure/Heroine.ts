@@ -1,4 +1,5 @@
 import type { FigureModel, PartDef } from './FigureModel';
+import { HEROINE_AI } from './HeroineAI';
 import { stretchMeshes } from './Poly3D';
 import { backCloth, bootCuff, bootFoot, bootShin, bracer, chestArmor, frontCloth, pauldron, pelvisArmor } from './heroine/HeroineArmor';
 import { BOOT_STRETCH, FOREARM_LENGTH, HEAD_SCALE, heroineChest, heroineForearm, heroineHand, heroineHead, heroineNeck, heroineThigh, heroineUpperArm, heroineWaist, scaleHead, SHIN_LENGTH, THIGH_LENGTH, UPPER_ARM_LENGTH } from './heroine/HeroineBody';
@@ -62,7 +63,8 @@ const PARTS: PartDef[] = [
   ...leg(-1),
 ];
 
-export const HEROINE: FigureModel = {
+/** 舊版女主角（程式拼出的多面體）：保留作為參考；遊戲用的是 AI 版 */
+export const HEROINE_CLASSIC: FigureModel = {
   parts: PARTS,
   hipHeight: HIP,
   referenceRadius: 0.3,
@@ -84,3 +86,6 @@ export const HEROINE: FigureModel = {
     clothBack: { rate: 10, gravity: 0.4 },
   },
 };
+
+/** 遊戲裡的女主角：AI 版（HeroineAI.ts） */
+export const HEROINE: FigureModel = HEROINE_AI;

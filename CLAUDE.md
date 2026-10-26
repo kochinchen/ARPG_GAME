@@ -28,6 +28,7 @@
 - `npm run dev`：開發伺服器（http://localhost:5173）；角色樣態預覽 http://localhost:5173/viewer.html；Three.js 畫面試驗（與現在的畫法並排比較，`?monster=lava_behemoth` 換怪物）http://localhost:5173/viewer-three.html；女主角 3D 構面模型（骨架 → 構面體積，自由視角，`src/tools/heroine3d/`；造型依 `女主角設計圖/` 的轉面圖，「T 字」動作可對照）http://localhost:5173/heroine-3d.html
 - `npm run art:heroine`：把女主角 3D 構面模型連骨架交給 Blender，輸出 `art/heroine/heroine.blend`（可編輯）與 `heroine.glb`；會覆蓋 Blender 裡改過的版本（舊檔先備份成 `*.bak-時間`）。之後可再跑 Blender 修整腳本（劍分開、身體加密成較密的三角構面；只能對剛產生的檔案跑一次）：`/Applications/Blender.app/Contents/MacOS/Blender --background art/heroine/heroine.blend --python scripts/heroine_refine.py -- art/heroine`。在 Blender 改完後匯出 glTF 到 `art/heroine/heroine.glb`，heroine-3d.html 的「比較」可並排看
 - AI 版女主角：設計圖四視圖（`art/heroine/multiview/`）用微軟 TRELLIS 生成的模型放在 `art/heroine/ai/`，接上同一副骨架：`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/heroine_ai.py -- art/heroine/ai/trellis-1.glb art/heroine` → `art/heroine/heroine-ai.blend` 與 `.glb`（heroine-3d.html 的「AI 版」）。不使用中國公司的服務（Hunyuan、Tripo、Rodin 等）
+- 遊戲裡的女主角就是 AI 版（`src/render/figure/HeroineAI.ts`，舊版保留為 `HEROINE_CLASSIC`）：改過 `heroine-ai.blend` 後執行 `/Applications/Blender.app/Contents/MacOS/Blender --background art/heroine/heroine-ai.blend --python scripts/heroine_ai_game.py -- src/render/figure/heroine/heroineAI.json` 更新遊戲資料，再 `npm run docs:models`、`npm run package`
 - `npm test`：單元測試
 - `npm run lint`：型別檢查（含無 DOM 的 `tsconfig.logic.json`）+ 依賴方向檢查
 - `npm run build`：正式版建置
