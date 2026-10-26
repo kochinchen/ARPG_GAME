@@ -57,15 +57,20 @@ def add_mesh(obj, color_of):
             faces.append([base + idx[0], base + idx[t], base + idx[t + 1], color_of(p)])
 
 
-# 身體：貼圖顏色
-img = next(n.image for n in body.data.materials[0].node_tree.nodes if n.type == "TEX_IMAGE")
-W, H = img.size
-PX = img.pixels[:]
+# 身體：貼圖顏色（每個材質各自的貼圖；v13 起頭部是另一張貼圖）
+TEX = {}
+for mi, m in enumerate(body.data.materials):
+    im = next((n.image for n in m.node_tree.nodes if n.type == "TEX_IMAGE"), None) if m and m.node_tree else None
+    if im:
+        TEX[mi] = (im.size[0], im.size[1], im.pixels[:])
 uvd = body.data.uv_layers.active.data
 BRIGHT = 1.08
 
 
 def tex_color(p):
+    if p.material_index not in TEX:
+        return rgb_int(*(to_srgb(c) for c in body.data.materials[p.material_index].diffuse_color[:3]))
+    W, H, PX = TEX[p.material_index]
     uvs = [uvd[li].uv for li in p.loop_indices]
     c = sum((Vector(u) for u in uvs), Vector((0, 0))) / len(uvs)
     samples = [c] + [c.lerp(Vector(u), 0.55) for u in uvs]
