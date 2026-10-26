@@ -312,8 +312,10 @@ export class PolyFigure {
         const chest = world.get('chest')?.p ?? world.get('root')!.p;
         this.weaponAxis = { a: screen(a), b: screen(b), mid: screen(mid), focus: mount.focus ? screen(mount.focus) : null, front: dot(at(mid), VIEW) > dot(chest, VIEW) };
       }
-      for (const mesh of meshes) {
-        if ((mesh.lod ?? 0) > lod) continue;
+      for (const fine of meshes) {
+        if ((fine.lod ?? 0) > lod) continue;
+        // 加密成小三角面的裝備：沒有放大時畫加密前的粗網格
+        const mesh = lod < 2 && fine.coarse ? fine.coarse : fine;
         const verts = mesh.verts.map((v) => {
           const r = apply(m, v);
           return [p[0] + r[0], p[1] + r[1], p[2] + r[2]] as V3;

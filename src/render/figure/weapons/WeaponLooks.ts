@@ -2,6 +2,7 @@ import type { DataRegistry } from '../../../data/DataRegistry';
 import { hasRunes, itemThemes, RARITY_TINT, themeColors, THEMES, tintTones, type GearTheme } from '../gear/GearTheme';
 import type { Rarity, WeaponType } from '../../../data/schema/item';
 import type { ItemInstance } from '../../../game/items/ItemInstance';
+import { refine } from '../Facets';
 import { apply, jointRotation, placeMesh, stretchMeshes, type Mesh, type V3 } from '../Poly3D';
 import { SWORD_CANT } from '../heroine/HeroineWeapon';
 import type { WeaponMount } from '../PolyFigure';
@@ -80,6 +81,8 @@ const SWORD_LENGTH_SCALE = 1.3;
 const AXE_HEAD_SCALE = 2;
 const BOW_SCALE = 1.2;
 const STAFF_HEAD_SCALE = 2;
+/** 加密成小三角面（與 AI 版女主角相同的構面感）：邊長、起伏；劍身與弓臂很薄，起伏有絕對上限 */
+const WEAPON_FACETS = { size: 0.7, bump: 0.25, maxBump: 0.09, vary: 0.06 };
 
 const scaleAround = (v: V3, o: V3, k: number): V3 => [o[0] + (v[0] - o[0]) * k, o[1] + (v[1] - o[1]) * k, o[2] + (v[2] - o[2]) * k];
 
@@ -273,7 +276,8 @@ function build(spec: Spec): WeaponLook {
   return {
     kind: spec.kind,
     hand: spec.kind === 'bow' ? 'left' : 'right',
-    meshes: raw.meshes.map((mesh) => {
+    meshes: raw.meshes.map((part, i) => {
+      const mesh = refine(part, { ...WEAPON_FACETS, seed: i });
       const placed = placeMesh(mesh, rot, [0, 0, 0]);
       if (mesh.lod) placed.lod = mesh.lod;
       return placed;

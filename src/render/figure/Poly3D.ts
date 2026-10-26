@@ -18,6 +18,8 @@ export interface Mesh {
   faces: Face[];
   /** 細節層級：1 = 中距離以上才畫、2 = 放大時才畫（省略 = 一定畫） */
   lod?: 1 | 2;
+  /** 加密前的粗網格（Facets.refine）：沒有放大時畫這個，省下小三角面 */
+  coarse?: Mesh;
 }
 
 // ─────────────────────────── 向量 / 矩陣 ───────────────────────────
@@ -160,10 +162,16 @@ export function placeMesh(mesh: Mesh, rotation: V3, offset: V3): Mesh {
       return [r[0] + offset[0], r[1] + offset[1], r[2] + offset[2]] as V3;
     }),
     faces: mesh.faces.map((f) => ({ idx: [...f.idx], color: f.color, ...(f.base !== undefined ? { base: f.base } : {}) })),
+    ...(mesh.coarse ? { coarse: placeMesh(mesh.coarse, rotation, offset) } : {}),
   };
 }
 
 /** 以原點為中心、三個軸各自縮放（拉長靴筒、縮小頭部）；面的順序與顏色不變 */
 export function stretchMeshes(meshes: readonly Mesh[], [sx, sy, sz]: V3): Mesh[] {
-  return meshes.map((m) => ({ ...m, verts: m.verts.map(([x, y, z]) => [x * sx, y * sy, z * sz] as V3) }));
+  return meshes.map((m) => mapVerts(m, ([x, y, z]) => [x * sx, y * sy, z * sz]));
+}
+
+/** 移動每個頂點（連同加密前的粗網格）；細節層級與面不變 */
+export function mapVerts(mesh: Mesh, f: (v: V3) => V3): Mesh {
+  return { ...mesh, verts: mesh.verts.map(f), ...(mesh.coarse ? { coarse: mapVerts(mesh.coarse, f) } : {}) };
 }

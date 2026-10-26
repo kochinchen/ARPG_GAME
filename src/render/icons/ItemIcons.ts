@@ -301,8 +301,11 @@ function shortenShaft(kind: WeaponLook['kind'], meshes: Mesh[]): Mesh[] {
 function unheld(look: WeaponLook): Mesh[] {
   const r = jointRotation(HOLD[look.kind]);
   const inv: M3 = [r[0], r[3], r[6], r[1], r[4], r[7], r[2], r[5], r[8]];
-  return look.meshes.map((m) => ({ ...m, verts: m.verts.map((v) => apply(inv, v)) }));
+  return coarse(look.meshes).map((m) => ({ ...m, verts: m.verts.map((v) => apply(inv, v)) }));
 }
+
+/** 圖示很小：裝備用加密前的粗網格（小三角面在圖示上看不出來，只會讓圖示變大） */
+const coarse = (meshes: readonly Mesh[]): Mesh[] => meshes.map((m) => m.coarse ?? m);
 
 // ─────────────────────────── 光暈與粒子 ───────────────────────────
 
@@ -445,7 +448,7 @@ function buildIcon(item: ItemInstance, slot: string, themes: ReturnType<typeof i
   let meshes: Mesh[];
   switch (slot) {
     case 'helmet':
-      meshes = helmetMeshes(specForItem('helmet', item, data));
+      meshes = coarse(helmetMeshes(specForItem('helmet', item, data)));
       break;
     case 'armor':
       meshes = armorIcon(specForItem('armor', item, data));
@@ -457,7 +460,7 @@ function buildIcon(item: ItemInstance, slot: string, themes: ReturnType<typeof i
       meshes = pair(bootIcon(specForItem('boots', item, data)), 2, [-2.6, 0.6, -4.6]);
       break;
     case 'shield':
-      meshes = shieldMeshes(specForItem('shield', item, data));
+      meshes = coarse(shieldMeshes(specForItem('shield', item, data)));
       break;
     case 'ring':
     case 'amulet': {

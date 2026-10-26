@@ -128,6 +128,106 @@ export function facetize(mesh: Mesh, bump = 0.12, seed = 0): Mesh {
   return out;
 }
 
+export interface RefineOptions {
+  /** 三角形的最長邊上限（模型單位） */
+  size: number;
+  /** 平面上新頂點的起伏：± bump × 邊長 */
+  bump?: number;
+  /** 起伏的絕對上限（薄的零件，例如劍身，不能穿到另一面） */
+  maxBump?: number;
+  /** 每個小三角形的亮度差異：±vary（預設 3%） */
+  vary?: number;
+  seed?: number;
+  /** 沒有放大時畫的粗網格（省略 = 加密前的網格） */
+  coarse?: Mesh;
+}
+
+/**
+ * 加密成小三角面（與 AI 版女主角相同的密集構面）：每個面各自切成網格——四邊形切成 nu × nv 格（細長的面只沿長邊切），
+ * 三角形切成 n 層的三角網，其他多邊形從中心切成扇形再細分；面內沒有點可以起伏時（太小或太細長）不切。邊上的新頂點留在原來的直線上（相鄰的面即使切法不同也不會裂開，
+ * 輪廓保持銳利）；面內的新頂點沿法線微微起伏，明暗隨面的朝向細碎變化。每個小三角形的亮度再有 ±vary 的差異。
+ */
+export function refine(mesh: Mesh, o: RefineOptions): Mesh {
+  const bump = o.bump ?? 0.1;
+  const maxBump = o.maxBump ?? Infinity;
+  const seed = o.seed ?? 0;
+  const vary = o.vary ?? 0.03;
+  const verts: V3[] = mesh.verts.map((v) => [v[0], v[1], v[2]]);
+  const faces: Mesh['faces'] = [];
+  const len = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const lerp = (a: V3, b: V3, t: number): V3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  let tri = 0;
+  /** 一格網格：grid[i][j] 的點（i、j 在邊上的點不起伏），切成兩個三角形 */
+  const emitGrid = (grid: V3[][], interior: (i: number, j: number) => boolean, n: V3, color: number, base: number, triangular: boolean) => {
+    const id = grid.map((row, i) =>
+      row.map((p, j) => {
+        if (!interior(i, j)) return verts.push(p) - 1;
+        const h = Math.max(-maxBump, Math.min(maxBump, (hash(verts.length, seed + 17) * 2 - 1) * bump * o.size));
+        return verts.push([p[0] + n[0] * h, p[1] + n[1] * h, p[2] + n[2] * h]) - 1;
+      }),
+    );
+    const push = (a: number, b: number, c: number) => faces.push({ idx: [a, b, c], color: mix(color, color, 0, 1 - vary + hash(tri++, seed + 29) * vary * 2), base });
+    for (let i = 0; i < grid.length - 1; i++) {
+      const r0 = id[i]!;
+      const r1 = id[i + 1]!;
+      if (triangular) {
+        // 第 i 層有 i + 1 個點、第 i + 1 層有 i + 2 個點
+        for (let j = 0; j <= i; j++) {
+          push(r0[j]!, r1[j]!, r1[j + 1]!);
+          if (j < i) push(r0[j]!, r1[j + 1]!, r0[j + 1]!);
+        }
+      } else {
+        // 列沿 p0 → p3、行沿 p0 → p1：與原本的面同樣朝外的順序是 (列, 行) 逆著走
+        for (let j = 0; j < r0.length - 1; j++) {
+          if ((i + j) % 2) push(r0[j]!, r1[j + 1]!, r1[j]!), push(r0[j]!, r0[j + 1]!, r1[j + 1]!);
+          else push(r0[j]!, r0[j + 1]!, r1[j]!), push(r0[j + 1]!, r1[j + 1]!, r1[j]!);
+        }
+      }
+    }
+  };
+  const subdivideTri = (a: V3, b: V3, c: V3, n: V3, color: number, base: number) => {
+    // 少於 3 層時面內沒有點可以起伏，不切（省下看不出差別的三角形）
+    const layers = Math.ceil(Math.max(len(a, b), len(b, c), len(c, a)) / o.size);
+    const k = layers < 3 ? 1 : layers;
+    // 頂點 a 在第 0 層；第 i 層從 ab 上的點走到 ac 上的點
+    const grid: V3[][] = [];
+    for (let i = 0; i <= k; i++) {
+      const p = lerp(a, b, i / k);
+      const q = lerp(a, c, i / k);
+      grid.push(Array.from({ length: i + 1 }, (_, j) => (i === 0 ? a : lerp(p, q, j / i))));
+    }
+    // 三條邊上的點不起伏
+    emitGrid(grid, (i, j) => i > 0 && i < k && j > 0 && j < i, n, color, base, true);
+  };
+  for (const f of mesh.faces) {
+    const pts = f.idx.map((i) => mesh.verts[i]!);
+    if (pts.length < 3) continue;
+    const base = f.base ?? f.color;
+    const u: V3 = [pts[1]![0] - pts[0]![0], pts[1]![1] - pts[0]![1], pts[1]![2] - pts[0]![2]];
+    const v: V3 = [pts[2]![0] - pts[0]![0], pts[2]![1] - pts[0]![1], pts[2]![2] - pts[0]![2]];
+    const c = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const cl = Math.hypot(c[0]!, c[1]!, c[2]!) || 1;
+    const n: V3 = [c[0]! / cl, c[1]! / cl, c[2]! / cl];
+    if (pts.length === 3) subdivideTri(pts[0]!, pts[1]!, pts[2]!, n, f.color, base);
+    else if (pts.length === 4) {
+      const [p0, p1, p2, p3] = pts as [V3, V3, V3, V3];
+      let nu = Math.max(1, Math.ceil(Math.max(len(p0, p1), len(p3, p2)) / o.size));
+      let nv = Math.max(1, Math.ceil(Math.max(len(p0, p3), len(p1, p2)) / o.size));
+      // 細長的面（某個方向只有 1 格）面內沒有點可以起伏，不切
+      if (nu < 2 || nv < 2) nu = nv = 1;
+      const grid = Array.from({ length: nv + 1 }, (_, i) => Array.from({ length: nu + 1 }, (_, j) => lerp(lerp(p0, p3, i / nv), lerp(p1, p2, i / nv), j / nu)));
+      emitGrid(grid, (i, j) => i > 0 && i < nv && j > 0 && j < nu, n, f.color, base, false);
+    } else {
+      // 多邊形：從中心切成扇形（相鄰兩片共用的線上的點也不起伏，才不會裂開）
+      const ctr = pts.reduce<V3>((s, p) => [s[0] + p[0] / pts.length, s[1] + p[1] / pts.length, s[2] + p[2] / pts.length], [0, 0, 0]);
+      pts.forEach((p, k) => subdivideTri(ctr, p, pts[(k + 1) % pts.length]!, n, f.color, base));
+    }
+  }
+  const out: Mesh = { verts, faces, coarse: o.coarse ?? mesh.coarse ?? mesh };
+  if (mesh.lod) out.lod = mesh.lod;
+  return out;
+}
+
 /** 標記細節層級：1 = 中距離以上才畫、2 = 放大時才畫 */
 export function detail(level: 1 | 2, meshes: Mesh[]): Mesh[] {
   for (const m of meshes) m.lod = level;
