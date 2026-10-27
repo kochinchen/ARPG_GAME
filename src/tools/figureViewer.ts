@@ -119,9 +119,11 @@ const OUTFIT = OUTFIT_TIER
       });
     })()
   : null;
-/** ?armor=mythic.armor_lava_behemoth：主角只穿這件橘 / 紅盔甲（檢查專屬外觀、AI 生成的盔甲） */
+/** ?armor=mythic.armor_lava_behemoth / ?boots=mythic.boots_spider_queen：主角只穿這件橘 / 紅盔甲或靴子（檢查專屬外觀） */
 const UNIQUE_ARMOR = selected.key === 'heroine' && params.get('armor') ? uniqueArmorSpec('armor', params.get('armor')!) : undefined;
-const OUTFIT_ARMOR = UNIQUE_ARMOR ? heroineOutfit({ armor: UNIQUE_ARMOR }) : null;
+const UNIQUE_BOOTS = selected.key === 'heroine' && params.get('boots') ? uniqueArmorSpec('boots', params.get('boots')!) : undefined;
+const OUTFIT_ARMOR =
+  UNIQUE_ARMOR || UNIQUE_BOOTS ? heroineOutfit({ ...(UNIQUE_ARMOR ? { armor: UNIQUE_ARMOR } : {}), ...(UNIQUE_BOOTS ? { boots: UNIQUE_BOOTS } : {}) }) : null;
 const armed = (figure: PolyFigure): PolyFigure => {
   // ?rest=x,y,z：試調平常拿武器的角度
   const restParam = params.get('rest')?.split(',').map(Number) as [number, number, number] | undefined;

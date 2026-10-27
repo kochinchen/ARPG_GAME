@@ -23,35 +23,49 @@ const SOV_FLESH: Tones = [0x82140f, 0x6e0e0c, 0x3e0707, 0x781210];
 const SOV_SHELL: Tones = [0x2a1e24, 0x1c1418, 0x100a0c, 0x241a1e];
 const SOV_BONE: Tones = [0xcdb07a, 0xb2955f, 0x86703f, 0xc0a26c];
 
+// 專屬裝飾
+const WORM_RING: Tones = [0x9c7e60, 0x7e624a, 0x564232, 0x8c7056];
+const QUAKE_DARK: Tones = [0x5c564e, 0x4a453f, 0x302d29, 0x55504a];
+const LIZARD_SCALE: Tones = [0xe05a4a, 0xc04038, 0x7c2224, 0xd04c42];
+const PANTHER_CLAW: Tones = [0xe8e4f0, 0xc8c2d6, 0x8e88a0, 0xdcd6e6];
+const PRIEST_CLOTH: Tones = [0x3c1018, 0x2e0a12, 0x1c060a, 0x361016];
+const FEATHER: Tones = [0xffffff, 0xeef2f8, 0xc8d0dc, 0xf6f8fc];
+
+/**
+ * 每一件都依名稱與用途加上專屬裝飾（ArmorPieces.bootExtras）：
+ * 影豹 = 爪墊與鞋尖的爪、鑽地 = 一節一節的蟲身與鑽牙、角甲 = 鞋頭的巨角、震地 = 厚重鞋底與地裂、
+ * 血鱗 = 一片壓一片的鱗、毒沫 = 疣狀孢點與滴落的毒液、虛空孢 = 一明一滅的孢子、凌雲 = 大羽翼、遊擊 = 馬刺與風鰭；
+ * 墮神官 = 法衣前襬與血紋、熔岩巨足 = 熔岩裂縫與岩石鞋底、蛛后 = 腳踝伸出的蜘蛛腳、統御者 = 分趾蹄甲與怒火裂紋。
+ * 「速度」主題預設會加翅膀；不適合的設 wings: null。
+ */
 export const bootsUniques: Record<string, UniqueArmor> = {
-  'legendary.boots_shadow_panther': { tier: 4, themes: ['speed', 'crit'], extra: { mat: PANTHER, toe: SHADOW, shin: PANTHER, knee: null, cuff: SHADOW, straps: false, gem: 0xffd060 } },
-  'legendary.boots_burrower': { tier: 2, themes: ['brutal', 'speed'], extra: { mat: WORM, toe: BONE, shin: WORM, straps: true, spikes: 2, spikeColors: BONE } },
-  'legendary.boots_horned_beast': { tier: 5, themes: ['guard', 'vital'], extra: { mat: HORN_SHELL, toe: BONE, shin: HORN_SHELL, knee: BONE, spikes: 2, spikeColors: BONE } },
-  'legendary.boots_quake_beast': { tier: 5, themes: ['guard'], extra: { mat: QUAKE_ROCK, toe: DARK_STEEL, shin: QUAKE_ROCK, knee: QUAKE_ROCK, cuff: BRONZE, spikes: 0 } },
-  'legendary.boots_blood_lizard': { tier: 3, themes: ['speed', 'crit'], extra: { mat: BLOOD_SCALE, toe: BLOOD_SCALE, shin: BLOOD_SCALE, knee: null, cuff: HIDE_DARK, spikes: 2, spikeColors: BONE } },
-  'legendary.boots_venom_spitter': { tier: 2, themes: ['poison', 'speed'], extra: { mat: TOAD, toe: TOAD, shin: null, straps: true, cuff: HIDE_DARK, gem: 0x8fe060 } },
-  'legendary.boots_void_spore': { tier: 4, themes: ['arcane', 'speed'], extra: { mat: VOID_SPORE, toe: VOID, shin: VOID_SPORE, knee: VOID, cuff: SILVER } },
-  'legendary.boots_skyleap': { tier: 3, themes: ['speed', 'crit'], extra: { mat: SILVER, toe: GOLD, shin: SILVER, knee: GOLD, cuff: GOLD } },
-  'legendary.boots_skirmisher': { tier: 2, themes: ['speed', 'lightning'], extra: { mat: HIDE, toe: STORM, shin: null, straps: true, cuff: STEEL } },
+  'legendary.boots_shadow_panther': { tier: 4, themes: ['speed', 'crit'], extra: { mat: PANTHER, toe: SHADOW, shin: PANTHER, knee: null, cuff: SHADOW, straps: false, gem: 0xffd060, claws: PANTHER_CLAW, wings: null } },
+  'legendary.boots_burrower': { tier: 2, themes: ['brutal', 'speed'], extra: { mat: WORM, toe: BONE, shin: WORM, straps: true, spikes: 2, spikeColors: BONE, segments: WORM_RING, claws: BONE, wings: null } },
+  'legendary.boots_horned_beast': { tier: 5, themes: ['guard', 'vital'], extra: { mat: HORN_SHELL, toe: BONE, shin: HORN_SHELL, knee: BONE, spikes: 2, spikeColors: BONE, toeHorn: BONE } },
+  'legendary.boots_quake_beast': { tier: 5, themes: ['guard'], extra: { mat: QUAKE_ROCK, toe: DARK_STEEL, shin: QUAKE_ROCK, knee: QUAKE_ROCK, cuff: BRONZE, spikes: 0, stomp: QUAKE_DARK, cracks: 0xe0a050 } },
+  'legendary.boots_blood_lizard': { tier: 3, themes: ['speed', 'crit'], extra: { mat: BLOOD_SCALE, toe: BLOOD_SCALE, shin: BLOOD_SCALE, knee: null, cuff: HIDE_DARK, spikes: 2, spikeColors: BONE, scales: LIZARD_SCALE, wings: null } },
+  'legendary.boots_venom_spitter': { tier: 2, themes: ['poison', 'speed'], extra: { mat: TOAD, toe: TOAD, shin: null, straps: true, cuff: HIDE_DARK, gem: 0x8fe060, spores: 0x9cf06a, drips: 0x8fe060, wings: null } },
+  'legendary.boots_void_spore': { tier: 4, themes: ['arcane', 'speed'], extra: { mat: VOID_SPORE, toe: VOID, shin: VOID_SPORE, knee: VOID, cuff: SILVER, spores: 0xd890ff, wings: null } },
+  'legendary.boots_skyleap': { tier: 3, themes: ['speed', 'crit'], extra: { mat: SILVER, toe: GOLD, shin: SILVER, knee: GOLD, cuff: GOLD, wings: FEATHER, wingScale: 1.5 } },
+  'legendary.boots_skirmisher': { tier: 2, themes: ['speed', 'lightning'], extra: { mat: HIDE, toe: STORM, shin: null, straps: true, cuff: STEEL, spur: STEEL, fins: STORM, wings: null } },
   'mythic.boots_fallen_priest': {
     tier: 7,
     themes: ['blood', 'arcane'],
-    extra: { mat: PRIEST_ROBE, toe: PRIEST_GOLD, shin: PRIEST_ROBE, knee: PRIEST_GOLD, cuff: PRIEST_GOLD, straps: false, gem: 0xff3a3a },
+    extra: { mat: PRIEST_ROBE, toe: PRIEST_GOLD, shin: PRIEST_ROBE, knee: PRIEST_GOLD, cuff: PRIEST_GOLD, straps: false, gem: 0xff3a3a, tabard: PRIEST_CLOTH, runes: 0xff4a3a },
   },
   'mythic.boots_lava_behemoth': {
     tier: 8,
     themes: ['fire', 'guard'],
-    extra: { mat: LAVA_ROCK, toe: LAVA, shin: LAVA_ROCK, knee: LAVA, cuff: LAVA, spikes: 3, spikeColors: LAVA_ROCK, gem: 0xffb838 },
+    extra: { mat: LAVA_ROCK, toe: LAVA, shin: LAVA_ROCK, knee: LAVA, cuff: LAVA, spikes: 3, spikeColors: LAVA_ROCK, gem: 0xffb838, cracks: 0xff7a1a, stomp: LAVA_ROCK },
   },
   'mythic.boots_spider_queen': {
     tier: 7,
     themes: ['poison', 'speed'],
-    extra: { mat: CHITIN, toe: CHITIN, shin: CHITIN, knee: VENOM, cuff: VENOM, spikes: 3, spikeColors: CHITIN, gem: 0x7aff4a },
+    extra: { mat: CHITIN, toe: CHITIN, shin: CHITIN, knee: VENOM, cuff: VENOM, spikes: 3, spikeColors: CHITIN, gem: 0x7aff4a, legs: CHITIN, wings: null },
   },
   'mythic.boots_abyss_sovereign': {
     tier: 8,
     themes: ['fire', 'guard'],
-    extra: { mat: SOV_SHELL, toe: SOV_BONE, shin: SOV_FLESH, knee: SOV_BONE, cuff: SOV_FLESH, spikes: 3, spikeColors: SOV_BONE, gem: 0xff5a14 },
+    extra: { mat: SOV_SHELL, toe: SOV_BONE, shin: SOV_FLESH, knee: SOV_BONE, cuff: SOV_FLESH, spikes: 3, spikeColors: SOV_BONE, gem: 0xff5a14, hoof: SOV_BONE, cracks: 0xff5a14 },
   },
 };
-

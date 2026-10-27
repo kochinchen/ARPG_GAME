@@ -236,23 +236,50 @@ export function aiBootMesh(color: (f: BootFace) => number): Mesh {
 }
 
 /**
- * 靴筒的外形（shin 關節的區域座標，遊戲單位；左右相同，取左腳）：高度 y 處靴子正面的 z 與左右半寬。
+ * 靴子腳掌的外形（foot 關節的區域座標，遊戲單位；取左腳）：鞋尖、鞋跟、鞋底的位置，腳掌半寬與中心的 x。
+ * offset：foot 關節相對 shin 關節的靜止位置（物品圖示把腳上的裝飾換到小腿的座標）。
+ */
+export const AI_BOOT_FOOT = (() => {
+  const rest = rig.get('footL')!.rest;
+  let toe = -Infinity, heel = Infinity, sole = Infinity, xmin = Infinity, xmax = -Infinity;
+  for (const f of AI_BOOT_FACES) {
+    const face = skinFaces[f.index]!;
+    if (face.region !== 'bootL') continue;
+    for (const v of face.idx) {
+      if (!domBone[v]!.startsWith('ankle')) continue;
+      const p = sub(verts[v]!, rest);
+      toe = Math.max(toe, p[2]);
+      heel = Math.min(heel, p[2]);
+      sole = Math.min(sole, p[1]);
+      xmin = Math.min(xmin, p[0]);
+      xmax = Math.max(xmax, p[0]);
+    }
+  }
+  return { toe, heel, sole, half: (xmax - xmin) / 2, cx: (xmin + xmax) / 2, offset: sub(rest, rig.get('shinL')!.rest) };
+})();
+
+/**
+ * 靴筒的外形（shin 關節的區域座標，遊戲單位；左右相同，取左腳）：高度 y 處靴子正面與背面的 z、左右半寬與中心的 x。
  * 裝備的尖刺、寶石、符文、翅膀貼在這個表面上。
  */
-export function aiBootShape(y: number): { front: number; half: number } {
+export function aiBootShape(y: number): { front: number; back: number; half: number; cx: number } {
   const rest = rig.get('shinL')!.rest;
-  let front = 0, half = 0;
+  const band: V3[] = [];
   for (const f of AI_BOOT_FACES) {
     const face = skinFaces[f.index]!;
     if (face.region !== 'bootL') continue;
     for (const v of face.idx) {
       const p = sub(verts[v]!, rest);
-      if (Math.abs(p[1] - y) > 0.8) continue;
-      if (Math.abs(p[0]) < 1) front = Math.max(front, p[2]);
-      half = Math.max(half, Math.abs(p[0]));
+      if (Math.abs(p[1] - y) <= 0.8) band.push(p);
     }
   }
-  return { front, half };
+  if (!band.length) return { front: 0, back: 0, half: 0, cx: 0 };
+  // 左右以這一圈的中心為準（靴筒不在關節正下方）；正面、背面取中線附近
+  const xs = band.map((p) => p[0]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const mid = band.filter((p) => Math.abs(p[0] - cx) < 1);
+  const zs = (mid.length ? mid : band).map((p) => p[2]);
+  return { front: Math.max(...zs), back: Math.min(...zs), half: (Math.max(...xs) - Math.min(...xs)) / 2, cx };
 }
 
 // ── 關節（父關節在前）；每個關節放一組「探測點」（只有頂點、沒有面），讓站姿貼地、倒地的計算照常運作 ──

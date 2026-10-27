@@ -3,7 +3,7 @@ import type { Rarity } from '../../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from '../../../game/items/ItemInstance';
 import type { Joint } from '../FigureModel';
 import { stretchMeshes, type Mesh } from '../Poly3D';
-import { AI_BOOT_FACES, AI_LIMB, AI_TORSO, aiBootShape, type BootFace } from '../HeroineAI';
+import { AI_BOOT_FACES, AI_BOOT_FOOT, AI_LIMB, AI_TORSO, aiBootShape, type BootFace } from '../HeroineAI';
 import { aiArmorParts } from './ArmorAI';
 import { FOREARM_LENGTH, heroineHand, scaleHead } from '../heroine/HeroineBody';
 import type { UniqueArmor } from './uniques/types';
@@ -36,7 +36,7 @@ import {
   type Tones,
 } from '../weapons/WeaponParts';
 import {
-  bootShinExtras,
+  bootExtras,
   chestPiece,
   gauntletPiece,
   gloveHandDetails,
@@ -123,6 +123,10 @@ const GLOVES: GloveSpec[] = [
 
 const BASES: { [K in ArmorSlot]: Spec[K][] } = { helmet: HELMETS, armor: ARMORS, gloves: GLOVES, boots: BOOTS, shield: SHIELDS };
 
+/** 靴子專屬裝飾的配色 */
+const WIND: Tones = [0xeafff2, 0xc4f0d6, 0x8ccfa8, 0xdaf8e6];
+const SHADE_FLAME: Tones = [0xb0a4ff, 0x7c6ce0, 0x4a3c9a, 0x948aee];
+
 /** 橘 / 紅防具：基底階級、主題與專屬點綴（染色較淡，保留專屬配色） */
 /** extra：覆寫該部位造型參數的欄位（頭盔 / 盔甲 / 靴子各自的欄位；null = 拿掉基底的零件） */
 const UNIQUES: Record<string, UniqueArmor> = {
@@ -136,11 +140,16 @@ const UNIQUES: Record<string, UniqueArmor> = {
   'legendary.starlight_robe': { tier: 1, themes: ['arcane'], extra: { mat: [0x3a3c6e, 0x2e3060, 0x22244c, 0x35386a], trim: GOLD, emblem: 0xfff0b0, runes: 0xfff0b0 } },
   'mythic.abyss_carapace': { tier: 8, themes: ['thorns', 'guard'], extra: { emblem: 0xff4060 } },
   'mythic.undying': { tier: 7, themes: ['vital'], extra: { mat: STAR, emblem: 0x7ee08a } },
-  'legendary.wind_trace': { tier: 3, themes: ['speed'], extra: { mat: JADE, toe: SILVER, shin: null, knee: null } },
-  'legendary.charger_boots': { tier: 5, themes: ['guard', 'speed'], extra: { toe: STEEL } },
-  'legendary.ice_walker': { tier: 4, themes: ['cold', 'speed'], extra: { mat: ICE } },
-  'mythic.realm_walker': { tier: 8, themes: ['speed', 'arcane'], extra: {} },
-  'mythic.phantom_step': { tier: 6, themes: ['speed', 'crit'], extra: { mat: SHADOW, toe: SHADOW } },
+  // 風痕：草會晚一秒才倒下 → 小腿兩側往後掠的風鰭
+  'legendary.wind_trace': { tier: 3, themes: ['speed'], extra: { mat: JADE, toe: SILVER, shin: null, knee: null, cuff: SILVER, fins: WIND, wings: null } },
+  // 衝鋒：只朝一個方向 → 鋼製撞角鞋頭、磨亮的厚鞋底
+  'legendary.charger_boots': { tier: 5, themes: ['guard', 'speed'], extra: { toe: STEEL, toeRam: STEEL, stomp: DARK_STEEL, spikes: 0, wings: null } },
+  // 冰行者：冰做的腳印 → 靴口與腳踝長出冰晶
+  'legendary.ice_walker': { tier: 4, themes: ['cold', 'speed'], extra: { mat: ICE, cuff: SILVER, crystals: ICE, wings: null } },
+  // 踏界者：一步近處、下一步遠方 → 腳踝浮著兩道傳送環
+  'mythic.realm_walker': { tier: 8, themes: ['speed', 'arcane'], extra: { cuff: STAR, portal: 0xc890ff, wings: null } },
+  // 幽影步：攻擊只打中影子 → 腳跟往後竄的影焰
+  'mythic.phantom_step': { tier: 6, themes: ['speed', 'crit'], extra: { mat: SHADOW, toe: SHADOW, flames: SHADE_FLAME, spikes: 0, wings: null } },
   'legendary.smasher_grip': { tier: 5, themes: ['guard', 'crit'], extra: { knuckle: GOLD, flare: 1, claws: null, spikes: 4 } },
   'legendary.repeater_gloves': { tier: 3, themes: ['speed', 'crit'], extra: { hand: HIDE, cuff: HIDE, knuckle: BRONZE, plate: null, flare: 0 } },
   'legendary.elemental_touch': { tier: 4, themes: ['fire', 'cold'], extra: {} },
@@ -213,7 +222,8 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
       }
     }
     if (th === 'speed') {
-      if (slot === 'helmet' || slot === 'boots') spec.wings = wing;
+      // 專屬外觀自己指定了翅膀（或 null = 不要翅膀）時不覆蓋
+      if ((slot === 'helmet' || slot === 'boots') && !('wings' in extra)) spec.wings = wing;
       if (slot === 'shield') spec.size = (spec.size as number) * 0.9;
       if (slot === 'gloves') spec.flare = 0;
       if (slot === 'armor') {
@@ -291,8 +301,12 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
   }
   if (boots) {
     // 靴子是 AI 版身體的一部分（設計圖的皮靴）：換成裝備的顏色，皮革用 mat、護膝與扣環等金屬用 shin / knee / toe；
-    // 尖刺、翅膀、寶石、符文貼在靴子表面
-    for (const s of ['L', 'R'] as const) parts.set(`shin${s}`, bootShinExtras(boots, AI_LIMB.shin, aiBootShape));
+    // 尖刺、翅膀、寶石、符文與橘 / 紅的專屬裝飾貼在靴子表面（小腿與腳掌）
+    const extras = bootExtras(boots, AI_LIMB.shin, aiBootShape, AI_BOOT_FOOT);
+    for (const s of ['L', 'R'] as const) {
+      parts.set(`shin${s}`, extras.shin);
+      if (extras.foot.length) parts.set(`foot${s}`, extras.foot);
+    }
     const color = bootColor(boots);
     for (const f of AI_BOOT_FACES) skinColors.set(f.index, color(f));
   }

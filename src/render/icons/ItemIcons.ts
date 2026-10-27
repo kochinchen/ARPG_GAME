@@ -3,8 +3,8 @@ import type { Rarity } from '../../data/schema/item';
 import type { ItemInstance } from '../../game/items/ItemInstance';
 import { facetize, loft, tone } from '../figure/Facets';
 import { bootColor, specForItem } from '../figure/gear/ArmorLooks';
-import { AI_LIMB, aiBootMesh, aiBootShape } from '../figure/HeroineAI';
-import { bootShinExtras, HIDE_DARK, helmetMeshes, scaleMeshes, shieldMeshes, type ArmorSpec, type BootSpec, type GloveSpec } from '../figure/gear/ArmorPieces';
+import { AI_BOOT_FOOT, AI_LIMB, aiBootMesh, aiBootShape } from '../figure/HeroineAI';
+import { bootExtras, HIDE_DARK, helmetMeshes, scaleMeshes, shieldMeshes, type ArmorSpec, type BootSpec, type GloveSpec } from '../figure/gear/ArmorPieces';
 import { itemThemes, THEMES, themeColors } from '../figure/gear/GearTheme';
 import { apply, box, dot, faceNormal, jointRotation, lowSphere, mul, normalize, placeMesh, prism, rotX, rotY, rotZ, type M3, type Mesh, type V3 } from '../figure/Poly3D';
 import { HOLD, weaponLookFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
@@ -83,11 +83,13 @@ function gloveIcon(s: GloveSpec): Mesh[] {
 }
 
 /**
- * 一隻靴子：與遊戲裡穿上的靴子相同（AI 版女主角身上的皮靴換成裝備顏色，加上尖刺、翅膀、寶石、符文）。
+ * 一隻靴子：與遊戲裡穿上的靴子相同（AI 版女主角身上的皮靴換成裝備顏色，加上尖刺、翅膀、寶石、符文與專屬裝飾）。
  * 靴子模型的鞋尖朝 +Z，圖示裡轉成朝 +X（與其他圖示的視角一致）、縮小並把鞋底放在 y = -3.5。
  */
 function bootIcon(s: BootSpec): Mesh[] {
-  const meshes = coarse([aiBootMesh(bootColor(s)), ...bootShinExtras(s, AI_LIMB.shin, aiBootShape)]);
+  const extras = bootExtras(s, AI_LIMB.shin, aiBootShape, AI_BOOT_FOOT);
+  const foot = extras.foot.map((m) => placeMesh(m, [0, 0, 0], AI_BOOT_FOOT.offset));
+  const meshes = coarse([aiBootMesh(bootColor(s)), ...extras.shin, ...foot]);
   const sole = Math.min(...meshes.flatMap((m) => m.verts.map((v) => v[1])));
   const k = 0.6;
   return meshes.map((m) => ({ ...m, verts: m.verts.map(([x, y, z]) => [z * k, (y - sole) * k - 3.5, -x * k] as V3) }));

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gameData } from '../../src/data';
 import { DataRegistry } from '../../src/data/DataRegistry';
 import type { EquipmentSlot, ItemInstance } from '../../src/game/items/ItemInstance';
-import { armorSpec, heroineOutfit, outfitFor, specForItem, UNIQUE_ARMOR_IDS } from '../../src/render/figure/gear/ArmorLooks';
+import { armorSpec, heroineOutfit, outfitFor, specForItem, UNIQUE_ARMOR_IDS, uniqueArmorSpec } from '../../src/render/figure/gear/ArmorLooks';
 import { itemThemes, THEMES } from '../../src/render/figure/gear/GearTheme';
 import { themedLook, tierLook, weaponLookFor } from '../../src/render/figure/weapons/WeaponLooks';
 import { AI_BOOT_FACES, aiBootShape, HEROINE_AI } from '../../src/render/figure/HeroineAI';
@@ -43,6 +43,23 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
       const y = m.verts.reduce((s, v) => s + v[1], 0) / m.verts.length;
       expect(Math.abs(back - aiBootShape(y).front)).toBeLessThan(1.5);
     }
+  });
+
+  it('橘 / 紅靴子：每一件都有專屬裝飾，貼在靴子附近（不飄走）', () => {
+    const ids = UNIQUE_ARMOR_IDS.filter((id) => uniqueArmorSpec('boots', id) && data.legendaries.get(id).kind === 'boots');
+    expect(ids.length).toBe(18);
+    const looks = new Set<string>();
+    for (const id of ids) {
+      const outfit = heroineOutfit({ boots: uniqueArmorSpec('boots', id)! });
+      const shin = outfit.get('shinL') ?? [];
+      const foot = outfit.get('footL') ?? [];
+      expect(shin.length + foot.length, id).toBeGreaterThan(0);
+      looks.add(JSON.stringify(uniqueArmorSpec('boots', id)));
+      // 小腿的裝飾在膝蓋到腳底之間、離小腿中心 12 單位以內（凌雲的大羽翼最遠）；腳掌的裝飾在腳掌附近
+      for (const m of shin) for (const v of m.verts) expect(Math.hypot(v[0], v[2]) < 12 && v[1] < 9 && v[1] > -20, id).toBe(true);
+      for (const m of foot) for (const v of m.verts) expect(Math.hypot(v[0], v[2] - 3) < 10 && v[1] < 6 && v[1] > -6, id).toBe(true);
+    }
+    expect(looks.size).toBe(18);
   });
 
   it('同一組裝備重複使用同一份網格（換裝時才重建）', () => {

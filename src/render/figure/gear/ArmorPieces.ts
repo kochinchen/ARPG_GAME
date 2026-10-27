@@ -197,32 +197,194 @@ export interface BootSpec {
   spikes?: number;
   spikeColors?: Tones;
   wings?: Tones;
+  /** 翅膀大小（預設 1） */
+  wingScale?: number;
   gem?: number | null;
   runes?: number;
+  // ── 橘 / 紅的專屬裝飾（依名稱與用途設計，見 uniques/boots.ts） ──
+  /** 小腿外側往後掠的鰭（風、速度） */
+  fins?: Tones;
+  /** 靴口與腳踝長出的冰晶 */
+  crystals?: Tones;
+  /** 一節一節的環（蟲的身體） */
+  segments?: Tones;
+  /** 小腿正面一片壓一片的鱗 */
+  scales?: Tones;
+  /** 靴面上一明一滅的孢子（發光色） */
+  spores?: number;
+  /** 正面的熔岩裂縫（發光色） */
+  cracks?: number;
+  /** 膝下垂到腳踝的前襬（神官的法衣） */
+  tabard?: Tones;
+  /** 腳踝外圍浮著的兩道傳送環（發光色） */
+  portal?: number;
+  /** 腳跟往後上方竄的影焰 */
+  flames?: Tones;
+  /** 腳踝兩側伸出的蜘蛛腳 */
+  legs?: Tones;
+  /** 鞋頭的角 */
+  toeHorn?: Tones;
+  /** 包住鞋頭的撞角 */
+  toeRam?: Tones;
+  /** 鞋尖的爪 */
+  claws?: Tones;
+  /** 分趾的蹄甲 */
+  hoof?: Tones;
+  /** 厚重的踐踏鞋底 */
+  stomp?: Tones;
+  /** 腳跟的馬刺 */
+  spur?: Tones;
+  /** 鞋底滴下的毒液（發光色） */
+  drips?: number;
 }
 
+/** 靴筒的外形：高度 y（膝蓋 = 0，往下為負）處靴子正面、背面的 z，左右半寬與中心的 x */
+export type BootShape = (y: number) => { front: number; back: number; half: number; cx: number };
+/** 腳掌的外形（foot 關節的座標）：鞋尖、鞋跟的 z，鞋底的 y，腳掌半寬 */
+export interface BootFoot {
+  toe: number;
+  heel: number;
+  sole: number;
+  half: number;
+  cx: number;
+}
+
+/** 靴筒表面上的一點：高度 y、繞小腿的角度 a（0 = 正前方、±π/2 = 兩側、π = 後方）、往外推 out */
+function onShin(shape: BootShape, y: number, a: number, out = 0): V3 {
+  const { front, back, half, cx } = shape(y);
+  const cz = (front + back) / 2;
+  const rz = (front - back) / 2;
+  return [cx + Math.sin(a) * (half + out), y, cz + Math.cos(a) * (rz + out)];
+}
+
+/** 固定的擬亂數（同一件裝備每次長得一樣） */
+const rand = (i: number) => {
+  const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 /**
- * 靴子的裝飾（shin 關節），貼在 AI 版女主角的靴子表面上（靴子本身是身體的一部分，穿上時換成裝備的顏色）：
- * 尖刺、腳踝的翅膀、寶石、符文。shape(y)：高度 y（膝蓋 = 0，往下為負）處靴子正面的 z 與左右半寬。
+ * 靴子的裝飾，貼在 AI 版女主角的靴子表面上（靴子本身是身體的一部分，穿上時換成裝備的顏色）：
+ * shin = 小腿（尖刺、翅膀、寶石、符文與專屬裝飾）、foot = 腳掌（鞋頭、爪、蹄、鞋底、馬刺）。
  */
-export function bootShinExtras(s: BootSpec, shinLength: number, shape: (y: number) => { front: number; half: number }): Mesh[] {
+export function bootExtras(s: BootSpec, shinLength: number, shape: BootShape, foot: BootFoot): { shin: Mesh[]; foot: Mesh[] } {
   const out: Mesh[] = [];
   const k = shinLength / 12.6;
   for (let i = 0; i < (s.spikes ?? 0); i++) {
     const y = (-3.2 - i * 2.6) * k;
-    out.push(spike([0, y, shape(y).front - 0.3], [0, 0.25, 1], 1.5, 0.38, s.spikeColors ?? BLACK_STEEL, i));
+    out.push(spike([shape(y).cx, y, shape(y).front - 0.3], [0, 0.25, 1], 1.5, 0.38, s.spikeColors ?? BLACK_STEEL, i));
   }
   if (s.wings) {
+    const w = s.wingScale ?? 1;
     const y = -10.6 * k;
-    const { half } = shape(y);
+    const { half, cx } = shape(y);
     for (const x of [-1, 1]) {
-      out.push(dense(taper([x * (half - 0.3), y + 0.4, -0.8], [x * (half + 1.6), y + 5, -5.2], [0.2, 1.3], [0.05, 0.2], s.wings, 4, 1, 0)));
-      out.push(dense(taper([x * (half - 0.3), y - 0.4, -0.8], [x * (half + 1.8), y + 2.2, -5.8], [0.2, 1], [0.05, 0.15], s.wings, 4, 2, 0)));
+      out.push(dense(taper([cx + x * (half - 0.3), y + 0.4, -0.8], [cx + x * (half + 1.6 * w), y + 5 * w, -5.2 * w], [0.2, 1.3 * w], [0.05, 0.2], s.wings, 4, 1, 0)));
+      out.push(dense(taper([cx + x * (half - 0.3), y - 0.4, -0.8], [cx + x * (half + 1.8 * w), y + 2.2 * w, -5.8 * w], [0.2, w], [0.05, 0.15], s.wings, 4, 2, 0)));
+      if (w > 1.2) out.push(dense(taper([cx + x * (half - 0.3), y + 1.2, -0.6], [cx + x * (half + 1.2 * w), y + 6.8 * w, -3.6 * w], [0.2, 0.9 * w], [0.05, 0.15], s.wings, 4, 3, 0)));
     }
   }
-  if (s.gem) out.push(gem(0.6, [0, -2.2 * k, shape(-2.2 * k).front + 0.2], s.gem));
-  if (s.runes) for (const y of [-5 * k, -7.5 * k]) out.push(glowBox(0.5, 0.6, 0.5, s.runes, [0, y, shape(y).front + 0.05]));
-  return out;
+  if (s.gem) out.push(gem(0.6, [shape(-2.2 * k).cx, -2.2 * k, shape(-2.2 * k).front + 0.2], s.gem));
+  if (s.runes) for (const y of [-5 * k, -7.5 * k]) out.push(glowBox(0.5, 0.6, 0.5, s.runes, [shape(y).cx, y, shape(y).front + 0.05]));
+  if (s.fins)
+    for (const x of [-1, 1])
+      for (let i = 0; i < 3; i++) {
+        const y = (-3.5 - i * 2.4) * k;
+        const a = onShin(shape, y, x * 1.9, -0.3);
+        out.push(dense(taper(a, [a[0] + x * 1.1, y + 2.4 - i * 0.3, a[2] - 3.4 + i * 0.4], [0.12, 1 - i * 0.15], [0.03, 0.1], s.fins, 4, i, 0), i));
+      }
+  if (s.crystals) {
+    for (let i = 0; i < 7; i++) {
+      const a = -1.4 + i * 0.47;
+      const p = onShin(shape, 2.2, a, -0.4);
+      const len = 1.6 + rand(i) * 1.4;
+      out.push(dense(taper(p, [p[0] * 1.35, p[1] + len, p[2] + Math.cos(a) * 0.9], [0.45, 0.45], [0.04, 0.04], s.crystals, 4, i, 0.4), i));
+    }
+    for (const x of [-1, 1]) {
+      const p = onShin(shape, -11 * k, x * 1.6, -0.3);
+      out.push(dense(taper(p, [p[0] + x * 1.6, p[1] + 1.2, p[2] - 0.4], [0.4, 0.4], [0.04, 0.04], s.crystals, 4, 8, 0.4)));
+    }
+  }
+  if (s.segments)
+    for (let i = 0; i < 5; i++) {
+      const y = (0.8 - i * 2.6) * k;
+      const { front, back, half, cx } = shape(y);
+      out.push(F(t(prism(12, y - 0.45, y + 0.45, [half + 0.1, (front - back) / 2 + 0.1], [half + 0.25, (front - back) / 2 + 0.25], s.segments[0]!, [cx, 0, (front + back) / 2]), s.segments, i), i, 0.1));
+    }
+  if (s.scales)
+    for (let r = 0; r < 6; r++) {
+      const y = (0.5 - r * 1.8) * k;
+      for (let c = -2; c <= 2; c++) {
+        const a = c * 0.5 + (r % 2) * 0.25;
+        const p = onShin(shape, y, a, -0.1);
+        const n: V3 = [Math.sin(a) * 0.45, -1, Math.cos(a) * 0.45];
+        out.push(t(taper(p, [p[0] + n[0], p[1] + n[1] * 1.3, p[2] + n[2]], [0.75, 0.2], [0.3, 0.06], s.scales, 4, r + c, Math.PI / 4), s.scales, r * 5 + c));
+      }
+    }
+  if (s.spores)
+    for (let i = 0; i < 12; i++) {
+      const y = (1 - rand(i) * 11.5) * k;
+      const a = (rand(i + 50) - 0.5) * 4;
+      out.push(gem(0.28 + rand(i + 9) * 0.3, onShin(shape, y, a, 0.05), s.spores, [1, 1, 1], 5, 3));
+    }
+  if (s.cracks)
+    for (const a of [-0.9, 0, 0.9]) {
+      const pts: V3[] = [];
+      for (let i = 0; i <= 6; i++) pts.push(onShin(shape, (1.5 - i * 2) * k, a + (i % 2 ? 0.18 : -0.18), 0.04));
+      for (let i = 0; i < 6; i++) out.push(t(taper(pts[i]!, pts[i + 1]!, [0.22, 0.12], [0.22, 0.12], [s.cracks, 0xfff0a0], 4, i, 0), [s.cracks, 0xfff0a0]));
+    }
+  if (s.tabard) {
+    const a = shape(0.4), b = shape(-9 * k);
+    const top = a.front + 0.35, bot = b.front + 0.5;
+    out.push(F(t(taper([a.cx, 0.6, top], [b.cx, -9.5 * k, bot], [2.1, 0.2], [1.5, 0.16], s.tabard, 4, 0, Math.PI / 4), s.tabard, 3), 3, 0.08));
+    for (const x of [-1, 1]) out.push(t(taper([a.cx + x * 1.5, 0.5, top + 0.1], [b.cx + x * 1.05, -9.4 * k, bot + 0.1], [0.22, 0.22], [0.22, 0.22], s.cuff ?? s.tabard, 4, 1, Math.PI / 4), s.cuff ?? s.tabard));
+    out.push(gem(0.5, [b.cx, -9.2 * k, bot + 0.35], (s.cuff ?? s.tabard)[0]!, [1, 1, 0.5]));
+  }
+  if (s.portal)
+    for (const [y, tilt] of [[-9 * k, 0.25], [-11.5 * k, -0.2]] as const) {
+      const { half, front, back, cx } = shape(y);
+      const ring = t(prism(14, -0.12, 0.12, [half + 1.3, (front - back) / 2 + 1.3], [half + 1.3, (front - back) / 2 + 1.3], s.portal), [s.portal, 0xffffff]);
+      const inner = t(prism(14, -0.13, 0.13, [half + 1.05, (front - back) / 2 + 1.05], [half + 1.05, (front - back) / 2 + 1.05], s.portal), [s.portal]);
+      for (const m of [ring, inner]) out.push(placeMesh(m, [tilt, 0, tilt * 0.6], [cx, y, (front + back) / 2]));
+    }
+  if (s.flames)
+    for (let i = 0; i < 7; i++) {
+      // 從腳跟與腳踝兩側往後上方竄，側面看得到
+      const a = Math.PI + (i - 3) * 0.5;
+      const p = onShin(shape, (-11.5 + Math.abs(i - 3) * 0.6) * k, a, -0.2);
+      const len = 3.6 + rand(i + 3) * 2 - Math.abs(i - 3) * 0.35;
+      const side = Math.sin(a);
+      out.push(dense(taper(p, [p[0] + side * 1.4, p[1] + len, p[2] - len * 0.75], [0.6, 0.45], [0.03, 0.03], s.flames, 4, i, 0.3), i));
+    }
+  if (s.legs)
+    for (const x of [-1, 1])
+      for (const [i, y] of [[0, -8.5 * k], [1, -10.4 * k]] as const) {
+        const p = onShin(shape, y, x * (1.75 + i * 0.2), -0.2);
+        const knee: V3 = [p[0] + x * 2.4, p[1] + 1.6 - i * 0.4, p[2] - 0.6 - i * 0.8];
+        const tip: V3 = [knee[0] + x * 0.9, -shinLength - 3.4, knee[2] - 0.6];
+        out.push(...chain([p, knee, tip], [0.42, 0.48], [0.06, 0.08], s.legs).map((m, j) => dense(m, i + j)));
+      }
+  // ── 腳掌 ──
+  const ft: Mesh[] = [];
+  const { toe, heel, sole, cx } = foot;
+  if (s.toeRam) ft.push(F(t(taper([cx, sole + 2.2, toe - 3.4], [cx, sole + 0.9, toe + 0.5], [2.35, 1.5], [1.6, 0.55], s.toeRam, 4, 0, Math.PI / 4), s.toeRam, 1), 1, 0.1));
+  if (s.toeHorn) {
+    const a: V3 = [cx, sole + 2.2, toe - 1.6];
+    ft.push(...chain([a, [cx, a[1] + 1, a[2] + 1.8], [cx, a[1] + 3, a[2] + 2.6], [cx, a[1] + 4.6, a[2] + 2.2]], [0.95, 0.95], [0.06, 0.06], s.toeHorn, false).map((m, i) => dense(m, i)));
+  }
+  if (s.claws) for (const x of [-0.9, 0, 0.9]) ft.push(spike([cx + x, sole + 1, toe - 0.4], [x * 0.25, -0.35, 1], 1.7 - Math.abs(x) * 0.4, 0.3, s.claws, x + 2));
+  if (s.hoof)
+    for (const x of [-1, 1]) ft.push(F(t(lowSphere(1.9, s.hoof[0]!, [cx + x * 0.95, sole + 1.3, toe - 1.6], 8, 5, [0.62, 0.75, 1.15]), s.hoof, 2), 2, 0.1));
+  if (s.stomp) {
+    ft.push(F(t(box(foot.half * 1.15, 0.9, toe - heel - 0.4, s.stomp[0]!, [cx, sole + 0.4, (toe + heel) / 2]), s.stomp, 4), 4, 0.12));
+    for (const z of [heel + 0.9, toe - 1.4]) ft.push(F(t(box(foot.half * 1.25, 0.45, 1.1, s.stomp[1]!, [cx, sole + 0.2, z]), s.stomp, 5), 5, 0.1));
+  }
+  if (s.spur) {
+    ft.push(spike([cx, sole + 1.6, heel + 0.3], [0, 0.1, -1], 1.8, 0.28, s.spur, 7));
+    ft.push(gem(0.55, [cx, sole + 1.7, heel - 1.6], s.spur[0]!, [0.4, 1, 1], 6, 3));
+  }
+  if (s.drips) for (const [x, z] of [[-1.2, toe - 1], [1.1, toe - 2.4], [0, heel + 0.8], [-1.5, (toe + heel) / 2]] as const) ft.push(gem(0.32, [cx + x, sole - 0.15, z], s.drips, [0.8, 1.6, 0.8], 5, 3));
+  return { shin: out, foot: ft };
 }
 
 // ─────────────────────────── 手套 ───────────────────────────
