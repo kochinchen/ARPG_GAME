@@ -5,6 +5,7 @@ import type { EquipmentSlot, ItemInstance } from '../../src/game/items/ItemInsta
 import { armorSpec, heroineOutfit, outfitFor, specForItem, UNIQUE_ARMOR_IDS } from '../../src/render/figure/gear/ArmorLooks';
 import { itemThemes, THEMES } from '../../src/render/figure/gear/GearTheme';
 import { themedLook, tierLook, weaponLookFor } from '../../src/render/figure/weapons/WeaponLooks';
+import { AI_BOOT_FACES, aiBootShape, HEROINE_AI } from '../../src/render/figure/HeroineAI';
 
 const data = DataRegistry.load(gameData);
 const item = (baseId: string, rarity: ItemInstance['rarity'], affixIds: string[] = [], extra: Partial<ItemInstance> = {}): ItemInstance => ({
@@ -21,9 +22,27 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
   it('沒穿的部位保留原本外觀；穿上後換掉對應的關節', () => {
     expect(outfitFor(equip({}), data).size).toBe(0);
     const parts = outfitFor(equip({ helmet: item('helmet.cap', 'normal'), boots: item('boots.leather', 'normal') }), data);
-    expect([...parts.keys()].sort()).toEqual(['footL', 'footR', 'head', 'shinL', 'shinR', 'thighL', 'thighR']);
+    // 靴子是身體的一部分：換成裝備的顏色（skinColors），尖刺等裝飾掛在小腿
+    expect([...parts.keys()].sort()).toEqual(['head', 'shinL', 'shinR']);
+    expect(parts.skinColors!.size).toBeGreaterThan(200);
     const withArmor = outfitFor(equip({ armor: item('armor.plate', 'normal') }), data);
     expect(withArmor.has('chest') && withArmor.has('torso') && withArmor.has('upperArmL') && withArmor.has('upperArmR')).toBe(true);
+  });
+
+  it('靴子：AI 版身上的皮靴拆成 bootL / bootR，穿上時換色且不藏起來；裝飾貼在靴子表面外', () => {
+    const regions = new Set(HEROINE_AI.skin!.faces.map((f) => f.region));
+    expect(regions.has('bootL') && regions.has('bootR')).toBe(true);
+    const boots = heroineOutfit({ boots: armorSpec('boots', 5, 'normal', []) });
+    expect([...(boots.hideSkin ?? [])].some((r) => r.startsWith('boot') || r.startsWith('shin') || r.startsWith('foot'))).toBe(false);
+    for (const i of AI_BOOT_FACES.map((f) => f.index)) expect(HEROINE_AI.skin!.faces[i]!.region).toMatch(/^boot[LR]$/);
+    // T5 的尖刺：根部在靴子正面附近（不埋在裡面、也不浮在外面）
+    const spikes = boots.get('shinL')!;
+    expect(spikes.length).toBe(3);
+    for (const m of spikes) {
+      const back = Math.min(...m.verts.map((v) => v[2]));
+      const y = m.verts.reduce((s, v) => s + v[1], 0) / m.verts.length;
+      expect(Math.abs(back - aiBootShape(y).front)).toBeLessThan(1.5);
+    }
   });
 
   it('同一組裝備重複使用同一份網格（換裝時才重建）', () => {

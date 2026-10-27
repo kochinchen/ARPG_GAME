@@ -100,7 +100,7 @@ export class PolyFigure {
   /** undefined = 模型原本的武器；null = 空手 */
   private mount: WeaponMount | null | undefined = undefined;
   /** 換掉的關節網格（主角穿上的頭盔、盔甲、靴子）；沒有列出的關節用模型原本的網格。hideSkin：蒙皮網格中被裝備蓋住、不畫的部位 */
-  private outfit: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string> }) | null = null;
+  private outfit: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string>; skinColors?: ReadonlyMap<number, number> }) | null = null;
   /** 不畫的關節（魔王階段變化：盾牌碎裂、巨劍落地） */
   private hidden: ReadonlySet<Joint> = new Set();
   /** 腳下影子（相對腳底，px；模型有 dynamicShadow 時才有）：中心與水平半徑 */
@@ -125,7 +125,7 @@ export class PolyFigure {
   }
 
   /** 換裝：關節 → 取代的網格（null = 模型原本的外觀） */
-  setOutfit(parts: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string> }) | null): void {
+  setOutfit(parts: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string>; skinColors?: ReadonlyMap<number, number> }) | null): void {
     this.outfit = parts;
   }
 
@@ -323,15 +323,16 @@ export class PolyFigure {
         for (const face of mesh.faces) emit(verts, face.idx, face.color, face.base);
       }
     }
-    // 蒙皮網格（整張連續的身體）：被裝備蓋住的部位不畫
+    // 蒙皮網格（整張連續的身體）：被裝備蓋住的部位不畫；靴子等部位換成裝備的顏色（skinColors）
     const skin = this.model.skin;
     if (skin) {
       const verts = skinVerts(skin, world);
       const hide = this.outfit?.hideSkin;
-      for (const face of skin.faces) {
-        if (hide?.has(face.region) || this.hidden.has(face.region as Joint)) continue;
-        emit(verts, face.idx, face.color);
-      }
+      const colors = this.outfit?.skinColors;
+      skin.faces.forEach((face, i) => {
+        if (hide?.has(face.region) || this.hidden.has(face.region as Joint)) return;
+        emit(verts, face.idx, colors?.get(i) ?? face.color);
+      });
     }
     if (this.model.dynamicShadow) this.shadow = footprint([world.get('footL')?.p, world.get('footR')?.p, world.get('head')?.p], world.get('root')!.p, toScreen, k);
     faces.sort((a, b) => a.depth - b.depth);

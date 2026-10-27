@@ -140,12 +140,36 @@ DATA.verts.forEach((raw, i) => {
   domBone.push(ws[0]?.[0] ?? 'pelvis');
 });
 
+/** 靴子的上緣（AI 模型的高度，公尺）：膝蓋往上一點，包含護膝 */
+const BOOT_TOP = J('kneeL')[1] + 0.12;
+const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff] as const;
+const skinLike = (c: number) => {
+  const [r, g, b] = rgb(c);
+  return r > 130 && r > g * 1.15 && g > b * 1.05 && r - b > 50;
+};
+
 /**
- * 面的部位（穿裝備時藏起被蓋住的部位）：多數頂點所屬的遊戲關節；
+ * 靴子（bootL / bootR）：腿上的面、整個面在靴子上緣以下、不是皮膚色。
+ * 和身體分開成獨立的部位，穿上靴子裝備時換成裝備的顏色（ArmorLooks），沒穿時就是設計圖的皮靴。
+ */
+function bootOf(f: number[]): string | null {
+  const bones = [f[0]!, f[1]!, f[2]!].map((v) => domBone[v]!);
+  const side = bones[0]!.slice(-1);
+  if (!bones.every((b) => /^(hip|knee|ankle)[LR]$/.test(b) && b.endsWith(side))) return null;
+  // 膝蓋以下全是靴子（腳踝的皮革在貼圖上偏亮，看起來像皮膚）；膝蓋到靴子上緣之間才排除露出的大腿
+  const top = Math.max(...[f[0]!, f[1]!, f[2]!].map((v) => DATA.verts[v]![1]!));
+  if (top > BOOT_TOP || (top > J('kneeL')[1] && skinLike(f[3]!))) return null;
+  return `boot${side}`;
+}
+
+/**
+ * 面的部位（穿裝備時藏起被蓋住的部位）：靴子；其餘是多數頂點所屬的遊戲關節；
  * 頭上的面再分成臉（head）與頭髮（hair，偏紅、不像皮膚的顏色）；馬尾另外一區（戴頭盔時仍露在後面）。
  */
 function regionOf(f: number[], i: number): string {
   if (i >= DATA.decalStart) return 'head';
+  const boot = bootOf(f);
+  if (boot) return boot;
   const bones = [f[0]!, f[1]!, f[2]!].map((v) => domBone[v]!);
   if (bones.filter((b) => b.startsWith('pony')).length >= 2) return 'ponytail';
   const count = new Map<Joint, number>();
@@ -159,6 +183,54 @@ function regionOf(f: number[], i: number): string {
   return j;
 }
 const skinFaces = DATA.faces.map((f, i) => ({ idx: [f[0]!, f[1]!, f[2]!] as [number, number, number], color: f[3]!, region: regionOf(f, i) }));
+
+/** 靴子的面：材質（金屬 = 灰、不飽和的護膝與扣環；其餘是皮革）與亮度相對於同材質的中位數（裝備換色時保留明暗） */
+export interface BootFace {
+  index: number;
+  metal: boolean;
+  shade: number;
+}
+const lum = (c: number) => {
+  const [r, g, b] = rgb(c);
+  return 0.3 * r + 0.59 * g + 0.11 * b;
+};
+const isMetal = (c: number) => {
+  const [r, g, b] = rgb(c);
+  const mx = Math.max(r, g, b);
+  return mx > 0 && (mx - Math.min(r, g, b)) / mx <= 0.3;
+};
+export const AI_BOOT_FACES: readonly BootFace[] = (() => {
+  const faces = skinFaces.map((f, index) => ({ f, index })).filter(({ f }) => f.region.startsWith('boot'));
+  const median = (metal: boolean) => {
+    const ls = faces.filter(({ f }) => isMetal(f.color) === metal).map(({ f }) => lum(f.color)).sort((a, b) => a - b);
+    return ls[Math.floor(ls.length / 2)] ?? 1;
+  };
+  const ref = { true: median(true), false: median(false) };
+  return faces.map(({ f, index }) => {
+    const metal = isMetal(f.color);
+    return { index, metal, shade: lum(f.color) / ref[`${metal}`] };
+  });
+})();
+
+/**
+ * 靴筒的外形（shin 關節的區域座標，遊戲單位；左右相同，取左腳）：高度 y 處靴子正面的 z 與左右半寬。
+ * 裝備的尖刺、寶石、符文、翅膀貼在這個表面上。
+ */
+export function aiBootShape(y: number): { front: number; half: number } {
+  const rest = rig.get('shinL')!.rest;
+  let front = 0, half = 0;
+  for (const f of AI_BOOT_FACES) {
+    const face = skinFaces[f.index]!;
+    if (face.region !== 'bootL') continue;
+    for (const v of face.idx) {
+      const p = sub(verts[v]!, rest);
+      if (Math.abs(p[1] - y) > 0.8) continue;
+      if (Math.abs(p[0]) < 1) front = Math.max(front, p[2]);
+      half = Math.max(half, Math.abs(p[0]));
+    }
+  }
+  return { front, half };
+}
 
 // ── 關節（父關節在前）；每個關節放一組「探測點」（只有頂點、沒有面），讓站姿貼地、倒地的計算照常運作 ──
 const PARENT: [Joint, Joint | null][] = [

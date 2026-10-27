@@ -3,9 +3,9 @@ import type { Rarity } from '../../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from '../../../game/items/ItemInstance';
 import type { Joint } from '../FigureModel';
 import { stretchMeshes, type Mesh } from '../Poly3D';
-import { AI_LIMB, AI_TORSO } from '../HeroineAI';
+import { AI_BOOT_FACES, AI_LIMB, AI_TORSO, aiBootShape } from '../HeroineAI';
 import { aiArmorParts } from './ArmorAI';
-import { FOREARM_LENGTH, heroineHand, scaleHead, THIGH_LENGTH } from '../heroine/HeroineBody';
+import { FOREARM_LENGTH, heroineHand, scaleHead } from '../heroine/HeroineBody';
 import type { UniqueArmor } from './uniques/types';
 import { helmetUniques } from './uniques/helmet';
 import { armorUniques } from './uniques/armor';
@@ -36,9 +36,7 @@ import {
   type Tones,
 } from '../weapons/WeaponParts';
 import {
-  bootCuffPiece,
-  bootFootPiece,
-  bootShinPiece,
+  bootShinExtras,
   chestPiece,
   gauntletPiece,
   gloveHandDetails,
@@ -250,16 +248,17 @@ export function specForItem<K extends ArmorSlot>(slot: K, item: ItemInstance, da
  * 主角身上的裝備網格（關節 → 疊上去的網格）；hideSkin：AI 版身體（蒙皮網格）中被裝備蓋住、不畫的部位。
  * 裝備零件原本依舊版女主角的骨架長度設計，這裡沿骨頭方向拉伸到 AI 版的長度。
  */
-export type OutfitParts = ReadonlyMap<Joint, Mesh[]> & { readonly hideSkin?: ReadonlySet<string> };
+export type OutfitParts = ReadonlyMap<Joint, Mesh[]> & { readonly hideSkin?: ReadonlySet<string>; readonly skinColors?: ReadonlyMap<number, number> };
 
 /** 沿骨頭（Y 軸）拉伸 */
 const along = (meshes: Mesh[], k: number): Mesh[] => stretchMeshes(meshes, [1, k, 1]);
 /** 舊版女主角的長度（裝備零件依這些長度設計） */
-const OLD = { forearm: FOREARM_LENGTH, thigh: THIGH_LENGTH, bootShin: 12.6, chest: 10.4, waist: 6.2 };
+const OLD = { forearm: FOREARM_LENGTH, chest: 10.4, waist: 6.2 };
 
 export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; gloves?: GloveSpec; boots?: BootSpec; shield?: ShieldSpec }): OutfitParts {
   const parts = new Map<Joint, Mesh[]>();
   const hide = new Set<string>();
+  const skinColors = new Map<number, number>();
   const { helmet, armor, gloves, boots, shield } = specs;
   if (gloves) {
     // 護手套在前臂外面；手換成手套（藏起 AI 版的手）；指節甲、爪、尖刺只在放大時畫（角色預覽）
@@ -291,16 +290,20 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
     hide.add('chest').add('torso');
   }
   if (boots) {
-    const k = AI_LIMB.thigh / OLD.thigh;
-    parts.set('thighL', along(bootCuffPiece(boots), k));
-    parts.set('thighR', along(bootCuffPiece(boots), k));
-    parts.set('shinL', along(bootShinPiece(boots), AI_LIMB.shin / OLD.bootShin));
-    parts.set('shinR', along(bootShinPiece(boots), AI_LIMB.shin / OLD.bootShin));
-    parts.set('footL', bootFootPiece(boots));
-    parts.set('footR', bootFootPiece(boots));
-    hide.add('shinL').add('shinR').add('footL').add('footR');
+    // 靴子是 AI 版身體的一部分（設計圖的皮靴）：換成裝備的顏色，皮革用 mat、護膝與扣環等金屬用 shin / knee / toe；
+    // 尖刺、翅膀、寶石、符文貼在靴子表面
+    for (const s of ['L', 'R'] as const) parts.set(`shin${s}`, bootShinExtras(boots, AI_LIMB.shin, aiBootShape));
+    const metal = boots.shin ?? boots.knee ?? boots.toe ?? boots.mat;
+    // 原本的明暗壓縮一點（貼圖的暗部很深），中位數對到中間色
+    for (const f of AI_BOOT_FACES) skinColors.set(f.index, shade((f.metal ? metal : boots.mat)[1]!, Math.min(1.35, Math.max(0.5, f.shade ** 0.55))));
   }
-  return Object.assign(parts, { hideSkin: hide });
+  return Object.assign(parts, { hideSkin: hide, skinColors });
+}
+
+/** 顏色 × 亮度倍數（靴子換色時保留原本的明暗） */
+function shade(c: number, k: number): number {
+  const ch = (s: number) => Math.max(0, Math.min(255, Math.round(((c >> s) & 0xff) * k)));
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 }
 
 const cache = new Map<string, OutfitParts>();

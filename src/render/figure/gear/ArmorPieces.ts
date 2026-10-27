@@ -227,6 +227,30 @@ export function bootShinPiece(s: BootSpec): Mesh[] {
   return out;
 }
 
+/**
+ * 靴子的裝飾（shin 關節），貼在 AI 版女主角的靴子表面上（靴子本身是身體的一部分，穿上時換成裝備的顏色）：
+ * 尖刺、腳踝的翅膀、寶石、符文。shape(y)：高度 y（膝蓋 = 0，往下為負）處靴子正面的 z 與左右半寬。
+ */
+export function bootShinExtras(s: BootSpec, shinLength: number, shape: (y: number) => { front: number; half: number }): Mesh[] {
+  const out: Mesh[] = [];
+  const k = shinLength / 12.6;
+  for (let i = 0; i < (s.spikes ?? 0); i++) {
+    const y = (-3.2 - i * 2.6) * k;
+    out.push(spike([0, y, shape(y).front - 0.3], [0, 0.25, 1], 1.5, 0.38, s.spikeColors ?? BLACK_STEEL, i));
+  }
+  if (s.wings) {
+    const y = -10.6 * k;
+    const { half } = shape(y);
+    for (const x of [-1, 1]) {
+      out.push(dense(taper([x * (half - 0.3), y + 0.4, -0.8], [x * (half + 1.6), y + 5, -5.2], [0.2, 1.3], [0.05, 0.2], s.wings, 4, 1, 0)));
+      out.push(dense(taper([x * (half - 0.3), y - 0.4, -0.8], [x * (half + 1.8), y + 2.2, -5.8], [0.2, 1], [0.05, 0.15], s.wings, 4, 2, 0)));
+    }
+  }
+  if (s.gem) out.push(gem(0.6, [0, -2.2 * k, shape(-2.2 * k).front + 0.2], s.gem));
+  if (s.runes) for (const y of [-5 * k, -7.5 * k]) out.push(glowBox(0.5, 0.6, 0.5, s.runes, [0, y, shape(y).front + 0.05]));
+  return out;
+}
+
 /** 靴子（foot 關節）：靴跟、腳背、鞋頭、靴底 */
 export function bootFootPiece(s: BootSpec): Mesh[] {
   const toe = s.toe ?? s.mat;
