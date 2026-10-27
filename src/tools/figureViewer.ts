@@ -22,7 +22,7 @@ import { WeaponGlowView } from '../render/views/WeaponGlowView';
 import { lookByKey, mountFor, tierLook, UNIQUE_WEAPON_IDS, uniqueLook, type WeaponLook } from '../render/figure/weapons/WeaponLooks';
 import type { WeaponType } from '../data/schema/item';
 import { RARITIES, type Rarity } from '../data/schema/item';
-import { armorSpec, heroineOutfit } from '../render/figure/gear/ArmorLooks';
+import { armorSpec, heroineOutfit, uniqueArmorSpec } from '../render/figure/gear/ArmorLooks';
 import type { GearTheme } from '../render/figure/gear/GearTheme';
 
 /** 畫面上的八個方向（欄）與對應的 World 面向 */
@@ -119,11 +119,14 @@ const OUTFIT = OUTFIT_TIER
       });
     })()
   : null;
+/** ?armor=mythic.armor_lava_behemoth：主角只穿這件橘 / 紅盔甲（檢查專屬外觀、AI 生成的盔甲） */
+const UNIQUE_ARMOR = selected.key === 'heroine' && params.get('armor') ? uniqueArmorSpec('armor', params.get('armor')!) : undefined;
+const OUTFIT_ARMOR = UNIQUE_ARMOR ? heroineOutfit({ armor: UNIQUE_ARMOR }) : null;
 const armed = (figure: PolyFigure): PolyFigure => {
   // ?rest=x,y,z：試調平常拿武器的角度
   const restParam = params.get('rest')?.split(',').map(Number) as [number, number, number] | undefined;
   if (WEAPON) figure.setWeapon({ ...mountFor(WEAPON), ...(restParam ? { rest: restParam } : {}) });
-  if (OUTFIT) figure.setOutfit(OUTFIT);
+  if (OUTFIT ?? OUTFIT_ARMOR) figure.setOutfit((OUTFIT ?? OUTFIT_ARMOR)!);
   return figure;
 };
 

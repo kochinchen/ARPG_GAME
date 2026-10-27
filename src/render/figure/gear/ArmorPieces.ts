@@ -1,3 +1,4 @@
+import type { ArmorModel } from './ArmorAI';
 import { detail, facetize, loft, refine, tone, type Ring } from '../Facets';
 import { box, lowSphere, mapVerts, orient, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
 import { THIGH_LENGTH } from '../heroine/HeroineBody';
@@ -120,6 +121,8 @@ export interface ArmorSpec {
   tassets?: boolean;
   emblem?: number | null;
   runes?: number;
+  /** AI 生成的盔甲（ArmorAI.ts）：穿在 AI 版女主角身上時取代程式產生的胸甲、腰甲與護肩 */
+  model?: ArmorModel;
 }
 
 /** 胸甲（chest 關節）：包住胸口的外殼、領口、中央稜線、甲殼、肋條、紋章、符文 */

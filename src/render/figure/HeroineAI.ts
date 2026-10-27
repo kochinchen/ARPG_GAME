@@ -87,6 +87,13 @@ for (const s of ['L', 'R'] as const) {
   set(`foot${s}`, an, shin, ft);
 }
 
+/** AI 模型上的一點（公尺、遊戲軸向）→ 關節的區域座標（遊戲單位；四肢同樣轉正）：AI 生成的裝備掛在關節上用 */
+export function aiToJoint(j: Joint, p: V3): V3 {
+  const r = rig.get(j);
+  if (!r) throw new Error(`AI 骨架沒有對應 ${j} 的關節`);
+  return apply(r.rot, mulS(sub(p, r.pivot), S));
+}
+
 /** 軀幹各段的長度（遊戲單位）：胸 = 胸到脖子、腰 = 腰到胸（盔甲依這個長度拉伸） */
 export const AI_TORSO = { chest: (J('neck')[1] - J('chest')[1]) * S, waist: (J('chest')[1] - J('waist')[1]) * S };
 

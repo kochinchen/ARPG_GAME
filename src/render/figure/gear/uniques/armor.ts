@@ -32,7 +32,7 @@ export const armorUniques: Record<string, UniqueArmor> = {
   'legendary.armor_thunder_robe': { tier: 1, themes: ['lightning'], extra: { mat: THUNDER_ROBE, trim: STORM, emblem: 0xbfd8ff, runes: 0xbfd8ff } },
 
   // ── 紅（魔王）──
-  'mythic.armor_lava_behemoth': { tier: 8, themes: ['fire', 'guard'], extra: { mat: LAVA_ROCK, trim: LAVA, pauldronMat: LAVA_ROCK, spikeColors: LAVA, ribs: LAVA, carapace: true } },
+  'mythic.armor_lava_behemoth': { tier: 8, themes: ['fire', 'guard'], extra: { mat: LAVA_ROCK, trim: LAVA, pauldronMat: LAVA_ROCK, spikeColors: LAVA, ribs: LAVA, carapace: true, model: 'lava_behemoth' } },
   'mythic.armor_fallen_knight': { tier: 7, themes: ['guard', 'thorns'], extra: { mat: KNIGHT_BLACK, trim: VOID, trimPauldron: VOID, spikeColors: BLACK_STEEL, emblem: 0xa066ff } },
   'mythic.armor_spider_queen': { tier: 8, themes: ['poison'], extra: { mat: CHITIN, trim: [0x7aff4a, 0x5ae03a, 0x3a9a24, 0x6af040], pauldronMat: CHITIN, spikeColors: CHITIN, ribs: CHITIN, carapace: true } },
   'mythic.armor_abyss_sovereign': { tier: 8, themes: ['blood', 'fire'], extra: { mat: SOVEREIGN_SHELL, trim: GOLD, pauldron: 1.8, pauldronMat: SOVEREIGN_FLESH, spikeColors: [0xcdb07a, 0xb2955f, 0x8a7448, 0xc0a46c], ribs: [0xcdb07a, 0xb2955f, 0x8a7448, 0xc0a46c] } },

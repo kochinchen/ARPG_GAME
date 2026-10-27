@@ -4,6 +4,7 @@ import type { EquipmentSlot, ItemInstance } from '../../../game/items/ItemInstan
 import type { Joint } from '../FigureModel';
 import { stretchMeshes, type Mesh } from '../Poly3D';
 import { AI_LIMB, AI_TORSO } from '../HeroineAI';
+import { aiArmorParts } from './ArmorAI';
 import { FOREARM_LENGTH, heroineHand, scaleHead, THIGH_LENGTH } from '../heroine/HeroineBody';
 import type { UniqueArmor } from './uniques/types';
 import { helmetUniques } from './uniques/helmet';
@@ -231,6 +232,12 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
   return spec;
 }
 
+/** 橘 / 紅防具的造型參數（預覽工具用；遊戲裡經由 specForItem） */
+export function uniqueArmorSpec<K extends ArmorSlot>(slot: K, id: string): Spec[K] | undefined {
+  const unique = UNIQUES[id];
+  return unique && armorSpec(slot, unique.tier, id.startsWith('mythic') ? 'mythic' : 'legendary', unique.themes, unique.extra as Partial<Spec[K]>, UNIQUE_TINT);
+}
+
 /** 一件裝備 → 造型參數（橘 / 紅有專屬設定；其他依基底階級與詞綴） */
 export function specForItem<K extends ArmorSlot>(slot: K, item: ItemInstance, data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries'>): Spec[K] {
   const unique = item.legendaryId ? UNIQUES[item.legendaryId] : undefined;
@@ -271,7 +278,11 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
     hide.add('hair');
     if (helmet.style === 'closed') hide.add('head');
   }
-  if (armor) {
+  if (armor?.model) {
+    // AI 生成的盔甲：已在 Blender 對齊 AI 版女主角，直接掛在胸口與上臂
+    for (const [j, meshes] of aiArmorParts(armor.model)) parts.set(j, meshes);
+    hide.add('chest').add('torso');
+  } else if (armor) {
     parts.set('chest', along(chestPiece(armor), AI_TORSO.chest / OLD.chest));
     parts.set('torso', along(waistPiece(armor), AI_TORSO.waist / OLD.waist));
     parts.set('upperArmL', shoulderPiece(armor, 1));
