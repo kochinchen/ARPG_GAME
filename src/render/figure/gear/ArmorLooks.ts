@@ -3,7 +3,7 @@ import type { Rarity } from '../../../data/schema/item';
 import type { EquipmentSlot, ItemInstance } from '../../../game/items/ItemInstance';
 import type { Joint } from '../FigureModel';
 import { stretchMeshes, type Mesh } from '../Poly3D';
-import { AI_BOOT_FACES, AI_LIMB, AI_TORSO, aiBootShape } from '../HeroineAI';
+import { AI_BOOT_FACES, AI_LIMB, AI_TORSO, aiBootShape, type BootFace } from '../HeroineAI';
 import { aiArmorParts } from './ArmorAI';
 import { FOREARM_LENGTH, heroineHand, scaleHead } from '../heroine/HeroineBody';
 import type { UniqueArmor } from './uniques/types';
@@ -293,11 +293,20 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
     // 靴子是 AI 版身體的一部分（設計圖的皮靴）：換成裝備的顏色，皮革用 mat、護膝與扣環等金屬用 shin / knee / toe；
     // 尖刺、翅膀、寶石、符文貼在靴子表面
     for (const s of ['L', 'R'] as const) parts.set(`shin${s}`, bootShinExtras(boots, AI_LIMB.shin, aiBootShape));
-    const metal = boots.shin ?? boots.knee ?? boots.toe ?? boots.mat;
-    // 原本的明暗壓縮一點（貼圖的暗部很深），中位數對到中間色
-    for (const f of AI_BOOT_FACES) skinColors.set(f.index, shade((f.metal ? metal : boots.mat)[1]!, Math.min(1.35, Math.max(0.5, f.shade ** 0.55))));
+    const color = bootColor(boots);
+    for (const f of AI_BOOT_FACES) skinColors.set(f.index, color(f));
   }
   return Object.assign(parts, { hideSkin: hide, skinColors });
+}
+
+/**
+ * 靴子裝備的顏色：皮革用 mat、護膝與扣環等金屬用 shin / knee / toe，膝蓋以上的護膝用靴口色（cuff，例如金邊）；
+ * 原本的明暗壓縮一點（貼圖的暗部很深），中位數對到中間色
+ */
+export function bootColor(boots: BootSpec): (f: BootFace) => number {
+  const metal = boots.shin ?? boots.knee ?? boots.toe ?? boots.mat;
+  const top = boots.cuff ?? boots.knee ?? metal;
+  return (f) => shade((f.metal ? (f.upper ? top : metal) : boots.mat)[1]!, Math.min(1.35, Math.max(0.5, f.shade ** 0.55)));
 }
 
 /** 顏色 × 亮度倍數（靴子換色時保留原本的明暗） */

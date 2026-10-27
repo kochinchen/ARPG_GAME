@@ -188,6 +188,8 @@ const skinFaces = DATA.faces.map((f, i) => ({ idx: [f[0]!, f[1]!, f[2]!] as [num
 export interface BootFace {
   index: number;
   metal: boolean;
+  /** 在膝蓋以上（護膝的上半、靴口）：裝備的靴口顏色畫在這裡 */
+  upper: boolean;
   shade: number;
 }
 const lum = (c: number) => {
@@ -208,9 +210,30 @@ export const AI_BOOT_FACES: readonly BootFace[] = (() => {
   const ref = { true: median(true), false: median(false) };
   return faces.map(({ f, index }) => {
     const metal = isMetal(f.color);
-    return { index, metal, shade: lum(f.color) / ref[`${metal}`] };
+    const upper = f.idx.reduce((sum, v) => sum + DATA.verts[v]![1]!, 0) / 3 > J('kneeL')[1] + 0.02;
+    return { index, metal, upper, shade: lum(f.color) / ref[`${metal}`] };
   });
 })();
+
+/** 左腳的靴子單獨拿出來（shin 關節的區域座標，遊戲單位）：物品圖示用；color 決定每個面的顏色（裝備換色） */
+export function aiBootMesh(color: (f: BootFace) => number): Mesh {
+  const rest = rig.get('shinL')!.rest;
+  const map = new Map<number, number>();
+  const out: Mesh = { verts: [], faces: [] };
+  for (const f of AI_BOOT_FACES) {
+    const face = skinFaces[f.index]!;
+    if (face.region !== 'bootL') continue;
+    const idx = face.idx.map((v) => {
+      if (!map.has(v)) {
+        map.set(v, out.verts.length);
+        out.verts.push(sub(verts[v]!, rest));
+      }
+      return map.get(v)!;
+    });
+    out.faces.push({ idx, color: color(f) });
+  }
+  return out;
+}
 
 /**
  * 靴筒的外形（shin 關節的區域座標，遊戲單位；左右相同，取左腳）：高度 y 處靴子正面的 z 與左右半寬。

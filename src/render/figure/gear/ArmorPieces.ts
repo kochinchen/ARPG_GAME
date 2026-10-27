@@ -1,7 +1,6 @@
 import type { ArmorModel } from './ArmorAI';
 import { detail, facetize, loft, refine, tone, type Ring } from '../Facets';
 import { box, lowSphere, mapVerts, orient, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
-import { THIGH_LENGTH } from '../heroine/HeroineBody';
 import { BLACK_STEEL, chain, gem, taper, type Tones } from '../weapons/WeaponParts';
 
 /**
@@ -12,7 +11,6 @@ import { BLACK_STEEL, chain, gem, taper, type Tones } from '../weapons/WeaponPar
 export const HIDE: Tones = [0x8a5c3c, 0x7a4f33, 0x64402a, 0x845838];
 export const HIDE_DARK: Tones = [0x5a3a28, 0x4c3122, 0x3c271b, 0x553726];
 export const CLOTH: Tones = [0x9c8a66, 0x8a7a5a, 0x6e6046, 0x958462];
-const SOLE: Tones = [0x2a201a, 0x221a15];
 const SLIT = 0x0c0a0a;
 
 /** 加密成小三角面（與 AI 版女主角相同的構面感）：邊長、起伏、亮度差異 */
@@ -203,30 +201,6 @@ export interface BootSpec {
   runes?: number;
 }
 
-/** 靴口（thigh 關節，膝上） */
-export const bootCuffPiece = (s: BootSpec): Mesh[] => [
-  dense(loft([{ y: 3.6 - THIGH_LENGTH, rx: 2.6, rz: 2.7, cz: 0.2 }, { y: -0.2 - THIGH_LENGTH, rx: 2.2, rz: 2.35 }], 9, s.mat, 1)),
-  F(t(prism(9, 3.8 - THIGH_LENGTH, 2.9 - THIGH_LENGTH, [2.75, 2.85], [2.7, 2.8], (s.cuff ?? HIDE_DARK)[0]!, [0, 0, 0.2]), s.cuff ?? HIDE_DARK, 2), 2, 0.12),
-];
-
-/** 靴筒（shin 關節）：護膝、脛甲、綁帶、尖刺、腳踝的翅膀 */
-export function bootShinPiece(s: BootSpec): Mesh[] {
-  const out = [dense(loft([{ y: 0.6, rx: 2.2, rz: 2.35 }, { y: -4, rx: 2.35, rz: 2.45, cz: -0.15 }, { y: -10.4, rx: 1.75, rz: 1.85 }, { y: -12.6, rx: 1.85, rz: 2 }], 9, s.mat, 3))];
-  if (s.knee) out.push(F(t(placeMesh(prism(5, 0.8, -2.8, [2.1, 1.1], [1.5, 0.9], s.knee[0]!), [-0.12, 0, 0], [0, 0, 1.9]), s.knee, 4), 4, 0.14));
-  if (s.shin) out.push(F(t(placeMesh(prism(4, -3, -10, [1.4, 0.6], [1, 0.5], s.shin[0]!, [0, 0, 0], 0), [0.06, 0, 0], [0, 0, 2.2]), s.shin, 5), 5, 0.14));
-  if (s.straps) for (const y of [-5.6, -8.6]) out.push(F(t(prism(9, y, y - 0.6, [2.4, 2.5], [2.35, 2.45], HIDE_DARK[0]!, [0, 0, -0.1]), HIDE_DARK, 6), 6, 0.1));
-  for (let i = 0; i < (s.spikes ?? 0); i++) out.push(spike([0, -2.6 - i * 2.6, 2.3], [0, 0.25, 1], 1.5, 0.38, s.spikeColors ?? BLACK_STEEL, i));
-  if (s.wings) {
-    for (const x of [-1, 1]) {
-      out.push(dense(taper([x * 1.8, -10.2, -0.8], [x * 3.4, -5.6, -5.2], [0.2, 1.3], [0.05, 0.2], s.wings, 4, 1, 0)));
-      out.push(dense(taper([x * 1.8, -11, -0.8], [x * 3.6, -8.4, -5.8], [0.2, 1], [0.05, 0.15], s.wings, 4, 2, 0)));
-    }
-  }
-  if (s.gem) out.push(gem(0.6, [0, -1.2, 2.9], s.gem));
-  if (s.runes) for (const y of [-4.5, -7]) out.push(glowBox(0.5, 0.6, 0.5, s.runes, [0, y, 2.75]));
-  return out;
-}
-
 /**
  * 靴子的裝飾（shin 關節），貼在 AI 版女主角的靴子表面上（靴子本身是身體的一部分，穿上時換成裝備的顏色）：
  * 尖刺、腳踝的翅膀、寶石、符文。shape(y)：高度 y（膝蓋 = 0，往下為負）處靴子正面的 z 與左右半寬。
@@ -249,17 +223,6 @@ export function bootShinExtras(s: BootSpec, shinLength: number, shape: (y: numbe
   if (s.gem) out.push(gem(0.6, [0, -2.2 * k, shape(-2.2 * k).front + 0.2], s.gem));
   if (s.runes) for (const y of [-5 * k, -7.5 * k]) out.push(glowBox(0.5, 0.6, 0.5, s.runes, [0, y, shape(y).front + 0.05]));
   return out;
-}
-
-/** 靴子（foot 關節）：靴跟、腳背、鞋頭、靴底 */
-export function bootFootPiece(s: BootSpec): Mesh[] {
-  const toe = s.toe ?? s.mat;
-  return [
-    F(t(box(3.2, 2.3, 2.8, s.mat[0]!, [0, -1.3, -0.6]), s.mat, 1), 1, 0.14),
-    F(t(placeMesh(box(3.3, 1.9, 4, s.mat[1]!), [0.12, 0, 0], [0, -1.35, 2]), s.mat, 2), 2, 0.14),
-    F(t(placeMesh(prism(5, 0, 2.2, [1.6, 1], [0.9, 0.6], toe[0]!, [0, 0, 0], 0.3), [Math.PI / 2, 0, 0], [0, -1.7, 3.9]), toe, 3), 3, 0.14),
-    dense(t(box(3.5, 0.7, 7.6, SOLE[0]!, [0, -2.55, 1.4]), SOLE)),
-  ];
 }
 
 // ─────────────────────────── 手套 ───────────────────────────

@@ -2,8 +2,9 @@ import type { DataRegistry } from '../../data/DataRegistry';
 import type { Rarity } from '../../data/schema/item';
 import type { ItemInstance } from '../../game/items/ItemInstance';
 import { facetize, loft, tone } from '../figure/Facets';
-import { specForItem } from '../figure/gear/ArmorLooks';
-import { HIDE_DARK, helmetMeshes, scaleMeshes, shieldMeshes, type ArmorSpec, type BootSpec, type GloveSpec } from '../figure/gear/ArmorPieces';
+import { bootColor, specForItem } from '../figure/gear/ArmorLooks';
+import { AI_LIMB, aiBootMesh, aiBootShape } from '../figure/HeroineAI';
+import { bootShinExtras, HIDE_DARK, helmetMeshes, scaleMeshes, shieldMeshes, type ArmorSpec, type BootSpec, type GloveSpec } from '../figure/gear/ArmorPieces';
 import { itemThemes, THEMES, themeColors } from '../figure/gear/GearTheme';
 import { apply, box, dot, faceNormal, jointRotation, lowSphere, mul, normalize, placeMesh, prism, rotX, rotY, rotZ, type M3, type Mesh, type V3 } from '../figure/Poly3D';
 import { HOLD, weaponLookFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
@@ -20,7 +21,6 @@ const t = (m: Mesh, c: Tones, s = 0) => tone(m, c, s);
 const spike = (a: V3, dir: V3, len: number, r: number, colors: Tones, seed = 0) =>
   taper(a, [a[0] + dir[0] * len, a[1] + dir[1] * len, a[2] + dir[2] * len], [r, r], [0.04, 0.04], colors, 5, seed, 0.3);
 const glowBox = (w: number, h: number, d: number, color: number, c: V3) => t(box(w, h, d, color, c), [color, 0xffffff]);
-const SOLE: Tones = [0x2a201a, 0x221a15];
 
 // ─────────────────────────── 圖示專用的整件造型 ───────────────────────────
 // 身上的盔甲、手套、靴子分散在好幾個關節；圖示要一件完整的物品，所以另外組合。
@@ -82,35 +82,15 @@ function gloveIcon(s: GloveSpec): Mesh[] {
   return out;
 }
 
-/** 一隻靴子（靴筒、腳掌、鞋底、鞋頭、靴口、綁帶、脛甲、護膝、尖刺、翅膀） */
+/**
+ * 一隻靴子：與遊戲裡穿上的靴子相同（AI 版女主角身上的皮靴換成裝備顏色，加上尖刺、翅膀、寶石、符文）。
+ * 靴子模型的鞋尖朝 +Z，圖示裡轉成朝 +X（與其他圖示的視角一致）、縮小並把鞋底放在 y = -3.5。
+ */
 function bootIcon(s: BootSpec): Mesh[] {
-  const out: Mesh[] = [];
-  const h = 8;
-  out.push(loft([{ y: -1.2, rx: 2.2, rz: 2.15 }, { y: h * 0.35, rx: 2.45, rz: 2.35 }, { y: h * 0.75, rx: 2.25, rz: 2.2 }, { y: h, rx: 2.45, rz: 2.4 }], 12, s.mat, 1));
-  // 腳掌沿 X 放樣（腳跟 → 鞋尖）
-  const foot = (rings: Parameters<typeof loft>[0], colors: Tones, seed: number): Mesh => {
-    const m = loft(rings, 10, colors, seed);
-    return { ...m, verts: m.verts.map(([x, y, z]) => [y, -x - 1.6, z] as V3) };
-  };
-  out.push(foot([{ y: -1.8, rx: 1.7, rz: 2 }, { y: 0.6, rx: 1.9, rz: 2.15 }, { y: 3, rx: 1.45, rz: 2.2 }, { y: 4.8, rx: 1.05, rz: 1.9 }, { y: 6, rx: 0.5, rz: 1.1 }], s.mat, 2));
-  out.push(t(box(8.4, 0.8, 4.4, SOLE[0]!, [2.1, -3.1, 0]), SOLE));
-  out.push(t(box(2.2, 1, 4.2, SOLE[0]!, [-1.2, -3.6, 0]), SOLE));
-  if (s.toe) out.push(foot([{ y: 3.2, rx: 1.55, rz: 2.32 }, { y: 4.9, rx: 1.15, rz: 2.02 }, { y: 6.2, rx: 0.55, rz: 1.2 }], s.toe, 3));
-  const cuff = s.cuff ?? HIDE_DARK;
-  out.push(F(t(prism(14, h - 0.2, h + 1.4, [2.6, 2.6], [3.1, 3.1], cuff[0]!), cuff, 4), 4, 0.06));
-  if (s.straps) for (const y of [1.2, 3.4, 5.6]) out.push(t(prism(12, y, y + 0.55, [2.3, 2.3], [2.3, 2.3], HIDE_DARK[0]!), HIDE_DARK, 5));
-  if (s.shin) out.push(F(t(placeMesh(box(1, h * 0.7, 3, s.shin[0]!), [0, 0, 0.06], [2.2, h * 0.5, 0]), s.shin, 6), 6, 0.14));
-  if (s.knee) out.push(F(t(lowSphere(1.5, s.knee[0]!, [2.2, h - 0.4, 0], 8, 5, [0.7, 1, 1]), s.knee, 7), 7, 0.1));
-  for (let i = 0; i < (s.spikes ?? 0); i++) out.push(spike([2.6, h * 0.3 + i * h * 0.22, 0], [1, 0.25, 0], 1.6, 0.45, s.spikeColors ?? BLACK_STEEL, i));
-  if (s.wings) {
-    [1.9, -1.9].forEach((z, k) => {
-      out.push(taper([-1.8, 2.6, z], [-5.6, 6.4, z * 1.4], [0.25, 1.4], [0.05, 0.2], s.wings!, 4, 1 + k, 0));
-      out.push(taper([-1.8, 1.8, z], [-6, 3.8, z * 1.4], [0.25, 1], [0.05, 0.15], s.wings!, 4, 3 + k, 0));
-    });
-  }
-  if (s.gem) out.push(gem(0.8, [2.5, h * 0.75, 0], s.gem));
-  if (s.runes) for (const y of [h * 0.35, h * 0.55]) out.push(glowBox(0.5, 0.7, 0.7, s.runes, [2.75, y, 0]));
-  return out;
+  const meshes = coarse([aiBootMesh(bootColor(s)), ...bootShinExtras(s, AI_LIMB.shin, aiBootShape)]);
+  const sole = Math.min(...meshes.flatMap((m) => m.verts.map((v) => v[1])));
+  const k = 0.6;
+  return meshes.map((m) => ({ ...m, verts: m.verts.map(([x, y, z]) => [z * k, (y - sole) * k - 3.5, -x * k] as V3) }));
 }
 
 /** 飾品的材質與預設寶石（依基底：銅 / 銀 / 金 / 符文；木 / 骨 / 銀 / 符文） */
@@ -457,7 +437,7 @@ function buildIcon(item: ItemInstance, slot: string, themes: ReturnType<typeof i
       meshes = pair(gloveIcon(specForItem('gloves', item, data)), 0, [-5.2, -2.2, -3.4]);
       break;
     case 'boots':
-      meshes = pair(bootIcon(specForItem('boots', item, data)), 2, [-2.6, 0.6, -4.6]);
+      meshes = pair(bootIcon(specForItem('boots', item, data)), 2, [-4.2, 0.5, -4]);
       break;
     case 'shield':
       meshes = coarse(shieldMeshes(specForItem('shield', item, data)));
