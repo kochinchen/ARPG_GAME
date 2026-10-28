@@ -94,6 +94,15 @@ export function aiToJoint(j: Joint, p: V3): V3 {
   return apply(r.rot, mulS(sub(p, r.pivot), S));
 }
 
+/** 關節的區域座標 → 站姿（靜止）時的模型座標：把掛在各關節上的裝備組回一整件（物品圖示用） */
+export function jointToRest(j: Joint, p: V3): V3 {
+  const r = rig.get(j);
+  if (!r) throw new Error(`AI 骨架沒有對應 ${j} 的關節`);
+  const m = r.rot;
+  // 旋轉的反矩陣 = 轉置
+  return [r.rest[0] + m[0] * p[0] + m[3] * p[1] + m[6] * p[2], r.rest[1] + m[1] * p[0] + m[4] * p[1] + m[7] * p[2], r.rest[2] + m[2] * p[0] + m[5] * p[1] + m[8] * p[2]];
+}
+
 /** 軀幹各段的長度（遊戲單位）：胸 = 胸到脖子、腰 = 腰到胸（盔甲依這個長度拉伸） */
 export const AI_TORSO = { chest: (J('neck')[1] - J('chest')[1]) * S, waist: (J('chest')[1] - J('waist')[1]) * S };
 

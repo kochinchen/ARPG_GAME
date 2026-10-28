@@ -62,6 +62,29 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
     expect(looks.size).toBe(18);
   });
 
+  it('橘 / 紅盔甲：熔岩巨甲用 AI 模型，其他都有專屬造型（9 種），藏起原本的胸口與裙子，零件不飄走', () => {
+    const ids = UNIQUE_ARMOR_IDS.filter((id) => data.legendaries.get(id).kind === 'armor');
+    const looks = new Set<string>();
+    for (const id of ids) {
+      const spec = uniqueArmorSpec('armor', id)!;
+      if (id === 'mythic.armor_lava_behemoth') {
+        expect(spec.model).toBe('lava_behemoth');
+        continue;
+      }
+      expect(spec.look, id).toBeDefined();
+      looks.add(spec.look!);
+      const outfit = heroineOutfit({ armor: spec });
+      for (const region of ['chest', 'cloth', 'clothBack']) expect(outfit.hideSkin?.has(region), id).toBe(true);
+      for (const j of ['chest', 'root', 'cloth', 'clothBack', 'upperArmL', 'upperArmR'] as const) {
+        const meshes = outfit.get(j) ?? [];
+        expect(meshes.length, `${id} ${j}`).toBeGreaterThan(0);
+        // 長袍下擺、胸口的光環、蜘蛛腳最遠；都在關節 22 單位以內
+        for (const m of meshes) for (const v of m.verts) expect(Math.hypot(...v) < 22, `${id} ${j}`).toBe(true);
+      }
+    }
+    expect(looks.size).toBe(9);
+  });
+
   it('同一組裝備重複使用同一份網格（換裝時才重建）', () => {
     const items = equip({ helmet: item('helmet.iron_helm', 'magic') });
     expect(outfitFor(items, data)).toBe(outfitFor(items, data));
