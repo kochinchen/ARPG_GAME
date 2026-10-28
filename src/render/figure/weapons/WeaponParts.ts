@@ -342,10 +342,155 @@ export interface BowOptions {
   /** 弓梢的刃 / 裝飾 */
   tips?: 'blade' | 'hook' | 'wing' | 'orb';
   tipColors?: Tones;
+  /**
+   * 橘 / 紅專用的基本款（設計稿 art/gear/bows_unique/concept）：
+   * beast = 獸材弓（骨節與皮繩交錯、金屬箍、外側骨刺、大彎鉤弓梢）、
+   * elemental = 精工元素弓（流線的扁弓臂、金色鑲邊、發光晶體、刀鋒弓梢、光弦）、
+   * demon = 魔王神弓（更長更粗、整排尖刃倒刺、裂縫透光、握把上方的核心、鐮刀弓梢）。
+   * 有 style 時 tips 不用（弓梢由基本款決定）。
+   */
+  style?: 'beast' | 'elemental' | 'demon';
+  /** 金屬箍 / 鑲邊 */
+  trim?: Tones;
+  /** 骨刺 / 尖刃 */
+  spikes?: Tones;
+  /** 晶體、裂縫、核心與光弦的發光色 */
+  glow?: number;
+}
+
+const vadd = (a: V3, b: V3, k = 1): V3 => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+const vnorm = (a: V3): V3 => {
+  const l = Math.hypot(a[0], a[1], a[2]) || 1;
+  return [a[0] / l, a[1] / l, a[2] / l];
+};
+/** 折線上依長度比例 t（0～1）的點、前進方向、往弓背（遠離弓弦、+Z 側）的法線 */
+function sample(pts: readonly V3[], t: number): { p: V3; d: V3; n: V3 } {
+  const lens = pts.slice(1).map((q, i) => Math.hypot(q[1] - pts[i]![1], q[2] - pts[i]![2]));
+  let rest = t * lens.reduce((x, y) => x + y, 0);
+  let i = 0;
+  while (i < lens.length - 1 && rest > lens[i]!) rest -= lens[i++]!;
+  const a = pts[i]!, b = pts[i + 1]!;
+  const f = Math.min(1, rest / (lens[i] || 1));
+  const d = vnorm([0, b[1] - a[1], b[2] - a[2]]);
+  let n: V3 = [0, -d[2], d[1]];
+  if (n[2] < 0) n = [0, -n[1], -n[2]];
+  return { p: [0, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f], d, n };
+}
+/** 把折線切成 n 段（等長） */
+const resample = (pts: readonly V3[], n: number): V3[] => Array.from({ length: n + 1 }, (_, i) => sample(pts, i / n).p);
+const glowTones = (c: number): Tones => [lighten(c, 0.45), c, darken(c, 0.25), lighten(c, 0.2)];
+
+/** 橘 / 紅基本款的弓（style 見 BowOptions） */
+function styledBow(o: BowOptions & { style: NonNullable<BowOptions['style']> }): { meshes: Mesh[]; top: V3; bottom: V3 } {
+  // 設計稿的弓臂比一般弓粗壯得多
+  const L = o.length, b = o.bend, r = o.recurve ?? 0, th = o.thickness * 1.4;
+  const trim = o.trim ?? GOLD;
+  const spikes = o.spikes ?? o.colors;
+  const glow = o.glow ?? 0xfff0c0;
+  const meshes: Mesh[] = [];
+  const path = (sd: 1 | -1): V3[] => [
+    [0, sd * 2.4, b * 0.3],
+    [0, sd * L * 0.38, b * 0.9],
+    [0, sd * L * 0.7, b],
+    [0, sd * L * 0.9, b * 0.75 - r * 0.35],
+    [0, sd * L, b * 0.4 - r],
+  ];
+  const tips: V3[] = [];
+  for (const sd of [1, -1] as const) {
+    const pts = path(sd);
+    const tip = pts[pts.length - 1]!;
+    const end = sample(pts, 1);
+    if (o.style === 'beast') {
+      // 骨節與皮繩交錯：每三段一段皮繩（略粗），骨節交界套金屬箍
+      const seg = resample(pts, 9);
+      seg.slice(0, -1).forEach((p, i) => {
+        const q = seg[i + 1]!;
+        const wrap = i % 3 === 1;
+        const k = 1 - (i / 9) * 0.45;
+        meshes.push(taper(p, q, [th * (wrap ? 0.85 : 0.7) * k, th * (wrap ? 1.05 : 1.1) * k], [th * (wrap ? 0.85 : 0.75) * k, th * (wrap ? 1.05 : 0.95) * k], wrap ? o.grip : o.colors, 6, i, Math.PI / 6));
+        if (i % 3 === 2) meshes.push(taper(vadd(q, sample(pts, (i + 1) / 9).d, -0.25), vadd(q, sample(pts, (i + 1) / 9).d, 0.25), [th * 0.95 * k, th * 1.25 * k], [th * 0.95 * k, th * 1.25 * k], trim, 8, i, 0));
+      });
+      // 外側的骨刺：往外、往弓梢方向彎
+      for (const [t, len] of [[0.18, 2.6], [0.4, 3.6], [0.62, 3.2], [0.82, 2.4]] as const) {
+        const { p, d, n } = sample(pts, t);
+        const base = vadd(p, n, th * 0.8);
+        const mid = vadd(vadd(base, n, len * 0.55), d, len * 0.35);
+        meshes.push(...chain([base, mid, vadd(vadd(mid, n, len * 0.25), d, len * 0.55)], [th * 0.5, th * 0.55], [0.04, 0.05], spikes, false));
+      }
+      // 大彎鉤：順著弓臂往外翻，再往弓弦這側勾回來
+      const h1 = vadd(vadd(tip, end.d, 1.6), end.n, 1.6);
+      const h2 = vadd(vadd(h1, end.d, 1.4), end.n, -0.4);
+      meshes.push(...chain([tip, h1, h2, vadd(vadd(h2, end.d, 0.3), end.n, -1.6)], [th * 0.7, th * 0.8], [0.05, 0.06], spikes, false));
+    } else if (o.style === 'elemental') {
+      // 流線的扁弓臂（前後寬、左右薄）＋弓背的金色鑲邊
+      const seg = resample(pts, 8);
+      seg.slice(0, -1).forEach((p, i) => {
+        const k = 1 - (i / 8) * 0.55;
+        meshes.push(edge(p, seg[i + 1]!, [th * 0.45 * k, th * 1.5 * k], [th * 0.42 * (k - 0.06), th * 1.4 * (k - 0.06)], o.colors));
+        const n0 = sample(pts, i / 8).n, n1 = sample(pts, (i + 1) / 8).n;
+        meshes.push(taper(vadd(p, n0, th * 1.35 * k), vadd(seg[i + 1]!, n1, th * 1.3 * (k - 0.06)), [0.16, 0.22], [0.14, 0.2], trim, 4, i, Math.PI / 4));
+      });
+      // 弓臂中段的元素晶體（沿弓臂的菱形，套在金色托座上）
+      // 晶體從弓臂兩側凸出來（側面看得到），上下各一個金色小托
+      const { p, d } = sample(pts, 0.42);
+      for (const x of [-1, 1]) {
+        const c = vadd(p, [x * th * 0.35, 0, 0]);
+        meshes.push(edge(vadd(c, d, -2.2), c, [0.05, 0.05], [th * 0.75, th * 1.25], glowTones(glow)), edge(c, vadd(c, d, 2.2), [th * 0.75, th * 1.25], [0.05, 0.05], glowTones(glow)));
+      }
+      for (const k of [-2.3, 2.3]) meshes.push(taper(vadd(p, d, k - 0.3), vadd(p, d, k + 0.3), [th * 0.65, th * 1.6], [th * 0.65, th * 1.6], trim, 6, 3, Math.PI / 6));
+      // 刀鋒弓梢：往外伸的長刃＋往弓背的小翼
+      meshes.push(edge(tip, vadd(vadd(tip, end.d, 3.4), end.n, 0.6), [th * 0.35, th * 1.1], [0.03, 0.04], trim));
+      meshes.push(edge(vadd(tip, end.d, -0.6), vadd(vadd(tip, end.d, 0.8), end.n, 2.2), [th * 0.3, th * 0.8], [0.03, 0.04], o.colors));
+    } else {
+      // 魔王：粗壯的弓臂、外緣一道裂縫透光
+      const seg = resample(pts, 9);
+      seg.slice(0, -1).forEach((p, i) => {
+        const k = 1 - (i / 9) * 0.4;
+        meshes.push(taper(p, seg[i + 1]!, [th * 0.9 * k, th * 1.25 * k], [th * 0.85 * k, th * 1.15 * k], o.colors, 6, i, Math.PI / 6));
+        // 裂縫在弓臂兩側（側面看得到），之字形
+        const n0 = sample(pts, i / 9).n, n1 = sample(pts, (i + 1) / 9).n;
+        const w0 = (i % 2 ? 0.35 : -0.35) * th, w1 = (i % 2 ? -0.35 : 0.35) * th;
+        for (const x of [-1, 1]) meshes.push(taper(vadd(vadd(p, n0, w0), [x * th * 0.85 * k, 0, 0]), vadd(vadd(seg[i + 1]!, n1, w1), [x * th * 0.8 * k, 0, 0]), [0.26, 0.26], [0.26, 0.26], glowTones(glow), 4, i, Math.PI / 4));
+      });
+      // 整排尖刃：外側往弓梢斜的長刃，兩側交錯的短倒刺
+      for (let i = 0; i < 7; i++) {
+        const t = 0.1 + i * 0.13;
+        const { p, d, n } = sample(pts, t);
+        const len = 2.2 + (i % 2) * 1.2 - i * 0.08;
+        meshes.push(edge(vadd(p, n, th * 0.8), vadd(vadd(p, n, th * 0.8 + len), d, len * 0.55), [th * 0.25, th * 0.75], [0.03, 0.04], spikes));
+        const x = i % 2 ? 1 : -1;
+        meshes.push(taper(vadd(p, [x * th * 0.8, 0, 0]), vadd(vadd(p, [x * (th * 0.8 + 1.2), 0, 0]), d, 0.9), [0.3, 0.35], [0.04, 0.04], spikes, 4, i, Math.PI / 4));
+      }
+      // 鐮刀弓梢
+      const s1 = vadd(vadd(tip, end.d, 2.2), end.n, 1.8);
+      meshes.push(...chain([tip, s1, vadd(vadd(s1, end.d, 2), end.n, -0.6), vadd(vadd(s1, end.d, 2.4), end.n, -2.6)], [th * 0.5, th * 1.4], [0.04, 0.08], spikes));
+    }
+    tips.push(tip);
+  }
+  const [top, bottom] = tips as [V3, V3];
+  const gripZ = b * 0.25;
+  if (o.style === 'demon') {
+    meshes.push(taper([0, 2.8, gripZ], [0, -2.8, gripZ], [th * 1.05, th * 1.25], [th * 1.05, th * 1.25], o.grip, 6, 0, Math.PI / 6));
+    // 握把上方的核心（托座＋發光寶石），下方一顆小的
+    meshes.push(taper([0, 2.6, gripZ], [0, 5.2, gripZ + 0.4], [th * 1.4, th * 1.7], [th * 1.2, th * 1.5], trim, 6, 1, 0));
+    meshes.push(gem(th * 1.3, [0, 3.9, gripZ + th * 0.6], glow, [1.1, 1.4, 1], 6, 4), gem(th * 0.75, [0, -3.6, gripZ + th * 0.6], glow, [1.1, 1.2, 1]));
+  } else if (o.style === 'elemental') {
+    meshes.push(taper([0, 2.5, gripZ], [0, -2.5, gripZ], [th * 0.85, th * 1.1], [th * 0.85, th * 1.1], o.grip, 6, 0, Math.PI / 6));
+    meshes.push(taper([0, 2.9, gripZ], [0, 2.2, gripZ], [th * 1.1, th * 1.4], [th * 1.1, th * 1.4], trim, 8, 1, 0), taper([0, -2.2, gripZ], [0, -2.9, gripZ], [th * 1.1, th * 1.4], [th * 1.1, th * 1.4], trim, 8, 2, 0));
+    for (const x of [-1, 1]) meshes.push(gem(th * 0.75, [x * th * 0.75, 0, gripZ + th * 0.3], glow, [0.6, 1.5, 0.8], 4, 3));
+  } else {
+    meshes.push(taper([0, 2.6, gripZ], [0, -2.6, gripZ], [th * 0.95, th * 1.15], [th * 0.95, th * 1.15], o.grip, 6, 0, Math.PI / 6));
+    for (const y of [2.5, -2.5]) meshes.push(taper([0, y + 0.3, gripZ], [0, y - 0.3, gripZ], [th * 1.15, th * 1.35], [th * 1.15, th * 1.35], trim, 8, 1, 0));
+  }
+  // 弓弦：元素與魔王是一道光
+  const lit = o.style !== 'beast';
+  meshes.push(taper(top, bottom, [lit ? 0.11 : 0.08, lit ? 0.11 : 0.08], [lit ? 0.11 : 0.08, lit ? 0.11 : 0.08], lit ? glowTones(glow) : [o.string ?? 0x6a4a30], 4, 0, Math.PI / 4));
+  return { meshes, top, bottom };
 }
 
 /** 弓：沿 ±Y 的兩片弓臂、弓弦（直線），回傳網格與上下弓梢 */
 export function bow(o: BowOptions): { meshes: Mesh[]; top: V3; bottom: V3 } {
+  if (o.style) return styledBow({ ...o, style: o.style });
   const L = o.length;
   const b = o.bend;
   const r = o.recurve ?? 0;

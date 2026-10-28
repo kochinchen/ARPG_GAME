@@ -209,23 +209,23 @@ const UNIQUES: Record<string, UniqueWeapon> = {
   },
   // ── 弓 ──
   'legendary.wind_chaser': {
-    look: bowSpec({ length: 17, bend: 3, recurve: 1.4, thickness: 0.8, colors: JADE, grip: LEATHER, tips: 'wing', tipColors: SILVER }),
+    look: bowSpec({ style: 'elemental', length: 17, bend: 3.2, recurve: 2, thickness: 0.8, colors: JADE, grip: LEATHER, trim: SILVER, glow: 0x9fffc8 }),
     glow: { color: 0x9fffc8, core: 0xf0fff8, particle: 'wind' },
   },
   'legendary.storm_eye': {
-    look: bowSpec({ length: 17, bend: 3.2, recurve: 1.2, thickness: 0.85, colors: STORM, grip: LEATHER, tips: 'orb', tipColors: [0xe8f2ff], string: 0xcfe0ff }),
+    look: bowSpec({ style: 'elemental', length: 17, bend: 3.2, recurve: 1.8, thickness: 0.85, colors: STORM, grip: LEATHER, trim: SILVER, glow: 0xcfe6ff }),
     glow: { color: 0x9fc4ff, core: 0xffffff, particle: 'spark' },
   },
   'legendary.shadow_hunter': {
-    look: bowSpec({ length: 17, bend: 3.4, recurve: 2, thickness: 0.85, colors: SHADOW, grip: LEATHER, tips: 'blade', tipColors: BLACK_STEEL, string: 0x8a7aa0 }),
+    look: bowSpec({ style: 'elemental', length: 17, bend: 3.4, recurve: 2.2, thickness: 0.85, colors: SHADOW, grip: LEATHER, trim: BLACK_STEEL, glow: 0xa88aff }),
     glow: { color: 0x9a7aff, core: 0xd8c8ff, particle: 'shadow' },
   },
   'mythic.sky_rending_string': {
-    look: bowSpec({ length: 19, bend: 3.8, recurve: 2.2, thickness: 0.95, colors: SILVER, grip: LEATHER, tips: 'wing', tipColors: GOLD, string: 0xffe08a }),
+    look: bowSpec({ style: 'elemental', length: 19, bend: 3.8, recurve: 2.4, thickness: 0.95, colors: SILVER, grip: LEATHER, trim: GOLD, glow: 0x9ad8ff }),
     glow: { color: 0x9ad8ff, core: 0xffffff, particle: 'wind', orbit: 'runes' },
   },
   'mythic.starfall_volley': {
-    look: bowSpec({ length: 19, bend: 3.6, recurve: 1.8, thickness: 0.95, colors: VOID, grip: LEATHER, tips: 'orb', tipColors: [0xfff0c0], string: 0xfff0c0 }),
+    look: bowSpec({ style: 'elemental', length: 19, bend: 3.6, recurve: 2.2, thickness: 0.95, colors: VOID, grip: LEATHER, trim: GOLD, glow: 0xfff0b0 }),
     glow: { color: 0xfff0b0, core: 0xffffff, particle: 'star', orbit: 'stars' },
   },
   // ── 法杖 ──
