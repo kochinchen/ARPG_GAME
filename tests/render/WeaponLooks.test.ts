@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gameData } from '../../src/data';
 import { DataRegistry } from '../../src/data/DataRegistry';
-import { HOLD, mountFor, tierLook, UNIQUE_WEAPON_IDS, uniqueLook, weaponLookFor } from '../../src/render/figure/weapons/WeaponLooks';
+import { HOLD, mountFor, tierLook, uniqueDesign, UNIQUE_WEAPON_IDS, uniqueLook, weaponLookFor } from '../../src/render/figure/weapons/WeaponLooks';
 import { HEROINE } from '../../src/render/figure/Heroine';
 import { solveJoints } from '../../src/render/figure/FigureModel';
 import { apply, jointRotation } from '../../src/render/figure/Poly3D';
@@ -27,7 +27,8 @@ describe('手上的武器造型', () => {
     for (const d of weapons) {
       const look = uniqueLook(d.id)!;
       expect(look.glow, d.id).toBeDefined();
-      glows.add(JSON.stringify(look.glow) + look.meshes.length);
+      // 光芒 + 造型（網格數與頂點數；同一種基本款靠配色、零件與代表物件區分）
+      glows.add(JSON.stringify(look.glow) + look.meshes.length + ':' + look.meshes.reduce((n, m) => n + m.verts.length, 0));
     }
     expect(glows.size).toBe(weapons.length);
   });
@@ -38,6 +39,25 @@ describe('手上的武器造型', () => {
     expect(weaponLookFor({ ...base, baseId: 'weapon.abyss_soul_sword', rarity: 'mythic', legendaryId: 'mythic.world_rift' }, data)!.look).toBe(uniqueLook('mythic.world_rift'));
     expect(weaponLookFor({ ...base, baseId: 'armor.quilted' }, data)).toBeNull();
     expect(weaponLookFor(undefined, data)).toBeNull();
+  });
+
+  it('橘 / 紅都有基本款造型，並鑲一個依特殊能力選的代表物件；紅劍六把造型都不同', () => {
+    const kinds = new Map<string, Set<string>>();
+    const redSwords = new Set<string>();
+    for (const id of UNIQUE_WEAPON_IDS) {
+      const d = uniqueDesign(id)!;
+      const isSword = uniqueLook(id)!.kind === 'sword';
+      const allowed = isSword ? (id.startsWith('mythic.') ? ['rift', 'eternal', 'tomb', 'saint', 'fallen', 'abyss'] : ['crescent', 'knight', 'bone', 'parasite']) : ['beast', 'elemental', 'demon'];
+      expect(allowed, id).toContain(d.style);
+      if (isSword && id.startsWith('mythic.')) redSwords.add(d.style!);
+      expect(d.emblem, id).toBeDefined();
+      const kind = uniqueLook(id)!.kind;
+      if (!kinds.has(kind)) kinds.set(kind, new Set());
+      kinds.get(kind)!.add(d.emblem!.kind);
+    }
+    // 同一種武器裡，代表物件幾乎都不一樣（18 件至少 16 種）
+    for (const [kind, set] of kinds) expect(set.size, kind).toBeGreaterThanOrEqual(16);
+    expect(redSwords.size).toBe(6);
   });
 
   it('平常拿法：劍照握點角度；斧柄朝前、斧刃朝下；法杖前傾、弓直立（攻擊時轉回）', () => {

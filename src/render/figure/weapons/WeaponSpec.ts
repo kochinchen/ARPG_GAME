@@ -1,3 +1,4 @@
+import type { Emblem } from './Emblems';
 import type { AxeOptions, BladeOptions, BowOptions, GuardShape, PommelShape, StaffOptions, Tones } from './WeaponParts';
 
 /**
@@ -17,6 +18,9 @@ export interface WeaponGlowStyle {
   orbit?: 'runes' | 'shards' | 'stars';
 }
 
+/** 橘劍四種基本款＋紅劍六把專屬造型（見 StyledSwords） */
+export type SwordStyle = 'crescent' | 'knight' | 'bone' | 'parasite' | 'rift' | 'eternal' | 'tomb' | 'saint' | 'fallen' | 'abyss';
+
 export interface SwordSpec extends Omit<BladeOptions, 'start'> {
   guard: GuardShape;
   guardWidth?: number;
@@ -24,6 +28,11 @@ export interface SwordSpec extends Omit<BladeOptions, 'start'> {
   pommel: PommelShape;
   grip?: Tones;
   gem?: number;
+  /** 橘 / 紅專用的造型（StyledSwords.styledSword）；有 style 時 shape / guard / pommel / fuller / runes 不用 */
+  style?: SwordStyle;
+  trim?: Tones;
+  spikes?: Tones;
+  glow?: number;
 }
 
 export type Spec = { kind: 'sword'; spec: SwordSpec } | { kind: 'axe'; spec: AxeOptions } | { kind: 'bow'; spec: BowOptions } | { kind: 'staff'; spec: StaffOptions };
@@ -37,4 +46,6 @@ export const staffSpec = (spec: StaffOptions): Spec => ({ kind: 'staff', spec })
 export interface UniqueWeapon {
   look: Spec;
   glow: WeaponGlowStyle;
+  /** 代表物件：依這件的特殊能力選的符號（Emblems） */
+  emblem?: Emblem;
 }

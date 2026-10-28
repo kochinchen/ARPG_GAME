@@ -36,6 +36,7 @@ import {
   STORM,
   VOID,
   WOOD,
+  taper,
   type AxeOptions,
   type BladeOptions,
   type BowOptions,
@@ -45,6 +46,9 @@ import {
   type Tones,
 } from './WeaponParts';
 import { axeSpec, bowSpec, staffSpec, sword, type GlowParticle, type Spec, type SwordSpec, type UniqueWeapon, type WeaponGlowStyle } from './WeaponSpec';
+import { emblemMeshes, type Emblem } from './Emblems';
+import { styledSword } from './StyledSwords';
+import { depthFor, styledAxe, styledStaff, type Badge } from './StyledWeapons';
 import { swordUniques } from './uniques/sword';
 import { axeUniques } from './uniques/axe';
 import { bowUniques } from './uniques/bow';
@@ -87,7 +91,13 @@ const WEAPON_FACETS = { size: 0.7, bump: 0.25, maxBump: 0.09, vary: 0.06 };
 const scaleAround = (v: V3, o: V3, k: number): V3 => [o[0] + (v[0] - o[0]) * k, o[1] + (v[1] - o[1]) * k, o[2] + (v[2] - o[2]) * k];
 
 
-function swordLook(s: SwordSpec): Omit<WeaponLook, 'hand' | 'kind'> {
+type RawLook = Omit<WeaponLook, 'hand' | 'kind'> & { badge?: Badge };
+
+function swordLook(s: SwordSpec): RawLook {
+  if (s.style) {
+    const st = styledSword({ ...s, style: s.style }, SWORD_LENGTH_SCALE);
+    return { meshes: st.meshes, tip: st.tip, axis: [[0, -3, 0], st.tip], badge: st.badge };
+  }
   const b = blade({ ...s, length: s.length * SWORD_LENGTH_SCALE });
   return {
     meshes: [...hilt(s.pommel, s.grip ?? LEATHER, s.guardColors, s.gem), ...guard(s.guard, s.guardWidth ?? 3.1, s.guardColors), ...b.meshes],
@@ -96,26 +106,40 @@ function swordLook(s: SwordSpec): Omit<WeaponLook, 'hand' | 'kind'> {
   };
 }
 
-function axeLook(s: AxeOptions): Omit<WeaponLook, 'hand' | 'kind'> {
+function axeLook(s: AxeOptions): RawLook {
+  if (s.style) {
+    const a = styledAxe({ ...s, style: s.style, size: s.size * AXE_HEAD_SCALE });
+    return { meshes: a.meshes, tip: a.edgeBottom, axis: [a.edgeTop, a.edgeBottom], focus: a.head, badge: a.badge };
+  }
   const a = axe({ ...s, size: s.size * AXE_HEAD_SCALE });
   return { meshes: a.meshes, tip: a.edgeBottom, axis: [a.edgeTop, a.edgeBottom], focus: a.head };
 }
 
-function bowLook(s: BowOptions): Omit<WeaponLook, 'hand' | 'kind'> {
-  // 以握點為中心整把放大
+function bowLook(s: BowOptions): RawLook {
+  // 以握點為中心整把放大；代表物件鑲在握把正中央
   const b = bow(s);
   const k = (v: V3): V3 => scaleAround(v, [0, 0, 0], BOW_SCALE);
-  return { meshes: stretchMeshes(b.meshes, [BOW_SCALE, BOW_SCALE, BOW_SCALE]), tip: k(b.top), axis: [k(b.top), k(b.bottom)], focus: k([0, 0, s.bend * 0.3]) };
+  const grip: V3 = [0, 0, s.bend * 0.25];
+  return {
+    meshes: stretchMeshes(b.meshes, [BOW_SCALE, BOW_SCALE, BOW_SCALE]),
+    tip: k(b.top),
+    axis: [k(b.top), k(b.bottom)],
+    focus: k([0, 0, s.bend * 0.3]),
+    badge: { at: k(grip), size: 1.15, depth: depthFor(s.thickness * 1.4 * 1.35 * BOW_SCALE), rot: 0 },
+  };
 }
 
-function staffLook(s: StaffOptions): Omit<WeaponLook, 'hand' | 'kind'> {
+function staffLook(s: StaffOptions): RawLook {
   // 杖頭（杖身末端以外的零件：套環、寶珠、尖角）以杖身末端為中心放大
-  const st = staff(s);
+  const styled = s.style ? styledStaff({ ...s, style: s.style }) : null;
+  const st = styled ?? staff(s);
   const end: V3 = [0, 1 - s.length, 0];
   const isHead = (m: Mesh) => m.verts.every((v) => v[1] <= end[1] + 0.01);
-  const meshes = st.meshes.map((m) => (isHead(m) ? { ...m, verts: m.verts.map((v) => scaleAround(v, end, STAFF_HEAD_SCALE)) } : m));
-  const focus = scaleAround(st.focus, end, STAFF_HEAD_SCALE);
-  return { meshes, tip: focus, axis: [[0, -s.length * 0.55, 0], focus], focus };
+  // 橘 / 紅的基本款杖頭照設計稿再大一點
+  const k = styled ? STAFF_HEAD_SCALE * 1.35 : STAFF_HEAD_SCALE;
+  const meshes = st.meshes.map((m) => (isHead(m) ? { ...m, verts: m.verts.map((v) => scaleAround(v, end, k)) } : m));
+  const focus = scaleAround(st.focus, end, k);
+  return { meshes, tip: focus, axis: [[0, -s.length * 0.55, 0], focus], focus, ...(styled ? { badge: styled.badge } : {}) };
 }
 
 
@@ -163,91 +187,114 @@ const TIERS: Record<WeaponType, Spec[]> = {
   ],
 };
 
+/** 世界裂痕的岩層（亮 / 中 / 暗 / 中） */
+const RIFT_ROCK: Tones = [0x8a7a6a, 0x6a5c50, 0x463c34, 0x7a6c5e];
+
 /** 傳奇（橘）與神話（紅）：每一件獨一無二的造型與光芒 */
 const UNIQUES: Record<string, UniqueWeapon> = {
   // ── 劍 ──
   'legendary.cold_moon': {
-    look: sword({ shape: 'curved', length: 22, width: 1.25, curve: 3.2, colors: ICE, guard: 'crescent', guardWidth: 2.8, guardColors: SILVER, pommel: 'gem', gem: 0x9fe8ff }),
+    look: sword({ style: 'crescent', shape: 'straight', length: 22, width: 1.25, curve: 3.2, colors: ICE, trim: SILVER, glow: 0x9fe8ff, guard: 'bar', guardColors: SILVER, pommel: 'ball' }),
     glow: { color: 0x8fdcff, core: 0xe8faff, particle: 'frost' },
+    emblem: { kind: 'moon', color: 0xd8f6ff, accent: 0xe6e8ec },
   },
   'legendary.oathkeeper': {
-    look: sword({ shape: 'broad', length: 22, width: 1.7, colors: STEEL, fuller: 0xc8a048, guard: 'wings', guardWidth: 3.6, guardColors: GOLD, pommel: 'gem', gem: 0x4a78ff }),
+    look: sword({ style: 'knight', shape: 'straight', length: 22, width: 1.6, colors: STEEL, trim: GOLD, glow: 0x6a9cff, guard: 'bar', guardColors: GOLD, pommel: 'ball' }),
     glow: { color: 0xffe08a, core: 0xfffbe8, particle: 'holy' },
+    emblem: { kind: 'shield', color: 0x4a78ff, accent: 0xd4ae54 },
   },
   'legendary.crimson_moon': {
-    look: sword({ shape: 'curved', length: 21, width: 1.2, curve: 3.6, colors: CRIMSON, guard: 'crescent', guardWidth: 2.8, guardColors: BLACK_STEEL, pommel: 'gem', gem: 0xff2030, grip: RED_LEATHER }),
+    look: sword({ style: 'crescent', shape: 'straight', length: 21, width: 1.2, curve: 3.6, colors: CRIMSON, grip: RED_LEATHER, trim: BLACK_STEEL, glow: 0xff3048, guard: 'bar', guardColors: BLACK_STEEL, pommel: 'ball' }),
     glow: { color: 0xff3048, core: 0xffb0b8, particle: 'blood' },
+    emblem: { kind: 'drop', color: 0xff2030, accent: 0x4a4e56 },
   },
   'mythic.world_rift': {
-    look: sword({ shape: 'rift', length: 26, width: 1.9, colors: VOID, runes: 0xc070ff, guard: 'thorns', guardWidth: 3.8, guardColors: ABYSS, pommel: 'gem', gem: 0xc070ff }),
-    glow: { color: 0xb060ff, core: 0xffffff, particle: 'void', orbit: 'shards' },
+    look: sword({ style: 'rift', shape: 'straight', length: 25, width: 1.7, colors: RIFT_ROCK, trim: BLACK_STEEL, glow: 0xff7a1a, guard: 'bar', guardColors: BLACK_STEEL, pommel: 'ball' }),
+    glow: { color: 0xff7a2a, core: 0xffd8a0, particle: 'rock', orbit: 'shards' },
+    emblem: { kind: 'rift', color: 0xffa050, accent: 0x8a7a6a },
   },
   'mythic.eternity': {
-    look: sword({ shape: 'crystal', length: 25, width: 1.45, colors: STAR, guard: 'wings', guardWidth: 3.6, guardColors: GOLD, pommel: 'gem', gem: 0xfff4d0 }),
+    look: sword({ style: 'eternal', shape: 'straight', length: 25, width: 1.45, colors: SILVER, trim: GOLD, glow: 0xffb830, guard: 'bar', guardColors: GOLD, pommel: 'ball' }),
     glow: { color: 0xffe9a0, core: 0xffffff, particle: 'star', orbit: 'runes' },
+    emblem: { kind: 'star', color: 0xfff4c0, accent: 0xd4ae54 },
   },
   // ── 斧 ──
   'legendary.mountain_splitter': {
-    look: axeSpec({ head: 'double', haft: 17, size: 5, haftColors: DARK_WOOD, headColors: DARK_STEEL, edgeColor: 0xffb070 }),
+    look: axeSpec({ style: 'elemental', head: 'single', haft: 17, size: 5, haftColors: DARK_WOOD, headColors: STEEL, trim: BRONZE, glow: 0xffb070 }),
     glow: { color: 0xffa040, core: 0xffe0b0, particle: 'rock' },
+    emblem: { kind: 'rift', color: 0xffb070, accent: 0xc28a48 },
   },
   'legendary.butcher': {
-    look: axeSpec({ head: 'cleaver', haft: 15, size: 5, haftColors: RED_LEATHER, headColors: BLOOD_STEEL, spike: true }),
+    look: axeSpec({ style: 'elemental', head: 'single', haft: 15, size: 5, haftColors: RED_LEATHER, headColors: BLOOD_STEEL, trim: BLACK_STEEL, glow: 0xff4040 }),
     glow: { color: 0xff4030, core: 0xffb0a0, particle: 'blood' },
+    emblem: { kind: 'drop', color: 0xff3040, accent: 0x4a4e56 },
   },
   'legendary.thunder_axe': {
-    look: axeSpec({ head: 'bearded', haft: 17, size: 4.6, haftColors: DARK_WOOD, headColors: STORM, spike: true, edgeColor: 0xffffff }),
+    look: axeSpec({ style: 'elemental', head: 'single', haft: 17, size: 4.6, haftColors: DARK_WOOD, headColors: STORM, trim: SILVER, glow: 0xcfe6ff }),
     glow: { color: 0x9fc4ff, core: 0xffffff, particle: 'spark' },
+    emblem: { kind: 'bolt', color: 0xfff0a0, accent: 0xe6e8ec },
   },
   'mythic.beast_god_fang': {
-    look: axeSpec({ head: 'fang', haft: 18, size: 5.6, haftColors: RED_LEATHER, headColors: BONE }),
+    look: axeSpec({ style: 'beast', head: 'single', haft: 18, size: 5.4, haftColors: RED_LEATHER, headColors: BONE, trim: BRONZE, spikes: BONE }),
     glow: { color: 0xff6a30, core: 0xffd0a0, particle: 'ember', orbit: 'shards' },
+    emblem: { kind: 'fang', color: 0xff6a30, accent: 0xe8dcc0 },
   },
   'mythic.doomsday': {
-    look: axeSpec({ head: 'crescent', haft: 19, size: 5.8, haftColors: BLACK_STEEL, headColors: BLACK_STEEL, edgeColor: 0xff5a3a }),
+    look: axeSpec({ style: 'elemental', head: 'single', haft: 19, size: 5.6, haftColors: BLACK_STEEL, headColors: BLACK_STEEL, trim: GOLD, glow: 0xff5a3a }),
     glow: { color: 0xff3a20, core: 0xffd080, particle: 'ember', orbit: 'runes' },
+    emblem: { kind: 'sun', color: 0xff6a3a, accent: 0xd4ae54 },
   },
   // ── 弓 ──
   'legendary.wind_chaser': {
     look: bowSpec({ style: 'elemental', length: 17, bend: 3.2, recurve: 2, thickness: 0.8, colors: JADE, grip: LEATHER, trim: SILVER, glow: 0x9fffc8 }),
     glow: { color: 0x9fffc8, core: 0xf0fff8, particle: 'wind' },
+    emblem: { kind: 'feather', color: 0x9fffc8, accent: 0xe6e8ec },
   },
   'legendary.storm_eye': {
     look: bowSpec({ style: 'elemental', length: 17, bend: 3.2, recurve: 1.8, thickness: 0.85, colors: STORM, grip: LEATHER, trim: SILVER, glow: 0xcfe6ff }),
     glow: { color: 0x9fc4ff, core: 0xffffff, particle: 'spark' },
+    emblem: { kind: 'bolt', color: 0xdcecff, accent: 0xe6e8ec },
   },
   'legendary.shadow_hunter': {
     look: bowSpec({ style: 'elemental', length: 17, bend: 3.4, recurve: 2.2, thickness: 0.85, colors: SHADOW, grip: LEATHER, trim: BLACK_STEEL, glow: 0xa88aff }),
     glow: { color: 0x9a7aff, core: 0xd8c8ff, particle: 'shadow' },
+    emblem: { kind: 'eclipse', color: 0xa88aff, accent: 0x4a4e56 },
   },
   'mythic.sky_rending_string': {
     look: bowSpec({ style: 'elemental', length: 19, bend: 3.8, recurve: 2.4, thickness: 0.95, colors: SILVER, grip: LEATHER, trim: GOLD, glow: 0x9ad8ff }),
     glow: { color: 0x9ad8ff, core: 0xffffff, particle: 'wind', orbit: 'runes' },
+    emblem: { kind: 'rift', color: 0x9ad8ff, accent: 0xd4ae54 },
   },
   'mythic.starfall_volley': {
     look: bowSpec({ style: 'elemental', length: 19, bend: 3.6, recurve: 2.2, thickness: 0.95, colors: VOID, grip: LEATHER, trim: GOLD, glow: 0xfff0b0 }),
     glow: { color: 0xfff0b0, core: 0xffffff, particle: 'star', orbit: 'stars' },
+    emblem: { kind: 'star', color: 0xfff0b0, accent: 0xd4ae54 },
   },
   // ── 法杖 ──
   'legendary.star_burner': {
-    look: staffSpec({ head: 'orb', length: 37, butt: 4, shaft: DARK_WOOD, metal: BRONZE, focus: 0xff7a2a, bands: true }),
+    look: staffSpec({ style: 'elemental', head: 'orb', length: 37, butt: 4, shaft: BRONZE, metal: GOLD, focus: 0xff7a2a }),
     glow: { color: 0xff8a3a, core: 0xffe0a0, particle: 'ember' },
+    emblem: { kind: 'sun', color: 0xffa040, accent: 0xd4ae54 },
   },
   'legendary.permafrost': {
-    look: staffSpec({ head: 'crystal', length: 37, butt: 4, shaft: PALE_WOOD, metal: SILVER, focus: 0x9fe8ff }),
+    look: staffSpec({ style: 'elemental', head: 'orb', length: 37, butt: 4, shaft: SILVER, metal: ICE, focus: 0x9fe8ff }),
     glow: { color: 0x9fe8ff, core: 0xffffff, particle: 'frost' },
+    emblem: { kind: 'snowflake', color: 0xc8f4ff, accent: 0xe6e8ec },
   },
   'legendary.thunder_scepter': {
-    look: staffSpec({ head: 'prongs', length: 36, butt: 3, shaft: DARK_WOOD, metal: STORM, focus: 0xbfd8ff, bands: true }),
+    look: staffSpec({ style: 'elemental', head: 'orb', length: 36, butt: 3, shaft: DARK_STEEL, metal: STORM, focus: 0xbfd8ff }),
     glow: { color: 0x9fc4ff, core: 0xffffff, particle: 'spark' },
+    emblem: { kind: 'bolt', color: 0xfff0a0, accent: 0xc8ccd2 },
   },
   'mythic.void_scepter': {
-    look: staffSpec({ head: 'ring', length: 38, butt: 5, shaft: BLACK_STEEL, metal: VOID, focus: 0xc070ff }),
+    look: staffSpec({ style: 'elemental', head: 'orb', length: 38, butt: 5, shaft: BLACK_STEEL, metal: VOID, focus: 0xc070ff }),
     glow: { color: 0xb060ff, core: 0xffffff, particle: 'prism', orbit: 'shards' },
+    emblem: { kind: 'tri', color: 0xe0b0ff, accent: 0x5a4478 },
   },
   'mythic.frozen_throne': {
-    look: staffSpec({ head: 'cluster', length: 38, butt: 5, shaft: SILVER, metal: ICE, focus: 0xbff0ff, bands: true }),
+    look: staffSpec({ style: 'elemental', head: 'orb', length: 38, butt: 5, shaft: SILVER, metal: ICE, focus: 0xbff0ff }),
     glow: { color: 0xbfeeff, core: 0xffffff, particle: 'frost', orbit: 'shards' },
+    emblem: { kind: 'crown', color: 0xbff0ff, accent: 0xe6e8ec },
   },
   // 擴充的橘 / 紅（uniques/ 各種類檔案）
   ...swordUniques,
@@ -269,8 +316,13 @@ export const HOLD: Record<WeaponType, V3> = {
   bow: [0.25, 0, 0],
 };
 
-function build(spec: Spec): WeaponLook {
+function build(spec: Spec, emblem?: Emblem): WeaponLook {
   const raw = spec.kind === 'sword' ? swordLook(spec.spec) : spec.kind === 'axe' ? axeLook(spec.spec) : spec.kind === 'bow' ? bowLook(spec.spec) : staffLook(spec.spec);
+  // 代表物件（橘 / 紅）：鑲在造型指定的位置；沒有指定位置的舊造型放在光芒的聚焦點
+  if (emblem) {
+    const b = raw.badge ?? { at: raw.focus ?? raw.axis[0], size: 1, depth: 2.4, rot: 0 };
+    raw.meshes = [...raw.meshes, ...emblemMeshes(emblem, b.at, b.size, b.depth, b.rot)];
+  }
   const rot = HOLD[spec.kind];
   const m = jointRotation(rot);
   return {
@@ -327,10 +379,18 @@ export function uniqueLook(legendaryId: string): WeaponLook | null {
   if (!def) return null;
   let look = cache.get(legendaryId);
   if (!look) {
-    look = { ...build(def.look), glow: def.glow };
+    look = { ...build(def.look, def.emblem), glow: def.glow };
     cache.set(legendaryId, look);
   }
   return look;
+}
+
+/** 橘 / 紅的設計（測試用）：基本款與代表物件 */
+export function uniqueDesign(legendaryId: string): { style?: string; emblem?: Emblem } | null {
+  const def = UNIQUES[legendaryId];
+  if (!def) return null;
+  const style = (def.look.spec as { style?: string }).style;
+  return { ...(style ? { style } : {}), ...(def.emblem ? { emblem: def.emblem } : {}) };
 }
 
 /** 有專屬造型的傳奇 / 神話 ID（測試與預覽用） */

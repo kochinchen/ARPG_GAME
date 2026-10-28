@@ -270,6 +270,11 @@ export interface AxeOptions {
   edgeColor?: number;
   /** 背面的尖刺 */
   spike?: boolean;
+  /** 橘 / 紅專用的基本款（StyledWeapons.styledAxe）；有 style 時 head / spike / edgeColor 不用 */
+  style?: 'beast' | 'elemental' | 'demon';
+  trim?: Tones;
+  spikes?: Tones;
+  glow?: number;
 }
 
 /** 斧：斧柄沿 -Y，斧頭在末端往 +Z（刃）伸出；回傳網格與斧頭中心、刃的上下端 */
@@ -477,7 +482,7 @@ function styledBow(o: BowOptions & { style: NonNullable<BowOptions['style']> }):
   } else if (o.style === 'elemental') {
     meshes.push(taper([0, 2.5, gripZ], [0, -2.5, gripZ], [th * 0.85, th * 1.1], [th * 0.85, th * 1.1], o.grip, 6, 0, Math.PI / 6));
     meshes.push(taper([0, 2.9, gripZ], [0, 2.2, gripZ], [th * 1.1, th * 1.4], [th * 1.1, th * 1.4], trim, 8, 1, 0), taper([0, -2.2, gripZ], [0, -2.9, gripZ], [th * 1.1, th * 1.4], [th * 1.1, th * 1.4], trim, 8, 2, 0));
-    for (const x of [-1, 1]) meshes.push(gem(th * 0.75, [x * th * 0.75, 0, gripZ + th * 0.3], glow, [0.6, 1.5, 0.8], 4, 3));
+    for (const y of [1.3, -1.3]) meshes.push(gem(th * 0.6, [th * 0.75, y, gripZ + th * 0.3], glow, [0.6, 1.3, 0.8], 4, 3), gem(th * 0.6, [-th * 0.75, y, gripZ + th * 0.3], glow, [0.6, 1.3, 0.8], 4, 3));
   } else {
     meshes.push(taper([0, 2.6, gripZ], [0, -2.6, gripZ], [th * 0.95, th * 1.15], [th * 0.95, th * 1.15], o.grip, 6, 0, Math.PI / 6));
     for (const y of [2.5, -2.5]) meshes.push(taper([0, y + 0.3, gripZ], [0, y - 0.3, gripZ], [th * 1.15, th * 1.35], [th * 1.15, th * 1.35], trim, 8, 1, 0));
@@ -537,6 +542,10 @@ export interface StaffOptions {
   focus: number;
   /** 杖身纏繞的裝飾 */
   bands?: boolean;
+  /** 橘 / 紅專用的基本款（StyledWeapons.styledStaff；focus 是發光色）；有 style 時 head / bands 不用 */
+  style?: 'beast' | 'elemental' | 'demon';
+  trim?: Tones;
+  spikes?: Tones;
 }
 
 /** 法杖：杖身沿 Y（杖頭在 -Y），回傳網格與杖頭中心（光芒聚焦點） */
