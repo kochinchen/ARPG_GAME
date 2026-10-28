@@ -21,29 +21,29 @@ const KNIGHT_BLACK: Tones = [0x4a4658, 0x34313f, 0x17161e, 0x2c2a36];
 
 export const shieldUniques: Record<string, UniqueArmor> = {
   // ── 橘 ──
-  'legendary.shield_acid_carapace': { tier: 4, themes: ['poison', 'guard'], extra: { shape: 'kite', mat: ACID_SHELL, rim: DARK_STEEL, boss: ACID_SHELL, cross: null, gem: 0x9fe060, runes: 0x8fe060 } },
-  'legendary.shield_bone_spike': { tier: 5, themes: ['thorns', 'vital'], extra: { shape: 'round', mat: BONE, rim: IRON, boss: BONE, rays: BONE, spikes: 7, spikeColors: BONE, gem: null } },
-  'legendary.shield_horn_ram': { tier: 5, themes: ['guard'], extra: { shape: 'heater', size: 1.05, mat: HORN_SHELL, rim: BRONZE, boss: BONE, spikes: 2, spikeColors: BONE, gem: null } },
-  'legendary.shield_quake': { tier: 5, themes: ['vital', 'guard'], extra: { shape: 'tower', size: 1, mat: QUAKE_ROCK, rim: DARK_STEEL, boss: QUAKE_ROCK, spikes: 0, gem: 0xc8a060 } },
-  'legendary.shield_void_spore': { tier: 5, themes: ['arcane', 'guard'], extra: { shape: 'round', mat: SPORE, rim: ABYSS, boss: VOID, rays: null, spikes: 0, gem: 0xc070ff, runes: 0xa060ff } },
-  'legendary.shield_eye_storm': { tier: 4, themes: ['lightning', 'speed'], extra: { shape: 'round', mat: STORM, rim: SILVER, boss: EYE_WHITE, gem: 0x9fc4ff, runes: 0x9fc4ff } },
-  'legendary.shield_riposte': { tier: 4, themes: ['brutal', 'guard'], extra: { shape: 'heater', mat: STEEL, rim: SILVER, cross: SILVER, gem: 0xe0e8ff } },
-  'legendary.shield_bone_bulwark': { tier: 6, themes: ['guard', 'vital'], extra: { shape: 'tower', size: 1.05, mat: IRON, rim: BONE, cross: BONE, boss: null, rays: null, spikes: 3, spikeColors: BONE, gem: 0x6fc8ff } },
-  'legendary.shield_blood_scale': { tier: 4, themes: ['blood', 'vital'], extra: { shape: 'kite', mat: CRIMSON, rim: BLOOD_STEEL, spikes: 3, spikeColors: BLOOD_STEEL, gem: 0xe0303c } },
+  'legendary.shield_acid_carapace': { tier: 4, themes: ['poison', 'guard'], extra: { style: 'carapace', shape: 'kite', mat: ACID_SHELL, rim: DARK_STEEL, boss: ACID_SHELL, cross: null, gem: 0x9fe060, runes: 0x8fe060 } },
+  'legendary.shield_bone_spike': { tier: 5, themes: ['thorns', 'vital'], extra: { style: 'bone', runes: 0xffb070, shape: 'round', mat: BONE, rim: IRON, boss: BONE, rays: BONE, spikes: 7, spikeColors: BONE, gem: null } },
+  'legendary.shield_horn_ram': { tier: 5, themes: ['guard'], extra: { style: 'bone', runes: 0xffc870, shape: 'heater', size: 1.05, mat: HORN_SHELL, rim: BRONZE, boss: BONE, spikes: 2, spikeColors: BONE, gem: null } },
+  'legendary.shield_quake': { tier: 5, themes: ['vital', 'guard'], extra: { style: 'carapace', runes: 0xe0a050, shape: 'tower', size: 1, mat: QUAKE_ROCK, rim: DARK_STEEL, boss: QUAKE_ROCK, spikes: 0, gem: 0xc8a060 } },
+  'legendary.shield_void_spore': { tier: 5, themes: ['arcane', 'guard'], extra: { style: 'carapace', shape: 'round', mat: SPORE, rim: ABYSS, boss: VOID, rays: null, spikes: 0, gem: 0xc070ff, runes: 0xa060ff } },
+  'legendary.shield_eye_storm': { tier: 4, themes: ['lightning', 'speed'], extra: { style: 'emblem', shape: 'round', mat: STORM, rim: SILVER, boss: EYE_WHITE, gem: 0x9fc4ff, runes: 0x9fc4ff } },
+  'legendary.shield_riposte': { tier: 4, themes: ['brutal', 'guard'], extra: { style: 'bulwark', shape: 'heater', mat: STEEL, rim: SILVER, cross: SILVER, gem: 0xe0e8ff } },
+  'legendary.shield_bone_bulwark': { tier: 6, themes: ['guard', 'vital'], extra: { style: 'bulwark', shape: 'tower', size: 1.05, mat: IRON, rim: BONE, cross: BONE, boss: null, rays: null, spikes: 3, spikeColors: BONE, gem: 0x6fc8ff } },
+  'legendary.shield_blood_scale': { tier: 4, themes: ['blood', 'vital'], extra: { style: 'bone', spikeColors: BONE, shape: 'kite', mat: CRIMSON, rim: BLOOD_STEEL, spikes: 3, gem: 0xe0303c } },
   // ── 紅（魔王） ──
   'mythic.shield_crypt_warden': {
     tier: 7,
     themes: ['guard', 'vital'],
-    extra: { shape: 'tower', size: 1.15, mat: CRYPT_IRON, rim: CRYPT_RUST, cross: BONE, boss: null, rays: null, spikes: 4, spikeColors: CRYPT_IRON, gem: 0xff8a3a, runes: 0xff8a3a },
+    extra: { style: 'tomb', shape: 'tower', size: 1.15, mat: CRYPT_IRON, rim: CRYPT_RUST, cross: BONE, boss: null, rays: null, spikes: 4, spikeColors: CRYPT_IRON, gem: 0x3affa0, runes: 0x3affa0 },
   },
   'mythic.shield_lava_core': {
     tier: 8,
     themes: ['fire', 'guard'],
-    extra: { shape: 'round', size: 1.15, mat: LAVA_ROCK, rim: MOLTEN_GOLD, boss: EMBER, rays: EMBER, spikes: 0, gem: 0xffb838, runes: 0xff7a1a },
+    extra: { style: 'magma', shape: 'round', size: 1.15, mat: LAVA_ROCK, rim: MOLTEN_GOLD, boss: EMBER, rays: EMBER, spikes: 0, gem: 0xffb838, runes: 0xff7a1a },
   },
   'mythic.shield_fallen_knight': {
     tier: 8,
     themes: ['brutal', 'guard'],
-    extra: { shape: 'heater', size: 1.1, mat: KNIGHT_BLACK, rim: VOID, cross: BLACK_STEEL, rays: null, spikes: 3, spikeColors: VOID, gem: 0xa066ff, runes: 0xa066ff },
+    extra: { style: 'knight', shape: 'heater', size: 1.1, mat: KNIGHT_BLACK, rim: VOID, cross: BLACK_STEEL, rays: null, spikes: 3, spikeColors: VOID, gem: 0xa066ff, runes: 0xa066ff },
   },
 };

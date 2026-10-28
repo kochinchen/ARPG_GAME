@@ -48,7 +48,10 @@ import {
 import { axeSpec, bowSpec, staffSpec, sword, type GlowParticle, type Spec, type SwordSpec, type UniqueWeapon, type WeaponGlowStyle } from './WeaponSpec';
 import { emblemMeshes, type Emblem } from './Emblems';
 import { styledSword } from './StyledSwords';
-import { depthFor, styledAxe, styledStaff, type Badge } from './StyledWeapons';
+import { styledAxe } from './StyledAxes';
+import { styledBow } from './StyledBows';
+import { styledStaff } from './StyledStaves';
+import { depthFor, type Badge } from './StyledWeapons';
 import { swordUniques } from './uniques/sword';
 import { axeUniques } from './uniques/axe';
 import { bowUniques } from './uniques/bow';
@@ -117,7 +120,7 @@ function axeLook(s: AxeOptions): RawLook {
 
 function bowLook(s: BowOptions): RawLook {
   // 以握點為中心整把放大；代表物件鑲在握把正中央
-  const b = bow(s);
+  const b = s.style ? styledBow({ ...s, style: s.style }) : bow(s);
   const k = (v: V3): V3 => scaleAround(v, [0, 0, 0], BOW_SCALE);
   const grip: V3 = [0, 0, s.bend * 0.25];
   return {
@@ -188,6 +191,9 @@ const TIERS: Record<WeaponType, Spec[]> = {
 };
 
 /** 世界裂痕的岩層（亮 / 中 / 暗 / 中） */
+/** 裂山的岩石、獸神之齒的血肉 */
+const MOUNTAIN_ROCK: Tones = [0x9a8c7a, 0x7a6e5e, 0x544a3e, 0x8a7d6c];
+const FANG_FLESH: Tones = [0xb02a2a, 0x8a1c1e, 0x501010, 0x9e2426];
 const RIFT_ROCK: Tones = [0x8a7a6a, 0x6a5c50, 0x463c34, 0x7a6c5e];
 
 /** 傳奇（橘）與神話（紅）：每一件獨一無二的造型與光芒 */
@@ -220,79 +226,79 @@ const UNIQUES: Record<string, UniqueWeapon> = {
   },
   // ── 斧 ──
   'legendary.mountain_splitter': {
-    look: axeSpec({ style: 'elemental', head: 'single', haft: 17, size: 5, haftColors: DARK_WOOD, headColors: STEEL, trim: BRONZE, glow: 0xffb070 }),
+    look: axeSpec({ style: 'rock', head: 'single', haft: 17, size: 5, haftColors: BLACK_STEEL, headColors: MOUNTAIN_ROCK, trim: DARK_STEEL, spikes: DARK_STEEL, glow: 0xffb070 }),
     glow: { color: 0xffa040, core: 0xffe0b0, particle: 'rock' },
     emblem: { kind: 'rift', color: 0xffb070, accent: 0xc28a48 },
   },
   'legendary.butcher': {
-    look: axeSpec({ style: 'elemental', head: 'single', haft: 15, size: 5, haftColors: RED_LEATHER, headColors: BLOOD_STEEL, trim: BLACK_STEEL, glow: 0xff4040 }),
+    look: axeSpec({ style: 'cleaver', head: 'single', haft: 15, size: 4.8, haftColors: RED_LEATHER, headColors: BLOOD_STEEL, trim: BLACK_STEEL, spikes: BLACK_STEEL, glow: 0xff4040 }),
     glow: { color: 0xff4030, core: 0xffb0a0, particle: 'blood' },
     emblem: { kind: 'drop', color: 0xff3040, accent: 0x4a4e56 },
   },
   'legendary.thunder_axe': {
-    look: axeSpec({ style: 'elemental', head: 'single', haft: 17, size: 4.6, haftColors: DARK_WOOD, headColors: STORM, trim: SILVER, glow: 0xcfe6ff }),
+    look: axeSpec({ style: 'moon', head: 'single', haft: 18, size: 4.6, haftColors: DARK_WOOD, headColors: STORM, trim: SILVER, glow: 0xcfe6ff }),
     glow: { color: 0x9fc4ff, core: 0xffffff, particle: 'spark' },
     emblem: { kind: 'bolt', color: 0xfff0a0, accent: 0xe6e8ec },
   },
   'mythic.beast_god_fang': {
-    look: axeSpec({ style: 'beast', head: 'single', haft: 18, size: 5.4, haftColors: RED_LEATHER, headColors: BONE, trim: BRONZE, spikes: BONE }),
+    look: axeSpec({ style: 'jaw', head: 'single', haft: 18, size: 5.4, haftColors: RED_LEATHER, headColors: BONE, trim: BRONZE, spikes: FANG_FLESH, glow: 0xff3a2a }),
     glow: { color: 0xff6a30, core: 0xffd0a0, particle: 'ember', orbit: 'shards' },
     emblem: { kind: 'fang', color: 0xff6a30, accent: 0xe8dcc0 },
   },
   'mythic.doomsday': {
-    look: axeSpec({ style: 'elemental', head: 'single', haft: 19, size: 5.6, haftColors: BLACK_STEEL, headColors: BLACK_STEEL, trim: GOLD, glow: 0xff5a3a }),
+    look: axeSpec({ style: 'doom', head: 'single', haft: 19, size: 5.6, haftColors: BLACK_STEEL, headColors: BLACK_STEEL, trim: GOLD, spikes: DARK_STEEL, glow: 0xff6a2a }),
     glow: { color: 0xff3a20, core: 0xffd080, particle: 'ember', orbit: 'runes' },
     emblem: { kind: 'sun', color: 0xff6a3a, accent: 0xd4ae54 },
   },
   // ── 弓 ──
   'legendary.wind_chaser': {
-    look: bowSpec({ style: 'elemental', length: 17, bend: 3.2, recurve: 2, thickness: 0.8, colors: JADE, grip: LEATHER, trim: SILVER, glow: 0x9fffc8 }),
+    look: bowSpec({ style: 'recurve', length: 17, bend: 3.2, recurve: 2, thickness: 0.8, colors: JADE, grip: LEATHER, trim: SILVER, glow: 0x9fffc8 }),
     glow: { color: 0x9fffc8, core: 0xf0fff8, particle: 'wind' },
     emblem: { kind: 'feather', color: 0x9fffc8, accent: 0xe6e8ec },
   },
   'legendary.storm_eye': {
-    look: bowSpec({ style: 'elemental', length: 17, bend: 3.2, recurve: 1.8, thickness: 0.85, colors: STORM, grip: LEATHER, trim: SILVER, glow: 0xcfe6ff }),
+    look: bowSpec({ style: 'recurve', length: 17, bend: 3.2, recurve: 1.8, thickness: 0.85, colors: STORM, grip: LEATHER, trim: SILVER, glow: 0xcfe6ff }),
     glow: { color: 0x9fc4ff, core: 0xffffff, particle: 'spark' },
     emblem: { kind: 'bolt', color: 0xdcecff, accent: 0xe6e8ec },
   },
   'legendary.shadow_hunter': {
-    look: bowSpec({ style: 'elemental', length: 17, bend: 3.4, recurve: 2.2, thickness: 0.85, colors: SHADOW, grip: LEATHER, trim: BLACK_STEEL, glow: 0xa88aff }),
+    look: bowSpec({ style: 'chitin', length: 17, bend: 3.4, recurve: 2.2, thickness: 0.85, colors: SHADOW, grip: LEATHER, trim: BLACK_STEEL, glow: 0xa88aff }),
     glow: { color: 0x9a7aff, core: 0xd8c8ff, particle: 'shadow' },
     emblem: { kind: 'eclipse', color: 0xa88aff, accent: 0x4a4e56 },
   },
   'mythic.sky_rending_string': {
-    look: bowSpec({ style: 'elemental', length: 19, bend: 3.8, recurve: 2.4, thickness: 0.95, colors: SILVER, grip: LEATHER, trim: GOLD, glow: 0x9ad8ff }),
+    look: bowSpec({ style: 'sky', length: 19, bend: 3.8, recurve: 2.4, thickness: 0.95, colors: SILVER, grip: LEATHER, trim: GOLD, glow: 0x9ad8ff }),
     glow: { color: 0x9ad8ff, core: 0xffffff, particle: 'wind', orbit: 'runes' },
     emblem: { kind: 'rift', color: 0x9ad8ff, accent: 0xd4ae54 },
   },
   'mythic.starfall_volley': {
-    look: bowSpec({ style: 'elemental', length: 19, bend: 3.6, recurve: 2.2, thickness: 0.95, colors: VOID, grip: LEATHER, trim: GOLD, glow: 0xfff0b0 }),
+    look: bowSpec({ style: 'stars', length: 19, bend: 3.6, recurve: 2.2, thickness: 0.95, colors: VOID, grip: LEATHER, trim: GOLD, glow: 0xfff0b0 }),
     glow: { color: 0xfff0b0, core: 0xffffff, particle: 'star', orbit: 'stars' },
     emblem: { kind: 'star', color: 0xfff0b0, accent: 0xd4ae54 },
   },
   // ── 法杖 ──
   'legendary.star_burner': {
-    look: staffSpec({ style: 'elemental', head: 'orb', length: 37, butt: 4, shaft: BRONZE, metal: GOLD, focus: 0xff7a2a }),
+    look: staffSpec({ style: 'crystal', head: 'orb', length: 37, butt: 4, shaft: BRONZE, metal: GOLD, focus: 0xff7a2a }),
     glow: { color: 0xff8a3a, core: 0xffe0a0, particle: 'ember' },
     emblem: { kind: 'sun', color: 0xffa040, accent: 0xd4ae54 },
   },
   'legendary.permafrost': {
-    look: staffSpec({ style: 'elemental', head: 'orb', length: 37, butt: 4, shaft: SILVER, metal: ICE, focus: 0x9fe8ff }),
+    look: staffSpec({ style: 'crystal', head: 'orb', length: 37, butt: 4, shaft: SILVER, metal: ICE, focus: 0x9fe8ff }),
     glow: { color: 0x9fe8ff, core: 0xffffff, particle: 'frost' },
     emblem: { kind: 'snowflake', color: 0xc8f4ff, accent: 0xe6e8ec },
   },
   'legendary.thunder_scepter': {
-    look: staffSpec({ style: 'elemental', head: 'orb', length: 36, butt: 3, shaft: DARK_STEEL, metal: STORM, focus: 0xbfd8ff }),
+    look: staffSpec({ style: 'crystal', head: 'orb', length: 36, butt: 3, shaft: DARK_STEEL, metal: STORM, focus: 0xbfd8ff }),
     glow: { color: 0x9fc4ff, core: 0xffffff, particle: 'spark' },
     emblem: { kind: 'bolt', color: 0xfff0a0, accent: 0xc8ccd2 },
   },
   'mythic.void_scepter': {
-    look: staffSpec({ style: 'elemental', head: 'orb', length: 38, butt: 5, shaft: BLACK_STEEL, metal: VOID, focus: 0xc070ff }),
+    look: staffSpec({ style: 'void', head: 'orb', length: 38, butt: 5, shaft: BLACK_STEEL, metal: VOID, focus: 0xc070ff }),
     glow: { color: 0xb060ff, core: 0xffffff, particle: 'prism', orbit: 'shards' },
     emblem: { kind: 'tri', color: 0xe0b0ff, accent: 0x5a4478 },
   },
   'mythic.frozen_throne': {
-    look: staffSpec({ style: 'elemental', head: 'orb', length: 38, butt: 5, shaft: SILVER, metal: ICE, focus: 0xbff0ff }),
+    look: staffSpec({ style: 'throne', head: 'orb', length: 38, butt: 5, shaft: SILVER, metal: ICE, focus: 0xbff0ff }),
     glow: { color: 0xbfeeff, core: 0xffffff, particle: 'frost', orbit: 'shards' },
     emblem: { kind: 'crown', color: 0xbff0ff, accent: 0xe6e8ec },
   },

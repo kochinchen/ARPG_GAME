@@ -44,13 +44,15 @@ const blade = (secs: Sec[], colors: Tones): Mesh[] =>
     return edge([0, a.y, a.c ?? 0], [0, b.y, b.c ?? 0], [a.t, a.h], [b.t, b.h], colors);
   });
 /** 方形截面的一段（墓碑石板、凸起的框）；h、t 是半寬、半厚 */
-const slab = (a: V3, b: V3, t: number, h: number, colors: Tones, t1 = t, h1 = h, seed = 0): Mesh =>
+export const slab = (a: V3, b: V3, t: number, h: number, colors: Tones, t1 = t, h1 = h, seed = 0): Mesh =>
   taper(a, b, [t * 1.41, h * 1.41], [t1 * 1.41, h1 * 1.41], colors, 4, seed, Math.PI / 4);
 /** 貼在劍身上的一條凸起的平帶（光溝、鑲邊、寄生組織）：方形截面，半厚 t 要比劍身厚一點才蓋得住，半寬從 h0 漸變到 h1 */
-const groove = (pts: readonly V3[], t: number, h0: number, h1: number, colors: Tones): Mesh[] => {
+export const groove = (pts: readonly V3[], t: number, h0: number, h1: number, colors: Tones): Mesh[] => {
   const n = pts.length - 1;
   return pts.slice(0, -1).map((p, i) => slab(p, pts[i + 1]!, t, h0 + ((h1 - h0) * i) / n, colors, t, h0 + ((h1 - h0) * (i + 1)) / n, i));
 };
+/** Z 鏡射（面的頂點順序也要反過來，法線才會朝外） */
+const mirrorZ = (m: Mesh): Mesh => ({ ...m, verts: m.verts.map(([x, y, z]) => [x, y, -z] as V3), faces: m.faces.map((f) => ({ ...f, idx: [...f.idx].reverse() })) });
 const badge = (size: number, half: number): Badge => ({ at: [0, GUARD, 0], size, depth: depthFor(half), rot: 0 });
 /** 一般的握柄與幾圈箍 */
 function hilt(c: Ctx, r = 0.6, rings: number[] = [0, 1.9]): void {
@@ -63,6 +65,7 @@ function hilt(c: Ctx, r = 0.6, rings: number[] = [0, 1.9]): void {
 /** A 月弧曲刀：單刃往後彎的細長刀身，刀背一道元素光與金邊、背上幾個缺口；護手是一前一後的新月鉤 */
 function crescent(c: Ctx): Built {
   const { L, glow, trim } = c;
+  const first = c.meshes.length;
   const w = c.w * 1.7;
   const t = 0.24 * Math.max(1, w / 1.8);
   const bend = (c.s.curve ?? 3.4) * 1.5;
@@ -88,7 +91,9 @@ function crescent(c: Ctx): Built {
   hilt(c, 0.56, [0.2, 1.6]);
   c.meshes.push(taper([0, 2.7, 0], [0, 3.3, 0], [0.7, 0.7], [0.5, 0.5], trim, 6, 1, 0), gem(0.5, [0, 3.1, 0], glow, [1.1, 0.9, 1.1]));
   c.meshes.push(...chain([[0, 3.2, 0], [0, 4.2, 0.4], [0, 4.8, 1.3]], [0.34, 0.4], [0.04, 0.05], trim, false));
-  return { tip, badge: badge(1, 0.8) };
+  // 拿在手上時刀尖要往上翹、長的刀刃朝下朝前：整把前後（Z）鏡射
+  for (let i = first; i < c.meshes.length; i++) c.meshes[i] = mirrorZ(c.meshes[i]!);
+  return { tip: [tip[0], tip[1], -tip[2]], badge: badge(1, 0.8) };
 }
 
 /** B 騎士聖劍：寬直劍、中央發光刻紋溝與金邊、劍根菱形金飾；大十字護手（末端外擴＋尖刺），柄頭是圓形徽章 */

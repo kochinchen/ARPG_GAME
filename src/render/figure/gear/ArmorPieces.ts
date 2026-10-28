@@ -1,4 +1,5 @@
 import type { ArmorModel } from './ArmorAI';
+import { styledShieldMeshes, type ShieldStyle } from './StyledShields';
 import { detail, facetize, loft, refine, tone, type Ring } from '../Facets';
 import { box, lowSphere, mapVerts, orient, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
 import { BLACK_STEEL, chain, gem, taper, type Tones } from '../weapons/WeaponParts';
@@ -444,6 +445,8 @@ export interface ShieldSpec {
   spikeColors?: Tones;
   /** 鏡面（正面一層亮色） */
   face?: Tones;
+  /** 橘 / 紅專用的造型（StyledShields）；有 style 時 shape / cross / rays / face 不用 */
+  style?: ShieldStyle;
 }
 
 /** 盾面的輪廓（Y = 高、Z = 寬；盾面朝 +X） */
@@ -477,6 +480,7 @@ function slab(outline: [number, number][], x0: number, x1: number, bulge: number
 
 /** 盾牌（盾面朝 +X，原點 = 握把）；尖刺從盾面往外 */
 export function shieldMeshes(s: ShieldSpec): Mesh[] {
+  if (s.style) return styledShieldMeshes({ ...s, style: s.style });
   const outline = shieldOutline(s.shape, s.size);
   const out: Mesh[] = [];
   out.push(F(t(slab(outline.map(([y, z]) => [y * 1.07, z * 1.07]), -0.1, 0.45, 0, s.rim[0]!), s.rim, 1), 1, 0.06));

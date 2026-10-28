@@ -41,23 +41,32 @@ describe('手上的武器造型', () => {
     expect(weaponLookFor(undefined, data)).toBeNull();
   });
 
-  it('橘 / 紅都有基本款造型，並鑲一個依特殊能力選的代表物件；紅劍六把造型都不同', () => {
+  it('橘 / 紅都有基本款造型，並鑲一個依特殊能力選的代表物件；紅的六把造型都不同', () => {
     const kinds = new Map<string, Set<string>>();
-    const redSwords = new Set<string>();
+    const reds = new Map<string, Set<string>>();
     for (const id of UNIQUE_WEAPON_IDS) {
       const d = uniqueDesign(id)!;
-      const isSword = uniqueLook(id)!.kind === 'sword';
-      const allowed = isSword ? (id.startsWith('mythic.') ? ['rift', 'eternal', 'tomb', 'saint', 'fallen', 'abyss'] : ['crescent', 'knight', 'bone', 'parasite']) : ['beast', 'elemental', 'demon'];
-      expect(allowed, id).toContain(d.style);
-      if (isSword && id.startsWith('mythic.')) redSwords.add(d.style!);
-      expect(d.emblem, id).toBeDefined();
       const kind = uniqueLook(id)!.kind;
+      const red = id.startsWith('mythic.');
+      const styles: Record<string, [string[], string[]]> = {
+        sword: [['crescent', 'knight', 'bone', 'parasite'], ['rift', 'eternal', 'tomb', 'saint', 'fallen', 'abyss']],
+        axe: [['moon', 'cleaver', 'carapace', 'rock'], ['jaw', 'doom', 'warden', 'lava', 'queen', 'sovereign']],
+        staff: [['crystal', 'skull', 'nature', 'tuning'], ['void', 'throne', 'priest', 'lava', 'queen', 'sovereign']],
+        bow: [['recurve', 'chitin', 'spine', 'vine'], ['sky', 'stars', 'blood', 'fallen', 'queen', 'wing']],
+      };
+      const allowed = styles[kind]![red ? 1 : 0];
+      expect(allowed, id).toContain(d.style);
+      if (styles[kind] && red) {
+        if (!reds.has(kind)) reds.set(kind, new Set());
+        reds.get(kind)!.add(d.style!);
+      }
+      expect(d.emblem, id).toBeDefined();
       if (!kinds.has(kind)) kinds.set(kind, new Set());
       kinds.get(kind)!.add(d.emblem!.kind);
     }
     // 同一種武器裡，代表物件幾乎都不一樣（18 件至少 16 種）
     for (const [kind, set] of kinds) expect(set.size, kind).toBeGreaterThanOrEqual(16);
-    expect(redSwords.size).toBe(6);
+    for (const [kind, set] of reds) expect(set.size, kind).toBe(6);
   });
 
   it('平常拿法：劍照握點角度；斧柄朝前、斧刃朝下；法杖前傾、弓直立（攻擊時轉回）', () => {
