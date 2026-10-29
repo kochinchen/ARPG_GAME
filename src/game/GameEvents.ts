@@ -40,7 +40,8 @@ export interface GameEvents {
   };
   /** 連鎖效果依序經過的位置（Render 畫閃電） */
   ChainTriggered: { skillId: string; points: Vec2[]; element: Element; special: boolean };
-  StatusApplied: { actorId: ActorId; kind: StatusKind };
+  /** skillId：造成這個狀態的技能（Render 依招式畫不同的外觀，例如牽制射擊的束縛線） */
+  StatusApplied: { actorId: ActorId; kind: StatusKind; skillId?: string };
   /** 防禦姿態 / 反擊觸發 */
   StatusTriggered: { actorId: ActorId; kind: StatusKind };
   /** 有 Combo 的連段第三招實際施放（Codex 記錄一次使用） */

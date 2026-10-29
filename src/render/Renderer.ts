@@ -1,4 +1,5 @@
 import { rankValue } from '../data/schema/common';
+import type { SkillDef } from '../data/schema/skill';
 import type { AttackVariant } from './figure/FigureModel';
 import type { ActionKind } from './figure/PolyFigure';
 import { Container, Graphics, type Application } from 'pixi.js';
@@ -126,6 +127,9 @@ export class Renderer {
       const attacker = world.targeting.getActor(e.actorId);
       if (!attacker) return;
       const skill = data.skills.get(e.skillId);
+      // Three.js 畫法的出招特效（蓄力、拋射的箭、突進的風、飛向落點的火球…）
+      const target = e.targetId !== null ? world.targeting.getActor(e.targetId) : undefined;
+      this.effects.cast({ skillId: e.skillId, caster: attacker.position, point: target?.position ?? e.point, direction: e.direction, impactIn: e.impactIn, ...castExtras(skill, attacker.position, target?.position, e.direction) });
       if (skill.telegraph) {
         // 前搖提示：在地上畫出攻擊範圍，填滿時命中
         const motion = this.motionFor(attacker, skill.tags);
@@ -162,7 +166,15 @@ export class Renderer {
         angleDeg: e.angleDeg,
         big: BIG_IMPACTS.has(e.skillId) || e.radius >= 3,
         special: e.special,
+        skillId: e.skillId,
+        element: e.element,
+        // 魔法與元素攻擊、Combo 特別招、裝備特效會發光；物理的近戰與箭不發光
+        glow: (e.element !== null && e.element !== 'physical') || e.special || itemFxColor(e.skillId, e.element) !== null,
       });
+    });
+    // 牽制射擊：被緩速的敵人腰部拉出束縛線
+    world.events.on('StatusApplied', (e) => {
+      if (e.kind === 'slow' && e.skillId === 'ranged.pinning_shot') this.actorViews.get(e.actorId)?.pin();
     });
     world.events.on('ChainTriggered', (e) => this.effects.spawnChain(e.points, ELEMENT_COLORS[e.element] ?? 0xffffff, e.special));
     let lastFailure = { text: '', at: 0 };
@@ -276,6 +288,7 @@ export class Renderer {
     this.syncThreeMap();
     for (const view of this.actorViews.values()) view.setThree(this.threeOn ? this.three : null);
     this.interactables.setThree(this.threeOn ? this.three : null);
+    this.effects.listener = this.threeOn ? this.three.skillFx : null;
     this.floatingText.spawnText(this.projection.toScreen(this.world.player.position), this.threeOn ? 'Three.js 畫法' : 'Pixi 畫法', PALETTE.manaText);
   }
 
@@ -383,7 +396,7 @@ export class Renderer {
     const origin = this.worldLayer.position;
     const k = this.camera.zoom;
     const center = this.projection.toWorld(vec2((width / 2 - origin.x) / k, (height / 2 - origin.y) / k));
-    three.setGlows(this.effects.glows);
+    three.setGlows(this.effects.glows, this.effects.flying);
     three.renderFloor(center, width, height, k, playerPos, lightRadius(this.world.progress.level), pixi.background.color.toNumber(), dt);
     pixi.resetState();
     show(upper, upper.map(() => false));
@@ -507,11 +520,25 @@ function arenaOf(world: GameWorld): ArenaView | undefined {
 }
 
 /** 大招：更大、更久、震動更強 */
-const BIG_IMPACTS = new Set(['magic.meteor', 'magic.absolute_zero', 'melee.devastator', 'melee.earth_break', 'magic.storm_core']);
+/** 出招特效需要的額外資訊：突進的終點、延遲效果的秒數 */
+function castExtras(skill: SkillDef, from: Vec2, target: Vec2 | undefined, dir: Vec2): { dashTo?: Vec2; delay?: number } {
+  const out: { dashTo?: Vec2; delay?: number } = {};
+  for (const effect of skill.effects) {
+    if (effect.type === 'dash') {
+      const sign = effect.direction === 'forward' ? 1 : -1;
+      // 不穿越的突進停在目標前
+      const reach = target && !effect.passThrough && sign > 0 ? Math.min(effect.distance, Math.max(0, Math.hypot(target.x - from.x, target.y - from.y) - 0.6)) : effect.distance;
+      out.dashTo = vec2(from.x + dir.x * reach * sign, from.y + dir.y * reach * sign);
+    } else if (effect.type === 'delayed' && out.delay === undefined) out.delay = effect.delay;
+  }
+  return out;
+}
+
+export const BIG_IMPACTS = new Set(['magic.meteor', 'magic.absolute_zero', 'melee.devastator', 'melee.earth_break', 'magic.storm_core']);
 
 /** 範圍效果的外觀：依技能與元素選擇爆炸、冰刺、落雷、震波、斬擊… */
 /** 裝備效果的物理特效用稀有度色（神話紅、傳奇橘）；元素效果維持元素色 */
-function itemFxColor(skillId: string, element: string | null): number | null {
+export function itemFxColor(skillId: string, element: string | null): number | null {
   if (!skillId.startsWith('item.') || (element !== null && element !== 'physical')) return null;
   return skillId.includes('mythic.') ? 0xff4a3a : 0xff9a3c;
 }
@@ -536,7 +563,7 @@ const SKILL_FX: Record<string, ImpactKind> = {
   'utility.flash_powder': 'flash',
 };
 
-function impactKind(skillId: string, tags: readonly string[], element: string | null, angleDeg: number, radius: number): ImpactKind {
+export function impactKind(skillId: string, tags: readonly string[], element: string | null, angleDeg: number, radius: number): ImpactKind {
   const own = SKILL_FX[skillId];
   if (own) return own;
   // 裝備（傳奇 / 神話）的物理效果：發光的地裂，和技能本身的特效區分

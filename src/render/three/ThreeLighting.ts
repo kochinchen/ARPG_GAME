@@ -37,7 +37,7 @@ export const THREE_LIGHTING = {
   /**
    * 發光的特效（火球、冰球、元素箭、爆炸閃光）：同時亮著的數量、照射距離、亮度（× 特效的 strength）、投射影子
    */
-  fx: { count: 4, range: 4, intensity: 6, decay: 1.5, shadow: true, shadowMap: 256, shadowStrength: 0.6 },
+  fx: { count: 6, range: 4, intensity: 6, decay: 1.5, shadow: true, shadowMap: 256, shadowStrength: 0.6 },
   /** 材質的粗糙度（1 = 完全不反光） */
   roughness: 0.8,
 };

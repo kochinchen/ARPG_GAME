@@ -25,18 +25,62 @@ interface ProjectileView {
   glows: boolean;
 }
 
-/** 發光的特效（Three.js 畫法放一盞點光源照亮周圍、投射影子）：位置、離地高度（px）、顏色、亮度（0～1） */
+/**
+ * 發光的特效（Three.js 畫法放一盞點光源照亮周圍、投射影子，並畫光暈、火花、地上的光圈）：
+ * id（同一個特效每幀相同）、種類、位置、離地高度（px）、顏色、亮度（0～1）、範圍半徑（World）、進度（0～1；光球與持續區域為 0）
+ */
 export interface FxGlow {
+  id: string;
+  /** 哪一招（火牆的火焰、隕石、電擊的殘影依招式畫） */
+  skillId?: string;
+  kind: 'orb' | 'flash' | 'zone' | 'pending';
   position: Vec2;
   height: number;
   color: number;
   strength: number;
+  radius: number;
+  t: number;
+}
+
+/** 開始施放（Three.js 畫法的出招特效：蓄力光、拋射的箭、突進的風、從天而降的火球…） */
+export interface FxCast {
+  skillId: string;
+  caster: Vec2;
+  point: Vec2;
+  direction: Vec2;
+  /** 距離效果觸發還有幾秒 */
+  impactIn: number;
+  /** 突進的終點（有位移的招式） */
+  dashTo?: Vec2;
+  /** 延遲效果的秒數（爆裂箭的箭在空中飛的時間） */
+  delay?: number;
+}
+
+/** 飛行中的投射物（Three.js 畫法：鉤索的鎖鏈、電擊的殘影） */
+export interface FxFlying {
+  id: number;
+  skillId: string;
+  position: Vec2;
+  direction: Vec2;
+}
+
+/**
+ * Three.js 畫法的技能特效（ThreeSkillFx）：收到出招、命中、連鎖。
+ * impact 回傳 true 表示這一招由 Three.js 完整畫出，不再畫 Pixi 的圖樣（例如直立的重砍刀光、寬雷柱、隕石）。
+ */
+export interface SkillFxListener {
+  cast(c: FxCast): void;
+  impact(i: ImpactInput): boolean;
+  chain(points: readonly Vec2[], color: number): void;
 }
 
 /** 爆炸、命中瞬間的閃光：持續秒數（大招較久）、光源離地高度（px；火光往上竄，比飛行高度高，矮的物件影子才不會拉得很長） */
 const FLASH_HEIGHT = 40;
 const FLASH_TIME = 0.35;
 const BIG_FLASH_TIME = 0.6;
+const CHAIN_FLASH_TIME = 0.25;
+/** 地面持續區域（火牆、毒池…）與延遲效果（隕星、落雷的預警）的光：離地高度（px） */
+const ZONE_GLOW_HEIGHT = 20;
 
 /** 前搖提示：範圍外框 + 由中心往外填滿，填滿的瞬間命中 */
 interface Telegraph {
@@ -61,9 +105,16 @@ export class EffectLayer {
   private readonly projectileViews = new Map<number, ProjectileView>();
   private readonly zoneViews = new Map<number, Graphics>();
   private readonly pendingViews = new Map<number, Graphics>();
-  private readonly flashes: { position: Vec2; color: number; age: number; duration: number; big: boolean }[] = [];
+  private readonly flashes: { id: number; position: Vec2; color: number; age: number; duration: number; strength: number; radius: number }[] = [];
+  private flashId = 0;
+  /** 延遲效果第一次出現時的剩餘時間（預警的光由暗漸亮） */
+  private readonly pendingStart = new Map<number, number>();
   /** 這一幀發光的特效（飛行中的光球、爆炸閃光）；每次 update 重算 */
   readonly glows: FxGlow[] = [];
+  /** 這一幀飛行中的投射物 */
+  readonly flying: FxFlying[] = [];
+  /** Three.js 畫法的技能特效（Renderer 在 Three.js 畫法時設定） */
+  listener: SkillFxListener | null = null;
 
   constructor(
     private readonly projection: IsoProjection,
@@ -81,8 +132,13 @@ export class EffectLayer {
 
   /** 範圍效果：依種類畫出爆炸、冰刺、落雷、震波、斬擊… */
   spawnImpact(input: ImpactInput): void {
-    this.fx.impact(input);
-    this.flashes.push({ position: input.position, color: input.color, age: 0, duration: input.big ? BIG_FLASH_TIME : FLASH_TIME, big: input.big });
+    if (!this.listener?.impact(input)) this.fx.impact(input);
+    if (input.glow) this.flashes.push({ id: ++this.flashId, position: input.position, color: input.color, age: 0, duration: input.big ? BIG_FLASH_TIME : FLASH_TIME, strength: input.big ? 1.6 : 1, radius: input.radius });
+  }
+
+  /** 開始施放（只有 Three.js 畫法有出招特效） */
+  cast(c: FxCast): void {
+    this.listener?.cast(c);
   }
 
   /** 怪物重擊 / 法術的前搖提示：duration 秒後命中 */
@@ -105,6 +161,9 @@ export class EffectLayer {
   /** 連鎖閃電：多股分岔、抖動的電弧 */
   spawnChain(points: readonly Vec2[], color: number, special: boolean): void {
     this.fx.chain(points, color, special);
+    this.listener?.chain(points, color);
+    // 電弧經過的每一點都閃一下
+    for (const position of points) this.flashes.push({ id: ++this.flashId, position, color, age: 0, duration: CHAIN_FLASH_TIME, strength: 0.9, radius: 0.5 });
   }
 
   update(
@@ -138,9 +197,10 @@ export class EffectLayer {
         .poly(toScreen(t))
         .fill({ color: TELEGRAPH_COLOR, alpha: 0.3 });
     }
+    this.glows.length = 0;
+    this.flying.length = 0;
     this.syncZones(zones);
     this.syncPending(pending);
-    this.glows.length = 0;
     this.syncProjectiles(projectiles, alpha, dt);
     this.fx.update(dt);
     for (let i = this.flashes.length - 1; i >= 0; i--) {
@@ -152,7 +212,7 @@ export class EffectLayer {
       }
       // 一閃即逝：亮度由 1 快速減弱
       const k = 1 - f.age / f.duration;
-      this.glows.push({ position: f.position, height: FLASH_HEIGHT, color: f.color, strength: k * k * (f.big ? 1.6 : 1) });
+      this.glows.push({ id: `f${f.id}`, kind: 'flash', position: f.position, height: FLASH_HEIGHT, color: f.color, strength: k * k * f.strength, radius: f.radius, t: f.age / f.duration });
     }
   }
 
@@ -163,12 +223,15 @@ export class EffectLayer {
       seen.add(zone.id);
       let g = this.zoneViews.get(zone.id);
       if (!g) {
-        const color = ELEMENT_COLORS[firstElement(zone.effects) ?? 'fire'] ?? 0xff7a2a;
+        const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
         g = new Graphics().poly(this.outline(zone.position, zone.radius)).fill({ color, alpha: 0.28 }).stroke({ color, width: 2, alpha: 0.8 });
         this.ground.addChild(g);
         this.zoneViews.set(zone.id, g);
       }
       g.alpha = 0.7 + 0.3 * Math.sin(performance.now() / 90 + zone.id);
+      // 持續區域一直亮著（火牆、毒池、冰霜地面），亮度隨閃爍起伏
+      const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
+      this.glows.push({ skillId: zone.ctx.skill.id, id: `z${zone.id}`, kind: 'zone', position: zone.position, height: ZONE_GLOW_HEIGHT, color, strength: 0.55 * g.alpha, radius: zone.radius, t: 0 });
     }
     for (const [id, g] of this.zoneViews) {
       if (seen.has(id)) continue;
@@ -193,9 +256,17 @@ export class EffectLayer {
         this.pendingViews.set(p.id, g);
       }
       g.alpha = 0.4 + 0.6 * Math.abs(Math.sin(performance.now() / 120));
+      // 即將落下（隕星、落雷）：落點的光由暗漸亮
+      const start = this.pendingStart.get(p.id) ?? p.remaining;
+      this.pendingStart.set(p.id, start);
+      const k = start > 0 ? 1 - p.remaining / start : 1;
+      const color = ELEMENT_COLORS[firstElement(area.effects) ?? 'physical'] ?? 0xffffff;
+      const radius = rankValue(area.radius, p.ctx.rank) * (1 + p.ctx.mods.aoeRadius);
+      this.glows.push({ skillId: p.ctx.skill.id, id: `p${p.id}`, kind: 'pending', position: p.position, height: ZONE_GLOW_HEIGHT, color, strength: 0.15 + 0.6 * k * k, radius, t: k });
     }
     for (const [id, g] of this.pendingViews) {
       if (seen.has(id)) continue;
+      this.pendingStart.delete(id);
       g.destroy();
       this.pendingViews.delete(id);
     }
@@ -239,7 +310,8 @@ export class EffectLayer {
       const s = this.projection.toScreen(pos);
       view.container.position.set(s.x, s.y);
       view.container.zIndex = this.projection.depth(pos);
-      if (view.glows) this.glows.push({ position: vec2(pos.x, pos.y), height: FLIGHT_HEIGHT, color: view.style.color, strength: 0.6 + 0.4 * Math.min(1, view.style.size) });
+      this.flying.push({ id: p.id, skillId: p.skill.id, position: vec2(pos.x, pos.y), direction: p.direction });
+      if (view.glows) this.glows.push({ skillId: p.skill.id, id: `o${p.id}`, kind: 'orb', position: vec2(pos.x, pos.y), height: FLIGHT_HEIGHT, color: view.style.color, strength: 0.6 + 0.4 * Math.min(1, view.style.size), radius: p.radius * view.style.size, t: 0 });
       // 依畫面上的飛行方向轉動（箭、冰槍朝前；火球的火舌往後拖）
       const d0 = this.projection.toScreen(vec2(0, 0));
       const d1 = this.projection.toScreen(p.direction);
@@ -263,6 +335,13 @@ export class EffectLayer {
       this.projectileViews.delete(id);
     }
   }
+}
+
+/** 持續區域的顏色：有傷害看元素；只有緩速 / 冰凍（絕對零度的冰凍地面）是冰色；其他是火 */
+function zoneElement(effects: readonly Zone['effects'][number][]): string {
+  const element = firstElement(effects);
+  if (element) return element;
+  return effects.some((e) => e.type === 'status' && (e.status === 'slow' || e.status === 'freeze')) ? 'cold' : 'fire';
 }
 
 /** World 座標的圓（angleDeg = 360）或朝 direction 的扇形外框 */

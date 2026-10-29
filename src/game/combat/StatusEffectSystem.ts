@@ -45,7 +45,7 @@ export class StatusEffectSystem {
     return Math.min(this.maxControlResist, Math.max(0, actor.stats.get(stat)));
   }
 
-  apply(target: Actor, kind: StatusKind, duration: number, magnitude: number, source: Actor | null, physicalMagnitude = 0): void {
+  apply(target: Actor, kind: StatusKind, duration: number, magnitude: number, source: Actor | null, physicalMagnitude = 0, skillId?: string): void {
     if (!target.alive || duration <= 0) return;
     if (kind === 'freeze' && target.isBoss) {
       kind = 'slow';
@@ -80,7 +80,7 @@ export class StatusEffectSystem {
     this.syncModifier(target, kind);
     // 冰凍 / 暈眩 / 浮空打斷施放
     if (kind === 'freeze' || kind === 'stun' || kind === 'airborne') target.cast = null;
-    this.events.emit('StatusApplied', { actorId: target.id, kind });
+    this.events.emit('StatusApplied', { actorId: target.id, kind, ...(skillId ? { skillId } : {}) });
   }
 
   /** 直接移除某狀態（不發事件） */

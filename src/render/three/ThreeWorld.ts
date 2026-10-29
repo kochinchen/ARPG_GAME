@@ -7,6 +7,9 @@ import type { WallCell } from '../views/TileMapView';
 import { THREE_LIGHTING as L } from './ThreeLighting';
 import { wallStones, type WallLook } from './WallStones';
 import type { FxGlow } from '../views/EffectLayer';
+import { ThreeFx } from './ThreeFx';
+import { ThreeSkillFx } from './ThreeSkillFx';
+import type { FxFlying } from '../views/EffectLayer';
 
 /**
  * Three.js 畫法（試驗，開發版按 G 切換；正式版網址加 ?three）：
@@ -212,6 +215,11 @@ export class ThreeWorld {
   /** 發光特效的點光源（火球、爆炸閃光…）與這一幀的特效 */
   private readonly fxLights: THREE.PointLight[] = [];
   private glows: readonly FxGlow[] = [];
+  /** 技能特效的光暈、火花、地上的光環（ThreeFx） */
+  private readonly fx = new ThreeFx(PX_PER_HEIGHT);
+  /** 各招的專屬特效（EffectLayer.listener）：立體的岩塊、冰柱、隕石、刀光、雷柱、火焰… */
+  readonly skillFx = new ThreeSkillFx(PX_PER_HEIGHT);
+  private flying: readonly FxFlying[] = [];
   /** 燭光的補光（照亮主角正面，不投影子） */
   private readonly fill = new THREE.PointLight(L.fill.color, L.fill.intensity, L.fill.distance, L.fill.decay);
   /** 主角身上的燭光（真的光源：由內向外漸暗、投射影子） */
@@ -268,7 +276,7 @@ export class ThreeWorld {
       this.fxLights.push(light);
       this.scene.add(light);
     }
-    this.scene.add(this.fill);
+    this.scene.add(this.fill, this.fx.group, this.skillFx.group);
     this.candle.castShadow = L.candle.shadow;
     this.candle.shadow.mapSize.set(L.candle.shadowMap, L.candle.shadowMap);
     this.candle.shadow.bias = -0.002;
@@ -292,6 +300,8 @@ export class ThreeWorld {
   /** 換樓層：重建牆（每 CHUNK 格合成一個物件，與 TileMapView 相同的分組；石塊樣式依區域）與光源位置 */
   setMap(cells: readonly WallCell[], cell: number, lightSpots: { position: Vec2; color: number; height: number }[], look: WallLook, floor: readonly number[]): void {
     this.buildFloor(floor, cell);
+    // 換樓層：上一層還沒結束的特效（冰柱、火焰）不帶過來
+    this.skillFx.clear();
     for (const wall of this.walls) {
       wall.mesh.removeFromParent();
       wall.mesh.geometry.dispose();
@@ -375,6 +385,10 @@ export class ThreeWorld {
     this.updateWalls(player);
     this.updateTorches(player);
     this.updateFxLights(player);
+    // 粒子的大小是畫面 px：跟著放大，也換算成 WebGL 畫布的像素（高解析度螢幕）
+    const pxScale = zoom * (this.renderer.getContext().drawingBufferWidth / Math.max(1, width));
+    this.fx.update(this.glows, dt, pxScale);
+    this.skillFx.update(dt, pxScale, this.glows, this.flying);
 
     const gl = this.renderer.getContext();
     this.renderer.resetState();
@@ -454,8 +468,9 @@ export class ThreeWorld {
   }
 
   /** 這一幀發光的特效（EffectLayer.glows）：離玩家最近的幾個放點光源 */
-  setGlows(glows: readonly FxGlow[]): void {
+  setGlows(glows: readonly FxGlow[], flying: readonly FxFlying[] = []): void {
     this.glows = glows;
+    this.flying = flying;
   }
 
   private updateFxLights(player: Vec2): void {

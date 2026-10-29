@@ -45,6 +45,11 @@ export interface ImpactInput {
   big: boolean;
   /** Combo 特別招：金色光環與火花 */
   special: boolean;
+  /** 會發光（魔法、元素的遠程攻擊、裝備的特殊效果）：Three.js 畫法放一盞閃光照亮周圍；物理近戰不發光 */
+  glow?: boolean;
+  /** 哪一招（Three.js 畫法依招式畫專屬的特效）與元素 */
+  skillId?: string;
+  element?: string | null;
 }
 
 interface Particle {

@@ -47,13 +47,14 @@ const melee: SkillInput[] = [
   {
     id: 'melee.heavy_slash',
     name: '重砍',
-    description: '向前方 110° 重擊，適合作為 Finisher。',
+    description: '對單一目標由上往下重砍，適合作為 Finisher。',
     tree: { category: 'melee', tier: 1, branch: 'A' },
     targeting: 'enemy',
     useAttackSpeed: true,
     cost: { mana: [2, 2, 3, 3, 4] },
     tags: ['attack', 'melee', 'heavy'],
-    effects: [swing(110, [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(156, 176, 195, 215, 234) }])],
+    // 設計者調整（2026-10-29）：改為只打單一目標（原本是前方 110° 揮砍）
+    effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(156, 176, 195, 215, 234) }],
   },
   {
     id: 'melee.quick_slash',
@@ -451,7 +452,8 @@ const ranged: SkillInput[] = [
         delay: 0.3,
         repeat: 8,
         interval: 0.18,
-        scatter: 1.8,
+        // 設計者調整（2026-10-29）：範圍加大（落點散布 1.8 → 2.6）
+        scatter: 2.6,
         effects: [{ type: 'area', radius: 0.8, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(35, 40, 45, 50, 55) }] }],
       },
     ],
@@ -655,7 +657,7 @@ const magic: SkillInput[] = [
   {
     id: 'magic.absolute_zero',
     name: '絕對零度',
-    description: '大範圍冰凍；Boss 改為強力緩速。',
+    description: '大範圍冰凍；Boss 改為強力緩速。冰柱留在地上 8 秒，範圍內的敵人持續緩速。',
     tree: { category: 'magic', tier: 4, branch: 'B' },
     targeting: 'self',
     castTime: 0.5,
@@ -663,6 +665,8 @@ const magic: SkillInput[] = [
     tags: ['spell', 'area', 'cold'],
     effects: [
       { type: 'area', radius: 4, effects: [spell('cold', pct(210, 240, 270, 300, 330)), { type: 'status', status: 'freeze', duration: 2 }] },
+      // 設計者調整（2026-10-29）：冰柱留在地上 8 秒，範圍內持續緩速（不造成傷害）
+      { type: 'zone', radius: 4, duration: 8, interval: 0.5, effects: [{ type: 'status', status: 'slow', duration: 0.8, magnitude: 0.4 }] },
     ] as SkillInput['effects'],
   },
   {

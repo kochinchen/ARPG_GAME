@@ -53,7 +53,8 @@ const ARTS: Record<string, ProjectileArt> = {
   'enemy.fire_glob': orb('glob', 0xff7a2a, 0xffd080, 'ember', 0.9, 30),
   'utility.poison_knife': arrow('knife', 0x7ed957, 0xdfe6ea, 'drop', 1, 14),
   'utility.grapple_hook': arrow('hook', 0xc8a878, 0xc8ccd4),
-  'utility.throwing_axe': orb('axe', 0xd84848, 0xc8ccd4, 'dust', 1, 10),
+  // 設計者要求（2026-10-29）：飛斧要更大、更明顯
+  'utility.throwing_axe': orb('axe', 0xd84848, 0xc8ccd4, 'spark', 1.8, 24),
   'utility.storm_totem': orb('bolt', 0xf5e663, 0xffffff, 'spark', 1, 50),
 };
 

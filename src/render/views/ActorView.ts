@@ -9,6 +9,7 @@ import { PolyFigure, type ActionKind } from '../figure/PolyFigure';
 import type { Rarity } from '../../data/schema/item';
 import { GearAuraView } from './GearAuraView';
 import { WeaponGlowView } from './WeaponGlowView';
+import { StatusAuraView } from './StatusAuraView';
 import { mountFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
 import type { OutfitParts } from '../figure/gear/ArmorLooks';
 import { PALETTE, STATUS_TINTS } from '../palette';
@@ -67,6 +68,10 @@ export class ActorView {
   /** Three.js 畫法（試驗）的模型；null = Pixi 多邊形 */
   private three: ThreeFigure | null = null;
   hovered = false;
+  /** 頭上的狀態霧、牽制的束縛線 */
+  private readonly statusAura: StatusAuraView;
+  /** 被牽制射擊緩速（Renderer 依 StatusApplied 設定；緩速結束時清除） */
+  private pinned = false;
   /** 模型剛開始待機怒吼（Renderer 讀取後清除） */
   roared = false;
 
@@ -112,7 +117,8 @@ export class ActorView {
       this.body.addChild(this.weaponGlow.front);
     }
     if (this.gear) this.body.addChild(this.gear.front);
-    this.container.addChild(shadow, ...(this.gear ? [this.gear.back] : []), this.aura, this.facingMark, this.body, this.hpBar, this.nameLabel);
+    this.statusAura = new StatusAuraView(this.barY + 8, sizeOf(actor));
+    this.container.addChild(shadow, ...(this.gear ? [this.gear.back] : []), this.aura, this.facingMark, this.body, this.statusAura.container, this.hpBar, this.nameLabel);
   }
 
   /**
@@ -174,6 +180,11 @@ export class ActorView {
     this.figure.setPhase(phase);
   }
 
+  /** 被牽制射擊命中（緩速期間畫出束縛線） */
+  pin(): void {
+    this.pinned = true;
+  }
+
   /** 揮擊動畫：往 direction（畫面座標）前衝一下 */
   lunge(screenDirection: Vec2): void {
     const len = Math.hypot(screenDirection.x, screenDirection.y) || 1;
@@ -227,6 +238,8 @@ export class ActorView {
     this.nameLabel.visible = actor.alive && this.isEnemy && (this.hovered || this.isElite);
     if (this.isElite) this.aura.alpha = actor.alive ? 0.6 + 0.4 * Math.sin(performance.now() / 300) : 0;
     this.drawHpBar(actor);
+    if (this.pinned && !actor.hasStatus('slow')) this.pinned = false;
+    this.statusAura.update(dt, actor.alive ? actor.statuses : [], this.pinned && actor.alive, this.lift);
   }
 
   private drawHpBar(actor: Actor): void {

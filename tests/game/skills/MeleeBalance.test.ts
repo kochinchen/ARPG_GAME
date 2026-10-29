@@ -61,8 +61,8 @@ describe('近戰揮砍自帶扇形範圍', () => {
   const side = dummy(6.3, 3.4);
   const behind = dummy(4.4, 2.5);
 
-  it('重砍（110°）：打到正前方與側前方，打不到後方', () => {
-    expect(hitIndices('melee.heavy_slash', [front, side, behind])).toEqual([0, 1]);
+  it('重砍（設計者 2026-10-29 改為單一目標）：只打主要目標，側前方與後方都打不到', () => {
+    expect(hitIndices('melee.heavy_slash', [front, side, behind])).toEqual([0]);
   });
 
   it('快斬（80°）：側前方 48° 在範圍外', () => {

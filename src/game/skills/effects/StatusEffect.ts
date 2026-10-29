@@ -16,6 +16,6 @@ export class StatusEffect implements IEffect<'status'> {
     if (!ctx.services.rng.chance(chance)) return;
     const duration = rankValue(def.duration, ctx.rank) * (1 + (isFreeze ? mods.freezeDuration : 0) + (isBurn ? mods.burn : 0));
     const magnitude = rankValue(def.magnitude, ctx.rank) * (1 + (isBurn ? mods.burn : 0));
-    ctx.services.statuses.apply(who, def.status, duration, magnitude, ctx.caster, rankValue(def.physicalMagnitude, ctx.rank));
+    ctx.services.statuses.apply(who, def.status, duration, magnitude, ctx.caster, rankValue(def.physicalMagnitude, ctx.rank), ctx.skill.id);
   }
 }
