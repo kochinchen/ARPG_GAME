@@ -287,7 +287,7 @@ const mythic: Def[] = [
       unique('對緩速的敵人傷害 +20%', mods({}, { vsStatus: { statuses: ['slow'], damage: 0.2 } })),
       unique(
         '擊殺時 25% 機率，從屍體爆出 5 隻毒蛛（環狀毒液，每隻武器 60% 毒素傷害）',
-        on('kill', [at('target', 'ranged', [{ type: 'projectile', speed: 7, radius: 0.2, range: 4.5, count: 5, spreadDeg: 360, onHit: [hit('poison', 0.6)] }])], { chance: 0.25 }),
+        on('kill', [at('target', 'ranged', [{ type: 'projectile', speed: 7, radius: 0.2, range: 4.5, count: 5, spreadDeg: 360, look: 'spider', onHit: [hit('poison', 0.6)] }])], { chance: 0.25 }),
       ),
     ],
   },

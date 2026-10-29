@@ -38,6 +38,7 @@ export class ProjectileEffect implements IEffect<'projectile'> {
         onHit: def.onHit,
         alive: true,
         mods,
+        ...(def.look ? { look: def.look } : {}),
       });
     }
   }

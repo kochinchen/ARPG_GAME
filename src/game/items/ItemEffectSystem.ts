@@ -81,6 +81,9 @@ export class ItemEffectSystem {
   private readonly cooldowns = new Map<string, number>();
   private readonly applied = new Map<string, number>();
   private readonly syntheticSkills = new Map<string, SkillDef>();
+  /** 每個敵人最後被哪一招打到（附加元素傷害、持續傷害打死時，算是那一招的擊殺） */
+  private readonly lastHit = new Map<number, TriggerEvent>();
+  private readonly killReported = new Set<number>();
 
   constructor(
     private readonly player: Actor,
@@ -100,7 +103,20 @@ export class ItemEffectSystem {
       const event: TriggerEvent = { skillId: e.skillId, combo: e.combo, target, amount: e.amount };
       this.fire('hit', event);
       if (e.isCrit) this.fire('crit', event);
-      if (e.killed) this.fire('kill', event);
+      this.lastHit.set(e.targetId, event);
+      if (e.killed) {
+        this.killReported.add(e.targetId);
+        this.fire('kill', event);
+      }
+    });
+    // 最後一下不是技能本身（附加元素傷害、中毒等持續傷害）：死亡時補上擊殺
+    events.on('ActorDied', (e) => {
+      const last = this.lastHit.get(e.actorId);
+      const reported = this.killReported.has(e.actorId);
+      this.lastHit.delete(e.actorId);
+      this.killReported.delete(e.actorId);
+      if (e.killerId !== player.id || reported || !last) return;
+      this.fire('kill', { ...last, target: targeting.getActor(e.actorId) ?? last.target, amount: 0 });
     });
     events.on('ActorDamaged', (e) => {
       if (e.targetId !== player.id || e.sourceId === null) return;
