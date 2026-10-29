@@ -12,7 +12,7 @@ import { WeaponGlowView } from './WeaponGlowView';
 import { mountFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
 import type { OutfitParts } from '../figure/gear/ArmorLooks';
 import { PALETTE, STATUS_TINTS } from '../palette';
-import type { ThreeFigure, ThreeWorld } from '../three/ThreeWorld';
+import { GPU_SKINNING, type ThreeFigure, type ThreeWorld } from '../three/ThreeWorld';
 
 const BAR_WIDTH = 40;
 const BAR_Y = -66;
@@ -153,7 +153,7 @@ export class ActorView {
   setThree(world: ThreeWorld | null): void {
     if (!!world === !!this.three) return;
     this.three?.dispose();
-    this.three = world?.createFigure() ?? null;
+    this.three = world?.createFigure(this.isPlayer ? GPU_SKINNING.player : GPU_SKINNING.others) ?? null;
     this.figure.sink = this.three;
     this.shadow.visible = !this.three;
   }

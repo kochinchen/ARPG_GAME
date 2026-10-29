@@ -21,7 +21,22 @@ interface ProjectileView {
   special: boolean;
   age: number;
   trailTimer: number;
+  /** 會發光（法術的光球、元素箭）：Three.js 畫法的光源 */
+  glows: boolean;
 }
+
+/** 發光的特效（Three.js 畫法放一盞點光源照亮周圍、投射影子）：位置、離地高度（px）、顏色、亮度（0～1） */
+export interface FxGlow {
+  position: Vec2;
+  height: number;
+  color: number;
+  strength: number;
+}
+
+/** 爆炸、命中瞬間的閃光：持續秒數（大招較久）、光源離地高度（px；火光往上竄，比飛行高度高，矮的物件影子才不會拉得很長） */
+const FLASH_HEIGHT = 40;
+const FLASH_TIME = 0.35;
+const BIG_FLASH_TIME = 0.6;
 
 /** 前搖提示：範圍外框 + 由中心往外填滿，填滿的瞬間命中 */
 interface Telegraph {
@@ -46,6 +61,9 @@ export class EffectLayer {
   private readonly projectileViews = new Map<number, ProjectileView>();
   private readonly zoneViews = new Map<number, Graphics>();
   private readonly pendingViews = new Map<number, Graphics>();
+  private readonly flashes: { position: Vec2; color: number; age: number; duration: number; big: boolean }[] = [];
+  /** 這一幀發光的特效（飛行中的光球、爆炸閃光）；每次 update 重算 */
+  readonly glows: FxGlow[] = [];
 
   constructor(
     private readonly projection: IsoProjection,
@@ -64,6 +82,7 @@ export class EffectLayer {
   /** 範圍效果：依種類畫出爆炸、冰刺、落雷、震波、斬擊… */
   spawnImpact(input: ImpactInput): void {
     this.fx.impact(input);
+    this.flashes.push({ position: input.position, color: input.color, age: 0, duration: input.big ? BIG_FLASH_TIME : FLASH_TIME, big: input.big });
   }
 
   /** 怪物重擊 / 法術的前搖提示：duration 秒後命中 */
@@ -121,8 +140,20 @@ export class EffectLayer {
     }
     this.syncZones(zones);
     this.syncPending(pending);
+    this.glows.length = 0;
     this.syncProjectiles(projectiles, alpha, dt);
     this.fx.update(dt);
+    for (let i = this.flashes.length - 1; i >= 0; i--) {
+      const f = this.flashes[i]!;
+      f.age += dt;
+      if (f.age >= f.duration) {
+        this.flashes.splice(i, 1);
+        continue;
+      }
+      // 一閃即逝：亮度由 1 快速減弱
+      const k = 1 - f.age / f.duration;
+      this.glows.push({ position: f.position, height: FLASH_HEIGHT, color: f.color, strength: k * k * (f.big ? 1.6 : 1) });
+    }
   }
 
   /** 地面持續區域：半透明圓，閃爍表示仍在作用 */
@@ -194,7 +225,9 @@ export class EffectLayer {
         art.blendMode = 'normal';
         art.position.set(0, -FLIGHT_HEIGHT);
         container.addChild(shadow, art);
-        view = { container, shadow, art, style, special, age: 0, trailTimer: 0 };
+        // 物理箭不發光；法術的光球與元素箭會照亮周圍
+        const glows = base.type === 'orb' || (element !== null && element !== 'physical');
+        view = { container, shadow, art, style, special, age: 0, trailTimer: 0, glows };
         this.projectileViews.set(p.id, view);
         this.objectLayer.addChild(container);
       }
@@ -206,6 +239,7 @@ export class EffectLayer {
       const s = this.projection.toScreen(pos);
       view.container.position.set(s.x, s.y);
       view.container.zIndex = this.projection.depth(pos);
+      if (view.glows) this.glows.push({ position: vec2(pos.x, pos.y), height: FLIGHT_HEIGHT, color: view.style.color, strength: 0.6 + 0.4 * Math.min(1, view.style.size) });
       // 依畫面上的飛行方向轉動（箭、冰槍朝前；火球的火舌往後拖）
       const d0 = this.projection.toScreen(vec2(0, 0));
       const d1 = this.projection.toScreen(p.direction);

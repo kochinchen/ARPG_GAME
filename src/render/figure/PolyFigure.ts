@@ -69,7 +69,24 @@ export type TriangleSink = {
   begin(): void;
   triangle(a: V3, b: V3, c: V3, color: number): void;
   end(): void;
+  /**
+   * GPU 蒙皮（有這個時改用它，不再逐幀交出三角形）：外觀改變（key 不同）時才呼叫 build 交出靜止網格，
+   * 之後每幀只交出關節矩陣（bones），頂點位置由顯示卡計算。
+   */
+  skin?: (key: readonly unknown[], build: () => SkinGeometry, bones: Float32Array) => void;
 };
+
+/**
+ * GPU 蒙皮的靜止網格（每個三角形 3 個頂點、不共用）：
+ * position 是關節的區域座標（零件網格）或模型的靜止座標（蒙皮網格）；每個頂點最多 4 根骨頭（joints / weights）。
+ * 骨頭 i（i < 零件數）= 第 i 個零件的關節；骨頭 零件數 + i = 同一個關節、但先扣掉蒙皮網格的靜止位置。
+ */
+export interface SkinGeometry {
+  positions: Float32Array;
+  colors: Uint32Array;
+  joints: Uint16Array;
+  weights: Float32Array;
+}
 
 /** 除錯疊圖（樣態預覽 ?debug=joints,bones,edges,pivot,facing,anchor） */
 export interface FigureDebug {
@@ -105,6 +122,8 @@ export class PolyFigure {
   /** 次級運動：各關節目前的方向（模型空間） */
   private readonly chain = new Map<Joint, V3>();
   private stepDt = 0;
+  /** GPU 蒙皮：每根骨頭的矩陣（4 × 4，行優先；見 SkinGeometry） */
+  private bones: Float32Array | null = null;
   /** 武器尖端的畫面座標（相對腳底，px；模型有 weaponTip 時才有） */
   weaponTip: { x: number; y: number } | null = null;
   /** 武器光芒的軸線與聚焦點（相對腳底，px）；front = 武器在身體前面（有 setWeapon 時才有） */
@@ -326,18 +345,15 @@ export class PolyFigure {
         return { x, y };
       };
       if (part.joint === tipJoint && tipLocal) this.weaponTip = screen(tipLocal);
-      let meshes = this.hidden.has(part.joint) ? [] : (this.outfit?.get(part.joint) ?? part.meshes);
-      if (mount !== undefined && (part.joint === weaponJoint || part.joint === mount?.joint)) meshes = mount?.joint === part.joint ? mount.meshes : [];
+      const meshes = this.meshesOf(part, weaponJoint, lod);
       if (mount && part.joint === mount.joint) {
         const [a, b] = mount.axis;
         const mid: V3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
         const chest = world.get('chest')?.p ?? world.get('root')!.p;
         this.weaponAxis = { a: screen(a), b: screen(b), mid: screen(mid), focus: mount.focus ? screen(mount.focus) : null, front: dot(at(mid), VIEW) > dot(chest, VIEW) };
       }
-      for (const fine of meshes) {
-        if ((fine.lod ?? 0) > lod) continue;
-        // 加密成小三角面的裝備：沒有放大時畫加密前的粗網格
-        const mesh = lod < 2 && fine.coarse ? fine.coarse : fine;
+      if (sink?.skin) continue;
+      for (const mesh of meshes) {
         const verts = mesh.verts.map((v) => {
           const r = apply(m, v);
           return [p[0] + r[0], p[1] + r[1], p[2] + r[2]] as V3;
@@ -347,7 +363,9 @@ export class PolyFigure {
     }
     // 蒙皮網格（整張連續的身體）：被裝備蓋住的部位不畫；靴子等部位換成裝備的顏色（skinColors）
     const skin = this.model.skin;
-    if (skin) {
+    if (sink?.skin) {
+      sink.skin([mode, lod, this.outfit, mount, this.hidden], () => this.skinGeometry(weaponJoint, lod, mode), this.boneMatrices(world, k));
+    } else if (skin) {
       const verts = skinVerts(skin, world);
       const hide = this.outfit?.hideSkin;
       const colors = this.outfit?.skinColors;
@@ -368,6 +386,103 @@ export class PolyFigure {
     const dbg = PolyFigure.debug;
     if (dbg.edges) for (const f of faces) g.poly(f.points).stroke({ color: 0xffffff, width: 0.35, alpha: 0.45 });
     if (dbg.joints || dbg.bones || dbg.pivot || dbg.facing || dbg.anchor) this.drawDebug(g, world, toScreen, yaw, facing, weaponJoint);
+  }
+
+  /** 這個關節這一幀要畫的網格：換裝、換武器、隱藏、細節層級（加密的裝備沒有放大時畫粗網格） */
+  private meshesOf(part: FigureModel['parts'][number], weaponJoint: Joint, lod: number): Mesh[] {
+    const mount = this.mount;
+    let meshes = this.hidden.has(part.joint) ? [] : (this.outfit?.get(part.joint) ?? part.meshes);
+    if (mount !== undefined && (part.joint === weaponJoint || part.joint === mount?.joint)) meshes = mount?.joint === part.joint ? mount.meshes : [];
+    return meshes.filter((m) => (m.lod ?? 0) <= lod).map((fine) => (lod < 2 && fine.coarse ? fine.coarse : fine));
+  }
+
+  /** GPU 蒙皮的靜止網格：與 draw() 交給 sink 的三角形相同（同樣的面、顏色、扇形切法） */
+  private skinGeometry(weaponJoint: Joint, lod: number, mode: NonNullable<FigureModel['lighting']>): SkinGeometry {
+    const parts = this.model.parts;
+    const pos: number[] = [];
+    const col: number[] = [];
+    const jnt: number[] = [];
+    const wts: number[] = [];
+    const vertex = (v: V3, color: number, joints: readonly number[], weights: readonly number[]) => {
+      pos.push(v[0], v[1], v[2]);
+      col.push(color);
+      for (let i = 0; i < 4; i++) {
+        jnt.push(joints[i] ?? 0);
+        wts.push(weights[i] ?? 0);
+      }
+    };
+    const fan = (idx: readonly number[], at: (i: number) => void) => {
+      for (let i = 1; i < idx.length - 1; i++) {
+        at(idx[0]!);
+        at(idx[i]!);
+        at(idx[i + 1]!);
+      }
+    };
+    parts.forEach((part, b) => {
+      for (const mesh of this.meshesOf(part, weaponJoint, lod)) {
+        for (const face of mesh.faces) {
+          const color = mode === 'normal' ? face.color : (face.base ?? face.color);
+          fan(face.idx, (i) => vertex(mesh.verts[i]!, color, [b], [1]));
+        }
+      }
+    });
+    const skin = this.model.skin;
+    if (skin) {
+      const index = new Map(parts.map((p, i) => [p.joint, i]));
+      const hide = this.outfit?.hideSkin;
+      const colors = this.outfit?.skinColors;
+      // 每個頂點的骨頭與權重（關節不存在或沒有靜止位置的不算，與 skinVerts 相同）
+      const infl = skin.infl.map((list) => {
+        const used = list.filter(({ joint }) => index.has(joint) && skin.rest[joint]);
+        if (used.length > 4) throw new Error('蒙皮網格每個頂點最多 4 根骨頭');
+        return { joints: used.map(({ joint }) => parts.length + index.get(joint)!), weights: used.map(({ w }) => w) };
+      });
+      skin.faces.forEach((face, i) => {
+        if (hide?.has(face.region) || this.hidden.has(face.region as Joint)) return;
+        const color = colors?.get(i) ?? face.color;
+        fan(face.idx, (v) => vertex(skin.verts[v]!, color, infl[v]!.joints, infl[v]!.weights));
+      });
+    }
+    return { positions: new Float32Array(pos), colors: new Uint32Array(col), joints: new Uint16Array(jnt), weights: new Float32Array(wts) };
+  }
+
+  /**
+   * GPU 蒙皮的骨頭矩陣（4 × 4，行優先，與 Three.js 的 Matrix4.elements 相同）：
+   * 零件：k ×（p + m·v）；蒙皮：k ×（p + m·(v − 靜止位置)）。k = 畫面縮放。
+   */
+  private boneMatrices(world: JointFrames, k: number): Float32Array {
+    const parts = this.model.parts;
+    const n = parts.length;
+    const out = (this.bones ??= new Float32Array(n * 2 * 16));
+    const rest = this.model.skin?.rest;
+    parts.forEach((part, i) => {
+      const { m, p } = world.get(part.joint)!;
+      const r = rest?.[part.joint] ?? [0, 0, 0];
+      const mr = apply(m, r);
+      for (const [b, t] of [
+        [i, p],
+        [n + i, [p[0] - mr[0], p[1] - mr[1], p[2] - mr[2]]],
+      ] as const) {
+        const o = b * 16;
+        out[o] = m[0] * k;
+        out[o + 1] = m[3] * k;
+        out[o + 2] = m[6] * k;
+        out[o + 3] = 0;
+        out[o + 4] = m[1] * k;
+        out[o + 5] = m[4] * k;
+        out[o + 6] = m[7] * k;
+        out[o + 7] = 0;
+        out[o + 8] = m[2] * k;
+        out[o + 9] = m[5] * k;
+        out[o + 10] = m[8] * k;
+        out[o + 11] = 0;
+        out[o + 12] = t[0] * k;
+        out[o + 13] = t[1] * k;
+        out[o + 14] = t[2] * k;
+        out[o + 15] = 1;
+      }
+    });
+    return out;
   }
 
   /** 除錯疊圖：紅色關節、綠色骨頭、黃色武器握點、洋紅色面向、青色腳底錨點 */

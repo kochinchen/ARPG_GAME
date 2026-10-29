@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import { vec2, type Vec2 } from '../../core/math/Vec2';
 import type { V3 } from '../figure/Poly3D';
-import type { TriangleSink } from '../figure/PolyFigure';
+import type { SkinGeometry, TriangleSink } from '../figure/PolyFigure';
 import type { WallCell } from '../views/TileMapView';
 import { THREE_LIGHTING as L } from './ThreeLighting';
 import { wallStones, type WallLook } from './WallStones';
+import type { FxGlow } from '../views/EffectLayer';
 
 /**
  * Three.js 畫法（試驗，開發版按 G 切換；正式版網址加 ?three）：
@@ -46,7 +47,17 @@ function figureMaterial(): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: L.roughness, metalness: 0, side: THREE.DoubleSide });
 }
 
-/** 一個角色的 Three.js 模型：PolyFigure 每幀交出三角形（TriangleSink），這裡寫進 GPU 的頂點緩衝 */
+/**
+ * GPU 蒙皮（骨架動畫交給顯示卡）：哪些角色使用。主角與所有怪物都已用 /skin-compare.html 確認
+ * 與 CPU 計算的畫面相同（差異不超過浮點捨入；倒地貼著地板的面會有少量 z-fighting，CPU 做法也一樣）。
+ */
+export const GPU_SKINNING = { player: true, others: true };
+
+/**
+ * 一個角色的 Three.js 模型。兩種做法：
+ * - CPU：PolyFigure 每幀交出三角形（TriangleSink），這裡寫進 GPU 的頂點緩衝。
+ * - GPU 蒙皮（gpu = true）：外觀改變時才收到靜止網格（skin），之後每幀只更新骨頭矩陣，頂點由顯示卡計算。
+ */
 export class ThreeFigure implements TriangleSink {
   readonly group = new THREE.Group();
   private readonly geometry = new THREE.BufferGeometry();
@@ -54,20 +65,72 @@ export class ThreeFigure implements TriangleSink {
   private positions = new Float32Array(0);
   private colors = new Float32Array(0);
   private count = 0;
+  /** GPU 蒙皮：模型、骨頭（不放進場景，直接寫入 matrixWorld）、目前網格的外觀 key */
+  private skinned: THREE.SkinnedMesh | null = null;
+  private bones: THREE.Bone[] = [];
+  private skinKey: readonly unknown[] | null = null;
+  skin?: (key: readonly unknown[], build: () => SkinGeometry, bones: Float32Array) => void;
 
-  constructor(private readonly projection: IsoProjection) {
+  constructor(
+    private readonly projection: IsoProjection,
+    gpu = false,
+  ) {
+    this.group.scale.copy(FIGURE_SCALE);
+    if (gpu) {
+      this.skin = (key, build, bones) => this.updateSkin(key, build, bones);
+      return;
+    }
     const mesh = new THREE.Mesh(this.geometry, this.material);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     // 畫面外的角色由 ActorView 隱藏；頂點每幀改變，不算包圍球
     mesh.frustumCulled = false;
-    this.group.scale.copy(FIGURE_SCALE);
     this.group.add(mesh);
     this.grow(2048);
   }
 
   begin(): void {
     this.count = 0;
+  }
+
+  private updateSkin(key: readonly unknown[], build: () => SkinGeometry, matrices: Float32Array): void {
+    const count = matrices.length / 16;
+    if (!this.skinned || this.bones.length !== count) {
+      this.skinned?.removeFromParent();
+      this.skinned?.geometry.dispose();
+      this.skinned?.skeleton.dispose();
+      this.bones = Array.from({ length: count }, () => new THREE.Bone());
+      const mesh = new THREE.SkinnedMesh(new THREE.BufferGeometry(), this.material);
+      // 骨頭矩陣已經是模型空間（含畫面縮放），不需要綁定姿勢
+      mesh.bindMode = THREE.DetachedBindMode;
+      mesh.bind(new THREE.Skeleton(this.bones), new THREE.Matrix4());
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.skinned = mesh;
+      this.skinKey = null;
+    }
+    if (!this.skinKey || key.length !== this.skinKey.length || key.some((k, i) => k !== this.skinKey![i])) {
+      this.skinKey = [...key];
+      const g = build();
+      const n = g.colors.length;
+      const rgb = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const c = colorOf(g.colors[i]!);
+        rgb[i * 3] = c.r;
+        rgb[i * 3 + 1] = c.g;
+        rgb[i * 3 + 2] = c.b;
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(g.positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(rgb, 3));
+      geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(g.joints, 4));
+      geometry.setAttribute('skinWeight', new THREE.BufferAttribute(g.weights, 4));
+      this.skinned.geometry.dispose();
+      this.skinned.geometry = geometry;
+    }
+    this.bones.forEach((bone, i) => bone.matrixWorld.fromArray(matrices, i * 16));
   }
 
   triangle(a: V3, b: V3, c: V3, color: number): void {
@@ -87,6 +150,7 @@ export class ThreeFigure implements TriangleSink {
   }
 
   end(): void {
+    if (this.skin) return;
     this.geometry.attributes.position!.needsUpdate = true;
     this.geometry.attributes.color!.needsUpdate = true;
     this.geometry.setDrawRange(0, this.count * 3);
@@ -112,6 +176,8 @@ export class ThreeFigure implements TriangleSink {
 
   dispose(): void {
     this.group.removeFromParent();
+    this.skinned?.geometry.dispose();
+    this.skinned?.skeleton.dispose();
     this.geometry.dispose();
     this.material.dispose();
   }
@@ -143,11 +209,16 @@ export class ThreeWorld {
   private readonly camera = new THREE.OrthographicCamera();
   private readonly key = new THREE.DirectionalLight(L.key.color, L.key.intensity);
   private readonly torches: THREE.PointLight[] = [];
+  /** 發光特效的點光源（火球、爆炸閃光…）與這一幀的特效 */
+  private readonly fxLights: THREE.PointLight[] = [];
+  private glows: readonly FxGlow[] = [];
+  /** 燭光的補光（照亮主角正面，不投影子） */
+  private readonly fill = new THREE.PointLight(L.fill.color, L.fill.intensity, L.fill.distance, L.fill.decay);
   /** 主角身上的燭光（真的光源：由內向外漸暗、投射影子） */
   private readonly candle = new THREE.PointLight(L.candle.color, L.candle.intensity, 0, L.candle.decay);
   private readonly floors: THREE.Mesh[] = [];
   private readonly floorMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });
-  private lightSpots: { position: Vec2; color: number }[] = [];
+  private lightSpots: { position: Vec2; color: number; height: number }[] = [];
   private readonly walls: WallChunk[] = [];
   private time = 0;
 
@@ -176,11 +247,28 @@ export class ThreeWorld {
     const rim = new THREE.DirectionalLight(L.rim.color, L.rim.intensity);
     rim.position.set(...L.rim.direction);
     this.scene.add(rim);
+    // 點光源的影子（六個方向的陰影圖）：照射距離以外的牆與角色不必畫
+    const shadowed = (light: THREE.PointLight, on: boolean, size: number, strength = 1) => {
+      light.castShadow = on;
+      light.shadow.intensity = strength;
+      light.shadow.mapSize.set(size, size);
+      light.shadow.bias = -0.002;
+      light.shadow.camera.near = 0.1;
+      light.shadow.camera.far = light.distance;
+    };
     for (let i = 0; i < L.torch.count; i++) {
       const torch = new THREE.PointLight(0xff9a3a, 0, L.torch.range, 2);
+      shadowed(torch, L.torch.shadow, L.torch.shadowMap, L.torch.shadowStrength);
       this.torches.push(torch);
       this.scene.add(torch);
     }
+    for (let i = 0; i < L.fx.count; i++) {
+      const light = new THREE.PointLight(0xffffff, 0, L.fx.range, L.fx.decay);
+      shadowed(light, L.fx.shadow, L.fx.shadowMap, L.fx.shadowStrength);
+      this.fxLights.push(light);
+      this.scene.add(light);
+    }
+    this.scene.add(this.fill);
     this.candle.castShadow = L.candle.shadow;
     this.candle.shadow.mapSize.set(L.candle.shadowMap, L.candle.shadowMap);
     this.candle.shadow.bias = -0.002;
@@ -194,14 +282,15 @@ export class ThreeWorld {
     this.renderer.shadowMap.autoUpdate = false;
   }
 
-  createFigure(): ThreeFigure {
-    const figure = new ThreeFigure(this.projection);
+  /** gpu：用 GPU 蒙皮（見 GPU_SKINNING） */
+  createFigure(gpu = false): ThreeFigure {
+    const figure = new ThreeFigure(this.projection, gpu);
     this.scene.add(figure.group);
     return figure;
   }
 
   /** 換樓層：重建牆（每 CHUNK 格合成一個物件，與 TileMapView 相同的分組；石塊樣式依區域）與光源位置 */
-  setMap(cells: readonly WallCell[], cell: number, lightSpots: { position: Vec2; color: number }[], look: WallLook, floor: readonly number[]): void {
+  setMap(cells: readonly WallCell[], cell: number, lightSpots: { position: Vec2; color: number; height: number }[], look: WallLook, floor: readonly number[]): void {
     this.buildFloor(floor, cell);
     for (const wall of this.walls) {
       wall.mesh.removeFromParent();
@@ -271,9 +360,13 @@ export class ThreeWorld {
     Object.assign(this.key.shadow.camera, { left: -extent, right: extent, top: extent, bottom: -extent, near: 0.1, far: 100 });
     this.key.shadow.camera.updateProjectionMatrix();
 
-    // 燭光：在主角頭上、稍微偏向鏡頭（臉與身體正面才照得到），照到 candleRadius 為止
+    // 燭光：幾乎在主角正上方（往鏡頭偏 tilt 度），影子落在腳下；照到 candleRadius 為止
     const c = L.candle;
-    this.candle.position.set(player.x + c.toward, c.height, player.y + c.toward);
+    // 鏡頭方向 = World (+x, +z)
+    const lean = (c.height * Math.tan((c.tilt * Math.PI) / 180)) / Math.SQRT2;
+    this.candle.position.set(player.x + lean, c.height, player.y + lean);
+    const f = L.fill;
+    this.fill.position.set(player.x + f.toward / Math.SQRT2, f.height, player.y + f.toward / Math.SQRT2);
     this.candle.distance = candleRadius * c.reach;
     this.candle.shadow.camera.far = this.candle.distance;
     const t = this.time;
@@ -281,13 +374,21 @@ export class ThreeWorld {
 
     this.updateWalls(player);
     this.updateTorches(player);
+    this.updateFxLights(player);
 
     const gl = this.renderer.getContext();
     this.renderer.resetState();
     this.renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     this.renderer.setClearColor(background, 1);
     this.renderer.clear(true, true, true);
+    // 影子：Three.js 只讓「目前鏡頭圖層看得到」的物件投影子，畫地板的圖層看不到牆與角色，
+    // 所以先用一般圖層算影子（裁切成 0 × 0，畫面上什麼都不畫），之後畫地板、牆與角色都沿用
     this.renderer.shadowMap.needsUpdate = true;
+    cam.layers.set(0);
+    this.renderer.setScissorTest(true);
+    this.renderer.setScissor(0, 0, 0, 0);
+    this.renderer.render(this.scene, cam);
+    this.renderer.setScissorTest(false);
     cam.layers.set(FLOOR_LAYER);
     this.renderer.render(this.scene, cam);
   }
@@ -352,6 +453,26 @@ export class ThreeWorld {
     }
   }
 
+  /** 這一幀發光的特效（EffectLayer.glows）：離玩家最近的幾個放點光源 */
+  setGlows(glows: readonly FxGlow[]): void {
+    this.glows = glows;
+  }
+
+  private updateFxLights(player: Vec2): void {
+    const near = [...this.glows].sort((a, b) => Math.hypot(a.position.x - player.x, a.position.y - player.y) - Math.hypot(b.position.x - player.x, b.position.y - player.y));
+    this.fxLights.forEach((light, i) => {
+      const g = near[i];
+      light.shadow.autoUpdate = !!g || light.shadow.map === null;
+      if (!g) {
+        light.intensity = 0;
+        return;
+      }
+      light.color.copy(colorOf(g.color));
+      light.position.set(g.position.x, g.height / PX_PER_HEIGHT, g.position.y);
+      light.intensity = L.fx.intensity * g.strength;
+    });
+  }
+
   /** 離玩家最近的幾支火把亮起（閃爍） */
   private updateTorches(player: Vec2): void {
     const near = this.lightSpots
@@ -360,12 +481,15 @@ export class ThreeWorld {
       .slice(0, L.torch.count);
     this.torches.forEach((torch, i) => {
       const n = near[i];
-      if (!n || n.d > L.torch.reach) {
+      const on = !!n && n.d <= L.torch.reach;
+      // 熄掉的火把不算影子（光源數量不變，材質不必重新編譯）；陰影圖至少要先建立一次，否則材質取樣到空的貼圖、整個畫面畫不出來
+      torch.shadow.autoUpdate = on || torch.shadow.map === null;
+      if (!n || !on) {
         torch.intensity = 0;
         return;
       }
       torch.color.copy(colorOf(n.spot.color));
-      torch.position.set(n.spot.position.x, L.torch.height, n.spot.position.y);
+      torch.position.set(n.spot.position.x, n.spot.height / PX_PER_HEIGHT, n.spot.position.y);
       const t = this.time + i * 1.7;
       torch.intensity = L.torch.intensity * (0.85 + 0.1 * Math.sin(t * 13) + 0.05 * Math.sin(t * 31));
     });

@@ -383,6 +383,7 @@ export class Renderer {
     const origin = this.worldLayer.position;
     const k = this.camera.zoom;
     const center = this.projection.toWorld(vec2((width / 2 - origin.x) / k, (height / 2 - origin.y) / k));
+    three.setGlows(this.effects.glows);
     three.renderFloor(center, width, height, k, playerPos, lightRadius(this.world.progress.level), pixi.background.color.toNumber(), dt);
     pixi.resetState();
     show(upper, upper.map(() => false));

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <title>GPU 蒙皮比對</title>
+    <style>
+      body { margin: 0; padding: 10px; background: #16130f; color: #d8cbb4; font: 13px sans-serif; }
+      #summary { font-size: 15px; margin-bottom: 8px; } #summary b { color: #e8c47a; }
+      #worst { display: flex; gap: 8px; } #worst figure { margin: 0; } canvas { background: #0d0b09; }
+      table { border-collapse: collapse; margin-top: 8px; } td, th { padding: 1px 8px; border-bottom: 1px solid #3a3027; text-align: right; } td:first-child, th:first-child { text-align: left; }
+    </style>
+  </head>
+  <body>
+    <div id="summary">比對中…</div>
+    <div id="worst"></div>
+    <table id="table"></table>
+    <script type="module" src="/src/tools/skinCompare.ts"></script>
+  </body>
+</html>

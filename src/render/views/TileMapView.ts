@@ -17,6 +17,8 @@ const OCCLUDE_BELOW = 72;
 /** 離玩家（畫面中心）多遠以外的牆不顯示（px） */
 const CULL_X = 860;
 const CULL_Y = 600;
+/** 火把（立在牆邊的燈架）的火焰離地高度（px，約主角肩膀高）：Three.js 畫法的火把光源也放在這個高度（水晶的光也是，矮的物件影子才不會拉得很長） */
+export const TORCH_FLAME_HEIGHT = 52;
 /** 同一條對角線上，每幾格的牆合成一個物件 */
 const CHUNK = 8;
 
@@ -97,7 +99,7 @@ export class TileMapView {
   /** 每一格牆（Three.js 畫法建立牆的立體模型） */
   readonly wallCells: WallCell[] = [];
   /** 牆邊光源的位置（World）與顏色（Three.js 畫法的點光源） */
-  readonly lightSpots: { position: Vec2; color: number }[] = [];
+  readonly lightSpots: { position: Vec2; color: number; height: number }[] = [];
 
   constructor(
     private readonly projection: IsoProjection,
@@ -281,11 +283,21 @@ export class TileMapView {
       glow.ellipse(center.x, center.y, 34, 17).fill({ color: t.glow, alpha: 0.1 });
       glow.ellipse(center.x, center.y, 16, 8).fill({ color: t.glow, alpha: 0.14 });
       if (t.decor === 'crystals') glow.poly([center.x - 4, center.y, center.x, center.y - 14, center.x + 4, center.y]).fill({ color: t.glow, alpha: 0.9 });
-      else glow.rect(center.x - 1, center.y - 12, 2, 10).fill({ color: 0x3a2a1a }).ellipse(center.x, center.y - 15, 3, 5).fill({ color: t.glow });
+      else {
+        // 燈架：細桿立在地上，頂端一個托盤、上面是火焰（火焰高度 = 光源高度）
+        const top = TORCH_FLAME_HEIGHT;
+        glow
+          .rect(center.x - 1, center.y - top + 3, 2, top - 3)
+          .fill({ color: 0x3a2a1a })
+          .rect(center.x - 3, center.y - top + 2, 6, 1.5)
+          .fill({ color: 0x4a3622 })
+          .ellipse(center.x, center.y - top, 3, 5)
+          .fill({ color: t.glow });
+      }
       glow.zIndex = this.projection.depth(world);
       this.objectLayer.addChild(glow);
       this.lights.push({ graphics: glow, phase: r * 100 });
-      this.lightSpots.push({ position: world, color: t.glow });
+      this.lightSpots.push({ position: world, color: t.glow, height: TORCH_FLAME_HEIGHT });
       return;
     }
     // 小裝飾：碎石、骨頭、熔岩縫的亮點
