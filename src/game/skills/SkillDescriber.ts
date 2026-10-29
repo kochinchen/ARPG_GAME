@@ -1,3 +1,4 @@
+import { balance } from '../../data/balance';
 import { rankRange, rankValue } from '../../data/schema/common';
 import type { EffectDef, StatusKind } from '../../data/schema/effects';
 import type { SkillDef, TargetType } from '../../data/schema/skill';
@@ -125,9 +126,11 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
         lines.push(`召喚 ${e.count} 隻（最多同時 ${e.maxAlive} 隻）`);
         break;
       case 'device': {
-        const maxAlive = rankValue(e.maxAlive, rank);
+        // 有群組的（毒蛛）只看自己的上限；其他同時受全身機關上限限制
+        const own = rankValue(e.maxAlive, rank);
+        const maxAlive = e.group ? own : Math.min(own, balance.devices!.maxAlive);
         lines.push(
-          `機關：生命 ${pctText(rankValue(e.hpPct, rank))} 最大生命、防禦同角色，持續 ${rankValue(e.duration, rank)} 秒${maxAlive > 1 ? `，可同時 ${maxAlive} 個` : ''}`,
+          `機關：生命 ${pctText(rankValue(e.hpPct, rank))} 最大生命、防禦同角色，持續 ${rankValue(e.duration, rank)} 秒${maxAlive > 1 ? `，可同時 ${maxAlive} 個${e.group ? '' : '（所有機關合計）'}` : ''}`,
         );
         if (e.behavior === 'trip' && e.line) lines.push(`面前 ${e.forward ?? 0} 格橫放 ${e.line.length} 格寬；碰到的敵人各觸發一次（共 ${rankValue(e.triggers, rank)} 次）：`, ...effectLines(e.onTrigger, rank));
         if (e.behavior === 'proximity') lines.push(`${e.armDelay} 秒後待命，敵人進入 ${e.triggerRadius} 格內時觸發：`, ...effectLines(e.onTrigger, rank));

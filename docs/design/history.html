@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">20</b> 個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">921</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">979</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -435,6 +435,38 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
           </div>
         </div>
       </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">10/23～10/30</span><span class="name">畫面、模型<br>與技能手感</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">iPad 觸控介面</span><span class="hash mono">2cc6967 · 5e6e109</span></div>
+            <p>HP / MP 移到上方、右側選單列、拿取鈕；背包點選與長按拖曳；商人貨架點一下看說明、長按 0.5 秒拿起，鍛造 / 融合點兩下放入，可指定主攻擊。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">女主角 AI 版</span><span class="hash mono">b6198d8～e9fb600</span></div>
+            <p>先做「骨架 → 構面體積」的 3D 模型頁與 Blender 流程，再用設計圖四視圖交給微軟 TRELLIS 生成模型，接上同一副骨架，換成遊戲裡的女主角（v13：頭部用四張頭像重新生成）。</p>
+            <p class="why">設計者不接受大平面的低多邊形，所以模型都加密成小三角構面；不使用中國公司的生成服務。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">橘紅裝備專屬造型</span><span class="hash mono">b79df3e～5f23812</span></div>
+            <p>裝備與武器加密成小三角面、遠距離改畫粗網格；靴子拆成獨立部位；橘紅的劍、斧、法杖、弓、盾牌、靴子、盔甲依名稱與特殊能力設計專屬造型，熔岩巨甲改用 AI 生成的模型。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">Three.js 畫法試驗</span><span class="hash mono">97e9dba～68baafd</span></div>
+            <p>按 G 切換（正式版網址加 ?three）：地板、角色、石砌的牆用 Three.js，主角的燭光是真的點光源並投射陰影；主角與所有怪物改用 GPU 蒙皮；滑鼠滾輪縮放最多 3 倍。技能特效重做成各招專屬演出，弱點 / 標記 / 弱化在頭上顯示光霧，牽制有束縛線；技能特效 Review 頁錄下每一招給設計者看。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">蛛后套毒蛛、傳奇擲骰、背包鑲嵌</span><span class="hash mono">594a0fd</span></div>
+            <p>蛛后絲甲召喚的毒蛛畫成小蜘蛛、最多 10 隻；傳奇效果數值掉落時擲骰；背包裡可直接鑲嵌、取下熔核。附加傷害或持續傷害打死的也算擊殺。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">設計者技能調整</span><span class="hash mono">cd3e0d0 · 8ccaa64</span></div>
+            <p>劍刃旋舞改成跟著主角 3～7 秒的劍風；毀滅重擊改單體；冰槍最多 3 支；冰霜新星改成滾動的冰球；淬毒飛刀毒傷 60%～200%；霜凍瓶改成 20 秒的自動投射器（每 0.5 秒冰箭）；擲斧流血可疊 5 層。絕對零度持續 6～10 秒，範圍內持續緩速並每秒 20%～40% 冰寒傷害；場上機關上限從 2 個改成 5 個，第 6 個讓最早的消失。</p>
+            <p class="why">Combo 標籤跟著效果自動檢查，改完重新產生組合技圖鑑（25364 種排列）與角色成長模擬。</p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -442,19 +474,19 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="sec-head">
       <div class="eyebrow">品質</div>
       <h2>測試數量隨 Milestone 累積</h2>
-      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/19（v0.5.0）的 npm test 結果。</p>
+      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/30 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 921">
-      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:3.1%"></div><span class="val mono">28</span></div>
-      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.7%"></div><span class="val mono">52</span></div>
-      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:8.9%"></div><span class="val mono">81</span></div>
-      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:10.3%"></div><span class="val mono">94</span></div>
-      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:12.5%"></div><span class="val mono">114</span></div>
-      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:15.0%"></div><span class="val mono">137</span></div>
-      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:19.6%"></div><span class="val mono">179</span></div>
-      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:28.4%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">921</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 921 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個）。</p>
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 979">
+      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.9%"></div><span class="val mono">28</span></div>
+      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.3%"></div><span class="val mono">52</span></div>
+      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:8.3%"></div><span class="val mono">81</span></div>
+      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:9.6%"></div><span class="val mono">94</span></div>
+      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:11.6%"></div><span class="val mono">114</span></div>
+      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:14.0%"></div><span class="val mono">137</span></div>
+      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:18.3%"></div><span class="val mono">179</span></div>
+      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:26.6%"></div><span class="val mono">260</span></div>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">979</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 979 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個）。</p>
     </div>
   </section>
 
