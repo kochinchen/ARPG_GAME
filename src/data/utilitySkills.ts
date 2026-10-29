@@ -164,7 +164,6 @@ const devices: SkillInput[] = [
         behavior: 'proximity',
         hpPct: 0.1,
         duration: 30,
-        maxAlive: [1, 1, 1, 1, 2],
         armDelay: 0.8,
         triggerRadius: 1.5,
         onTrigger: frostBlast,

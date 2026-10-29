@@ -122,4 +122,21 @@ describe('技能調整（設計者 2026-10-29）', () => {
     cast(world, commands, 'magic.frost_nova', 1, { x: 18, y: 1.5 }, 5);
     expect(areas).toHaveLength(1);
   });
+
+  it('絕對零度：冰柱區 Lv1 6 秒、Lv5 10 秒，範圍內持續緩速並每 0.5 秒受到冰寒傷害', () => {
+    for (const [rank, seconds] of [
+      [1, 6],
+      [5, 10],
+    ] as const) {
+      const { world, commands, events } = setup([dummyAt(3, 2.5)]);
+      const dummy = enemiesOf(world)[0]!;
+      let ticks = 0;
+      events.on('ActorDamaged', (e) => {
+        if (e.targetId === dummy.id && e.element === 'cold') ticks++;
+      });
+      cast(world, commands, 'magic.absolute_zero', rank, dummy, seconds + 2);
+      // 爆發 1 次 + 區域每 0.5 秒 1 次
+      expect(ticks).toBe(1 + seconds * 2);
+    }
+  });
 });

@@ -251,6 +251,9 @@ export class ThreeSkillFx implements SkillFxListener {
   /** 隕石（依延遲效果的 id）、持續區域的發射計時 */
   private readonly meteors = new Map<string, THREE.Mesh>();
   private readonly emitTimer = new Map<string, number>();
+  /** 絕對零度的冰柱（冰凍區域結束時碎裂）、進行中的冰凍區域 */
+  private zeroPillars: { at: Vec2; cut: () => void }[] = [];
+  private readonly zeroZones = new Map<string, { at: Vec2; radius: number }>();
   /** 劍刃旋舞的劍風（依區域的 id） */
   private readonly whirls = new Map<string, THREE.Group>();
   private readonly rockGeo = new THREE.IcosahedronGeometry(1, 0);
@@ -392,6 +395,8 @@ export class ThreeSkillFx implements SkillFxListener {
     this.meteors.clear();
     for (const w of this.whirls.values()) w.removeFromParent();
     this.whirls.clear();
+    this.zeroPillars = [];
+    this.zeroZones.clear();
     this.emitTimer.clear();
     this.hookFrom = this.hookAt = null;
     this.glow.clear();
@@ -434,6 +439,7 @@ export class ThreeSkillFx implements SkillFxListener {
         this.whirl(g.id, g.position, g.radius, dt);
         continue;
       }
+      if (g.kind === 'zone' && g.skillId === 'magic.absolute_zero') this.zeroZones.set(g.id, { at: g.position, radius: g.radius });
       if (g.kind === 'zone') {
         const rate = g.skillId === 'magic.firewall' ? 120 : g.skillId === 'magic.meteor' ? 70 : g.skillId === 'magic.absolute_zero' ? 26 : 0;
         if (!rate) continue;
@@ -473,6 +479,15 @@ export class ThreeSkillFx implements SkillFxListener {
       }
     }
     for (const id of this.emitTimer.keys()) if (!live.has(id)) this.emitTimer.delete(id);
+    for (const [id, z] of this.zeroZones) {
+      if (live.has(id)) continue;
+      this.zeroZones.delete(id);
+      this.zeroPillars = this.zeroPillars.filter((p) => {
+        const inside = Math.hypot(p.at.x - z.at.x, p.at.y - z.at.y) <= z.radius + 0.5;
+        if (inside) p.cut();
+        return !inside;
+      });
+    }
     for (const [id, w] of this.whirls) {
       if (live.has(id)) continue;
       w.removeFromParent();
@@ -972,13 +987,16 @@ export class ThreeSkillFx implements SkillFxListener {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const d = radius * Math.sqrt(Math.random());
-      this.icePillar(vec2(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d), rand(0.4, 1.3) * (1 - (d / radius) * 0.4), 8, (d / radius) * 0.25);
+      const p = vec2(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);
+      // 最長 10 秒；冰凍區域（6～10 秒，依等級）結束時一起碎裂（persistent）
+      const cut = this.icePillar(p, rand(0.4, 1.3) * (1 - (d / radius) * 0.4), 10.3, (d / radius) * 0.25);
+      this.zeroPillars.push({ at: p, cut });
     }
     this.frostBlast(at, radius, 1.4);
   }
 
   /** 一根冰柱：竄出 → 停留 life 秒 → 碎裂 */
-  private icePillar(at: Vec2, height: number, life: number, delay: number): void {
+  private icePillar(at: Vec2, height: number, life: number, delay: number): () => void {
     const m = new THREE.Mesh(this.iceGeo, new THREE.MeshStandardMaterial({ color: linear(Math.random() < 0.5 ? ICE : ICE_DARK), emissive: linear(0x2a6a9a), emissiveIntensity: 0.35, flatShading: true, roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.92 }));
     m.castShadow = true;
     m.position.set(at.x, 0, at.y);
@@ -986,7 +1004,9 @@ export class ThreeSkillFx implements SkillFxListener {
     const w = rand(0.1, 0.2) * Math.max(0.6, height);
     m.scale.set(w, 0.001, w);
     let shattered = false;
+    let now = 0;
     this.addItem(m, delay + life, (age) => {
+      now = age;
       const t = age - delay;
       if (t < 0) return;
       m.scale.y = Math.max(0.001, height * Math.min(1, t / 0.1));
@@ -999,6 +1019,13 @@ export class ThreeSkillFx implements SkillFxListener {
         }
       }
     }, () => (m.material as THREE.Material).dispose());
+    const item = this.items[this.items.length - 1]!;
+    // 提早碎裂：剩下 0.25 秒
+    return () => {
+      const t = Math.max(0, now - delay);
+      life = Math.min(life, t + 0.25);
+      item.life = delay + life;
+    };
   }
 
   /** 飛起的碎石（會落地彈跳） */

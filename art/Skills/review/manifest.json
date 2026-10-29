@@ -241,7 +241,7 @@
   "id": "magic.absolute_zero",
   "name": "絕對零度",
   "category": "magic",
-  "description": "大範圍冰凍；Boss 改為強力緩速。冰柱留在地上 8 秒，範圍內的敵人持續緩速。",
+  "description": "大範圍冰凍；Boss 改為強力緩速。冰柱留在地上 6～10 秒，範圍內的敵人持續緩速，並每秒受到 20%～40% 法術強度的冰寒傷害（隨技能等級增加）。",
   "frames": 39
  },
  {

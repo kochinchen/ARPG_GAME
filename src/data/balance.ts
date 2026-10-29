@@ -240,7 +240,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     bow: ['ranged', 'magic', 'utility'],
     staff: ['magic', 'utility'],
   },
-  devices: { maxAlive: 2, aggroRange: 3 },
+  // 設計者調整（2026-10-29）：場上最多 5 個機關（2 → 5），第六個讓最早的消失
+  devices: { maxAlive: 5, aggroRange: 3 },
   combo: {
     nearNearFarBonus: { damage: 0.1, aoeRadius: 0.1 },
   },

@@ -66,28 +66,27 @@ describe('機關的共通規則', () => {
     expect(keg.stats.get('defense')).toBe(60);
   });
 
-  it('全身最多 2 個：放第 3 個時最舊的消失，而且不會爆炸', () => {
+  it('全身最多 5 個（設計者 2026-10-29，原本 2 個）：放第 6 個時最舊的消失，而且不會爆炸', () => {
     const { world, commands } = setup([dummyAt(8, 3.5)]);
     const dummy = enemiesOf(world)[0]!;
     world.player.position = vec2(12, 3.5);
     cast(world, commands, 'utility.powder_keg', 1, { x: 8, y: 3.5 });
     cast(world, commands, 'utility.storm_totem', 1, { x: 16, y: 6 });
+    for (const y of [2, 3.5, 5]) cast(world, commands, 'utility.frost_mine', 1, { x: 20, y });
+    expect(devicesOf(world)).toHaveLength(5);
     cast(world, commands, 'utility.trip_net', 1, { x: 16, y: 3.5 });
     const kinds = devicesOf(world).map((d) => d.device!.skillId);
-    expect(kinds).toHaveLength(2);
+    expect(kinds).toHaveLength(5);
     expect(kinds).not.toContain('utility.powder_keg');
     // 火藥桶旁邊的木樁沒有被炸到（圖騰射程外）
     expect(hurt(dummy)).toBe(false);
   });
 
-  it('同技能上限：霜凍地雷 Lv1 同時 1 顆（新的取代舊的），Lv5 同時 2 顆', () => {
+  it('同一種機關也可以放到 5 個（不另外限制）；第 6 個讓最早的消失', () => {
     const { world, commands } = setup();
     world.player.position = vec2(10, 3.5);
-    cast(world, commands, 'utility.frost_mine', 1, { x: 8, y: 3.5 });
-    cast(world, commands, 'utility.frost_mine', 1, { x: 12, y: 3.5 });
-    expect(devicesOf(world).map((d) => d.position.x)).toEqual([12]);
-    cast(world, commands, 'utility.frost_mine', 5, { x: 14, y: 3.5 });
-    expect(devicesOf(world)).toHaveLength(2);
+    for (const x of [4, 6, 8, 12, 14, 16]) cast(world, commands, 'utility.frost_mine', 1, { x, y: 3.5 });
+    expect(devicesOf(world).map((d) => d.position.x)).toEqual([6, 8, 12, 14, 16]);
   });
 
   it('玩家的技能不會傷到機關；玩家倒地時機關全部消失', () => {

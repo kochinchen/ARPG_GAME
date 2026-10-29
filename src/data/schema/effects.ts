@@ -216,8 +216,8 @@ export const DeviceEffectSchema = z.strictObject({
   hpPct: RankNumberSchema,
   /** 持續時間（秒），到期觸發 onExpire 後消失 */
   duration: RankNumberSchema,
-  /** 這個技能的機關同時存在的上限（全身上限另計） */
-  maxAlive: RankNumberSchema.default(1),
+  /** 這個技能的機關同時存在的上限（全身上限 balance.devices.maxAlive 另計；預設不另外限制，只受全身上限） */
+  maxAlive: RankNumberSchema.default(99),
   /** 一次佈置幾個（minion：圍在指定位置周圍） */
   count: z.int().positive().default(1),
   /** minion 的移動速度（格 / 秒） */

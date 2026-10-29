@@ -672,7 +672,7 @@ const magic: SkillInput[] = [
   {
     id: 'magic.absolute_zero',
     name: '絕對零度',
-    description: '大範圍冰凍；Boss 改為強力緩速。冰柱留在地上 8 秒，範圍內的敵人持續緩速。',
+    description: '大範圍冰凍；Boss 改為強力緩速。冰柱留在地上 6～10 秒，範圍內的敵人持續緩速，並每秒受到 20%～40% 法術強度的冰寒傷害（隨技能等級增加）。',
     tree: { category: 'magic', tier: 4, branch: 'B' },
     targeting: 'self',
     castTime: 0.5,
@@ -680,8 +680,14 @@ const magic: SkillInput[] = [
     tags: ['spell', 'area', 'cold'],
     effects: [
       { type: 'area', radius: 4, effects: [spell('cold', pct(210, 240, 270, 300, 330)), { type: 'status', status: 'freeze', duration: 2 }] },
-      // 設計者調整（2026-10-29）：冰柱留在地上 8 秒，範圍內持續緩速（不造成傷害）
-      { type: 'zone', radius: 4, duration: 8, interval: 0.5, effects: [{ type: 'status', status: 'slow', duration: 0.8, magnitude: 0.4 }] },
+      // 設計者調整（2026-10-29）：冰柱留在地上 6～10 秒，範圍內持續緩速與冰寒傷害（每 0.5 秒一跳 = 每秒 20%～40%）
+      {
+        type: 'zone',
+        radius: 4,
+        duration: [6, 7, 8, 9, 10],
+        interval: 0.5,
+        effects: [spell('cold', pct(10, 12.5, 15, 17.5, 20)), { type: 'status', status: 'slow', duration: 0.8, magnitude: 0.4 }],
+      },
     ] as SkillInput['effects'],
   },
   {
