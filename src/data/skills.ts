@@ -172,14 +172,22 @@ const melee: SkillInput[] = [
   {
     id: 'melee.blade_dance',
     name: '劍刃旋舞',
-    description: '360° 迴旋，三段攻擊周圍敵人。',
+    description: '捲起一股繞著身體旋轉的劍風，持續 3～7 秒，每秒對周圍敵人造成 30%～40% 武器傷害（隨技能等級增加）。',
     tree: { category: 'melee', tier: 3, branch: 'B' },
     targeting: 'self',
     useAttackSpeed: true,
     cost: { mana: T3_MP },
     tags: ['attack', 'melee', 'combo', 'area'],
     effects: [
-      { type: 'area', radius: 1.8, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', hits: 3, multiplier: pct(66, 74, 83, 91, 100) }] },
+      // 設計者調整（2026-10-29）：原本是一次三段 66%～100%，改成跟著身體轉的劍風（每 0.5 秒一跳 = 每秒 30%～40%）
+      {
+        type: 'zone',
+        radius: 1.8,
+        duration: [3, 4, 5, 6, 7],
+        interval: 0.5,
+        followCaster: true,
+        effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(15, 16.25, 17.5, 18.75, 20) }],
+      },
     ],
   },
   {
@@ -207,26 +215,20 @@ const melee: SkillInput[] = [
   {
     id: 'melee.devastator',
     name: '毀滅重擊',
-    description: '以目標為中心的大範圍重擊；對破甲目標額外傷害。',
+    description: '對單一目標從空中重劈，四周地面炸開；對破甲目標額外傷害。',
     tree: { category: 'melee', tier: 4, branch: 'A' },
     targeting: 'enemy',
     useAttackSpeed: true,
     cost: { mana: T4_MP },
-    tags: ['attack', 'melee', 'heavy', 'area'],
+    tags: ['attack', 'melee', 'heavy'],
+    // 設計者調整（2026-10-29）：改為只打單一目標（原本是以目標為中心半徑 2.2 的範圍）
     effects: [
       {
-        type: 'area',
-        radius: 2.2,
-        at: 'target',
-        effects: [
-          {
-            type: 'damage',
-            element: 'physical',
-            scaling: 'weapon',
-            multiplier: pct(312, 358, 403, 449, 494),
-            bonus: { when: { status: 'armorBreak' }, damagePct: 0.3 },
-          },
-        ],
+        type: 'damage',
+        element: 'physical',
+        scaling: 'weapon',
+        multiplier: pct(312, 358, 403, 449, 494),
+        bonus: { when: { status: 'armorBreak' }, damagePct: 0.3 },
       },
     ],
   },
@@ -549,7 +551,7 @@ const magic: SkillInput[] = [
   {
     id: 'magic.ice_lance',
     name: '冰槍',
-    description: '高速直線攻擊，可穿透 1 名敵人；對緩速中的敵人暴擊率 +25%。',
+    description: '高速直線攻擊，可穿透 1 名敵人；對緩速中的敵人暴擊率 +25%。3 級起一次 2 支、5 級 3 支（扇形）。',
     tree: { category: 'magic', tier: 2, branch: 'B' },
     targeting: 'direction',
     castTime: 0.35,
@@ -562,6 +564,9 @@ const magic: SkillInput[] = [
         radius: 0.2,
         range: 12,
         pierce: 1,
+        // 設計者調整（2026-10-29）：隨等級增加，最高一次扇形 3 支
+        count: [1, 1, 2, 2, 3],
+        spreadDeg: 20,
         onHit: [spell('cold', pct(135, 152, 169, 186, 203), { when: { status: 'slow' }, critChance: 0.25 })],
       },
     ] as SkillInput['effects'],
@@ -601,20 +606,30 @@ const magic: SkillInput[] = [
   {
     id: 'magic.frost_nova',
     name: '冰霜新星',
-    description: '周圍範圍傷害並緩速，有機率冰凍敵人。',
+    description: '射出一顆在地上滾的巨大冰球，撞到牆壁或敵人（或滾完 12 格）時炸開：周圍範圍傷害並緩速，有機率冰凍敵人。',
     tree: { category: 'magic', tier: 3, branch: 'B' },
-    targeting: 'self',
+    targeting: 'direction',
     castTime: 0.35,
     cost: { mana: MAGIC_T3_MP },
-    tags: ['spell', 'area', 'cold'],
+    tags: ['spell', 'projectile', 'area', 'cold'],
+    // 設計者調整（2026-10-29）：原本是以自己為中心的冰爆，改成慢慢滾的冰球，撞到才炸開（炸開的範圍與效果不變）
     effects: [
       {
-        type: 'area',
-        radius: 3,
-        effects: [
-          spell('cold', pct(120, 135, 150, 165, 180)),
-          { type: 'status', status: 'slow', duration: 2, magnitude: 0.3 },
-          { type: 'status', status: 'freeze', duration: 1.5, chance: pct(20, 25, 30, 35, 40) },
+        type: 'projectile',
+        speed: 4.5,
+        radius: 0.55,
+        range: 12,
+        hitAtEnd: true,
+        onHit: [
+          {
+            type: 'area',
+            radius: 3,
+            effects: [
+              spell('cold', pct(120, 135, 150, 165, 180)),
+              { type: 'status', status: 'slow', duration: 2, magnitude: 0.3 },
+              { type: 'status', status: 'freeze', duration: 1.5, chance: pct(20, 25, 30, 35, 40) },
+            ],
+          },
         ],
       },
     ] as SkillInput['effects'],

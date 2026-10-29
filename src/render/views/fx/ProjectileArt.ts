@@ -54,7 +54,11 @@ const ARTS: Record<string, ProjectileArt> = {
   'utility.poison_knife': arrow('knife', 0x7ed957, 0xdfe6ea, 'drop', 1, 14),
   'utility.grapple_hook': arrow('hook', 0xc8a878, 0xc8ccd4),
   // 設計者要求（2026-10-29）：飛斧要更大、更明顯
-  'utility.throwing_axe': orb('axe', 0xd84848, 0xc8ccd4, 'spark', 1.8, 24),
+  'utility.throwing_axe': orb('axe', 0xd84848, 0xc8ccd4, 'spark', 2.6, 40),
+  // 冰霜新星：在地上滾的巨大冰球
+  'magic.frost_nova': orb('ice', 0x7fd4ff, 0xeaf8ff, 'flake', 3.4, 60),
+  // 霜凍瓶（自動投射器）射出的冰箭
+  'utility.frost_flask': arrow('small', 0x7fd4ff, 0xeaf8ff, 'flake', 1, 18),
   'utility.storm_totem': orb('bolt', 0xf5e663, 0xffffff, 'spark', 1, 50),
   // 投射物指定的外觀（effects 的 look）
   'look.spider': orb('spider', 0x7aff4a, 0xd8ffb0, 'drop', 1.6, 12),

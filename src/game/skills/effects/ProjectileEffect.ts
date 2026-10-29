@@ -39,6 +39,7 @@ export class ProjectileEffect implements IEffect<'projectile'> {
         alive: true,
         mods,
         ...(def.look ? { look: def.look } : {}),
+        ...(def.hitAtEnd ? { hitAtEnd: true } : {}),
       });
     }
   }

@@ -21,7 +21,7 @@ const ROCK = 0x5a4a3a;
 /** 突進類（風壓 + 殘影光帶） */
 const DASH_SKILLS = new Set(['melee.dash_slash', 'utility.shadow_step', 'utility.phantom_rush']);
 /** 由 Three.js 完整畫出、不再畫 Pixi 圖樣的招式 */
-const OWN_IMPACT = new Set(['melee.earth_break', 'magic.thunder_strike', 'magic.storm_core', 'magic.meteor', 'magic.absolute_zero', 'ranged.explosive_arrow', 'magic.flame_burst', 'utility.powder_keg', 'utility.frost_mine', 'utility.flash_powder', 'ranged.rain_of_arrows']);
+const OWN_IMPACT = new Set(['melee.earth_break', 'magic.thunder_strike', 'magic.storm_core', 'magic.meteor', 'magic.absolute_zero', 'ranged.explosive_arrow', 'magic.flame_burst', 'utility.powder_keg', 'utility.frost_mine', 'utility.flash_powder', 'ranged.rain_of_arrows', 'melee.phantom_blades', 'melee.execution_slash', 'melee.launch_slash', 'magic.frost_nova']);
 
 const linear = (hex: number) => new THREE.Color().setHex(hex, THREE.SRGBColorSpace);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -251,6 +251,8 @@ export class ThreeSkillFx implements SkillFxListener {
   /** 隕石（依延遲效果的 id）、持續區域的發射計時 */
   private readonly meteors = new Map<string, THREE.Mesh>();
   private readonly emitTimer = new Map<string, number>();
+  /** 劍刃旋舞的劍風（依區域的 id） */
+  private readonly whirls = new Map<string, THREE.Group>();
   private readonly rockGeo = new THREE.IcosahedronGeometry(1, 0);
   private readonly meteorGeo = (() => {
     const g = new THREE.IcosahedronGeometry(1, 1);
@@ -280,6 +282,7 @@ export class ThreeSkillFx implements SkillFxListener {
     const at = (delay: number, run: () => void) => this.later.push({ at: this.time + Math.max(0, delay), run });
     const id = c.skillId;
     if (id === 'melee.heavy_slash') at(c.impactIn - 0.06, () => this.overheadSlash(c.point, c.direction));
+    else if (id === 'melee.devastator') at(c.impactIn - 0.06, () => this.devastate(c.point, c.direction));
     else if (DASH_SKILLS.has(id)) at(c.impactIn, () => this.dash(c.caster, c.dashTo ?? c.point, c.direction, id === 'utility.shadow_step' ? 0x8a6aff : 0xdfe8ff));
     else if (id === 'ranged.explosive_arrow') this.lobArrow(c.caster, c.point, Math.max(0, c.impactIn - 0.2), c.impactIn + (c.delay ?? 0.25));
     else if (id === 'ranged.execution_shot') this.snipe(c.caster, c.direction, c.impactIn);
@@ -328,6 +331,20 @@ export class ThreeSkillFx implements SkillFxListener {
       case 'ranged.rain_of_arrows':
         this.fallingArrow(p, r);
         return true;
+      case 'melee.phantom_blades':
+        this.phantomSlashes(p);
+        return true;
+      case 'melee.execution_slash':
+        this.executeCross(p);
+        return true;
+      case 'melee.launch_slash':
+        this.updraft(p);
+        return true;
+      case 'magic.frost_nova':
+        this.frostBlast(p, r, 1.9);
+        this.shockRing(p, r * 1.1, ICE);
+        this.debris(p, 14, 2, 0xa8dcf4);
+        return true;
       case 'melee.shield_bash':
         this.coneWave(p, i.direction, r, 0xe8e0c8);
         this.dust(p, 8, r * 0.6);
@@ -373,6 +390,8 @@ export class ThreeSkillFx implements SkillFxListener {
     this.later.length = 0;
     for (const rock of this.meteors.values()) rock.removeFromParent();
     this.meteors.clear();
+    for (const w of this.whirls.values()) w.removeFromParent();
+    this.whirls.clear();
     this.emitTimer.clear();
     this.hookFrom = this.hookAt = null;
     this.glow.clear();
@@ -410,6 +429,11 @@ export class ThreeSkillFx implements SkillFxListener {
   private persistent(glows: readonly FxGlow[], dt: number): void {
     const live = new Set<string>();
     for (const g of glows) {
+      if (g.kind === 'zone' && g.skillId === 'melee.blade_dance') {
+        live.add(g.id);
+        this.whirl(g.id, g.position, g.radius, dt);
+        continue;
+      }
       if (g.kind === 'zone') {
         const rate = g.skillId === 'magic.firewall' ? 120 : g.skillId === 'magic.meteor' ? 70 : g.skillId === 'magic.absolute_zero' ? 26 : 0;
         if (!rate) continue;
@@ -449,6 +473,17 @@ export class ThreeSkillFx implements SkillFxListener {
       }
     }
     for (const id of this.emitTimer.keys()) if (!live.has(id)) this.emitTimer.delete(id);
+    for (const [id, w] of this.whirls) {
+      if (live.has(id)) continue;
+      w.removeFromParent();
+      w.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.geometry.dispose();
+          (o.material as THREE.Material).dispose();
+        }
+      });
+      this.whirls.delete(id);
+    }
     for (const [id, rock] of this.meteors) {
       if (live.has(id)) continue;
       rock.removeFromParent();
@@ -480,6 +515,14 @@ export class ThreeSkillFx implements SkillFxListener {
   /** 電擊：太快看不清楚，沿路留下一串會停留的電光殘影 */
   private sparkTrails(flying: readonly FxFlying[], dt: number): void {
     for (const f of flying) {
+      if (f.skillId === 'magic.frost_nova') {
+        // 滾動的冰球：沿路結霜、冰屑往後飛
+        for (let n = 0; n < Math.ceil(50 * dt); n++) {
+          this.glow.add({ p: this.v3(vec2(f.position.x + rand(-0.4, 0.4), f.position.y + rand(-0.4, 0.4)), rand(0.05, 0.6)), v: new THREE.Vector3(-f.direction.x * rand(0.5, 1.5), rand(0.2, 0.8), -f.direction.y * rand(0.5, 1.5)), gravity: 1, drag: 1.5, life: rand(0.5, 0.9), size: [rand(10, 18), 3], color: [linear(0xffffff), linear(ICE_DARK)], alpha: [0.9, 0] });
+        }
+        if (Math.random() < dt * 6) this.fog(f.position, ICE, 0.35);
+        continue;
+      }
       if (f.skillId !== 'magic.spark') continue;
       for (let n = 0; n < Math.ceil(60 * dt); n++) {
         this.glow.add({ p: this.v3(f.position, 0.6), v: new THREE.Vector3(rand(-0.6, 0.6), rand(-0.3, 0.5), rand(-0.6, 0.6)), gravity: 0, drag: 2, life: rand(0.45, 0.8), size: [rand(14, 22), 3], color: [linear(0xffffff), linear(0xf5e663)], alpha: [1, 0] });
@@ -673,8 +716,127 @@ export class ThreeSkillFx implements SkillFxListener {
     });
   }
 
+  /** 毀滅重擊：從空中重劈單一目標，四周地面炸開、土塊突出、塵土飛揚 */
+  private devastate(at: Vec2, dir: Vec2): void {
+    this.overheadSlash(at, dir);
+    this.later.push({ at: this.time + 0.1, run: () => {
+      this.fanQuake(at, dir, 2.2, 360, 46);
+      this.shockRing(at, 2.6, 0xffd8a0);
+      this.dust(at, 22, 1.6);
+      this.debris(at, 16, 2.6, ROCK);
+    } });
+  }
+
+  /** 面向鏡頭的一道直線刀光：angle 為畫面上的傾斜角（度），由 from 側往另一側掃出 */
+  private slashLine(at: Vec2, height: number, length: number, width: number, angle: number, color: number, life: number, delay = 0): void {
+    const band = this.additivePlane(length, width, this.bandTex, color);
+    const pivot = new THREE.Group();
+    pivot.position.set(at.x, height, at.y);
+    pivot.rotation.y = Math.PI / 4;
+    band.rotation.z = THREE.MathUtils.degToRad(angle);
+    pivot.add(band);
+    band.visible = false;
+    this.addItem(pivot, life + delay, (age) => {
+      const t = age - delay;
+      if (t < 0) return;
+      band.visible = true;
+      // 0.06 秒掃出，之後淡出
+      const k = Math.min(1, t / 0.06);
+      band.scale.x = k;
+      band.material.opacity = t < 0.06 ? 1 : Math.max(0, 1 - (t - 0.06) / (life - 0.06));
+    }, () => {
+      band.geometry.dispose();
+      band.material.dispose();
+    });
+  }
+
+  /** 幻影連斬：左、右、左、右、左快速五刀，每刀帶殘影與火花 */
+  private phantomSlashes(at: Vec2): void {
+    for (let i = 0; i < 5; i++) {
+      const left = i % 2 === 0;
+      const delay = i * 0.09;
+      const angle = (left ? -1 : 1) * rand(28, 40);
+      this.slashLine(at, 0.75 + rand(-0.15, 0.15), 2, 0.22, angle, i === 4 ? 0xffffff : 0xc8b8ff, 0.3, delay);
+      // 幻影殘像：稍微錯開的第二道
+      this.slashLine(at, 0.7, 1.7, 0.4, angle + (left ? -6 : 6), 0x7a5aff, 0.35, delay + 0.02);
+      this.later.push({ at: this.time + delay + 0.04, run: () => this.sparksBurst(at, 0.35, 0xd8c8ff, 8) });
+    }
+    this.later.push({ at: this.time + 0.42, run: () => this.shockRing(at, 1.2, 0xc8b8ff) });
+  }
+
+  /** 處決斬：巨大的紅色 X（先後兩刀），地上也留一個 X，黑煙與紅色火花 */
+  private executeCross(at: Vec2): void {
+    for (const [angle, delay] of [
+      [45, 0],
+      [-45, 0.1],
+    ] as const) {
+      this.slashLine(at, 0.85, 3.2, 0.7, angle, 0xff1830, 0.6, delay);
+      this.slashLine(at, 0.85, 3, 0.2, angle, 0xffffff, 0.45, delay + 0.01);
+    }
+    // 地上的 X：世界座標的 0° / 90° 在等角畫面上正好是兩條斜線
+    for (const a of [0, Math.PI / 2]) {
+      const mark = this.additivePlane(3, 0.35, this.bandTex, 0xc81020);
+      mark.position.set(at.x, 0.04, at.y);
+      mark.rotation.set(-Math.PI / 2, 0, a);
+      this.planeItem(mark, 1.2, (age) => (mark.material.opacity = age < 0.2 ? age / 0.2 : Math.max(0, 1 - (age - 0.2)) * 0.9));
+    }
+    this.later.push({ at: this.time + 0.12, run: () => {
+      this.sparksBurst(at, 0.8, 0xff3040, 30);
+      this.smokePuffs(at, 8, 0.7, 1.2);
+      this.shockRing(at, 1.8, 0xff3040);
+    } });
+  }
+
+  /** 挑空斬：由下往上的月牙刀光，目標腳下一股往上捲的氣流 */
+  private updraft(at: Vec2): void {
+    this.slashLine(at, 0.7, 1.9, 0.35, 70, 0xfff0c8, 0.35);
+    this.dust(at, 10, 0.5);
+    this.shockRing(at, 1, 0xfff0c8);
+    const o = new THREE.Object3D();
+    this.addItem(o, 0.7, (age, dt) => {
+      for (let n = 0; n < Math.ceil(70 * dt); n++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = rand(0.15, 0.45);
+        this.glow.add({ p: this.v3(vec2(at.x + Math.cos(a) * r, at.y + Math.sin(a) * r), rand(0, 0.3)), v: new THREE.Vector3(-Math.sin(a) * 1.5, rand(3, 5) * (1 - age), Math.cos(a) * 1.5), gravity: 0, drag: 1.5, life: rand(0.3, 0.5), size: [rand(8, 13), 2], color: [linear(0xffffff), linear(0xe8dcc0)], alpha: [0.8, 0] });
+      }
+    });
+  }
+
+  /** 劍刃旋舞：繞著身體轉的三道劍風光環（不同高度、不同速度），外圍風線 */
+  private whirl(id: string, at: Vec2, radius: number, dt: number): void {
+    let w = this.whirls.get(id);
+    if (!w) {
+      w = new THREE.Group();
+      for (const [h, r, speed, color] of [
+        [0.45, 0.85, 9, 0xe8f0ff],
+        [0.8, 1, -7, 0xffffff],
+        [1.1, 0.75, 11, 0xc8d8ff],
+      ] as const) {
+        const ring = new THREE.Group();
+        ring.position.y = h;
+        ring.userData.speed = speed;
+        for (let k = 0; k < 2; k++) {
+          const arc = new THREE.Mesh(new THREE.RingGeometry(radius * r * 0.82, radius * r, 32, 1, k * Math.PI, Math.PI * 0.7), new THREE.MeshBasicMaterial({ map: this.bandTex, color: linear(color), blending: THREE.AdditiveBlending, transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide }));
+          arc.rotation.x = -Math.PI / 2;
+          ring.add(arc);
+        }
+        w.add(ring);
+      }
+      this.group.add(w);
+      this.whirls.set(id, w);
+    }
+    w.position.set(at.x, 0, at.y);
+    for (const ring of w.children) ring.rotation.y += (ring.userData.speed as number) * dt;
+    for (let n = 0; n < Math.ceil(40 * dt); n++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = radius * rand(0.6, 1);
+      this.glow.add({ p: this.v3(vec2(at.x + Math.cos(a) * r, at.y + Math.sin(a) * r), rand(0.3, 1.2)), v: new THREE.Vector3(-Math.sin(a) * 6, 0, Math.cos(a) * 6), gravity: 0, drag: 4, life: rand(0.15, 0.3), size: [rand(7, 11), 2], color: [linear(0xffffff), linear(0xc8d8ff)], alpha: [0.8, 0] });
+    }
+    if (Math.random() < dt * 5) this.dust(at, 2, radius * 0.8);
+  }
+
   /** 裂地擊：前方扇形的地面炸開、地裂透光、土塊從地面突出、塵土飛揚 */
-  private fanQuake(at: Vec2, dir: Vec2, radius: number, angleDeg: number): void {
+  private fanQuake(at: Vec2, dir: Vec2, radius: number, angleDeg: number, spikes = 34): void {
     const base = Math.atan2(dir.y, dir.x);
     const span = THREE.MathUtils.degToRad(angleDeg);
     const crack = this.additivePlane(radius * 2, radius * 2, this.crackTex, 0xffb050);
@@ -686,7 +848,7 @@ export class ThreeSkillFx implements SkillFxListener {
     crack.rotation.x = 0;
     this.planeItem(crack, 1.4, (age) => (crack.material.opacity = age < 0.15 ? age / 0.15 : Math.max(0, 1 - (age - 0.15) / 1.25)));
     // 土刺：由近到遠依序從地面竄出
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i < spikes; i++) {
       const a = base + rand(-span / 2, span / 2);
       const d = rand(0.5, radius);
       const p = vec2(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);

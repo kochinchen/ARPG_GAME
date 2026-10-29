@@ -12,6 +12,7 @@ const HEIGHT: Record<string, number> = {
   'utility.frost_mine': 10,
   'utility.storm_totem': 52,
   'utility.powder_keg': 30,
+  'utility.frost_flask': 30,
 };
 /** 召喚物（毒蛛）的外觀高度與血條寬度 */
 const MINION_HEIGHT = 12;
@@ -88,6 +89,9 @@ export class DeviceLayer {
         break;
       case 'utility.powder_keg':
         drawKeg(g, t, device.remaining);
+        break;
+      case 'utility.frost_flask':
+        drawBallista(g, t, device.shotTimer / device.def.interval, actor.facing);
         break;
       default:
         g.circle(0, -6, 8).fill({ color: 0x8a7c68 });
@@ -230,6 +234,45 @@ function drawTotem(g: Graphics, t: number, shotTimer: number): void {
   g.poly([0, top - 12, 6, top - 4, 0, top + 2]).fill({ color: 0xf5e663, alpha: bright });
   g.poly([0, top - 12, -6, top - 4, 0, top + 2]).fill({ color: 0xd8c040, alpha: bright });
   g.circle(0, top - 5, 10 + Math.sin(t * 10) * 1.5).fill({ color: 0xf5e663, alpha: 0.12 + 0.18 * charge });
+}
+
+/** 霜凍瓶的自動投射器：三腳架上的弩，弩臂兩端與箭槽裡的冰晶發藍光；快要射擊時變亮，弩朝向最近的敵人 */
+function drawBallista(g: Graphics, t: number, reload: number, facing: Vec2): void {
+  g.ellipse(0, 0, 13, 6.5).fill({ color: PALETTE.shadow, alpha: 0.4 });
+  // 三腳架
+  for (const [x, y] of [
+    [-10, 2],
+    [10, 2],
+    [0, 6],
+  ] as const) g.moveTo(0, -16).lineTo(x, y).stroke({ color: 0x5a4632, width: 2.5 });
+  g.poly([-4, -14, 4, -14, 3, -20, -3, -20]).fill({ color: 0x6a5438 });
+  // 弩身：依面向（畫面座標）轉向
+  const sx = facing.x - facing.y;
+  const sy = (facing.x + facing.y) / 2;
+  const len = Math.hypot(sx, sy) || 1;
+  const dx = sx / len;
+  const dy = sy / len;
+  const cx = 0;
+  const cy = -21;
+  const tip = { x: cx + dx * 13, y: cy + dy * 13 };
+  const tail = { x: cx - dx * 9, y: cy - dy * 9 };
+  g.moveTo(tail.x, tail.y).lineTo(tip.x, tip.y).stroke({ color: 0x7a6040, width: 4 });
+  // 弩臂（垂直於弩身）
+  const px = -dy;
+  const py = dx;
+  const arm = { x: cx + dx * 6, y: cy + dy * 6 };
+  const bend = 2.5 * (1 - reload);
+  g.moveTo(arm.x + px * 11 - dx * bend, arm.y + py * 11 - dy * bend)
+    .quadraticCurveTo(arm.x + dx * 2, arm.y + dy * 2, arm.x - px * 11 - dx * bend, arm.y - py * 11 - dy * bend)
+    .stroke({ color: 0x8aa8c0, width: 2.5 });
+  // 弦
+  g.moveTo(arm.x + px * 11 - dx * bend, arm.y + py * 11 - dy * bend).lineTo(cx - dx * 2, cy - dy * 2).lineTo(arm.x - px * 11 - dx * bend, arm.y - py * 11 - dy * bend).stroke({ color: 0xdfe8f0, width: 1 });
+  // 冰晶：快要射擊時變亮
+  const charge = 1 - Math.max(0, Math.min(1, reload));
+  const glow = 0.45 + 0.55 * charge;
+  for (const s of [1, -1]) g.circle(arm.x + px * 11 * s, arm.y + py * 11 * s, 2.4).fill({ color: 0xbfeaff, alpha: glow });
+  g.poly([tip.x + dx * 4, tip.y + dy * 4, tip.x + px * 2.5, tip.y + py * 2.5, tip.x - px * 2.5, tip.y - py * 2.5]).fill({ color: 0xeaf8ff, alpha: glow });
+  g.circle(cx, cy, 9 + Math.sin(t * 8)).fill({ color: 0x7fd4ff, alpha: 0.08 + 0.16 * charge });
 }
 
 /** 火藥桶：木桶加鐵箍與引信；剩餘時間越少，引信火花閃得越快 */

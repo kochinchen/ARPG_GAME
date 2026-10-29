@@ -1,5 +1,6 @@
 import type { Rng } from '../../core/Rng';
 import { vec2, type Vec2 } from '../../core/math/Vec2';
+import { rankValue } from '../../data/schema/common';
 import type { DelayedEffectDef, EffectDef, ZoneEffectDef } from '../../data/schema/effects';
 import type { NavGrid } from '../movement/NavGrid';
 import type { TargetingService } from '../targeting/TargetingService';
@@ -16,6 +17,8 @@ export interface Zone {
   timer: number;
   /** 剩餘觸發次數（持續時間 ÷ 間隔），避免浮點誤差多觸發一次 */
   ticksLeft: number;
+  /** 跟著施放者移動（劍刃旋舞） */
+  followCaster: boolean;
   effects: readonly EffectDef[];
 }
 
@@ -45,15 +48,17 @@ export class EffectScheduler implements EffectSchedulerPort {
   ) {}
 
   spawnZone(def: ZoneEffectDef, ctx: EffectContext): void {
+    const duration = rankValue(def.duration, ctx.rank);
     this.zones.push({
       id: this.nextId++,
       ctx: { ...ctx },
       position: ctx.origin,
       radius: def.radius * (1 + ctx.mods.aoeRadius),
-      remaining: def.duration,
+      remaining: duration,
       interval: def.interval,
       timer: 0,
-      ticksLeft: Math.max(1, Math.round(def.duration / def.interval)),
+      ticksLeft: Math.max(1, Math.round(duration / def.interval)),
+      followCaster: def.followCaster,
       effects: def.effects,
     });
   }
@@ -100,6 +105,13 @@ export class EffectScheduler implements EffectSchedulerPort {
 
     for (let i = 0; i < this.zones.length; ) {
       const zone = this.zones[i]!;
+      if (zone.followCaster) {
+        if (!zone.ctx.caster.alive) {
+          this.zones.splice(i, 1);
+          continue;
+        }
+        zone.position = zone.ctx.caster.position;
+      }
       zone.timer -= dt;
       while (zone.timer <= 0 && zone.ticksLeft > 0) {
         zone.timer += zone.interval;

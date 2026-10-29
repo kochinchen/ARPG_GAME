@@ -42,22 +42,22 @@ const original = active.filter((s) => s.tree!.category !== 'utility');
 const oldRules = (id: string) => !NEW_RULES.has(id);
 
 describe('Combo 池（SPEC_v0.4.0 §1.2）', () => {
-  it('基準：36 招、只用原本 19 條規則可觸發 10,139 種排列（SPEC 10,040；差別來自盾擊取代雙重斬）', () => {
+  it('基準：36 招、只用原本 19 條規則可觸發 10,208 種排列（SPEC 10,040；差別來自盾擊取代雙重斬、2026-10-29 冰霜新星改成滾動冰球、毀滅重擊改單體）', () => {
     expect(original).toHaveLength(36);
-    expect(pool(original, oldRules).total).toBe(10139);
+    expect(pool(original, oldRules).total).toBe(10208);
   });
 
-  it('只套武器規則：劍斧 3,491（SPEC 3,490）、弓 3,287、法杖 119', () => {
-    expect(pool(usable('sword', original), oldRules).total).toBe(3491);
-    expect(pool(usable('axe', original), oldRules).total).toBe(3491);
-    expect(pool(usable('bow', original), oldRules).total).toBe(3287);
-    expect(pool(usable('staff', original), oldRules).total).toBe(119);
+  it('只套武器規則：劍斧 3,543（SPEC 3,490）、弓 3,303、法杖 123', () => {
+    expect(pool(usable('sword', original), oldRules).total).toBe(3543);
+    expect(pool(usable('axe', original), oldRules).total).toBe(3543);
+    expect(pool(usable('bow', original), oldRules).total).toBe(3303);
+    expect(pool(usable('staff', original), oldRules).total).toBe(123);
   });
 
-  it('加入戰術 12 招與 5 條新規則：劍斧 11,610（SPEC 10,161）、弓 11,170（9,264）、法杖 3,134（1,943）；打不到的是刻意保留的規則', () => {
-    expect(pool(usable('sword'))).toEqual({ total: 11610, dead: ['標記處決'] });
-    expect(pool(usable('bow'))).toEqual({ total: 11170, dead: ['烈焰終擊', '冰霜重擊', '碎甲'] });
-    expect(pool(usable('staff'))).toEqual({ total: 3134, dead: ['烈焰終擊', '冰霜重擊', '碎甲', '標記處決', '元素處決'] });
+  it('加入戰術 12 招與 5 條新規則：劍斧 11,792（SPEC 10,161）、弓 11,291（9,264）、法杖 3,186（1,943）；打不到的是刻意保留的規則', () => {
+    expect(pool(usable('sword'))).toEqual({ total: 11792, dead: ['標記處決'] });
+    expect(pool(usable('bow'))).toEqual({ total: 11291, dead: ['烈焰終擊', '冰霜重擊', '碎甲'] });
+    expect(pool(usable('staff'))).toEqual({ total: 3186, dead: ['烈焰終擊', '冰霜重擊', '碎甲', '標記處決', '元素處決'] });
   });
 });
 

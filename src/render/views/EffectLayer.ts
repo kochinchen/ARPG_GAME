@@ -104,6 +104,8 @@ export class EffectLayer {
   private readonly telegraphs: Telegraph[] = [];
   private readonly projectileViews = new Map<number, ProjectileView>();
   private readonly zoneViews = new Map<number, Graphics>();
+  /** 區域生成時的畫面位置（跟著施放者移動的區域用來算位移） */
+  private readonly zoneOrigins = new Map<number, { x: number; y: number }>();
   private readonly pendingViews = new Map<number, Graphics>();
   private readonly flashes: { id: number; position: Vec2; color: number; age: number; duration: number; strength: number; radius: number }[] = [];
   private flashId = 0;
@@ -224,9 +226,16 @@ export class EffectLayer {
       let g = this.zoneViews.get(zone.id);
       if (!g) {
         const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
-        g = new Graphics().poly(this.outline(zone.position, zone.radius)).fill({ color, alpha: 0.28 }).stroke({ color, width: 2, alpha: 0.8 });
+        g = new Graphics().poly(this.outline(zone.position, zone.radius)).fill({ color, alpha: zone.followCaster ? 0.1 : 0.28 }).stroke({ color, width: 2, alpha: 0.8 });
         this.ground.addChild(g);
         this.zoneViews.set(zone.id, g);
+        this.zoneOrigins.set(zone.id, this.projection.toScreen(zone.position));
+      }
+      // 跟著施放者移動的區域（劍刃旋舞）：整個圓跟著位移
+      if (zone.followCaster) {
+        const from = this.zoneOrigins.get(zone.id)!;
+        const now = this.projection.toScreen(zone.position);
+        g.position.set(now.x - from.x, now.y - from.y);
       }
       g.alpha = 0.7 + 0.3 * Math.sin(performance.now() / 90 + zone.id);
       // 持續區域一直亮著（火牆、毒池、冰霜地面），亮度隨閃爍起伏
@@ -237,6 +246,7 @@ export class EffectLayer {
       if (seen.has(id)) continue;
       g.destroy();
       this.zoneViews.delete(id);
+      this.zoneOrigins.delete(id);
     }
   }
 
@@ -294,7 +304,8 @@ export class EffectLayer {
         const shadow = new Graphics().ellipse(0, 0, px * 1.2, px * 0.5).fill({ color: 0x000000, alpha: 0.3 });
         const art = new Graphics();
         art.blendMode = 'normal';
-        art.position.set(0, -FLIGHT_HEIGHT);
+        // 冰霜新星的冰球貼著地面滾
+        art.position.set(0, p.skill.id === 'magic.frost_nova' ? -px * 1.6 : -FLIGHT_HEIGHT);
         container.addChild(shadow, art);
         // 物理箭不發光；法術的光球與元素箭會照亮周圍
         const glows = base.type === 'orb' || (element !== null && element !== 'physical');
@@ -316,7 +327,8 @@ export class EffectLayer {
       const d0 = this.projection.toScreen(vec2(0, 0));
       const d1 = this.projection.toScreen(p.direction);
       const angle = Math.atan2(d1.y - d0.y, d1.x - d0.x);
-      view.art.rotation = angle;
+      // 滾動的冰球：一面前進一面轉
+      view.art.rotation = p.skill.id === 'magic.frost_nova' ? angle + view.age * p.speed * 1.5 : angle;
       drawProjectile(view.art.clear(), view.style, view.age, view.special);
       // 拖尾粒子
       const st = view.style;

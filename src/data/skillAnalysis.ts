@@ -28,7 +28,7 @@ export function countHits(effects: readonly EffectDef[]): number {
         hits += (e.jumps + 1) * countHits(e.effects);
         break;
       case 'zone':
-        hits += Math.max(1, Math.round(e.duration / e.interval)) * countHits(e.effects);
+        hits += Math.max(1, Math.round(rankValue(e.duration, 1) / e.interval)) * countHits(e.effects);
         break;
       case 'delayed':
         hits += e.repeat * countHits(e.effects);

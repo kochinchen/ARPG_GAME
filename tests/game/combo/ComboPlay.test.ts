@@ -159,8 +159,8 @@ describe('Combo 加成實際作用在技能上', () => {
     });
     commands.push(castAt(enemiesOf(world)[0]!));
     run(world, 5);
-    // 火球 1 次 + 快斬追加 1 次 + 劍刃旋舞追加 3 次
-    expect(fireHits).toHaveLength(5);
+    // 火球 1 次 + 快斬追加 1 次 + 劍刃旋舞的劍風 Lv1 持續 3 秒、每 0.5 秒一跳，每跳追加 1 次（6 次）
+    expect(fireHits).toHaveLength(8);
   });
 
   it('雷湧：第三招連鎖閃電多跳一次', () => {

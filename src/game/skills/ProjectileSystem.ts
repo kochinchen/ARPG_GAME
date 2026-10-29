@@ -29,7 +29,10 @@ export class ProjectileSystem {
         p.remaining -= step;
         p.position = add(p.position, scale(p.direction, step));
         this.checkHit(p);
-        if (p.alive && p.remaining <= 0) p.alive = false;
+        if (p.alive && p.remaining <= 0) {
+          if (p.hitAtEnd) this.hit(p, null);
+          p.alive = false;
+        }
       }
     }
     for (let i = projectiles.length - 1; i >= 0; i--) {

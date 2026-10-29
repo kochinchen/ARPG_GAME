@@ -82,6 +82,8 @@ export const StatusEffectSchema = z.strictObject({
   physicalMagnitude: RankNumberSchema.default(0),
   /** 觸發機率 */
   chance: RankNumberSchema.default(1),
+  /** 同一個目標最多疊幾層（每層各自計時、各自結算；1 = 不疊層，重新命中刷新）。中毒固定最多 3 層 */
+  maxStacks: z.int().positive().default(1),
 });
 
 /** 把目標往遠離效果中心的方向推開 */
@@ -121,6 +123,8 @@ export const ProjectileEffectSchema = z.strictObject({
   pierce: RankNumberSchema.default(0),
   /** 自動修正方向：此角度內有敵人時改朝最近的敵人發射 */
   aimAssistDeg: z.number().nonnegative().default(0),
+  /** 飛完全程（沒撞到東西）時也在終點觸發 onHit（在地上滾的冰球） */
+  hitAtEnd: z.boolean().default(false),
   /** 投射物的外觀（省略 = 依技能與元素）：spider = 爬行的毒蛛 */
   look: z.enum(['spider']).optional(),
   get onHit() {
@@ -161,8 +165,11 @@ export const ChainEffectSchema = z.strictObject({
 export const ZoneEffectSchema = z.strictObject({
   type: z.literal('zone'),
   radius: z.number().positive(),
-  duration: z.number().positive(),
+  /** 持續時間（秒，可依等級成長） */
+  duration: RankNumberSchema,
   interval: z.number().positive(),
+  /** 區域跟著施放者移動（劍刃旋舞的劍風）；施放者死亡時消失 */
+  followCaster: z.boolean().default(false),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },

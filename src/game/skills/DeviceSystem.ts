@@ -181,7 +181,10 @@ export class DeviceSystem {
       return;
     }
     device.shotTimer += device.def.interval;
-    this.fire(actor, device.def.onShot, target, normalize(sub(target.position, actor.position)));
+    const direction = normalize(sub(target.position, actor.position));
+    // 朝目標轉向（投射器的弩跟著轉）
+    actor.facing = direction;
+    this.fire(actor, device.def.onShot, target, direction);
     if (--device.shotsLeft <= 0) {
       this.fire(actor, device.def.onExpire, null);
       this.vanish(actor);

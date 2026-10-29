@@ -13,7 +13,7 @@ export const skillComboTags: Record<string, ComboInfo> = {
   'melee.armor_break': { range: 'Near', action: ['Heavy'], damage: ['Physical'], control: ['ArmorBreak'], role: 'Setup' },
   'melee.earth_break': { range: 'Near', action: ['Heavy', 'AoE'], damage: ['Physical'], control: ['Knockback'], role: 'Finisher' },
   // 保留「對破甲目標加傷」的原始效果，因此不帶 Execute
-  'melee.devastator': { range: 'Near', action: ['Heavy', 'AoE', 'Impact'], damage: ['Physical'], role: 'Finisher' },
+  'melee.devastator': { range: 'Near', action: ['Heavy', 'Impact'], damage: ['Physical'], role: 'Finisher' },
   // ── Melee · Combo ──
   'melee.quick_slash': { range: 'Near', action: ['Fast'], damage: ['Physical'], role: 'Starter' },
   // 盾擊（取代雙重斬）
@@ -51,7 +51,7 @@ export const skillComboTags: Record<string, ComboInfo> = {
   // ── Magic · Ice ──
   'magic.ice_orb': { range: 'Far', action: ['Projectile'], damage: ['Ice'], element: ['Ice'], control: ['Slow'], role: 'Setup' },
   'magic.ice_lance': { range: 'Far', action: ['Projectile', 'Pierce'], damage: ['Ice'], element: ['Ice'], role: 'Finisher' },
-  'magic.frost_nova': { range: 'Near', action: ['AoE'], damage: ['Ice'], element: ['Ice'], control: ['Freeze', 'Slow'], role: 'Setup' },
+  'magic.frost_nova': { range: 'Near', action: ['Projectile', 'AoE'], damage: ['Ice'], element: ['Ice'], control: ['Freeze', 'Slow'], role: 'Setup' },
   'magic.absolute_zero': { range: 'Near', action: ['AoE', 'Burst'], damage: ['Ice'], element: ['Ice'], control: ['Freeze'], role: 'Finisher' },
   // ── Magic · Lightning ──
   'magic.spark': { range: 'Far', action: ['Projectile', 'Fast'], damage: ['Lightning'], element: ['Lightning'], role: 'Starter' },
@@ -70,7 +70,7 @@ export const skillComboTags: Record<string, ComboInfo> = {
   'utility.powder_keg': { range: 'Far', action: ['AoE', 'Burst', 'Heavy'], damage: ['Fire'], element: ['Fire'], control: ['Knockback'], role: 'Setup' },
   // ── Utility · 投擲 ──
   'utility.poison_knife': { range: 'Mid', action: ['Fast', 'Projectile'], damage: ['Physical'], role: 'Starter' },
-  'utility.frost_flask': { range: 'Mid', action: ['AoE'], damage: ['Ice'], element: ['Ice'], control: ['Slow'], role: 'Setup' },
+  'utility.frost_flask': { range: 'Far', action: ['Projectile', 'MultiHit'], damage: ['Ice'], element: ['Ice'], role: 'Amplifier' },
   'utility.throwing_axe': { range: 'Mid', action: ['Heavy', 'Projectile', 'Pierce'], damage: ['Physical'], role: 'Amplifier' },
   'utility.flash_powder': { range: 'Mid', action: ['AoE'], control: ['Expose'], role: 'Setup' },
 };

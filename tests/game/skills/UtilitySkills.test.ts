@@ -118,15 +118,17 @@ describe('戰術 · 投擲', () => {
     expect(statusCount(near, 'poison')).toBe(3);
   });
 
-  it('霜凍瓶：落在游標處，範圍內的敵人受到冰霜傷害並緩速', () => {
-    const { world, commands } = setup([dummyAt(5.5, 2.5), dummyAt(6.5, 2.5), dummyAt(12.5, 4.5)]);
-    const [a, b, far] = enemiesOf(world);
-    cast(world, commands, 'utility.frost_flask', 1, { x: 6, y: 2.5 }, 1);
-    for (const e of [a!, b!]) {
-      expect(hurt(e)).toBe(true);
-      expect(e.hasStatus('slow')).toBe(true);
-    }
-    expect(hurt(far!)).toBe(false);
+  it('霜凍瓶（設計者 2026-10-29 改為自動投射器）：放在游標處，每 0.5 秒朝最近的敵人射一支冰箭，持續 20 秒', () => {
+    const { world, commands, events } = setup([dummyAt(6.5, 2.5)]);
+    const dummy = enemiesOf(world)[0]!;
+    let arrows = 0;
+    events.on('ActorDamaged', (e) => {
+      if (e.targetId === dummy.id && e.element === 'cold') arrows++;
+    });
+    cast(world, commands, 'utility.frost_flask', 5, { x: 4, y: 2.5 }, 3);
+    // 3 秒約 6 支
+    expect(arrows).toBeGreaterThanOrEqual(5);
+    expect(arrows).toBeLessThanOrEqual(7);
   });
 
   it('擲斧：Lv5 三把扇形、每把穿透 2 個，一排三隻都流血', () => {
@@ -135,8 +137,19 @@ describe('戰術 · 投擲', () => {
     cast(world, commands, 'utility.throwing_axe', 5, row[2]!, 1);
     for (const e of row) {
       expect(hurt(e)).toBe(true);
-      expect(statusCount(e, 'bleed')).toBe(1);
+      expect(statusCount(e, 'bleed')).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  it('擲斧的流血（設計者 2026-10-29）：3 秒共 60%～120% 武器傷害，可以疊加（最多 5 層）', () => {
+    const { world, commands } = setup([dummyAt(3, 1.5)]);
+    const dummy = enemiesOf(world)[0]!;
+    dummy.stats.addModifier({ stat: 'maxHp', kind: 'flat', value: 1e6, source: 'test' });
+    dummy.hp = dummy.maxHp;
+    for (let i = 0; i < 7; i++) cast(world, commands, 'utility.throwing_axe', 1, dummy, 0.4);
+    expect(statusCount(dummy, 'bleed')).toBe(5);
+    const bleed = dummy.statuses.find((s) => s.kind === 'bleed')!;
+    expect(bleed.magnitude).toBeCloseTo(0.6);
   });
 
   it('閃光粉：落地範圍弱化 20 秒；Lv1 全元素 −7.5%，Lv4 起也降低物理抗性；30 魔力、冷卻 30 秒', () => {
@@ -220,8 +233,8 @@ describe('戰術 · 攻擊力（武器傷害與法術強度取高）', () => {
     // 直接傷害 20% × 法術強度 200（±20%）＝ 32～48，不是武器傷害的 0～1
     expect(hits[0]!).toBeGreaterThanOrEqual(32);
     expect(hits[0]!).toBeLessThanOrEqual(48);
-    // 毒：200 × 40% / 5 秒 = 每秒 16
+    // 毒：200 × 60% / 5 秒 = 每秒 24
     const poison = dummy.statuses.find((s) => s.kind === 'poison')!;
-    expect(poison.dps).toBeCloseTo(16);
+    expect(poison.dps).toBeCloseTo(24);
   });
 });

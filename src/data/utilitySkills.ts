@@ -232,7 +232,7 @@ const throwables: SkillInput[] = [
   {
     id: 'utility.poison_knife',
     name: '淬毒飛刀',
-    description: '直線擲出淬毒飛刀，命中使敵人中毒（最多 3 層）。近身時多把飛刀可以命中同一個敵人；可以當左鍵使用。',
+    description: '直線擲出淬毒飛刀，命中使敵人中毒：5 秒內共 60%～200% 武器傷害（隨技能等級增加，最多 3 層）。近身時多把飛刀可以命中同一個敵人；可以當左鍵使用。',
     tree: { category: 'utility', tier: 1, branch: 'C' },
     targeting: 'direction',
     castTime: 0.2,
@@ -248,7 +248,8 @@ const throwables: SkillInput[] = [
         spreadDeg: 12,
         onHit: [
           { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(20, 23, 26, 29, 32) },
-          { type: 'status', status: 'poison', magnitude: pct(40, 50, 60, 70, 80), duration: 5 },
+          // 設計者調整（2026-10-29）：中毒總量 40%～80% → 60%～200%
+          { type: 'status', status: 'poison', magnitude: pct(60, 95, 130, 165, 200), duration: 5 },
         ],
       },
     ],
@@ -256,25 +257,30 @@ const throwables: SkillInput[] = [
   {
     id: 'utility.frost_flask',
     name: '霜凍瓶',
-    description: '拋出霜凍瓶，落地碎裂，範圍內的敵人受到冰霜傷害並緩速。',
+    description: '放下一座自動投射器，每 0.5 秒朝最近的敵人射出一支冰箭（10%～20% 武器冰寒傷害，隨技能等級增加），持續 20 秒。',
     tree: { category: 'utility', tier: 2, branch: 'C' },
     targeting: 'ground',
     range: 6,
     castTime: 0.2,
     cost: { mana: 7 },
-    tags: ['utility', 'area'],
+    tags: ['utility', 'device'],
+    // 設計者調整（2026-10-29）：原本是落地碎裂的冰霜範圍，改成自動投射器
     effects: [
       {
-        type: 'delayed',
-        delay: 0.45,
-        effects: [
+        type: 'device',
+        behavior: 'turret',
+        hpPct: 0.15,
+        duration: 20,
+        interval: 0.5,
+        shots: 40,
+        range: 7,
+        onShot: [
           {
-            type: 'area',
-            radius: [1.6, 1.7, 1.8, 1.9, 2],
-            effects: [
-              { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: pct(50, 60, 70, 80, 90) },
-              { type: 'status', status: 'slow', magnitude: pct(30, 35, 40, 45, 50), duration: [3, 3, 3.5, 3.5, 4] },
-            ],
+            type: 'projectile',
+            speed: 16,
+            radius: 0.15,
+            range: 7,
+            onHit: [{ type: 'damage', element: 'cold', scaling: 'weapon', multiplier: pct(10, 12.5, 15, 17.5, 20) }],
           },
         ],
       },
@@ -283,7 +289,7 @@ const throwables: SkillInput[] = [
   {
     id: 'utility.throwing_axe',
     name: '擲斧',
-    description: '扇形擲出飛斧，穿透敵人並造成流血，適合掃過一排敵人。',
+    description: '扇形擲出飛斧，穿透敵人並造成流血：3 秒內共 60%～120% 武器傷害（物理、每秒結算、可暴擊、可疊加最多 5 層），適合掃過一排敵人。',
     tree: { category: 'utility', tier: 3, branch: 'C' },
     targeting: 'direction',
     castTime: 0.35,
@@ -300,7 +306,8 @@ const throwables: SkillInput[] = [
         pierce: [1, 1, 1, 1, 2],
         onHit: [
           { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: pct(45, 50, 55, 60, 65) },
-          { type: 'status', status: 'bleed', magnitude: pct(40, 50, 60, 70, 80), duration: 5 },
+          // 設計者調整（2026-10-29）：流血 5 秒共 40%～80% → 3 秒共 60%～120%，可疊加
+          { type: 'status', status: 'bleed', magnitude: pct(60, 75, 90, 105, 120), duration: 3, maxStacks: 5 },
         ],
       },
     ],

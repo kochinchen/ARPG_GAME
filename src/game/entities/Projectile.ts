@@ -28,4 +28,6 @@ export interface Projectile {
   mods: Readonly<StepMods>;
   /** 特別的外觀（只影響畫面） */
   look?: ProjectileEffectDef['look'];
+  /** 飛完全程時在終點觸發 onHit */
+  hitAtEnd?: boolean;
 }

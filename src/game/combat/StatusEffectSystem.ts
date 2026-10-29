@@ -45,7 +45,7 @@ export class StatusEffectSystem {
     return Math.min(this.maxControlResist, Math.max(0, actor.stats.get(stat)));
   }
 
-  apply(target: Actor, kind: StatusKind, duration: number, magnitude: number, source: Actor | null, physicalMagnitude = 0, skillId?: string): void {
+  apply(target: Actor, kind: StatusKind, duration: number, magnitude: number, source: Actor | null, physicalMagnitude = 0, skillId?: string, maxStacks = 1): void {
     if (!target.alive || duration <= 0) return;
     if (kind === 'freeze' && target.isBoss) {
       kind = 'slow';
@@ -58,9 +58,10 @@ export class StatusEffectSystem {
     const dps = dotDps(kind, source, duration, magnitude);
     const instance: StatusInstance = { kind, remaining: duration, magnitude, source, dps, tickTimer: DOTS[kind]?.tick ?? 0, physicalMagnitude };
     const existing = target.statuses.find((s) => s.kind === kind);
-    if (kind === 'poison') {
-      const stacks = target.statuses.filter((s) => s.kind === 'poison');
-      if (stacks.length < POISON_MAX_STACKS) target.statuses.push(instance);
+    const stackCap = kind === 'poison' ? POISON_MAX_STACKS : maxStacks;
+    if (stackCap > 1) {
+      const stacks = target.statuses.filter((s) => s.kind === kind);
+      if (stacks.length < stackCap) target.statuses.push(instance);
       else {
         // 滿層：刷新最快到期的一層（保留它的結算進度；若直接取代，連續施放時每層都撐不到第一跳）
         const oldest = stacks.reduce((a, b) => (b.remaining < a.remaining ? b : a));

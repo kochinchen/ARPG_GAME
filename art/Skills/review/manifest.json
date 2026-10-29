@@ -52,8 +52,8 @@
   "id": "melee.blade_dance",
   "name": "劍刃旋舞",
   "category": "melee",
-  "description": "360° 迴旋，三段攻擊周圍敵人。",
-  "frames": 13
+  "description": "捲起一股繞著身體旋轉的劍風，持續 3～7 秒，每秒對周圍敵人造成 30%～40% 武器傷害（隨技能等級增加）。",
+  "frames": 37
  },
  {
   "id": "melee.launch_slash",
@@ -66,7 +66,7 @@
   "id": "melee.devastator",
   "name": "毀滅重擊",
   "category": "melee",
-  "description": "以目標為中心的大範圍重擊；對破甲目標額外傷害。",
+  "description": "對單一目標從空中重劈，四周地面炸開；對破甲目標額外傷害。",
   "frames": 13
  },
  {
@@ -199,7 +199,7 @@
   "id": "magic.ice_lance",
   "name": "冰槍",
   "category": "magic",
-  "description": "高速直線攻擊，可穿透 1 名敵人；對緩速中的敵人暴擊率 +25%。",
+  "description": "高速直線攻擊，可穿透 1 名敵人；對緩速中的敵人暴擊率 +25%。3 級起一次 2 支、5 級 3 支（扇形）。",
   "frames": 16
  },
  {
@@ -220,8 +220,8 @@
   "id": "magic.frost_nova",
   "name": "冰霜新星",
   "category": "magic",
-  "description": "周圍範圍傷害並緩速，有機率冰凍敵人。",
-  "frames": 13
+  "description": "射出一顆在地上滾的巨大冰球，撞到牆壁或敵人（或滾完 12 格）時炸開：周圍範圍傷害並緩速，有機率冰凍敵人。",
+  "frames": 23
  },
  {
   "id": "magic.thunder_strike",
@@ -269,7 +269,7 @@
   "id": "utility.poison_knife",
   "name": "淬毒飛刀",
   "category": "utility",
-  "description": "直線擲出淬毒飛刀，命中使敵人中毒（最多 3 層）。近身時多把飛刀可以命中同一個敵人；可以當左鍵使用。",
+  "description": "直線擲出淬毒飛刀，命中使敵人中毒：5 秒內共 60%～200% 武器傷害（隨技能等級增加，最多 3 層）。近身時多把飛刀可以命中同一個敵人；可以當左鍵使用。",
   "frames": 15
  },
  {
@@ -290,8 +290,8 @@
   "id": "utility.frost_flask",
   "name": "霜凍瓶",
   "category": "utility",
-  "description": "拋出霜凍瓶，落地碎裂，範圍內的敵人受到冰霜傷害並緩速。",
-  "frames": 16
+  "description": "放下一座自動投射器，每 0.5 秒朝最近的敵人射出一支冰箭（10%～20% 武器冰寒傷害，隨技能等級增加），持續 20 秒。",
+  "frames": 42
  },
  {
   "id": "utility.grapple_hook",
@@ -305,13 +305,13 @@
   "name": "雷電圖騰",
   "category": "utility",
   "description": "豎起雷電圖騰，每秒朝最近的敵人射出一道穿透所有敵人的閃電（吃法術強度）。",
-  "frames": 10
+  "frames": 43
  },
  {
   "id": "utility.throwing_axe",
   "name": "擲斧",
   "category": "utility",
-  "description": "扇形擲出飛斧，穿透敵人並造成流血，適合掃過一排敵人。",
+  "description": "扇形擲出飛斧，穿透敵人並造成流血：3 秒內共 60%～120% 武器傷害（物理、每秒結算、可暴擊、可疊加最多 5 層），適合掃過一排敵人。",
   "frames": 16
  },
  {

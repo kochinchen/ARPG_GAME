@@ -1,6 +1,6 @@
 import { Application, Container, type WebGLRenderer } from 'pixi.js';
 import { IsoProjection } from '../core/math/IsoProjection';
-import { rotate, vec2, type Vec2 } from '../core/math/Vec2';
+import { normalize, rotate, vec2, type Vec2 } from '../core/math/Vec2';
 import { DataRegistry } from '../data/DataRegistry';
 import { gameData } from '../data';
 import type { EffectDef } from '../data/schema/effects';
@@ -187,9 +187,10 @@ class Show {
           this.schedule(e.onHit, hit, d, end);
         }
       } else if (e.type === 'zone') {
-        const z = { id: this.nextId++, position: origin, radius: e.radius, effects: e.effects, from: time, to: time + e.duration, ctx: { skill: { id: this.skill.id } } };
+        const duration = typeof e.duration === 'number' ? e.duration : e.duration[0];
+        const z = { id: this.nextId++, position: origin, radius: e.radius, effects: e.effects, from: time, to: time + duration, ctx: { skill: { id: this.skill.id } } };
         this.zones.push(z);
-        this.at(Math.min(time + e.duration, time + 2.4), () => {});
+        this.at(Math.min(time + duration, time + 2.4), () => {});
       } else if (e.type === 'delayed') {
         for (let k = 0; k < e.repeat; k++) {
           const a = Math.random() * Math.PI * 2;
@@ -210,6 +211,13 @@ class Show {
         });
       } else if (e.type === 'damage') {
         this.at(time, () => this.dummy.hit());
+      } else if (e.type === 'device' && e.behavior === 'turret') {
+        // 圖騰、投射器：放下後朝目標連射幾發（機關本體只在遊戲裡畫）
+        const shots = Math.min(6, Array.isArray(e.shots) ? e.shots[0]! : (e.shots as number));
+        // 放在主角身旁（落點就是假人的位置，從那裡射看不出來）
+        const at = vec2(CASTER.x + 1.2, CASTER.y - 0.6);
+        const toTarget = normalize(vec2(TARGET.x - at.x, TARGET.y - at.y));
+        for (let k = 0; k < shots; k++) this.schedule(e.onShot, at, toTarget, time + 0.3 + k * e.interval);
       } else if (e.type === 'device') {
         // 機關（地雷、火藥桶）：放下 0.8 秒後引爆，看爆炸的樣子
         const blast = e.onTrigger.length ? e.onTrigger : e.onDestroy.length ? e.onDestroy : e.onExpire;

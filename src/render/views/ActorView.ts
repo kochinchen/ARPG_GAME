@@ -20,7 +20,7 @@ const BAR_Y = -66;
 /** 揮擊時往目標方向前衝的距離（px）與時間（秒） */
 const LUNGE_DISTANCE = 7;
 /** 浮空時身體被挑起的高度（像素） */
-const AIRBORNE_LIFT = 16;
+const AIRBORNE_LIFT = 30;
 const LUNGE_DURATION = 0.15;
 /** 超過這個速度（px / 秒）視為在移動（播放跑步動作） */
 const MOVING_SPEED = 8;

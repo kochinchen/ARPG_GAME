@@ -457,7 +457,10 @@ describe('世界裂痕（實際連段施放）', () => {
   });
 
   it('最後一招不是重擊（冰霜新星 → 快斬 → 劍刃旋舞 = 元素附刃）：只有 Combo 的大範圍震波', () => {
-    expect(castQ(['magic.frost_nova', 'melee.quick_slash', 'melee.blade_dance'])).toEqual({ big: 1, bigSpecial: 1, small: 0, smallSpecial: 0 });
+    // 劍刃旋舞的劍風持續 3 秒，每跳都算第三招命中：大範圍震波每 0.8 秒（冷卻）一次
+    const waves = castQ(['magic.frost_nova', 'melee.quick_slash', 'melee.blade_dance']);
+    expect(waves.big).toBeGreaterThanOrEqual(1);
+    expect(waves).toEqual({ big: waves.big, bigSpecial: waves.big, small: 0, smallSpecial: 0 });
   });
 
   it('含中距離技能（突進斬），或三招沒有組成 Combo：不會觸發', () => {
