@@ -2,7 +2,8 @@
  * Composition Root：唯一可以 import 所有模組並把它們接在一起的地方。
  * 初始化順序見 docs/ARCHITECTURE.md 第 J 節。
  */
-import { Application } from 'pixi.js';
+import { Application, type WebGLRenderer } from 'pixi.js';
+import type { ThreeWorld } from './render/three/ThreeWorld';
 import { createApp, reactive } from 'vue';
 import { DataRegistry } from './data/DataRegistry';
 import { gameData } from './data';
@@ -112,7 +113,12 @@ async function bootstrap(): Promise<void> {
   const host = document.getElementById('game');
   if (!host) throw new Error('#game not found');
   const app = new Application();
+  // Three.js 畫法（試驗）：開發版按 G 切換；正式版網址加 ?three 直接開啟
+  const threeParam = new URLSearchParams(location.search).has('three');
+  const threeAvailable = import.meta.env.DEV || threeParam;
   await app.init({
+    // Three.js 要與 Pixi 共用 WebGL（不能用 WebGPU）
+    preference: 'webgl',
     resizeTo: host,
     background: PALETTE.background,
     antialias: true,
@@ -123,7 +129,19 @@ async function bootstrap(): Promise<void> {
 
   const projection = new IsoProjection();
   const camera = new Camera(projection);
-  const renderer = new Renderer(app, projection, world, camera, data);
+  let three: ThreeWorld | null = null;
+  if (threeAvailable) {
+    const { ThreeWorld } = await import('./render/three/ThreeWorld');
+    three = new ThreeWorld(app.canvas, (app.renderer as WebGLRenderer).gl, projection);
+    // 建立 Three.js 時改過 WebGL 的狀態：Pixi 記得的狀態要重設，否則一開始的 Pixi 畫法畫不出來
+    app.renderer.resetState();
+    // 每一幀改由 Renderer.present 分次畫（Pixi 地板 → Three.js → Pixi 其他）
+    app.ticker.remove(app.render, app);
+    // ticker 沒有任何監聽者時會停下來，deltaMS / lastTime / FPS 就不再更新（Renderer 的動畫時間、走路速度都用它）
+    app.ticker.add(() => {});
+  }
+  const renderer = new Renderer(app, projection, world, camera, data, three);
+  if (threeParam) renderer.toggleThree();
   displayBridge.connect((s) => (renderer.showHelmet = s.showHelmet));
   displayBridge.connectMap({ toggle: () => renderer.toggleMap(), setRightInset: (px) => (renderer.minimapRightInset = px) });
   // 預覽區是 UI 的畫面座標：換算成畫布座標
@@ -269,6 +287,7 @@ async function bootstrap(): Promise<void> {
     onDebugReset: () => {
       if (window.confirm('重置遊戲？目前的角色進度與存檔會全部刪除。')) newCharacter();
     },
+    onDebugToggleThree: () => renderer.toggleThree(),
   });
 
   loop.start({ now }, (cb) => requestAnimationFrame(cb));

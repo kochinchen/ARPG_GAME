@@ -12,6 +12,7 @@ import { WeaponGlowView } from './WeaponGlowView';
 import { mountFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
 import type { OutfitParts } from '../figure/gear/ArmorLooks';
 import { PALETTE, STATUS_TINTS } from '../palette';
+import type { ThreeFigure, ThreeWorld } from '../three/ThreeWorld';
 
 const BAR_WIDTH = 40;
 const BAR_Y = -66;
@@ -63,6 +64,8 @@ export class ActorView {
   private readonly shadow: Graphics;
   private readonly dynamicShadow: boolean;
   private lungeDir = { x: 0, y: 0 };
+  /** Three.js 畫法（試驗）的模型；null = Pixi 多邊形 */
+  private three: ThreeFigure | null = null;
   hovered = false;
   /** 模型剛開始待機怒吼（Renderer 讀取後清除） */
   roared = false;
@@ -146,6 +149,21 @@ export class ActorView {
     this.figure.setOutfit(parts);
   }
 
+  /** 切換 Three.js 畫法（null = 回到 Pixi）：Three.js 有真正的影子，腳下的橢圓影子不畫 */
+  setThree(world: ThreeWorld | null): void {
+    if (!!world === !!this.three) return;
+    this.three?.dispose();
+    this.three = world?.createFigure() ?? null;
+    this.figure.sink = this.three;
+    this.shadow.visible = !this.three;
+  }
+
+  /** 移除角色時呼叫 */
+  destroy(): void {
+    this.setThree(null);
+    this.container.destroy({ children: true });
+  }
+
   /** 受到傷害 */
   hit(): void {
     this.figure.hit();
@@ -170,6 +188,7 @@ export class ActorView {
     this.container.zIndex = this.projection.depth(position);
     this.container.visible = visible;
     if (!visible) {
+      this.three?.place(position, s, 0, 0xffffff, 1, false);
       this.lastScreen = null;
       this.lastWorld = null;
       return;
@@ -202,6 +221,7 @@ export class ActorView {
     this.body.tint = STATUS_TINTS.find(([kind]) => actor.statuses.some((st) => st.kind === kind))?.[1] ?? 0xffffff;
     this.container.alpha = actor.alive ? 1 : 0.6;
     this.facingMark.visible = actor.alive;
+    this.three?.place(position, { x: this.body.position.x, y: this.body.position.y + this.lift }, this.lift, this.body.tint, this.container.alpha * this.body.alpha, true);
 
     // 精英怪的名稱（含詞綴）一直顯示
     this.nameLabel.visible = actor.alive && this.isEnemy && (this.hovered || this.isElite);

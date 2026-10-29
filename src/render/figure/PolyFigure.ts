@@ -61,6 +61,16 @@ interface Action {
   variant?: AttackVariant;
 }
 
+/**
+ * Three.js 畫法（試驗）：draw() 不投影、不畫 Pixi，把這一幀的每個三角形交給 sink。
+ * 頂點是乘上畫面縮放後的模型座標（像素單位，腳底為原點）；顏色是未打光的原色，明暗交給 Three.js 的光源。
+ */
+export type TriangleSink = {
+  begin(): void;
+  triangle(a: V3, b: V3, c: V3, color: number): void;
+  end(): void;
+};
+
 /** 除錯疊圖（樣態預覽 ?debug=joints,bones,edges,pivot,facing,anchor） */
 export interface FigureDebug {
   joints?: boolean;
@@ -81,6 +91,8 @@ export class PolyFigure {
   /** 所有角色共用的光影（viewer 的 ?light= 試驗用）；null = 照各模型的 lighting */
   static lighting: FigureModel['lighting'] | null = null;
   readonly graphics = new Graphics();
+  /** 設定後改用 Three.js 畫（見 TriangleSink）；null = Pixi 多邊形 */
+  sink: TriangleSink | null = null;
   private time = 0;
   private runPhase = 0;
   private current: Pose;
@@ -269,8 +281,18 @@ export class PolyFigure {
     this.weaponTip = null;
     this.weaponAxis = null;
     const mode = PolyFigure.lighting ?? this.model.lighting ?? 'normal';
+    const sink = this.sink;
+    const scaled = (v: V3): V3 => [v[0] * k, v[1] * k, v[2] * k];
+    sink?.begin();
     /** 一個面：背面剔除、依光線上色、記下深度（之後由遠到近畫） */
     const emit = (verts: readonly V3[], idx: readonly number[], faceColor: number, base?: number) => {
+      if (sink) {
+        // 不做背面剔除（背面也要投射陰影）
+        const color = mode === 'normal' ? faceColor : (base ?? faceColor);
+        const a = scaled(verts[idx[0]!]!);
+        for (let i = 1; i < idx.length - 1; i++) sink.triangle(a, scaled(verts[idx[i]!]!), scaled(verts[idx[i + 1]!]!), color);
+        return;
+      }
       const n = normalize(faceNormal(verts, idx));
       const facingView = dot(n, VIEW);
       if (facingView <= 0) return;
@@ -335,6 +357,11 @@ export class PolyFigure {
       });
     }
     if (this.model.dynamicShadow) this.shadow = footprint([world.get('footL')?.p, world.get('footR')?.p, world.get('head')?.p], world.get('root')!.p, toScreen, k);
+    if (sink) {
+      sink.end();
+      this.graphics.clear();
+      return;
+    }
     faces.sort((a, b) => a.depth - b.depth);
     const g = this.graphics.clear();
     for (const f of faces) g.poly(f.points).fill({ color: f.color });

@@ -1,4 +1,4 @@
-import { detail, facetize, knob, tone } from './Facets';
+import { detail, facetize, knob, subdivide, tone } from './Facets';
 import type { FigureModel, Pose } from './FigureModel';
 import { box, orient, type Face, type Mesh, type V3 } from './Poly3D';
 
@@ -36,7 +36,8 @@ const T = 2.2;
 const SKIRT = 2.4;
 const ARCH = 6.5;
 
-const faceted = (mesh: Mesh, colors: readonly number[], seed: number, bump = 0.06) => facetize(tone(mesh, colors, seed), bump, seed);
+/** levels：先加密幾次（大塊的木板、箱蓋），面更細 */
+const faceted = (mesh: Mesh, colors: readonly number[], seed: number, bump = 0.06, levels = 0) => facetize(tone(subdivide(mesh, levels, levels ? 0.02 : 0, seed), colors, seed), bump, seed);
 
 /** 一面牆：三片水平木板（前後略為錯開，看得出板縫） */
 function wall(width: number, thick: number, axis: 'x' | 'z', offset: number, colors: readonly number[], seed: number): Mesh[] {
@@ -47,7 +48,7 @@ function wall(width: number, thick: number, axis: 'x' | 'z', offset: number, col
     const w = width - 0.3;
     const h = plank - 0.35;
     const m = axis === 'z' ? box(w, h, thick, colors[0]!, [0, y, offset + jitter]) : box(thick, h, w, colors[0]!, [offset + jitter, y, 0]);
-    return faceted(m, colors, seed + i * 5);
+    return faceted(m, colors, seed + i * 5, 0.06, 1);
   });
 }
 
@@ -78,7 +79,7 @@ function arch(x0: number, x1: number, r: number, height: number, yBase: number, 
     for (let i = 0; i < segments; i++) faces.push({ idx: [center, i * 2 + side, (i + 1) * 2 + side], color });
   }
   faces.push({ idx: [0, 1, segments * 2 + 1, segments * 2], color });
-  return tone(orient({ verts, faces }), colors, seed);
+  return facetize(tone(orient({ verts, faces }), colors, seed), 0.05, seed);
 }
 
 function chestParts(p: Palette): FigureModel['parts'] {
@@ -86,7 +87,7 @@ function chestParts(p: Palette): FigureModel['parts'] {
   const rivet = (c: V3, i: number) => knob(0.55, c, p.metal, 40 + i);
   const body: Mesh[] = [
     // 底座與內部底板
-    faceted(box(W + 1.6, 2, D + 1.6, p.woodDark[0]!, [0, 1, 0]), p.woodDark, 1),
+    faceted(box(W + 1.6, 2, D + 1.6, p.woodDark[0]!, [0, 1, 0]), p.woodDark, 1, 0.06, 1),
     box(W - T * 2, 0.6, D - T * 2, p.inside, [0, 2.3, 0]),
     // 四面牆（前後長、左右短）
     ...wall(W, T, 'z', D / 2 - T / 2, p.wood, 2),
@@ -141,11 +142,11 @@ function chestParts(p: Palette): FigureModel['parts'] {
   const zc = D / 2;
   const lid: Mesh[] = [
     // 下緣（與箱身等寬的一圈）
-    faceted(box(W + 0.4, SKIRT, D + 0.4, p.wood[0]!, [0, SKIRT / 2, zc]), p.wood, 100),
+    faceted(box(W + 0.4, SKIRT, D + 0.4, p.wood[0]!, [0, SKIRT / 2, zc]), p.wood, 100, 0.06, 1),
     // 拱：中間木板 + 兩端
-    arch(-W / 2 + 0.2, W / 2 - 0.2, D / 2 + 0.2, ARCH, SKIRT, zc, p.wood, 101, 7),
+    arch(-W / 2 + 0.2, W / 2 - 0.2, D / 2 + 0.2, ARCH, SKIRT, zc, p.wood, 101, 12),
     // 拱上的鐵條（比木板高一點）
-    ...[-bandX, bandX].map((x, i) => arch(x - 1.6, x + 1.6, D / 2 + 0.75, ARCH + 0.6, SKIRT - 0.2, zc, p.metal, 110 + i, 7)),
+    ...[-bandX, bandX].map((x, i) => arch(x - 1.6, x + 1.6, D / 2 + 0.75, ARCH + 0.6, SKIRT - 0.2, zc, p.metal, 110 + i, 12)),
     // 前緣垂下的鎖扣
     faceted(box(3.6, 4.4, 1, p.lock[0]!, [0, 0.2, D + 0.9]), p.lock, 120, 0.1),
     ...detail(1, [-bandX, bandX].map((x, i) => rivet([x, SKIRT / 2, D + 0.55], 20 + i))),

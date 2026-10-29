@@ -21,6 +21,8 @@ export interface InputAdapters {
   debugKeys?: boolean;
   /** B：重置遊戲（由 main.ts 決定如何重置） */
   onDebugReset?: () => void;
+  /** G：切換 Three.js 畫法（試驗） */
+  onDebugToggleThree?: () => void;
 }
 
 /**
@@ -139,6 +141,9 @@ export class InputManager {
     switch (code) {
       case 'KeyB':
         this.adapters.onDebugReset?.();
+        break;
+      case 'KeyG':
+        this.adapters.onDebugToggleThree?.();
         break;
       case 'KeyN':
         this.commands.push({ type: 'DebugLevelUp' });

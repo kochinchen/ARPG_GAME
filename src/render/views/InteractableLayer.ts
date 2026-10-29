@@ -5,6 +5,9 @@ import type { Vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp, Waypoint } from '../../game/entities/Interactable';
 import { CHESTS, chestPose } from '../figure/Chest';
+import { EXIT_GATE } from '../figure/ExitGate';
+import { STAIRS } from '../figure/Stairs';
+import type { ThreeFigure, ThreeWorld } from '../three/ThreeWorld';
 import { MERCHANT } from '../figure/Merchant';
 import { PolyFigure } from '../figure/PolyFigure';
 import { describeItem } from '../../game/items/ItemDescriber';
@@ -63,7 +66,14 @@ interface View {
   exit?: { portal: Graphics; open: boolean };
   /** 傳送口：每幀重畫的旋轉符文與光柱 */
   waypoint?: Graphics;
+  /** 多面體模型（寶箱、商人、樓梯、出口）：位置、Three.js 畫法的模型、腳下的橢圓影子、重畫目前姿勢 */
+  model?: { figure: PolyFigure; position: Vec2; three: ThreeFigure | null; shadow: Graphics | null; redraw: () => void };
+  /** 畫在地上（角色下方）的部分：出口開啟時地上的光 */
+  floor?: Container;
 }
+
+/** 樓梯、出口模型面向鏡頭（畫面下方） */
+const TOWARD_CAMERA = { x: 1, y: 1 };
 
 /**
  * 地上的物品（顯示名稱標籤，點標籤撿取）與寶箱。
@@ -77,12 +87,30 @@ export class InteractableLayer {
   private hoveredId: number | null = null;
   /** 本層商人的多面體模型（待機動畫每幀更新；key = 商人 id） */
   private readonly merchantFigures = new Map<number, PolyFigure>();
+  /** Three.js 畫法（試驗）；null = Pixi */
+  private three: ThreeWorld | null = null;
 
   constructor(
     private readonly projection: IsoProjection,
     private readonly objectLayer: Container,
     private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores' | 'balance'>,
   ) {}
+
+  /** 切換 Three.js 畫法：模型改由 Three.js 畫（有真正的影子，橢圓影子不畫） */
+  setThree(world: ThreeWorld | null): void {
+    this.three = world;
+    for (const view of this.views.values()) this.attachThree(view);
+  }
+
+  private attachThree(view: View): void {
+    const model = view.model;
+    if (!model || !!model.three === !!this.three) return;
+    model.three?.dispose();
+    model.three = this.three?.createFigure() ?? null;
+    model.figure.sink = model.three;
+    if (model.shadow) model.shadow.visible = !model.three;
+    model.redraw();
+  }
 
   setHovered(id: number | null): void {
     this.hoveredId = id;
@@ -128,7 +156,7 @@ export class InteractableLayer {
       seen.add(exit.id);
       const view = this.views.get(exit.id) ?? this.createExitView(exit);
       if (view.exit && view.exit.open !== exit.open) this.drawExit(view, exit.open, nextFloor);
-      if (view.exit) view.exit.portal.alpha = exit.open ? 0.75 + 0.25 * Math.sin(performance.now() / 250) : 1;
+      if (view.exit) view.exit.portal.alpha = exit.open ? 0.75 + 0.25 * Math.sin(performance.now() / 250) : 0;
       this.highlight(view, exit.id);
     }
     for (const merchant of merchants) {
@@ -136,7 +164,7 @@ export class InteractableLayer {
       const view = this.views.get(merchant.id) ?? this.createMerchantView(merchant);
       this.highlight(view, merchant.id);
       // 商人面向鏡頭（畫面下方）
-      this.merchantFigures.get(merchant.id)?.update(dt, { facing: { x: 1, y: 1 }, moving: false, alive: true });
+      this.merchantFigures.get(merchant.id)?.update(dt, { facing: TOWARD_CAMERA, moving: false, alive: true });
     }
     for (const wp of waypoints) {
       seen.add(wp.id);
@@ -156,7 +184,13 @@ export class InteractableLayer {
       this.highlight(view, c.opened ? null : c.id);
     }
     for (const [id, view] of this.views) {
-      if (seen.has(id)) continue;
+      if (seen.has(id)) {
+        const m = view.model;
+        m?.three?.place(m.position, { x: 0, y: 0 }, 0, m.figure.graphics.tint as number, 1, true);
+        continue;
+      }
+      view.model?.three?.dispose();
+      view.floor?.destroy({ children: true });
       view.container.destroy({ children: true });
       view.label?.destroy();
       view.labelBack?.destroy();
@@ -262,8 +296,17 @@ export class InteractableLayer {
     const open = c.opened ? 1 : 0;
     const chest: ChestView = { figure, facing, open, target: open, glow, glowTime: 0 };
     figure.showPose(chestPose(open), facing);
-    const view: View = { container, label: null, labelBack: null, labelShift: 0, chest, hit: [{ x: -30, y: -48, width: 60, height: 54 }] };
+    const view: View = {
+      container,
+      label: null,
+      labelBack: null,
+      labelShift: 0,
+      chest,
+      hit: [{ x: -30, y: -48, width: 60, height: 54 }],
+      model: { figure, position: c.position, three: null, shadow, redraw: () => figure.showPose(chestPose(chest.open), facing) },
+    };
     this.views.set(c.id, view);
+    this.attachThree(view);
     return view;
   }
 
@@ -272,18 +315,36 @@ export class InteractableLayer {
     const container = new Container();
     container.position.set(s.x, s.y);
     container.zIndex = this.projection.depth(exit.position) - 0.5;
-    const portal = new Graphics();
-    container.addChild(portal);
+    // 石門（多面體）；開啟時地上有一圈脈動的光（畫在角色下方）
+    const figure = new PolyFigure(EXIT_GATE);
+    container.addChild(figure.graphics);
     this.objectLayer.addChild(container);
+    const floor = new Container();
+    floor.position.set(s.x, s.y);
+    const portal = new Graphics();
+    portal.blendMode = 'add';
+    floor.addChild(portal);
+    this.ground.addChild(floor);
     const label = new Text({ text: '', style: { fontFamily: 'sans-serif', fontSize: 12, fill: 0xffffff } });
     label.anchor.set(0.5, 1);
     label.position.set(s.x, s.y - 58);
     const labelBack = new Graphics();
     labelBack.position.copyFrom(label.position);
     this.labels.addChild(labelBack, label);
-    const view: View = { container, label, labelBack, labelShift: 0, chest: null, exit: { portal, open: !exit.open }, hit: [{ x: -26, y: -56, width: 52, height: 64 }] };
+    const view: View = {
+      container,
+      label,
+      labelBack,
+      labelShift: 0,
+      chest: null,
+      exit: { portal, open: !exit.open },
+      hit: [{ x: -26, y: -56, width: 52, height: 64 }],
+      model: { figure, position: exit.position, three: null, shadow: null, redraw: () => figure.showPose({ rootY: 0, angles: {} }, TOWARD_CAMERA) },
+      floor,
+    };
     this.views.set(exit.id, view);
     this.drawExit(view, exit.open, 0);
+    this.attachThree(view);
     return view;
   }
 
@@ -296,7 +357,8 @@ export class InteractableLayer {
     const g = new Graphics();
     g.blendMode = 'add';
     container.addChild(g);
-    this.objectLayer.addChild(container);
+    // 地上的符文：畫在角色下方（Three.js 畫法時角色才不會被光柱蓋住）
+    this.ground.addChild(container);
     const label = new Text({ text: wp.to === 'midway' ? '傳送 → 中途存檔點' : '傳送 → 樓梯口', style: { fontFamily: 'sans-serif', fontSize: 12, fill: FLOOR_COLORS.waypoint } });
     label.anchor.set(0.5, 1);
     label.position.set(s.x, s.y - 50);
@@ -352,27 +414,28 @@ export class InteractableLayer {
       .rect(-label.width / 2 - pad, -label.height - pad / 2, label.width + pad * 2, label.height + pad)
       .fill({ color: LOOT_COLORS.labelBack, alpha: 0.55 });
     this.labels.addChild(labelBack, label);
-    const view: View = { container, label, labelBack, labelShift: 0, chest: null, hit: [{ x: -30, y: -86, width: 60, height: 100 }] };
+    const view: View = {
+      container,
+      label,
+      labelBack,
+      labelShift: 0,
+      chest: null,
+      hit: [{ x: -30, y: -86, width: 60, height: 100 }],
+      model: { figure, position: merchant.position, three: null, shadow, redraw: () => figure.update(0, { facing: TOWARD_CAMERA, moving: false, alive: true }) },
+    };
     this.views.set(merchant.id, view);
+    this.attachThree(view);
     return view;
   }
 
-  /** 往上的樓梯：樓梯口旁的石階，標籤「往上 → 第 N 層」 */
+  /** 往上的樓梯：樓梯口旁的石階（多面體），標籤「往上 → 第 N 層」 */
   private createStairsView(stairs: StairsUp, floor: number): View {
     const s = this.projection.toScreen(stairs.position);
     const container = new Container();
     container.position.set(s.x, s.y);
     container.zIndex = this.projection.depth(stairs.position) - 0.6;
-    const steps = new Graphics();
-    for (let i = 0; i < 3; i++) {
-      steps
-        .rect(-14 + i * 3, -8 - i * 7, 28 - i * 6, 7)
-        .fill({ color: FLOOR_COLORS.stairs, alpha: 0.85 - i * 0.15 })
-        .stroke({ color: 0x3a2e1a, width: 1 });
-    }
-    steps.poly([0, -40, -7, -31, 7, -31]).fill({ color: 0xf2e2b8 });
-    steps.position.set(0, -6);
-    container.addChild(steps);
+    const figure = new PolyFigure(STAIRS);
+    container.addChild(figure.graphics);
     this.objectLayer.addChild(container);
     const label = new Text({ text: `往上 → 第 ${floor} 層`, style: { fontFamily: 'sans-serif', fontSize: 12, fill: 0xf2e2b8 } });
     label.anchor.set(0.5, 1);
@@ -391,8 +454,11 @@ export class InteractableLayer {
       labelShift: 0,
       chest: null,
       hit: [{ x: -label.width / 2 - pad, y: -50 - label.height - pad / 2, width: label.width + pad * 2, height: label.height + pad }],
+      model: { figure, position: stairs.position, three: null, shadow: null, redraw: () => figure.showPose({ rootY: 0, angles: {} }, TOWARD_CAMERA) },
     };
     this.views.set(stairs.id, view);
+    figure.showPose({ rootY: 0, angles: {} }, TOWARD_CAMERA);
+    this.attachThree(view);
     return view;
   }
 
@@ -400,14 +466,11 @@ export class InteractableLayer {
   private drawExit(view: View, open: boolean, nextFloor: number): void {
     const exit = view.exit!;
     exit.open = open;
-    const color = open ? FLOOR_COLORS.exitOpen : FLOOR_COLORS.exitClosed;
-    exit.portal
-      .clear()
-      .ellipse(0, 0, 26, 13)
-      .fill({ color: 0x000000, alpha: 0.5 })
-      .roundRect(-18, -52, 36, 52, 16)
-      .fill({ color, alpha: open ? 0.55 : 0.9 })
-      .stroke({ color: open ? 0xe0c8ff : 0x2a2632, width: 2 });
+    // 石門：關 = 石板、開 = 傳送門；地上的光只在開啟時畫
+    const model = view.model!;
+    model.figure.setPhase(open ? 1 : 0);
+    model.redraw();
+    exit.portal.clear().ellipse(0, 0, 30, 15).fill({ color: FLOOR_COLORS.exitOpen, alpha: 0.35 }).ellipse(0, 0, 18, 9).fill({ color: 0xe0c8ff, alpha: 0.3 });
     const label = view.label!;
     label.text = open ? (nextFloor > 0 ? `出口 → 第 ${nextFloor} 層` : '出口') : '出口（未開啟）';
     label.style.fill = open ? 0xe0c8ff : 0x8a8498;

@@ -3,7 +3,7 @@ import type { IsoProjection } from '../../core/math/IsoProjection';
 import { vec2, type Vec2 } from '../../core/math/Vec2';
 import type { DungeonTheme } from '../../data/schema/floor';
 import type { NavGrid } from '../../game/movement/NavGrid';
-import { THEMES, type ThemeColors } from '../themes';
+import { FLOOR_FACETS, THEMES, type ThemeColors } from '../themes';
 import { arenaBlend, buildArena, type ArenaView } from './ArenaDecor';
 
 /** 牆高（px）：每一格隨機加上 0～WALL_JITTER，牆頂參差不齊 */
@@ -27,6 +27,16 @@ interface WallChunk {
   depth: number;
 }
 
+/** 一格牆（Three.js 畫法用）：格子座標、高度（px）與左、右、頂面的顏色 */
+export interface WallCell {
+  x: number;
+  y: number;
+  height: number;
+  left: number;
+  right: number;
+  top: number;
+}
+
 interface Light {
   graphics: Graphics;
   phase: number;
@@ -43,6 +53,20 @@ function mix(a: number, b: number, t: number): number {
   const c = (s: number) => Math.round(((a >> s) & 0xff) * (1 - t) + ((b >> s) & 0xff) * t);
   return (c(16) << 16) | (c(8) << 8) | c(0);
 }
+
+/**
+ * 地板的切面樣式（重複使用）：格子內的中心點與四邊的分割點（0～1 的格子座標）與 8 個三角面的明暗（−1～1）。
+ * 分割點只沿著邊移動，相鄰兩格不會有縫；每一格選一種樣式、再轉 0～3 個 90°，共 16 種變化。
+ */
+const FLOOR_PATTERNS = Array.from({ length: 4 }, (_, k) => {
+  const r = (i: number) => hash(k, i, 41);
+  return {
+    center: [0.5 + (r(0) - 0.5) * 0.24, 0.5 + (r(1) - 0.5) * 0.24] as const,
+    /** 四邊（上右、右下、下左、左上）的分割點位置 */
+    splits: [0, 1, 2, 3].map((i) => 0.35 + r(2 + i) * 0.3),
+    shades: Array.from({ length: 8 }, (_, i) => r(10 + i) * 2 - 1),
+  };
+});
 
 /**
  * 地板與牆壁（依地牢風格上色）：
@@ -63,6 +87,12 @@ export class TileMapView {
   private arenaGlow: Graphics | null = null;
   private readonly theme: ThemeColors;
   private time = 0;
+  /** Three.js 畫法：牆與光源改由 ThreeWorld 畫，這裡的牆不顯示 */
+  hideWalls = false;
+  /** 每一格牆（Three.js 畫法建立牆的立體模型） */
+  readonly wallCells: WallCell[] = [];
+  /** 牆邊光源的位置（World）與顏色（Three.js 畫法的點光源） */
+  readonly lightSpots: { position: Vec2; color: number }[] = [];
 
   constructor(
     private readonly projection: IsoProjection,
@@ -71,7 +101,10 @@ export class TileMapView {
     theme: DungeonTheme = 'crypt',
     private readonly arena?: ArenaView,
   ) {
-    this.theme = THEMES[theme];
+    // 地板與牆一起往主角的暖色偏（比例依風格），兩者的色調才會一致
+    const base = THEMES[theme];
+    const warm = (c: number) => mix(c, FLOOR_FACETS.warm, base.warmth);
+    this.theme = { ...base, floorA: warm(base.floorA), floorB: warm(base.floorB), wallTop: warm(base.wallTop), wallLeft: warm(base.wallLeft), wallRight: warm(base.wallRight) };
     const t = this.theme;
     this.floor.addChild(this.tiles);
     const c0 = nav.cell;
@@ -92,7 +125,7 @@ export class TileMapView {
         const k = inArena(x, y);
         if (walkable && k < 1) color = this.floorAccent(x, y, color);
         if (k > 0) color = mix(color, this.arenaFloor(x, y), k);
-        this.tiles.poly(this.corners(x, y)).fill({ color });
+        this.drawFloorTile(x, y, color);
         if (walkable) {
           // 競技場裡不放一般的火把與小裝飾（有自己的擺設）
           if (k === 0) this.decorate(x, y);
@@ -160,13 +193,42 @@ export class TileMapView {
     for (const wall of this.walls) {
       const dy = wall.screen.y - p.y;
       const visible = Math.abs(wall.screen.x - p.x) < CULL_X && Math.abs(dy) < CULL_Y;
-      wall.graphics.visible = visible;
+      wall.graphics.visible = visible && !this.hideWalls;
       if (!visible) continue;
       const occludes = wall.depth > playerDepth && Math.abs(wall.screen.x - p.x) < OCCLUDE_HALF_WIDTH && dy > 0 && dy < OCCLUDE_BELOW;
       wall.graphics.alpha = occludes ? FADE_ALPHA : 1;
     }
     for (const light of this.lights) {
       light.graphics.alpha = 0.75 + 0.2 * Math.sin(this.time * 7 + light.phase) + 0.08 * Math.sin(this.time * 13.7 + light.phase * 2);
+    }
+  }
+
+  /** 一格地板：依切面樣式切成 8 個三角面，各面明暗略有不同 */
+  private drawFloorTile(x: number, y: number, color: number): void {
+    const pattern = FLOOR_PATTERNS[Math.floor(hash(x, y, 31) * FLOOR_PATTERNS.length)]!;
+    const turn = Math.floor(hash(x, y, 37) * 4);
+    const corners = this.cornerPoints(x, y);
+    const at = (u: number, v: number) => {
+      // 格子座標 (u, v) → 畫面座標（四角雙線性內插）
+      const [a, b, , d] = corners;
+      return { x: a.x + (b.x - a.x) * u + (d.x - a.x) * v, y: a.y + (b.y - a.y) * u + (d.y - a.y) * v };
+    };
+    const [cu, cv] = pattern.center;
+    const center = at(cu, cv);
+    const k = FLOOR_FACETS.contrast;
+    for (let i = 0; i < 4; i++) {
+      const e = (i + turn) % 4;
+      const p0 = corners[e]!;
+      const p1 = corners[(e + 1) % 4]!;
+      const s = pattern.splits[i]!;
+      const m = { x: p0.x + (p1.x - p0.x) * s, y: p0.y + (p1.y - p0.y) * s };
+      for (const [j, a, b] of [
+        [i * 2, p0, m],
+        [i * 2 + 1, m, p1],
+      ] as const) {
+        const shade = pattern.shades[j]!;
+        this.tiles.poly([center.x, center.y, a.x, a.y, b.x, b.y]).fill({ color: mix(color, shade > 0 ? 0xffffff : 0x000000, Math.abs(shade) * k) });
+      }
     }
   }
 
@@ -207,6 +269,7 @@ export class TileMapView {
       glow.zIndex = this.projection.depth(world);
       this.objectLayer.addChild(glow);
       this.lights.push({ graphics: glow, phase: r * 100 });
+      this.lightSpots.push({ position: world, color: t.glow });
       return;
     }
     // 小裝飾：碎石、骨頭、熔岩縫的亮點
@@ -231,6 +294,7 @@ export class TileMapView {
     const flat = (...ps: Vec2[]) => ps.flatMap((p) => [p.x, p.y]);
     const shade = hash(x, y, 9) * 0.24 - 0.12;
     const tone = (color: number) => mix(color, shade > 0 ? 0xffffff : 0x000000, Math.abs(shade));
+    this.wallCells.push({ x, y, height: h, left: tone(t.wallLeft), right: tone(t.wallRight), top: tone(t.wallTop) });
     g.poly(flat(left, bottom, up(bottom), up(left))).fill({ color: tone(t.wallLeft) });
     g.poly(flat(bottom, right, up(right), up(bottom))).fill({ color: tone(t.wallRight) });
     g.poly(flat(up(top), up(right), up(bottom), up(left))).fill({ color: tone(t.wallTop) });
@@ -246,9 +310,5 @@ export class TileMapView {
       p.toScreen(vec2((x + 1) * c, (y + 1) * c)),
       p.toScreen(vec2(x * c, (y + 1) * c)),
     ];
-  }
-
-  private corners(x: number, y: number): number[] {
-    return this.cornerPoints(x, y).flatMap((c) => [c.x, c.y]);
   }
 }

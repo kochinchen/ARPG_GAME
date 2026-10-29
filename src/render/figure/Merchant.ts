@@ -1,5 +1,6 @@
+import { facetize, subdivide, tone } from './Facets';
 import type { FigureModel, Pose } from './FigureModel';
-import { box, lowSphere, placeMesh, prism } from './Poly3D';
+import { box, lowSphere, placeMesh, prism, type Mesh } from './Poly3D';
 
 /**
  * 商人（多面體）：站在小攤後面的商人（頭巾、灰鬍子、棕色長袍與圍裙），
@@ -16,19 +17,27 @@ const WOOD_DARK = 0x4a2e1a;
 const CLOTH_RED = 0xb8342a;
 const CLOTH_CREAM = 0xe8dcc0;
 
+/** 顏色暗一階（各面色差混入的第二色） */
+const darker = (c: number) => (((((c >> 16) & 0xff) * 0.82) << 16) | ((((c >> 8) & 0xff) * 0.82) << 8) | ((c & 0xff) * 0.82)) & 0xffffff;
+/** 切成小三角面：levels = 先加密幾次（大塊的櫃台、布篷、長袍） */
+const f = (mesh: Mesh, seed: number, levels = 0, bump = 0.08): Mesh => {
+  const c = mesh.faces[0]!.color;
+  return facetize(tone(subdivide(mesh, levels, levels ? 0.02 : 0, seed), [c, darker(c)], seed), bump, seed);
+};
+
 const STALL = [
   // 櫃台（在商人前方）
-  box(24, 11, 7, WOOD, [0, -21.5, 8.5]),
-  box(25, 1.4, 8, WOOD_DARK, [0, -15.4, 8.5]),
+  f(box(24, 11, 7, WOOD, [0, -21.5, 8.5]), 1, 1),
+  f(box(25, 1.4, 8, WOOD_DARK, [0, -15.4, 8.5]), 2, 1),
   // 貨物：藥水瓶、布包、金色小盒
-  ...[-6, -2.5, 1].map((x) => prism(6, -14.6, -10.5, [1.2, 1.2], [1, 1], 0xc83a30, [x, 0, 8.5])),
-  box(4, 3, 3, 0x8a6a4a, [5.5, -13.2, 8.2]),
-  box(2.4, 2, 2.4, 0xd4a84a, [7.5, -13.6, 10.2]),
+  ...[-6, -2.5, 1].map((x, i) => f(prism(6, -14.6, -10.5, [1.2, 1.2], [1, 1], 0xc83a30, [x, 0, 8.5]), 3 + i)),
+  f(box(4, 3, 3, 0x8a6a4a, [5.5, -13.2, 8.2]), 6, 1),
+  f(box(2.4, 2, 2.4, 0xd4a84a, [7.5, -13.6, 10.2]), 7),
   // 布篷：兩根柱子 + 紅白條紋的頂
-  prism(5, -29, 39, [0.9, 0.9], [0.9, 0.9], WOOD_DARK, [-12.5, 0, -5]),
-  prism(5, -29, 39, [0.9, 0.9], [0.9, 0.9], WOOD_DARK, [12.5, 0, -5]),
+  f(prism(5, -29, 39, [0.9, 0.9], [0.9, 0.9], WOOD_DARK, [-12.5, 0, -5]), 8, 1),
+  f(prism(5, -29, 39, [0.9, 0.9], [0.9, 0.9], WOOD_DARK, [12.5, 0, -5]), 9, 1),
   // 布篷在頭頂上方，往前斜下
-  ...[-11.2, -5.6, 0, 5.6, 11.2].map((x, i) => placeMesh(box(5.6, 1, 18, i % 2 ? CLOTH_CREAM : CLOTH_RED), [0.18, 0, 0], [x, 39, 2])),
+  ...[-11.2, -5.6, 0, 5.6, 11.2].map((x, i) => f(placeMesh(box(5.6, 1, 18, i % 2 ? CLOTH_CREAM : CLOTH_RED), [0.18, 0, 0], [x, 39, 2]), 10 + i, 1, 0.05)),
 ];
 
 const REST: Pose = {
@@ -61,33 +70,33 @@ export const MERCHANT: FigureModel = {
   hipHeight: 29,
   referenceRadius: 0.3,
   parts: [
-    { joint: 'root', parent: null, offset: [0, 0, 0], meshes: [prism(8, 3, -28, [6, 4.8], [8, 6.4], ROBE), ...STALL] },
+    { joint: 'root', parent: null, offset: [0, 0, 0], meshes: [f(prism(8, 3, -28, [6, 4.8], [8, 6.4], ROBE), 20, 1), ...STALL] },
     {
       joint: 'torso',
       parent: 'root',
       offset: [0, 3, 0],
-      meshes: [prism(8, 0, 15, [6.2, 4.8], [7.2, 5], ROBE), placeMesh(box(8, 14, 1, APRON), [0.05, 0, 0], [0, 6, 4.6]), box(13, 1.6, 10, 0x4a2e1a, [0, 1, 0])],
+      meshes: [f(prism(8, 0, 15, [6.2, 4.8], [7.2, 5], ROBE), 21, 1), f(placeMesh(box(8, 14, 1, APRON), [0.05, 0, 0], [0, 6, 4.6]), 22, 1), f(box(13, 1.6, 10, 0x4a2e1a, [0, 1, 0]), 23)],
     },
-    { joint: 'neck', parent: 'torso', offset: [0, 15, 0], meshes: [prism(6, 0, 2.5, [2, 2], [2, 2], SKIN)] },
+    { joint: 'neck', parent: 'torso', offset: [0, 15, 0], meshes: [f(prism(6, 0, 2.5, [2, 2], [2, 2], SKIN), 24)] },
     {
       joint: 'head',
       parent: 'neck',
       offset: [0, 2.5, 0],
       meshes: [
-        lowSphere(5.4, SKIN, [0, 5.2, 0.2], 8, 5),
+        f(lowSphere(5.4, SKIN, [0, 5.2, 0.2], 8, 5), 25, 0, 0.05),
         // 頭巾
-        lowSphere(6, TURBAN, [0, 7.4, -0.3], 8, 4, [1, 0.8, 1], (c) => c[1] > -0.6),
+        f(lowSphere(6, TURBAN, [0, 7.4, -0.3], 8, 4, [1, 0.8, 1], (c) => c[1] > -0.6), 26, 1),
         box(2, 2, 1.4, 0xd4a84a, [0, 8.6, 5.6]),
         // 鬍子與眼睛
-        placeMesh(prism(5, 0, -5, [3.4, 2], [1.2, 0.8], BEARD), [0.35, 0, 0], [0, 3, 3.8]),
+        f(placeMesh(prism(5, 0, -5, [3.4, 2], [1.2, 0.8], BEARD), [0.35, 0, 0], [0, 3, 3.8]), 27, 1),
         box(1.1, 1.3, 0.8, 0x2a1a14, [1.9, 5.8, 5.2]),
         box(1.1, 1.3, 0.8, 0x2a1a14, [-1.9, 5.8, 5.2]),
       ],
     },
-    { joint: 'upperArmL', parent: 'torso', offset: [7.3, 13.5, 0], meshes: [prism(6, 0, -10, [2.3, 2.3], [2.1, 2.1], ROBE)] },
-    { joint: 'forearmL', parent: 'upperArmL', offset: [0, -10, 0], meshes: [prism(6, 0, -8, [2.2, 2.2], [2.4, 2.4], ROBE), lowSphere(1.7, SKIN, [0, -9.2, 0], 5, 3)] },
-    { joint: 'upperArmR', parent: 'torso', offset: [-7.3, 13.5, 0], meshes: [prism(6, 0, -10, [2.3, 2.3], [2.1, 2.1], ROBE)] },
-    { joint: 'forearmR', parent: 'upperArmR', offset: [0, -10, 0], meshes: [prism(6, 0, -8, [2.2, 2.2], [2.4, 2.4], ROBE), lowSphere(1.7, SKIN, [0, -9.2, 0], 5, 3)] },
+    { joint: 'upperArmL', parent: 'torso', offset: [7.3, 13.5, 0], meshes: [f(prism(6, 0, -10, [2.3, 2.3], [2.1, 2.1], ROBE), 30, 1)] },
+    { joint: 'forearmL', parent: 'upperArmL', offset: [0, -10, 0], meshes: [f(prism(6, 0, -8, [2.2, 2.2], [2.4, 2.4], ROBE), 31, 1), f(lowSphere(1.7, SKIN, [0, -9.2, 0], 5, 3), 32)] },
+    { joint: 'upperArmR', parent: 'torso', offset: [-7.3, 13.5, 0], meshes: [f(prism(6, 0, -10, [2.3, 2.3], [2.1, 2.1], ROBE), 30, 1)] },
+    { joint: 'forearmR', parent: 'upperArmR', offset: [0, -10, 0], meshes: [f(prism(6, 0, -8, [2.2, 2.2], [2.4, 2.4], ROBE), 31, 1), f(lowSphere(1.7, SKIN, [0, -9.2, 0], 5, 3), 32)] },
   ],
   poses: {
     ready: wave,

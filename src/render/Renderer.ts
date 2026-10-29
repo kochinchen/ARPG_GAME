@@ -29,6 +29,8 @@ import { MONSTER_MODELS } from './figure/Monsters';
 import { PolyFigure } from './figure/PolyFigure';
 import { figureScale } from './figure/FigureModel';
 import { MinimapView, type MinimapMarker } from './views/MinimapView';
+import type { ThreeWorld } from './three/ThreeWorld';
+import { PlayerLightView } from './views/PlayerLightView';
 
 /**
  * 每幀唯讀讀取 GameWorld，同步 PixiJS 畫面。不修改任何遊戲狀態。
@@ -56,6 +58,10 @@ export class Renderer {
   private readonly drops: Container[] = [];
   private hoveredId: ActorId | null = null;
   private hoveredInteractable: number | null = null;
+  /** 目前用 Three.js 畫角色與牆（試驗；需要建立時傳入 ThreeWorld） */
+  private threeOn = false;
+  /** 主角身上的亮區（亮區以外偏暗） */
+  private readonly playerLight = new PlayerLightView();
 
   constructor(
     private readonly app: Application,
@@ -63,6 +69,8 @@ export class Renderer {
     private readonly world: GameWorld,
     private readonly camera: Camera,
     private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'skills' | 'balance' | 'cores'>,
+    /** Three.js 畫法（試驗）：有傳入時由 present() 自己畫每一幀（main.ts 已停掉 Pixi 的自動繪製） */
+    private readonly three: ThreeWorld | null = null,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
     this.effects = new EffectLayer(projection, this.objectLayer);
@@ -79,6 +87,7 @@ export class Renderer {
       this.interactables.ground,
       this.marker,
       this.objectLayer,
+      this.playerLight.container,
       this.interactables.labels,
       this.floatingText.container,
     );
@@ -103,6 +112,7 @@ export class Renderer {
       this.tileMap.destroy();
       this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
       this.worldLayer.addChildAt(this.tileMap.floor, 0);
+      this.syncThreeMap();
       this.markers.rebuild(world.checkpoints.checkpoints);
       this.minimap.destroy();
       this.minimap = this.createMinimap();
@@ -250,6 +260,21 @@ export class Renderer {
     });
   }
 
+  /** 切換 Three.js 畫法（試驗；沒有建立 ThreeWorld 時無效） */
+  toggleThree(): void {
+    if (!this.three) return;
+    this.threeOn = !this.threeOn;
+    this.syncThreeMap();
+    for (const view of this.actorViews.values()) view.setThree(this.threeOn ? this.three : null);
+    this.interactables.setThree(this.threeOn ? this.three : null);
+    this.floatingText.spawnText(this.projection.toScreen(this.world.player.position), this.threeOn ? 'Three.js 畫法' : 'Pixi 畫法', PALETTE.manaText);
+  }
+
+  private syncThreeMap(): void {
+    this.tileMap.hideWalls = this.threeOn;
+    if (this.three) this.three.setMap(this.tileMap.wallCells, this.world.nav.cell, this.tileMap.lightSpots);
+  }
+
   /** 游標下的地上物品或寶箱（名稱標籤也算） */
   pickInteractableAt(screen: Vec2): number | null {
     const local = sub(screen, this.camera.offset);
@@ -301,6 +326,11 @@ export class Renderer {
     // 爆炸、重擊的畫面震動
     const shake = this.effects.shake;
     this.worldLayer.position.set(this.camera.offset.x + shake.x, this.camera.offset.y + shake.y);
+    // 亮區用畫面座標（抵銷鏡頭位移）
+    const origin = this.worldLayer.position;
+    const ps = this.projection.toScreen(playerPos);
+    this.playerLight.container.position.set(-origin.x, -origin.y);
+    this.playerLight.update(vec2(ps.x + origin.x, ps.y + origin.y), this.world.progress.level, this.app.screen.width, this.app.screen.height);
 
     this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos, dt);
@@ -312,6 +342,34 @@ export class Renderer {
     this.floatingText.update(dt);
     this.heroPreview.update(dt);
     this.updateMarker(player.intent === null ? player.path[player.path.length - 1] : undefined);
+    if (this.three) this.present(playerPos, dt);
+  }
+
+  /**
+   * 畫出這一幀（有 ThreeWorld 時才由這裡畫）：Three.js 畫法分三次畫在同一個 WebGL 上——
+   * Pixi 畫地板與地上標記 → Three.js 畫角色與牆 → Pixi 畫物件、特效、文字、小地圖。
+   */
+  private present(playerPos: Vec2, dt: number): void {
+    const pixi = this.app.renderer;
+    if (!this.threeOn) {
+      pixi.render(this.app.stage);
+      return;
+    }
+    const upper = [this.objectLayer, this.playerLight.container, this.interactables.labels, this.floatingText.container, this.minimap.container, this.heroPreview.container];
+    const lower = [this.tileMap.floor, this.markers.container, this.effects.ground, this.interactables.ground, this.marker];
+    const show = (layers: Container[], visible: boolean[]) => layers.forEach((c, i) => (c.visible = visible[i]!));
+    const upperVisible = upper.map((c) => c.visible);
+    const lowerVisible = lower.map((c) => c.visible);
+    show(upper, upper.map(() => false));
+    pixi.render(this.app.stage);
+    show(upper, upperVisible);
+    const { width, height } = this.app.screen;
+    const origin = this.worldLayer.position;
+    this.three!.render(this.projection.toWorld(vec2(width / 2 - origin.x, height / 2 - origin.y)), width, height, playerPos, dt);
+    pixi.resetState();
+    show(lower, lower.map(() => false));
+    pixi.render({ container: this.app.stage, clear: false });
+    show(lower, lowerVisible);
   }
 
   /** 角色頁的人物預覽：顯示的區域與方向（null = 關閉） */
@@ -366,6 +424,7 @@ export class Renderer {
       let view = this.actorViews.get(actor.id);
       if (!view) {
         view = new ActorView(this.projection, actor);
+        if (this.threeOn) view.setThree(this.three);
         this.actorViews.set(actor.id, view);
         this.objectLayer.addChild(view.container);
       }
@@ -391,7 +450,7 @@ export class Renderer {
     }
     for (const [id, view] of this.actorViews) {
       if (alive.has(id)) continue;
-      view.container.destroy({ children: true });
+      view.destroy();
       this.actorViews.delete(id);
     }
   }

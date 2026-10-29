@@ -233,3 +233,46 @@ export function detail(level: 1 | 2, meshes: Mesh[]): Mesh[] {
   for (const m of meshes) m.lod = level;
   return meshes;
 }
+
+/**
+ * 加密：每個面先切成三角形，再把每個三角形從三邊中點切成四個（levels 次）。
+ * rough：新頂點沿隨機方向偏移（× 邊長）的比例，石頭、粗木頭的鑿痕感；0 = 保持平面。
+ * 之後通常再 facetize，表面就是許多小三角面（加密後的面數 × 4^levels）。
+ */
+export function subdivide(mesh: Mesh, levels = 1, rough = 0, seed = 0): Mesh {
+  const verts: V3[] = mesh.verts.map((v) => [v[0], v[1], v[2]]);
+  let faces: Mesh['faces'] = [];
+  for (const f of mesh.faces) for (let i = 1; i < f.idx.length - 1; i++) faces.push({ ...f, idx: [f.idx[0]!, f.idx[i]!, f.idx[i + 1]!] });
+  for (let level = 0; level < levels; level++) {
+    const mid = new Map<string, number>();
+    const at = (a: number, b: number) => {
+      const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+      let i = mid.get(key);
+      if (i === undefined) {
+        const [p, q] = [verts[a]!, verts[b]!];
+        const len = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
+        const n = verts.length;
+        const j = (k: number) => (hash(n * 3 + k, seed + level * 17) - 0.5) * 2 * rough * len;
+        i = verts.push([(p[0] + q[0]) / 2 + j(0), (p[1] + q[1]) / 2 + j(1), (p[2] + q[2]) / 2 + j(2)]) - 1;
+        mid.set(key, i);
+      }
+      return i;
+    };
+    const next: Mesh['faces'] = [];
+    for (const f of faces) {
+      const [a, b, c] = f.idx as [number, number, number];
+      const [ab, bc, ca] = [at(a, b), at(b, c), at(c, a)];
+      for (const idx of [
+        [a, ab, ca],
+        [ab, b, bc],
+        [ca, bc, c],
+        [ab, bc, ca],
+      ])
+        next.push({ ...f, idx });
+    }
+    faces = next;
+  }
+  const out: Mesh = { verts, faces };
+  if (mesh.lod) out.lod = mesh.lod;
+  return out;
+}
