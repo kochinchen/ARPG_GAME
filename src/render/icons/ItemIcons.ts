@@ -2,10 +2,12 @@ import type { DataRegistry } from '../../data/DataRegistry';
 import type { Rarity } from '../../data/schema/item';
 import type { ItemInstance } from '../../game/items/ItemInstance';
 import { facetize, loft, tone } from '../figure/Facets';
-import { bootColor, specForItem } from '../figure/gear/ArmorLooks';
-import { AI_BOOT_FOOT, AI_LIMB, aiBootMesh, aiBootShape } from '../figure/HeroineAI';
+import { bootColor, specForItem, styledArmorFor } from '../figure/gear/ArmorLooks';
+import { AI_BOOT_FOOT, AI_LIMB, aiBootMesh, aiBootShape, jointToRest } from '../figure/HeroineAI';
 import { bootExtras, HIDE_DARK, helmetMeshes, scaleMeshes, shieldMeshes, type ArmorSpec, type BootSpec, type GloveSpec } from '../figure/gear/ArmorPieces';
 import { itemThemes, THEMES, themeColors } from '../figure/gear/GearTheme';
+import { aiArmorParts } from '../figure/gear/ArmorAI';
+import type { Joint } from '../figure/FigureModel';
 import { apply, box, dot, faceNormal, jointRotation, lowSphere, mul, normalize, placeMesh, prism, rotX, rotY, rotZ, type M3, type Mesh, type V3 } from '../figure/Poly3D';
 import { HOLD, weaponLookFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
 import { ABYSS, BLACK_STEEL, BLOOD_STEEL, BONE, BRONZE, chain, CRIMSON, darken, EMBER, gem, GOLD, ICE, JADE, LEATHER, lighten, SHADOW, SILVER, STAR, STORM, taper, VOID, WOOD, type Tones } from '../figure/weapons/WeaponParts';
@@ -289,6 +291,17 @@ function unheld(look: WeaponLook): Mesh[] {
 /** 圖示很小：裝備用加密前的粗網格（小三角面在圖示上看不出來，只會讓圖示變大） */
 const coarse = (meshes: readonly Mesh[]): Mesh[] => meshes.map((m) => m.coarse ?? m);
 
+/** 掛在各關節上的零件組回站姿時的位置（胸口在原點） */
+function restPose(parts: ReadonlyMap<Joint, Mesh[]>): Mesh[] {
+  const c = jointToRest('chest', [0, 0, 0]);
+  return [...parts].flatMap(([j, meshes]) =>
+    coarse(meshes).map((m) => ({ ...m, verts: m.verts.map((v): V3 => {
+      const p = jointToRest(j, v);
+      return [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
+    }) })),
+  );
+}
+
 // ─────────────────────────── 光暈與粒子 ───────────────────────────
 
 const RARITY_GLOW: Record<Rarity, { color: number; alpha: number }> = {
@@ -432,9 +445,13 @@ function buildIcon(item: ItemInstance, slot: string, themes: ReturnType<typeof i
     case 'helmet':
       meshes = coarse(helmetMeshes(specForItem('helmet', item, data)));
       break;
-    case 'armor':
-      meshes = armorIcon(specForItem('armor', item, data));
+    case 'armor': {
+      const spec = specForItem('armor', item, data);
+      const styled = styledArmorFor(spec);
+      // 專屬造型與 AI 生成的盔甲：用身上那一件組回站姿
+      meshes = styled ? restPose(styled.parts) : spec.model ? restPose(aiArmorParts(spec.model)) : armorIcon(spec);
       break;
+    }
     case 'gloves':
       meshes = pair(gloveIcon(specForItem('gloves', item, data)), 0, [-5.2, -2.2, -3.4]);
       break;

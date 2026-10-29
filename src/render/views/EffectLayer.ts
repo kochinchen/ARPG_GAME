@@ -287,7 +287,7 @@ export class EffectLayer {
       if (!view) {
         const element = firstElement(p.onHit);
         const special = p.mods.combo?.success ?? false;
-        const base = projectileArt(p.skill.id, element, p.skill.tags.includes('ranged'));
+        const base = projectileArt(p.look ? `look.${p.look}` : p.skill.id, element, p.skill.tags.includes('ranged'));
         const style = special ? specialArt(base) : base;
         const container = new Container();
         const px = p.radius * this.projection.tileWidth * 0.6;

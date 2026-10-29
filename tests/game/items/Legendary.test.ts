@@ -316,6 +316,40 @@ describe('特殊效果', () => {
     hit(world, target, 'ranged.quick_shot', 100, null, { killed: true });
     expect(world.itemEffects.activeBuffs[0]!.stacks).toBe(2);
   });
+
+  it('擊殺：最後一下是附加元素傷害或持續傷害時，算是最後打中的那一招的擊殺（只算一次）', () => {
+    const { world } = createWorld();
+    wear(world, 'legendary.butcher');
+    const target = dummy(world);
+    const died = () => world.events.emit('ActorDied', { actorId: target.id, faction: 'enemy', defId: target.defId, killerId: world.player.id, position: target.position, xp: 0, elite: false, summoned: false, boss: false });
+    // 技能沒打死，之後附加傷害打死 → 疊一層
+    hit(world, target, 'melee.heavy_slash');
+    died();
+    expect(world.itemEffects.activeBuffs[0]?.stacks).toBe(1);
+    // 技能本身打死 → 死亡時不重複計算
+    hit(world, target, 'melee.heavy_slash', 100, null, { killed: true });
+    died();
+    expect(world.itemEffects.activeBuffs[0]!.stacks).toBe(2);
+    // 最後打中的是遠程 → 不疊
+    hit(world, target, 'ranged.quick_shot');
+    died();
+    expect(world.itemEffects.activeBuffs[0]!.stacks).toBe(2);
+  });
+
+  it('實戰：蛛后絲甲 → 擊殺時約 25% 爆出 5 隻毒蛛（召喚物）', () => {
+    let bursts = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const { world } = createWorld(seed);
+      wear(world, 'mythic.armor_spider_queen', 30);
+      const target = dummy(world);
+      hit(world, target, 'melee.heavy_slash', 100, null, { killed: true });
+      const spiders = world.actors.filter((a) => a.alive && a.device?.def.behavior === 'minion');
+      if (spiders.length) bursts++;
+      expect([0, 5]).toContain(spiders.length);
+    }
+    expect(bursts).toBeGreaterThan(4);
+    expect(bursts).toBeLessThan(20);
+  });
 });
 
 describe('蛛后套的毒蛛（召喚物）', () => {

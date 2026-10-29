@@ -1,4 +1,5 @@
 import type { ArmorModel } from './ArmorAI';
+import type { ArmorLook } from './StyledArmors';
 import { styledShieldMeshes, type ShieldStyle } from './StyledShields';
 import { detail, facetize, loft, refine, tone, type Ring } from '../Facets';
 import { box, lowSphere, mapVerts, orient, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
@@ -122,6 +123,12 @@ export interface ArmorSpec {
   runes?: number;
   /** AI 生成的盔甲（ArmorAI.ts）：穿在 AI 版女主角身上時取代程式產生的胸甲、腰甲與護肩 */
   model?: ArmorModel;
+  /** 橘 / 紅專用的造型（StyledArmors）：取代程式產生的胸甲、腰甲、護肩與垂甲 */
+  look?: ArmorLook;
+  /** 專屬造型的發光色（晶核、裂縫；不受詞綴主題染色） */
+  glow?: number;
+  /** 專屬造型的布條顏色 */
+  cloth?: Tones;
 }
 
 /** 胸甲（chest 關節）：包住胸口的外殼、領口、中央稜線、甲殼、肋條、紋章、符文 */

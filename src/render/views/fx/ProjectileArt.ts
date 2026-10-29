@@ -10,7 +10,7 @@ import { mix, type FxParticleKind } from './FxColors';
  */
 
 export type ArrowKind = 'plain' | 'pierce' | 'wind' | 'charge' | 'small' | 'dust' | 'weak' | 'rapid' | 'spin' | 'execute' | 'phantom' | 'bone' | 'knife' | 'hook';
-export type OrbKind = 'fire' | 'ice' | 'spark' | 'lance' | 'frostBolt' | 'poison' | 'spore' | 'glob' | 'shard' | 'axe' | 'bolt';
+export type OrbKind = 'fire' | 'ice' | 'spark' | 'lance' | 'frostBolt' | 'poison' | 'spore' | 'glob' | 'shard' | 'axe' | 'bolt' | 'spider';
 
 export interface ProjectileArt {
   type: 'arrow' | 'orb';
@@ -56,6 +56,8 @@ const ARTS: Record<string, ProjectileArt> = {
   // 設計者要求（2026-10-29）：飛斧要更大、更明顯
   'utility.throwing_axe': orb('axe', 0xd84848, 0xc8ccd4, 'spark', 1.8, 24),
   'utility.storm_totem': orb('bolt', 0xf5e663, 0xffffff, 'spark', 1, 50),
+  // 投射物指定的外觀（effects 的 look）
+  'look.spider': orb('spider', 0x7aff4a, 0xd8ffb0, 'drop', 1.6, 12),
 };
 
 const ELEMENT_ART: Record<string, ProjectileArt> = {
@@ -219,6 +221,26 @@ function drawOrb(g: Graphics, art: ProjectileArt, t: number): void {
   const core = art.core;
   const flicker = Math.floor(t * 24);
   switch (art.kind) {
+    case 'spider': {
+      // 毒蛛：紫黑的腹部與頭、綠色的毒斑，八隻腳交替擺動（往 +X 爬）
+      const r = 4.2 * k;
+      const step = Math.sin(t * 38);
+      for (const sy of [-1, 1])
+        for (let i = 0; i < 4; i++) {
+          const x0 = r * (0.5 - i * 0.35);
+          const swing = (i % 2 === 0 ? step : -step) * r * 0.35;
+          const knee = [x0 + r * (0.5 - i * 0.3) + swing, sy * r * 1.25];
+          const foot = [x0 + r * (0.7 - i * 0.55) + swing, sy * r * 1.9];
+          g.moveTo(x0, sy * r * 0.3).lineTo(knee[0]!, knee[1]!).lineTo(foot[0]!, foot[1]!).stroke({ color: 0x9a7aa8, width: 1.1 * k });
+        }
+      g.circle(0, 0, r * 2.2).fill({ color: c, alpha: 0.2 });
+      g.ellipse(-r * 0.75, 0, r * 1.05, r * 0.85).fill({ color: 0x4a2e5a });
+      g.ellipse(r * 0.55, 0, r * 0.6, r * 0.5).fill({ color: 0x5a3a6e });
+      g.poly([-r * 0.75, -r * 0.45, -r * 0.4, 0, -r * 0.75, r * 0.45, -r * 1.1, 0]).fill({ color: c });
+      g.circle(r * 0.85, -r * 0.2, r * 0.13).fill({ color: core });
+      g.circle(r * 0.85, r * 0.2, r * 0.13).fill({ color: core });
+      break;
+    }
     case 'fire':
     case 'glob': {
       // 火舌往後拖：三層由外到內的尖角多邊形

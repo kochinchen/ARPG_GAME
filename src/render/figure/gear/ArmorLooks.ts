@@ -5,6 +5,7 @@ import type { Joint } from '../FigureModel';
 import { stretchMeshes, type Mesh } from '../Poly3D';
 import { AI_BOOT_FACES, AI_BOOT_FOOT, AI_LIMB, AI_TORSO, aiBootShape, type BootFace } from '../HeroineAI';
 import { aiArmorParts } from './ArmorAI';
+import { styledArmor, type StyledArmor } from './StyledArmors';
 import { FOREARM_LENGTH, heroineHand, scaleHead } from '../heroine/HeroineBody';
 import type { UniqueArmor } from './uniques/types';
 import { helmetUniques } from './uniques/helmet';
@@ -127,6 +128,10 @@ const BASES: { [K in ArmorSlot]: Spec[K][] } = { helmet: HELMETS, armor: ARMORS,
 const WIND: Tones = [0xeafff2, 0xc4f0d6, 0x8ccfa8, 0xdaf8e6];
 const SHADE_FLAME: Tones = [0xb0a4ff, 0x7c6ce0, 0x4a3c9a, 0x948aee];
 
+/** 黑曜晶甲：光滑的黑曜石、亮灰的切面邊 */
+const OBSIDIAN: Tones = [0x2e2f39, 0x202129, 0x111217, 0x282931];
+const OBSIDIAN_EDGE: Tones = [0x8e909c, 0x6a6c78, 0x464852, 0x7c7e8a];
+
 /** 橘 / 紅防具：基底階級、主題與專屬點綴（染色較淡，保留專屬配色） */
 /** extra：覆寫該部位造型參數的欄位（頭盔 / 盔甲 / 靴子各自的欄位；null = 拿掉基底的零件） */
 const UNIQUES: Record<string, UniqueArmor> = {
@@ -135,11 +140,11 @@ const UNIQUES: Record<string, UniqueArmor> = {
   'legendary.hawkeye': { tier: 3, themes: ['crit', 'speed'], extra: { style: 'cap', height: 0.9, plume: [0xe8dcc0, 0xcfc0a0], wings: [0xe8dcc0, 0xcfc0a0] } },
   'mythic.crown_of_ages': { tier: 7, themes: ['vital'], extra: { crown: STAR, gem: 0xfff0b0, style: 'open', nasal: false } },
   'mythic.storm_crown': { tier: 7, themes: ['lightning', 'arcane'], extra: { mat: STORM, crown: STORM, gem: 0xe8f2ff, eyes: 0xbfd8ff, style: 'closed' } },
-  'legendary.obsidian_bulwark': { tier: 5, themes: ['guard', 'fire'], extra: { mat: SHADOW, emblem: 0xff7a2a } },
-  'legendary.thorn_mail': { tier: 2, themes: ['thorns', 'guard'], extra: { mat: SILVER, emblem: 0xffe08a, trim: GOLD } },
-  'legendary.starlight_robe': { tier: 1, themes: ['arcane'], extra: { mat: [0x3a3c6e, 0x2e3060, 0x22244c, 0x35386a], trim: GOLD, emblem: 0xfff0b0, runes: 0xfff0b0 } },
-  'mythic.abyss_carapace': { tier: 8, themes: ['thorns', 'guard'], extra: { emblem: 0xff4060 } },
-  'mythic.undying': { tier: 7, themes: ['vital'], extra: { mat: STAR, emblem: 0x7ee08a } },
+  'legendary.obsidian_bulwark': { tier: 5, themes: ['guard', 'fire'], extra: { look: 'obsidian', mat: OBSIDIAN, trim: OBSIDIAN_EDGE, glow: 0x3ac4ff } },
+  'legendary.thorn_mail': { tier: 2, themes: ['thorns', 'guard'], extra: { look: 'barbed', mat: [0x8a8e98, 0x6e727c, 0x4a4e58, 0x7c808a], trim: GOLD, cloth: [0xf0e8d8, 0xddd2bc, 0xb8aa90, 0xe8dcc8], glow: 0xffe08a } },
+  'legendary.starlight_robe': { tier: 1, themes: ['arcane'], extra: { look: 'robe', mat: [0x4a2e6c, 0x3a245c, 0x221640, 0x442a64], trim: GOLD, glow: 0x7aa0ff } },
+  'mythic.abyss_carapace': { tier: 8, themes: ['thorns', 'guard'], extra: { look: 'abyss', mat: [0x3a2a44, 0x2c2036, 0x1a1222, 0x34263e], trim: BONE, glow: 0xb050ff } },
+  'mythic.undying': { tier: 7, themes: ['vital'], extra: { look: 'undying', mat: [0xecc464, 0xd4a444, 0xa47a2a, 0xe0b454], trim: BRONZE, cloth: [0xa83a32, 0x8c2c26, 0x5e1a18, 0x9a322c], glow: 0xffb040 } },
   // 風痕：草會晚一秒才倒下 → 小腿兩側往後掠的風鰭
   'legendary.wind_trace': { tier: 3, themes: ['speed'], extra: { mat: JADE, toe: SILVER, shin: null, knee: null, cuff: SILVER, fins: WIND, wings: null } },
   // 衝鋒：只朝一個方向 → 鋼製撞角鞋頭、磨亮的厚鞋底
@@ -291,6 +296,11 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
     // AI 生成的盔甲：已在 Blender 對齊 AI 版女主角，直接掛在胸口與上臂
     for (const [j, meshes] of aiArmorParts(armor.model)) parts.set(j, meshes);
     hide.add('chest').add('torso');
+  } else if (armor?.look) {
+    // 橘 / 紅的專屬造型：直接依 AI 版女主角的關節座標設計，不用拉伸
+    const styled = styledArmorFor(armor)!;
+    for (const [j, meshes] of styled.parts) parts.set(j, meshes);
+    for (const region of styled.hide) hide.add(region);
   } else if (armor) {
     parts.set('chest', along(chestPiece(armor), AI_TORSO.chest / OLD.chest));
     parts.set('torso', along(waistPiece(armor), AI_TORSO.waist / OLD.waist));
@@ -311,6 +321,12 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
     for (const f of AI_BOOT_FACES) skinColors.set(f.index, color(f));
   }
   return Object.assign(parts, { hideSkin: hide, skinColors });
+}
+
+/** 橘 / 紅盔甲的專屬造型（沒有 look 時 = undefined） */
+export function styledArmorFor(armor: ArmorSpec): StyledArmor | undefined {
+  if (!armor.look) return undefined;
+  return styledArmor({ look: armor.look, mat: armor.mat, trim: armor.trim, glow: armor.glow ?? armor.emblem ?? 0xffffff, ...(armor.cloth ? { cloth: armor.cloth } : {}) });
 }
 
 /**

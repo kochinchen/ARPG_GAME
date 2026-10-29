@@ -121,6 +121,8 @@ export const ProjectileEffectSchema = z.strictObject({
   pierce: RankNumberSchema.default(0),
   /** 自動修正方向：此角度內有敵人時改朝最近的敵人發射 */
   aimAssistDeg: z.number().nonnegative().default(0),
+  /** 投射物的外觀（省略 = 依技能與元素）：spider = 爬行的毒蛛 */
+  look: z.enum(['spider']).optional(),
   get onHit() {
     return z.array(EffectDefSchema).default([]);
   },
