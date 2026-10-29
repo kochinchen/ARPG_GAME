@@ -318,6 +318,73 @@ describe('特殊效果', () => {
   });
 });
 
+describe('蛛后套的毒蛛（召喚物）', () => {
+  const spiders = (world: GameWorld) => world.actors.filter((a) => a.alive && a.device?.def.behavior === 'minion');
+  const SPIDER_ITEMS = ['mythic.armor_spider_queen', 'mythic.gloves_spider_queen', 'mythic.bow_spider_queen', 'mythic.boots_spider_queen'];
+
+  it('四件都放出毒蛛；生命在掉落時擲 3～6%，說明文字顯示擲出的數值', () => {
+    const gen = new ItemGenerator(data, new Rng(7));
+    for (const id of SPIDER_ITEMS) {
+      const def = data.legendaries.get(id);
+      const item = gen.createLegendary(def, 30);
+      const roll = item.legendaryRolls!.at(-1)!;
+      expect(roll).toBeGreaterThanOrEqual(0.03);
+      expect(roll).toBeLessThanOrEqual(0.06);
+      expect(item.legendaryRolls).toHaveLength(def.lines.filter((l) => l.type === 'stat').length + 1);
+      const text = describeItem(item, data).legendary!.lines.find((l) => l.text.includes('毒蛛生命'))!.text;
+      expect(text).toContain(`主角最大生命的 ${Math.round(roll * 1000) / 10}%`);
+      expect(text).not.toContain('{roll}');
+    }
+  });
+
+  it('蛛后毒弓：遠程擊殺孵出 4 隻毒蛛，生命 = 主角最大生命 × 擲骰；追上去咬附近的敵人（毒素），6 秒後消失', () => {
+    const { world } = createWorld();
+    const item = wear(world, 'mythic.bow_spider_queen');
+    const target = dummy(world);
+    target.stats.addModifier({ stat: 'maxHp', kind: 'flat', value: 1e6, source: 'test' });
+    target.hp = target.maxHp;
+    const log = damageLog(world, target);
+    hit(world, target, 'ranged.quick_shot', 100, null, { killed: true });
+    const spawned = spiders(world);
+    expect(spawned).toHaveLength(4);
+    for (const s of spawned) expect(s.maxHp).toBeCloseTo(world.player.maxHp * item.legendaryRolls!.at(-1)!);
+    run(world, 3);
+    expect(log.filter((l) => l.element === 'poison').length).toBeGreaterThanOrEqual(4);
+    run(world, 3.5);
+    expect(spiders(world)).toHaveLength(0);
+  });
+
+  it('全身毒蛛最多 10 隻（不同裝備共用），超過時最舊的先消失；不佔戰術機關的上限', () => {
+    const { world } = createWorld();
+    wear(world, 'mythic.bow_spider_queen');
+    const target = dummy(world);
+    for (let i = 0; i < 3; i++) hit(world, target, 'ranged.quick_shot', 100, null, { killed: true });
+    expect(spiders(world)).toHaveLength(10);
+  });
+
+  it('毒蛛咬死敵人不會再觸發「擊殺時」放出毒蛛（不會無限連鎖）', () => {
+    const { world } = createWorld();
+    wear(world, 'mythic.bow_spider_queen');
+    const target = dummy(world);
+    target.hp = 1;
+    hit(world, target, 'ranged.quick_shot', 100, null, { killed: true });
+    run(world, 1.5);
+    expect(target.alive).toBe(false);
+    expect(spiders(world).length).toBeLessThanOrEqual(4);
+  });
+
+  it('舊存檔的裝備沒有毒蛛生命的擲骰：用中間值 4.5%', () => {
+    const { world } = createWorld();
+    const item = wear(world, 'mythic.bow_spider_queen');
+    item.legendaryRolls = item.legendaryRolls!.slice(0, -1);
+    world.equipment.unequip('weapon');
+    world.equipment.equip({ ...item, uid: 'old' });
+    world.itemEffects.update(0);
+    hit(world, dummy(world), 'ranged.quick_shot', 100, null, { killed: true });
+    expect(spiders(world)[0]!.maxHp).toBeCloseTo(world.player.maxHp * 0.045);
+  });
+});
+
 describe('世界裂痕（實際連段施放）', () => {
   const ROOM = ['############', '#S.........#', '#..........#', '#..........#', '############'];
   /** 用 Q 連段實際打一次：大範圍震波（半徑 3.2，Combo 效果）與一般震波（半徑 2.2，重擊效果）的次數與是否以 Combo 金色特效顯示 */

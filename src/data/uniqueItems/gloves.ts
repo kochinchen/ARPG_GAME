@@ -1,4 +1,4 @@
-import { stat, inc, strong, unique, mods, on, cond, at, buff, arm, hit, area, status, fan, rain, MELEE, MAGIC, FINISHER, type Def, type Effect } from './parts';
+import { stat, inc, strong, unique, uniqueRoll, mods, on, cond, at, buff, arm, hit, area, status, fan, rain, MELEE, MAGIC, FINISHER, spiders, SPIDER_HP, type Def, type Effect } from './parts';
 
 /**
  * 擴充的傳奇 / 神話（手套）：橘 9 件、紅 4 件（紅對應每 5 層的魔王）。
@@ -279,9 +279,10 @@ const mythic: Def[] = [
         on('hit', [at('target', 'ranged', [area(2, [status('slow', 2, 0.4)])])], { chance: 0.2, cooldown: 1 }),
       ),
       unique('對緩速的敵人，所有傷害 +20%', mods({}, { vsStatus: { statuses: ['slow'], damage: 0.2 } })),
-      unique(
-        '擊殺緩速的敵人時，屍體爬出 4 隻毒蛛：向四周射出 4 發，各造成武器 50% 毒素傷害並緩速 30%（冷卻 0.5 秒）',
-        on('kill', [at('target', 'ranged', [burst(4, [hit('poison', 0.5), status('slow', 2, 0.3)], 7, 5)])], { targetStatus: 'slow', cooldown: 0.5 }),
+      uniqueRoll(
+        '擊殺緩速的敵人時，屍體爬出 4 隻毒蛛：追咬附近的敵人，每口武器 50% 毒素傷害並緩速 30%（冷卻 0.5 秒）；毒蛛生命為主角最大生命的 {roll}，存活 6 秒（全身最多 10 隻）',
+        SPIDER_HP,
+        on('kill', [at('target', 'ranged', [spiders(4, [hit('poison', 0.5), status('slow', 2, 0.3)])])], { targetStatus: 'slow', cooldown: 0.5 }),
       ),
     ],
   },

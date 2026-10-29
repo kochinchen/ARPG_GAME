@@ -11,9 +11,13 @@ import type { EffectContext } from './effects/IEffect';
 
 /** 機關的碰撞半徑（Tile）：怪物攻擊它時站的距離 */
 const DEVICE_RADIUS = 0.4;
+/** 召喚物（毒蛛）的碰撞半徑 */
+const MINION_RADIUS = 0.25;
+/** 召喚物沒有敵人時，離玩家超過幾格才跟上 */
+const MINION_LEASH = 2;
 
 /**
- * 機關（戰術 B 路線）：佈置、上限、血量與防禦跟隨玩家、四種行為、到期與被打壞。
+ * 機關（戰術 B 路線）與召喚物（毒蛛）：佈置、上限、血量與防禦跟隨玩家、五種行為、到期與被打壞。
  * 機關是玩家陣營的 Actor（faction 'summon'）：玩家的技能打不到、怪物可以攻擊；
  * 子效果以玩家為施放者（吃玩家的武器傷害 / 法術強度、擊殺算玩家的），從機關的位置發出。
  */
@@ -40,20 +44,27 @@ export class DeviceSystem {
   }
 
   place(def: DeviceEffectDef, ctx: EffectContext): void {
+    for (let i = 0; i < def.count; i++) this.placeOne(def, ctx, i);
+  }
+
+  private placeOne(def: DeviceEffectDef, ctx: EffectContext, index: number): void {
     const owner = ctx.caster;
     const rank = ctx.rank;
-    // 同技能上限、全身上限：最舊的先消失（不觸發 onDestroy）
-    this.evict((a) => a.device!.skillId === ctx.skill.id, Math.round(rankValue(def.maxAlive, rank)));
-    this.evict(() => true, this.config.maxAlive);
+    // 同技能（或同群組）上限、全身上限：最舊的先消失（不觸發 onDestroy）；有群組的不佔全身上限
+    const group = def.group;
+    this.evict((a) => (group ? a.device!.def.group === group : a.device!.skillId === ctx.skill.id), Math.round(rankValue(def.maxAlive, rank)));
+    if (!group) this.evict((a) => !a.device!.def.group, this.config.maxAlive);
     const hpPct = rankValue(def.hpPct, rank);
+    const minion = def.behavior === 'minion';
+    const radius = minion ? MINION_RADIUS : DEVICE_RADIUS;
     const actor = new Actor({
       id: this.nextId(),
       faction: 'summon',
       name: ctx.skill.name,
       defId: ctx.skill.id,
-      position: this.spot(def, ctx),
-      radius: DEVICE_RADIUS,
-      stats: new StatBlock({ maxHp: Math.max(1, owner.maxHp * hpPct), defense: owner.stats.get('defense'), moveSpeed: 0 }),
+      position: this.spot(def, ctx, index, radius),
+      radius,
+      stats: new StatBlock({ maxHp: Math.max(1, owner.maxHp * hpPct), defense: owner.stats.get('defense'), moveSpeed: minion ? def.moveSpeed : 0 }),
       summonedBy: owner.id,
       device: {
         def,
@@ -64,7 +75,8 @@ export class DeviceSystem {
         order: this.placed++,
         remaining: rankValue(def.duration, rank),
         armTimer: def.armDelay,
-        shotTimer: def.interval,
+        // 召喚物一碰到敵人就先咬一口
+        shotTimer: minion ? 0 : def.interval,
         shotsLeft: Math.round(rankValue(def.shots, rank)),
         triggersLeft: Math.round(rankValue(def.triggers, rank)),
         tripped: new Set(),
@@ -105,16 +117,22 @@ export class DeviceSystem {
         case 'turret':
           this.shoot(actor, dt);
           break;
+        case 'minion':
+          this.chase(actor, owner, dt);
+          break;
         case 'none':
           break;
       }
     }
   }
 
-  /** 位置：絆索網放在面前；其他放在指定位置。被牆擋住時放在施放者腳下 */
-  private spot(def: DeviceEffectDef, ctx: EffectContext): Vec2 {
-    const wanted = def.forward ? add(ctx.caster.position, scale(ctx.direction, def.forward)) : ctx.origin;
-    return this.nav.isClearAt(wanted, DEVICE_RADIUS) ? wanted : ctx.caster.position;
+  /** 位置：絆索網放在面前；其他放在指定位置（一次多個時圍成一圈）。被牆擋住時放在指定位置或施放者腳下 */
+  private spot(def: DeviceEffectDef, ctx: EffectContext, index: number, radius: number): Vec2 {
+    const center = def.forward ? add(ctx.caster.position, scale(ctx.direction, def.forward)) : ctx.origin;
+    const angle = (index / def.count) * Math.PI * 2;
+    const wanted = def.count > 1 ? add(center, vec2(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5)) : center;
+    if (this.nav.isClearAt(wanted, radius)) return wanted;
+    return this.nav.isClearAt(center, radius) ? center : ctx.caster.position;
   }
 
   /** 最大血量與防禦即時跟隨玩家；最大血量變動時維持血量比例（P0-8） */
@@ -167,6 +185,40 @@ export class DeviceSystem {
     if (--device.shotsLeft <= 0) {
       this.fire(actor, device.def.onExpire, null);
       this.vanish(actor);
+    }
+  }
+
+  /** 召喚物：追最近的敵人，貼近後每 interval 秒咬一口；沒有敵人時跟著玩家 */
+  private chase(actor: Actor, owner: Actor, dt: number): void {
+    const device = actor.device!;
+    device.shotTimer = Math.max(0, device.shotTimer - dt);
+    const target = this.targeting.nearestHostile(actor, device.def.range);
+    if (!target) {
+      if (distance(actor.position, owner.position) > MINION_LEASH) this.step(actor, owner.position, dt);
+      return;
+    }
+    const gap = distance(actor.position, target.position) - actor.radius - target.radius;
+    if (gap > device.def.triggerRadius) {
+      this.step(actor, target.position, dt);
+      return;
+    }
+    actor.facing = normalize(sub(target.position, actor.position));
+    if (device.shotTimer > 0) return;
+    device.shotTimer = device.def.interval;
+    this.fire(actor, device.def.onShot, target, actor.facing);
+  }
+
+  /** 朝目標直線移動；被牆擋住時試著只沿一個軸走（貼牆滑動） */
+  private step(actor: Actor, toward: Vec2, dt: number): void {
+    const delta = sub(toward, actor.position);
+    if (delta.x === 0 && delta.y === 0) return;
+    const dir = normalize(delta);
+    const move = scale(dir, Math.min(actor.stats.get('moveSpeed') * dt, distance(actor.position, toward)));
+    actor.facing = dir;
+    for (const next of [add(actor.position, move), add(actor.position, vec2(move.x, 0)), add(actor.position, vec2(0, move.y))]) {
+      if (!this.nav.isClearAt(next, actor.radius)) continue;
+      actor.position = next;
+      return;
     }
   }
 

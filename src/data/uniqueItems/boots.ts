@@ -1,4 +1,4 @@
-import { stat, inc, strong, unique, mods, on, cond, at, buff, arm, hit, area, status, RANGED, FINISHER, type Def, type Effect } from './parts';
+import { stat, inc, strong, unique, uniqueRoll, mods, on, cond, at, buff, arm, hit, area, status, RANGED, FINISHER, spiders, SPIDER_HP, type Def, type Effect } from './parts';
 
 /**
  * 擴充的傳奇 / 神話（靴子）：橘 9 件、紅 4 件（紅對應每 5 層的魔王）。
@@ -286,9 +286,10 @@ const mythic: Def[] = [
         on('dodge', [at('self', 'ranged', [area(3, [status('slow', 2.5, 0.5)])])], { cooldown: 2 }),
       ),
       unique('對緩速的敵人，暴擊率 +15%', mods({}, { vsStatus: { statuses: ['slow'], crit: 0.15 } })),
-      unique(
-        '每次完成 Combo，放出 3 隻毒蛛：向四周射出 3 發毒液，各造成武器 70% 毒素傷害並緩速 30%（冷卻 1 秒）',
-        on('comboComplete', [at('self', 'ranged', [burst(3, [hit('poison', 0.7), status('slow', 2, 0.3)], 8, 6)])], { cooldown: 1 }),
+      uniqueRoll(
+        '每次完成 Combo，放出 3 隻毒蛛：追咬附近的敵人，每口武器 70% 毒素傷害並緩速 30%（冷卻 1 秒）；毒蛛生命為主角最大生命的 {roll}，存活 6 秒（全身最多 10 隻）',
+        SPIDER_HP,
+        on('comboComplete', [at('self', 'ranged', [spiders(3, [hit('poison', 0.7), status('slow', 2, 0.3)])])], { cooldown: 1 }),
       ),
     ],
   },

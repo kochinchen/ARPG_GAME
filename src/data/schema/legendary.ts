@@ -178,6 +178,11 @@ const EffectLineSchema = z.strictObject({
   strong: z.boolean().default(false),
   unique: z.boolean().default(false),
   mechanics: z.array(ItemMechanicSchema).min(1),
+  /**
+   * 掉落時擲骰的數值（不隨階級成長），存在 legendaryRolls 的固定屬性之後。
+   * 目前用在召喚物的生命：取代效果裡機關的 hpPct；說明文字的 {roll} 換成擲出的百分比。
+   */
+  roll: z.tuple([z.number().positive(), z.number().positive()]).optional(),
 });
 
 export const LegendaryLineSchema = z.discriminatedUnion('type', [StatLineSchema, EffectLineSchema]);

@@ -71,6 +71,26 @@ describe('裝備的攻擊與輔助屬性（整合）', () => {
     expect(cold).toBeDefined();
   });
 
+  it('元素附加傷害補刀打死目標，也算這一擊擊殺（「擊殺時」效果會觸發）', () => {
+    const { world, commands, events } = createWorld();
+    const dummy = world.actors.find((a) => a.defId === 'enemy.training_dummy' && a.position.x === 8.5)!;
+    dummy.stats.addModifier({ stat: 'maxHp', kind: 'flat', value: 1e6, source: 'test' });
+    dummy.hp = dummy.maxHp;
+    world.player.stats.addModifier({ stat: 'poisonDamagePct', kind: 'flat', value: 0.5, source: 'test' });
+    // 主攻擊打不死（剩 1 點血），由附加毒素傷害補刀
+    events.on('ActorDamaged', (e) => {
+      if (e.targetId === dummy.id && e.element === 'physical' && dummy.hp > 0) dummy.hp = 1;
+    });
+    const kills: boolean[] = [];
+    events.on('SkillHit', (e) => {
+      if (e.targetId === dummy.id) kills.push(e.killed);
+    });
+    commands.push({ type: 'PrimaryAction', worldPos: dummy.position, targetId: dummy.id, held: false }, { type: 'PrimaryRelease' });
+    run(world, 3);
+    expect(dummy.hp).toBe(0);
+    expect(kills).toContain(true);
+  });
+
   it('藥水效果提高回復量', () => {
     const { world, commands, data } = createWorld();
     const potion = data.potions.get(data.balance.player.potionId);

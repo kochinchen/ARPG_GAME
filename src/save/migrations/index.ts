@@ -236,8 +236,14 @@ function addShieldMain(node: unknown): unknown {
 }
 const v15ToV16: Migration = (v15) => addShieldMain(v15) as Record<string, unknown>;
 
+/**
+ * v16 → v17：傳奇 / 神話效果行的擲骰（蛛后套的毒蛛生命）接在 legendaryRolls 的固定屬性之後。
+ * 舊裝備沒有這個值，讀取時用範圍中間值（ItemStats.effectLineRoll），不需要轉換內容。
+ */
+const v16ToV17: Migration = (v16) => v16;
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17];
 
 export class MigrationError extends Error {}
 

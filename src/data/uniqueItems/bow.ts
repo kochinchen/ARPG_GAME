@@ -1,4 +1,4 @@
-import { stat, inc, strong, unique, mods, on, at, buff, arm, hit, area, status, RANGED, FINISHER, type Def, type Effect, type DamageElement } from './parts';
+import { stat, inc, strong, unique, uniqueRoll, mods, on, at, buff, arm, hit, area, status, RANGED, FINISHER, spiders, SPIDER_HP, type Def, type Effect, type DamageElement } from './parts';
 
 /**
  * 擴充的傳奇 / 神話（弓）：橘 9 件、紅 4 件（紅對應每 5 層的魔王）。
@@ -281,9 +281,10 @@ export const bowItems: Def[] = [
         on('hit', [at('target', 'ranged', [status('slow', 2, 0.4)])], { when: { tags: ['MultiHit'], categories: ['ranged'] } }),
         mods(RANGED, { vsStatus: { statuses: ['slow'], crit: 0.12 } }),
       ),
-      unique(
-        '遠程擊殺時孵出 4 隻毒蛛向四周竄出，各造成武器 45% 毒素傷害',
-        on('kill', [at('target', 'ranged', [shots(4, 360, 'poison', 0.45, [], 6, 4)])], { when: RANGED }),
+      uniqueRoll(
+        '遠程擊殺時孵出 4 隻毒蛛：追咬附近的敵人，每口武器 45% 毒素傷害；毒蛛生命為主角最大生命的 {roll}，存活 6 秒（全身最多 10 隻）',
+        SPIDER_HP,
+        on('kill', [at('target', 'ranged', [spiders(4, [hit('poison', 0.45)])])], { when: RANGED }),
       ),
     ],
   },

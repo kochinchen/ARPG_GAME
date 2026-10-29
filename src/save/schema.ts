@@ -19,10 +19,11 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v14：雙重斬換成盾擊（技能等級、左鍵、連段格轉移）。
  * v15：鑲嵌與融合——裝備的孔位與熔核（sockets）、背包 / 地上 / 拆解區的熔核、商人的融合格（fusion）。
  * v16：盾牌也能鑲嵌——熔核主屬性多了盾牌欄（main.shield）。
+ * v17：傳奇 / 神話效果行的擲骰（毒蛛生命）接在 legendaryRolls 的固定屬性之後。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -55,7 +56,7 @@ export const ItemInstanceSchema = z.object({
   quality: finite.min(0).optional(),
   affixes: z.array(z.object({ id: z.string(), rolls: z.array(finite) })),
   legendaryId: z.string().optional(),
-  /** 傳奇 / 神話固定屬性的擲骰（v6） */
+  /** 傳奇 / 神話固定屬性的擲骰（v6）；之後接效果行的擲骰（v17） */
   legendaryRolls: z.array(finite).optional(),
   /** 重鑄次數（v12） */
   rerolls: nonNegInt.optional(),

@@ -85,17 +85,6 @@ export class DamageEffect implements IEffect<'damage'> {
         armorPenetration: mods.armorPenetration,
         lifeStealMultiplier,
       });
-      if (result && result.amount > 0) {
-        ctx.services.events.emit('SkillHit', {
-          casterId: ctx.caster.id,
-          targetId: target.id,
-          skillId: ctx.skill.id,
-          amount: result.amount,
-          isCrit: result.isCrit,
-          killed: result.killed,
-          combo: mods.combo,
-        });
-      }
       // 裝備：元素附加傷害（每次命中額外造成該次傷害一定比例的元素傷害）
       for (const [element, stat] of ELEMENT_DAMAGE) {
         const pct = ctx.caster.stats.get(stat);
@@ -108,6 +97,18 @@ export class DamageEffect implements IEffect<'damage'> {
         if (!result || result.amount <= 0 || target.hp <= 0) break;
         const amount = result.amount * extra.value;
         pipeline.apply({ source: ctx.caster, target, min: amount, max: amount, element: extra.element, canCrit: false, noCounter: true });
+      }
+      // 附加傷害之後才回報：被元素附加傷害補刀打死也算這一擊擊殺（「擊殺時」效果）
+      if (result && result.amount > 0) {
+        ctx.services.events.emit('SkillHit', {
+          casterId: ctx.caster.id,
+          targetId: target.id,
+          skillId: ctx.skill.id,
+          amount: result.amount,
+          isCrit: result.isCrit,
+          killed: result.killed || target.hp <= 0,
+          combo: mods.combo,
+        });
       }
     }
   }

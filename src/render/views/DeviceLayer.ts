@@ -13,12 +13,18 @@ const HEIGHT: Record<string, number> = {
   'utility.storm_totem': 52,
   'utility.powder_keg': 30,
 };
+/** 召喚物（毒蛛）的外觀高度與血條寬度 */
+const MINION_HEIGHT = 12;
+const MINION_BAR_WIDTH = 20;
 
 interface View {
   container: Container;
   art: Graphics;
   bar: Graphics;
   time: number;
+  /** 上一幀的位置（毒蛛走路時腳才擺動） */
+  last: Vec2;
+  moving: boolean;
 }
 
 /**
@@ -45,10 +51,12 @@ export class DeviceLayer {
         const bar = new Graphics();
         container.addChild(art, bar);
         this.layer.addChild(container);
-        view = { container, art, bar, time: 0 };
+        view = { container, art, bar, time: 0, last: actor.position, moving: false };
         this.views.set(actor.id, view);
       }
       view.time += dt;
+      view.moving = view.last.x !== actor.position.x || view.last.y !== actor.position.y;
+      view.last = actor.position;
       const position = lerp(actor.prevPosition, actor.position, alpha);
       const s = this.projection.toScreen(position);
       view.container.position.set(s.x, s.y);
@@ -66,7 +74,9 @@ export class DeviceLayer {
     const device = actor.device!;
     const g = view.art.clear();
     const t = view.time;
-    switch (device.skillId) {
+    const minion = device.def.behavior === 'minion';
+    if (minion) this.drawSpider(g, actor.facing, t, view.moving);
+    else switch (device.skillId) {
       case 'utility.trip_net':
         this.drawNet(g, device.direction, device.def.line?.length ?? 8);
         break;
@@ -82,14 +92,69 @@ export class DeviceLayer {
       default:
         g.circle(0, -6, 8).fill({ color: 0x8a7c68 });
     }
-    const height = HEIGHT[device.skillId] ?? 16;
+    const height = minion ? MINION_HEIGHT : (HEIGHT[device.skillId] ?? 16);
+    const width = minion ? MINION_BAR_WIDTH : BAR_WIDTH;
     const ratio = Math.max(0, Math.min(1, actor.hp / actor.maxHp));
     view.bar
       .clear()
-      .rect(-BAR_WIDTH / 2, -height - 10, BAR_WIDTH, 4)
+      .rect(-width / 2, -height - 10, width, minion ? 3 : 4)
       .fill({ color: PALETTE.hpBack })
-      .rect(-BAR_WIDTH / 2, -height - 10, BAR_WIDTH * ratio, 4)
+      .rect(-width / 2, -height - 10, width * ratio, minion ? 3 : 4)
       .fill({ color: PALETTE.playerHpFill });
+  }
+
+  /**
+   * 毒蛛（蛛后套的召喚物）：紫黑腹部、綠色毒紋、八隻腳，朝面向擺放；走路時腳交替擺動。
+   * 腹部與頭胸都用小三角面拼成（亮暗交錯），和角色模型的構面風格一致。
+   */
+  private drawSpider(g: Graphics, facing: Vec2, t: number, moving: boolean): void {
+    const f = this.projection.toScreen(normalize(facing.x === 0 && facing.y === 0 ? vec2(1, 0) : facing));
+    const len = Math.hypot(f.x, f.y) || 1;
+    const fx = f.x / len;
+    const fy = f.y / len;
+    // 螢幕上的「前方」與「側面」（側面壓扁成等角的高度比例）
+    const at = (forward: number, side: number, lift = 0): [number, number] => [fx * forward - fy * side, fy * forward * 0.5 + fx * side * 0.5 - lift];
+    g.ellipse(0, 0, 11, 5.5).fill({ color: PALETTE.shadow, alpha: 0.4 });
+    // 腳：左右各四隻，膝蓋抬高；走路時兩組交替
+    const swing = moving ? Math.sin(t * 18) * 1.6 : 0;
+    for (let i = 0; i < 4; i++) {
+      const forward = 3 - i * 2.2;
+      for (const side of [-1, 1]) {
+        const phase = (i + (side > 0 ? 1 : 0)) % 2 === 0 ? swing : -swing;
+        const root = at(forward * 0.4, side * 2.5, 5);
+        const knee = at(forward + phase, side * 7, 9);
+        const foot = at(forward * 1.3 + phase, side * 10.5, 0);
+        g.moveTo(...root).lineTo(...knee).lineTo(...foot).stroke({ color: 0x2a1e30, width: 1.4 });
+      }
+    }
+    // 腹部（後方）：八個三角面
+    const abdomen = at(-4.5, 0, 6);
+    const ring = (cx: number, cy: number, r: number, n: number) =>
+      Array.from({ length: n }, (_, i) => {
+        const a = (i / n) * Math.PI * 2;
+        const [x, y] = at(Math.cos(a) * r * 1.15, Math.sin(a) * r, 0);
+        return [cx + x, cy + y - Math.max(0, -Math.sin(a)) * r * 0.5] as [number, number];
+      });
+    const back = ring(abdomen[0], abdomen[1], 5.5, 8);
+    back.forEach((p, i) => {
+      const q = back[(i + 1) % back.length]!;
+      g.poly([abdomen[0], abdomen[1] - 2.5, ...p, ...q]).fill({ color: i % 2 === 0 ? 0x4a2e58 : 0x3a2246 });
+    });
+    // 綠色毒紋（微微發光）
+    const glow = 0.7 + 0.3 * Math.sin(t * 5);
+    const mark = at(-4.5, 0, 8.5);
+    g.poly([mark[0] - 2, mark[1], mark[0], mark[1] - 1.5, mark[0] + 2, mark[1], mark[0], mark[1] + 1.5]).fill({ color: 0x8be04e, alpha: glow });
+    // 頭胸（前方）：六個三角面與兩顆紅眼
+    const head = at(2.5, 0, 5);
+    const front = ring(head[0], head[1], 3.2, 6);
+    front.forEach((p, i) => {
+      const q = front[(i + 1) % front.length]!;
+      g.poly([head[0], head[1] - 1.5, ...p, ...q]).fill({ color: i % 2 === 0 ? 0x5a3a66 : 0x44284e });
+    });
+    for (const side of [-1, 1]) {
+      const eye = at(4.6, side * 1.2, 6);
+      g.circle(eye[0], eye[1], 0.9).fill({ color: 0xff5040 });
+    }
   }
 
   /** 絆索網：垂直於面向橫放，兩端短樁，中間上下兩條繩加交叉網格 */

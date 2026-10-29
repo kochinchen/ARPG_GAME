@@ -17,6 +17,7 @@ import { combatCategory } from '../skills/skillCategory';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { EquipmentSlot, ItemInstance } from './ItemInstance';
 import { EQUIPMENT_SLOTS } from './ItemInstance';
+import { effectLineRoll } from './ItemStats';
 import type { CoreEffects } from './CoreStats';
 
 /** 熔核的技能加成與印記（由 Equipment 計算，已套用全身上限） */
@@ -207,7 +208,8 @@ export class ItemEffectSystem {
       const def = this.data.legendaries.get(item.legendaryId!);
       def.lines.forEach((line, i) => {
         if (line.type !== 'effect') return;
-        line.mechanics.forEach((mechanic, j) => this.active.push({ key: `${n}:${def.id}:${i}:${j}`, mechanic }));
+        const roll = effectLineRoll(def, item, i);
+        line.mechanics.forEach((mechanic, j) => this.active.push({ key: `${n}:${def.id}:${i}:${j}`, mechanic: roll === null ? mechanic : withMinionHp(mechanic, roll) }));
       });
     });
     // 熔核：技能加成（重擊類技能傷害、投射物速度…）與印記（傳入的強屬性）
@@ -426,6 +428,13 @@ function addMods(target: StepMods, input: ModsInput, factor: number): void {
     if (input.vsStatus.crit) target.vsTarget.push({ type: 'crit', statuses: input.vsStatus.statuses, value: input.vsStatus.crit * factor });
   }
   if (input.vsLowHp) target.vsLowHp.push({ below: input.vsLowHp.below, damage: input.vsLowHp.damage * factor });
+}
+
+/** 效果行的擲骰（召喚物生命）：取代動作裡機關的 hpPct */
+function withMinionHp(m: ItemMechanic, hpPct: number): ItemMechanic {
+  if (m.type !== 'trigger') return m;
+  const map = (e: EffectDef): EffectDef => (e.type === 'device' ? { ...e, hpPct } : e);
+  return { ...m, actions: m.actions.map((a) => (a.type === 'effects' ? { ...a, effects: a.effects.map(map) } : a)) };
 }
 
 /** 把效果中的傷害改成固定值（觸發那一擊傷害 × 比例） */

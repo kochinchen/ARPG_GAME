@@ -1,4 +1,4 @@
-import { stat, inc, flat, strong, unique, mods, on, cond, at, buff, hit, area, status, MELEE, MAGIC, type Def, type Effect } from './parts';
+import { stat, inc, flat, strong, unique, uniqueRoll, mods, on, cond, at, buff, hit, area, status, MELEE, MAGIC, spiders, SPIDER_HP, type Def, type Effect } from './parts';
 
 /**
  * 擴充的傳奇 / 神話（盔甲）：橘 9 件、紅 4 件（紅對應每 5 層的魔王）
@@ -285,9 +285,10 @@ const mythic: Def[] = [
         on('hurt', [at('self', 'ranged', [area(3, [status('slow', 3, 0.5)])])], { near: 2, chance: 0.3, cooldown: 3 }),
       ),
       unique('對緩速的敵人傷害 +20%', mods({}, { vsStatus: { statuses: ['slow'], damage: 0.2 } })),
-      unique(
-        '擊殺時 25% 機率，從屍體爆出 5 隻毒蛛（環狀毒液，每隻武器 60% 毒素傷害）',
-        on('kill', [at('target', 'ranged', [{ type: 'projectile', speed: 7, radius: 0.2, range: 4.5, count: 5, spreadDeg: 360, onHit: [hit('poison', 0.6)] }])], { chance: 0.25 }),
+      uniqueRoll(
+        '擊殺時 25% 機率，從屍體爆出 5 隻毒蛛：追咬附近的敵人，每口武器 60% 毒素傷害；毒蛛生命為主角最大生命的 {roll}，存活 6 秒（全身最多 10 隻）',
+        SPIDER_HP,
+        on('kill', [at('target', 'ranged', [spiders(5, [hit('poison', 0.6)])])], { chance: 0.25 }),
       ),
     ],
   },

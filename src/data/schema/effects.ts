@@ -198,13 +198,23 @@ export const SummonEffectSchema = z.strictObject({
  */
 export const DeviceEffectSchema = z.strictObject({
   type: z.literal('device'),
-  /** trip：敵人碰到 line 就觸發 onTrigger（每個敵人一次，共 triggers 次）；proximity：待命 armDelay 秒後，敵人進入 triggerRadius 就觸發並消失；turret：每 interval 秒朝 range 內最近的敵人觸發 onShot，共 shots 次；none：只等時間到或被打壞 */
-  behavior: z.enum(['trip', 'proximity', 'turret', 'none']),
+  /**
+   * trip：敵人碰到 line 就觸發 onTrigger（每個敵人一次，共 triggers 次）；proximity：待命 armDelay 秒後，敵人進入 triggerRadius 就觸發並消失；
+   * turret：每 interval 秒朝 range 內最近的敵人觸發 onShot，共 shots 次；none：只等時間到或被打壞；
+   * minion：會移動的召喚物（毒蛛）——追 range 內最近的敵人，貼近到 triggerRadius 內每 interval 秒對它觸發 onShot（不限次數），沒有敵人時跟著玩家
+   */
+  behavior: z.enum(['trip', 'proximity', 'turret', 'none', 'minion']),
   hpPct: RankNumberSchema,
   /** 持續時間（秒），到期觸發 onExpire 後消失 */
   duration: RankNumberSchema,
   /** 這個技能的機關同時存在的上限（全身上限另計） */
   maxAlive: RankNumberSchema.default(1),
+  /** 一次佈置幾個（minion：圍在指定位置周圍） */
+  count: z.int().positive().default(1),
+  /** minion 的移動速度（格 / 秒） */
+  moveSpeed: z.number().positive().default(3.5),
+  /** 共用上限的群組（不同裝備的毒蛛合計 maxAlive 隻）；有群組的機關不佔全身機關上限 */
+  group: z.string().optional(),
   /** 放在施放者面前幾格（絆索網）；省略 = 放在指定位置 */
   forward: z.number().positive().optional(),
   /** trip：垂直於面向的長方形（length 為橫向長度） */

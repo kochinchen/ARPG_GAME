@@ -90,6 +90,26 @@ function legendaryAffixes(def: LegendaryDef, item: ItemInstance): ItemStats['aff
   return out;
 }
 
+/**
+ * 效果行的擲骰（line = def.lines 的索引；沒有擲骰的行回傳 null）。
+ * 存在 legendaryRolls 的固定屬性之後；舊裝備沒有這個值時用範圍中間值。
+ */
+export function effectLineRoll(def: LegendaryDef, item: ItemInstance, line: number): number | null {
+  const l = def.lines[line];
+  if (!l || l.type !== 'effect' || !l.roll) return null;
+  const stats = def.lines.filter((x) => x.type === 'stat').length;
+  const order = def.lines.slice(0, line).filter((x) => x.type === 'effect' && x.roll).length;
+  return item.legendaryRolls?.[stats + order] ?? (l.roll[0] + l.roll[1]) / 2;
+}
+
+/** 效果行的說明文字：{roll} 換成擲出的百分比 */
+export function effectLineText(def: LegendaryDef, item: ItemInstance, line: number): string {
+  const l = def.lines[line]!;
+  if (l.type !== 'effect') return '';
+  const roll = effectLineRoll(def, item, line);
+  return roll === null ? l.text : l.text.replaceAll('{roll}', `${Math.round(roll * 1000) / 10}%`);
+}
+
 /** 吸血 / 吸魔：每一個來源最高 STEAL_CAP.perSource（硬上限，舊物品也適用） */
 function capSteal(stat: StatId, value: number): number {
   return stat === 'lifeSteal' || stat === 'manaSteal' ? Math.min(value, STEAL_CAP.perSource) : value;

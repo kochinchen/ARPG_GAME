@@ -161,6 +161,8 @@ export class ItemGenerator {
         return Math.round(raw * (1 + l.growth * (tier - 1)) * 10000) / 10000;
       });
     const quality = def.main ? Math.round(this.rng.range(def.main[0], def.main[1]) * 100) / 100 : 0;
+    // 效果行的擲骰（召喚物生命…）：接在固定屬性之後，不隨階級成長
+    for (const l of def.lines) if (l.type === 'effect' && l.roll) legendaryRolls.push(Math.round(this.rng.range(l.roll[0], l.roll[1]) * 1000) / 1000);
     return { uid, baseId: base.id, rarity: def.rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes: [], legendaryId: def.id, legendaryRolls };
   }
 

@@ -4,7 +4,7 @@ import { RARITY_LABELS, WEAPON_TYPE_LABELS, type EquipSlot, type Rarity } from '
 import type { ModifierKind } from '../stats/StatBlock';
 import type { ItemInstance } from './ItemInstance';
 import { nameItem } from './ItemNamer';
-import { itemStats, type MainRollTarget } from './ItemStats';
+import { effectLineText, itemStats, type MainRollTarget } from './ItemStats';
 
 const MAIN_LABELS: Record<MainRollTarget, string> = { damage: '武器傷害', spellPower: '法術強度', defense: '防禦', affixes: '所有詞綴' };
 
@@ -159,12 +159,12 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
   let legendary: ItemDescription['legendary'] = null;
   if (def) {
     let n = 0;
-    const lines = def.lines.map((l) => {
+    const lines = def.lines.map((l, i) => {
       if (l.type === 'stat') {
         const a = affixes[n++]!;
         return { text: line(a), kind: l.strong ? ('strong' as const) : ('normal' as const) };
       }
-      return { text: l.text, kind: l.unique ? ('unique' as const) : l.strong ? ('strong' as const) : ('normal' as const) };
+      return { text: effectLineText(def, item, i), kind: l.unique ? ('unique' as const) : l.strong ? ('strong' as const) : ('normal' as const) };
     });
     legendary = { role: def.role, lore: def.lore, lines };
   }

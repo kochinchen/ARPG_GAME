@@ -35,6 +35,8 @@ export const line = (text: string, ...mechanics: Mechanic[]): Line => ({ type: '
 export const strong = (text: string, ...mechanics: Mechanic[]): Line => ({ type: 'effect', text, strong: true, mechanics });
 /** 傳奇 / 神話效果（✦） */
 export const unique = (text: string, ...mechanics: Mechanic[]): Line => ({ type: 'effect', text, unique: true, mechanics });
+/** 有掉落擲骰的傳奇 / 神話效果（說明文字的 {roll} 換成擲出的百分比） */
+export const uniqueRoll = (text: string, roll: [number, number], ...mechanics: Mechanic[]): Line => ({ type: 'effect', text, unique: true, mechanics, roll });
 
 export const mods = (when: Filter, m: Mods, extra: Partial<Extract<Mechanic, { type: 'mods' }>> = {}): Mechanic => ({ type: 'mods', when, mods: m, ...extra });
 export const on = (event: Extract<Mechanic, { type: 'trigger' }>['on'], actions: Action[], extra: Partial<Extract<Mechanic, { type: 'trigger' }>> = {}): Mechanic => ({
@@ -109,6 +111,26 @@ export const rain = (repeat: number, scatter: number, radius: number, element: D
   interval: 0.15,
   scatter,
   effects: [area(radius, [hit(element, multiplier, scaling)])],
+});
+
+/**
+ * 蛛后套的毒蛛：追咬附近的敵人，每 1.2 秒咬一口（bite），存活 6 秒；怪物會攻擊牠們。
+ * 生命 = 主角最大生命 × 掉落時擲出的 SPIDER_HP（效果行加上 roll: SPIDER_HP）；不同裝備的毒蛛合計最多 10 隻。
+ */
+export const SPIDER_HP: [number, number] = [0.03, 0.06];
+export const spiders = (count: number, bite: Effect[]): Effect => ({
+  type: 'device',
+  behavior: 'minion',
+  count,
+  hpPct: SPIDER_HP[0],
+  duration: 6,
+  group: 'spider',
+  maxAlive: 10,
+  moveSpeed: 4,
+  range: 6,
+  triggerRadius: 0.3,
+  interval: 1.2,
+  onShot: bite,
 });
 
 export const MELEE: Filter = { categories: ['melee'] };
