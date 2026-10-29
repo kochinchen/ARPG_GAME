@@ -275,6 +275,16 @@ async function bootstrap(): Promise<void> {
     renderer.toggleMap();
   });
 
+  // 滑鼠滾輪：放大 / 縮小（畫面顯示，不是遊戲操作）
+  app.canvas.addEventListener(
+    'wheel',
+    (e) => {
+      e.preventDefault();
+      renderer.zoomBy(Math.exp(-e.deltaY * 0.0015));
+    },
+    { passive: false },
+  );
+
   // 8. Input（最後才開始接受輸入）
   input = new InputManager(app.canvas, commands, {
     screenToWorld: (screen) => camera.screenToWorld(screen),

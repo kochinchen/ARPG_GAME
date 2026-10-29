@@ -4,11 +4,12 @@ import type { Vec2 } from '../../core/math/Vec2';
 /**
  * 主角身上的「燭光」亮區（不是真的火，只是亮區）：主角周圍明亮、由內向外漸暗，亮區以外都偏暗。
  * 亮區隨等級擴大。蓋在整個地圖畫面上方（地板、牆、角色、特效都會變暗），文字、小地圖不受影響。
+ * Three.js 畫法改用真的點光源（ThreeWorld 的燭光），這層不顯示。
  */
 export const PLAYER_LIGHT = {
-  /** 第 1 級的半徑（World 格） */
+  /** 第 1 級的半徑（World 單位） */
   radius: 8,
-  /** 每升一級增加的半徑（格）與上限 */
+  /** 每升一級增加的半徑（World 單位）與上限 */
   perLevel: 0.2,
   maxRadius: 18,
   /** 亮區以外的暗度（0 = 不變暗、1 = 全黑） */
@@ -17,7 +18,13 @@ export const PLAYER_LIGHT = {
   core: 0.3,
 };
 
-/** World 1 格在畫面上的寬度（等角 2:1：圓形亮區畫成寬 2、高 1 的橢圓） */
+/** 亮區半徑（World 單位；1 格 = 0.5）：隨等級擴大（Three.js 畫法的燭光也用這個） */
+export function lightRadius(level: number): number {
+  const { radius, perLevel, maxRadius } = PLAYER_LIGHT;
+  return Math.min(maxRadius, radius + perLevel * (level - 1));
+}
+
+/** World 1 單位在畫面上的寬度（等角 2:1：圓形亮區畫成寬 2、高 1 的橢圓） */
 const PX_PER_CELL = 32 * Math.SQRT2;
 const TEXTURE_SIZE = 256;
 
@@ -53,10 +60,10 @@ export class PlayerLightView {
     this.container.addChild(this.glow, this.outside);
   }
 
-  /** center：主角腳底的畫面座標；width / height：畫面大小 */
-  update(center: Vec2, level: number, width: number, height: number): void {
-    const { radius, perLevel, maxRadius, dark } = PLAYER_LIGHT;
-    const r = Math.min(maxRadius, radius + perLevel * (level - 1)) * PX_PER_CELL;
+  /** center：主角腳底的畫面座標；width / height：畫面大小；zoom：鏡頭放大倍率（container 已抵銷縮放） */
+  update(center: Vec2, level: number, width: number, height: number, zoom = 1): void {
+    const { dark } = PLAYER_LIGHT;
+    const r = lightRadius(level) * PX_PER_CELL * zoom;
     this.glow.position.set(center.x, center.y);
     this.glow.width = r * 2;
     this.glow.height = r;

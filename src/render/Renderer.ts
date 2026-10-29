@@ -13,7 +13,7 @@ import { coreTypeColor } from './icons/CoreIcons';
 import { outfitFor } from './figure/gear/ArmorLooks';
 import { HeroPreviewView, type HeroPreviewState } from './views/HeroPreviewView';
 import { weaponLookFor } from './figure/weapons/WeaponLooks';
-import type { Camera } from './Camera';
+import { ZOOM_RANGE, type Camera } from './Camera';
 import { ELEMENT_COLORS, PALETTE } from './palette';
 import { ActorView, HIT_BOX, sizeOf } from './views/ActorView';
 import { EffectLayer } from './views/EffectLayer';
@@ -30,13 +30,15 @@ import { PolyFigure } from './figure/PolyFigure';
 import { figureScale } from './figure/FigureModel';
 import { MinimapView, type MinimapMarker } from './views/MinimapView';
 import type { ThreeWorld } from './three/ThreeWorld';
-import { PlayerLightView } from './views/PlayerLightView';
+import { lightRadius, PlayerLightView } from './views/PlayerLightView';
 
 /**
  * 每幀唯讀讀取 GameWorld，同步 PixiJS 畫面。不修改任何遊戲狀態。
  */
 /** 畫面外多少像素內仍然繪製角色（避免邊緣突然出現） */
 const CULL_MARGIN = 120;
+/** 縮放的平滑程度（每秒接近目標的速度） */
+const ZOOM_EASE = 12;
 
 export class Renderer {
   /** 顯示頭盔（選單的畫面設定；關掉時主角露出臉與頭髮） */
@@ -62,6 +64,8 @@ export class Renderer {
   private threeOn = false;
   /** 主角身上的亮區（亮區以外偏暗） */
   private readonly playerLight = new PlayerLightView();
+  /** 滾輪縮放的目標倍率（鏡頭平滑地接近） */
+  private zoomTarget = 1;
 
   constructor(
     private readonly app: Application,
@@ -260,6 +264,11 @@ export class Renderer {
     });
   }
 
+  /** 滑鼠滾輪縮放：factor > 1 放大（範圍見 ZOOM_RANGE） */
+  zoomBy(factor: number): void {
+    this.zoomTarget = Math.min(ZOOM_RANGE.max, Math.max(ZOOM_RANGE.min, this.zoomTarget * factor));
+  }
+
   /** 切換 Three.js 畫法（試驗；沒有建立 ThreeWorld 時無效） */
   toggleThree(): void {
     if (!this.three) return;
@@ -271,13 +280,14 @@ export class Renderer {
   }
 
   private syncThreeMap(): void {
-    this.tileMap.hideWalls = this.threeOn;
-    if (this.three) this.three.setMap(this.tileMap.wallCells, this.world.nav.cell, this.tileMap.lightSpots);
+    this.tileMap.threeMode = this.threeOn;
+    const t = this.tileMap.theme;
+    if (this.three) this.three.setMap(this.tileMap.wallCells, this.world.nav.cell, this.tileMap.lightSpots, { style: t.wall, accent: t.accent, glow: t.glow }, this.tileMap.floorTriangles);
   }
 
   /** 游標下的地上物品或寶箱（名稱標籤也算） */
   pickInteractableAt(screen: Vec2): number | null {
-    const local = sub(screen, this.camera.offset);
+    const local = this.camera.toLayer(screen);
     const exit = this.world.exit ? [this.world.exit] : [];
     const stairs = this.world.stairsUp ? [this.world.stairsUp] : [];
     return this.interactables.pickAt(local, [...stairs, ...this.world.merchants, ...this.world.waypoints, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
@@ -285,7 +295,7 @@ export class Renderer {
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
   pickActorAt(screen: Vec2): ActorId | null {
-    const local = sub(screen, this.camera.offset);
+    const local = this.camera.toLayer(screen);
     let best: ActorId | null = null;
     let bestDepth = -Infinity;
     for (const actor of this.world.actors) {
@@ -322,15 +332,23 @@ export class Renderer {
     const player = this.world.player;
     const playerPos = lerp(player.prevPosition, player.position, alpha);
 
+    // 滾輪縮放：平滑地接近目標倍率
+    const zoom = this.camera.zoom + (this.zoomTarget - this.camera.zoom) * Math.min(1, dt * ZOOM_EASE);
+    this.camera.setZoom(Math.abs(zoom - this.zoomTarget) < 0.002 ? this.zoomTarget : zoom);
     this.camera.follow(playerPos);
     // 爆炸、重擊的畫面震動
     const shake = this.effects.shake;
+    const k = this.camera.zoom;
+    this.worldLayer.scale.set(k);
     this.worldLayer.position.set(this.camera.offset.x + shake.x, this.camera.offset.y + shake.y);
-    // 亮區用畫面座標（抵銷鏡頭位移）
+    // 亮區用畫面座標（抵銷鏡頭位移與縮放）
     const origin = this.worldLayer.position;
     const ps = this.projection.toScreen(playerPos);
-    this.playerLight.container.position.set(-origin.x, -origin.y);
-    this.playerLight.update(vec2(ps.x + origin.x, ps.y + origin.y), this.world.progress.level, this.app.screen.width, this.app.screen.height);
+    this.playerLight.container.position.set(-origin.x / k, -origin.y / k);
+    this.playerLight.container.scale.set(1 / k);
+    // Three.js 畫法用真的燭光（ThreeWorld），不疊暗色遮罩
+    this.playerLight.container.visible = !this.threeOn;
+    this.playerLight.update(vec2(ps.x * k + origin.x, ps.y * k + origin.y), this.world.progress.level, this.app.screen.width, this.app.screen.height, k);
 
     this.syncActorViews(alpha, dt);
     this.tileMap.update(playerPos, dt);
@@ -346,8 +364,8 @@ export class Renderer {
   }
 
   /**
-   * 畫出這一幀（有 ThreeWorld 時才由這裡畫）：Three.js 畫法分三次畫在同一個 WebGL 上——
-   * Pixi 畫地板與地上標記 → Three.js 畫角色與牆 → Pixi 畫物件、特效、文字、小地圖。
+   * 畫出這一幀（有 ThreeWorld 時才由這裡畫）：Three.js 畫法分四次畫在同一個 WebGL 上——
+   * Three.js 畫地板 → Pixi 疊上地上標記（技能範圍、傳送門光暈…）→ Three.js 畫角色與牆 → Pixi 畫物件、特效、文字、小地圖。
    */
   private present(playerPos: Vec2, dt: number): void {
     const pixi = this.app.renderer;
@@ -355,17 +373,22 @@ export class Renderer {
       pixi.render(this.app.stage);
       return;
     }
+    const three = this.three!;
     const upper = [this.objectLayer, this.playerLight.container, this.interactables.labels, this.floatingText.container, this.minimap.container, this.heroPreview.container];
     const lower = [this.tileMap.floor, this.markers.container, this.effects.ground, this.interactables.ground, this.marker];
     const show = (layers: Container[], visible: boolean[]) => layers.forEach((c, i) => (c.visible = visible[i]!));
     const upperVisible = upper.map((c) => c.visible);
     const lowerVisible = lower.map((c) => c.visible);
-    show(upper, upper.map(() => false));
-    pixi.render(this.app.stage);
-    show(upper, upperVisible);
     const { width, height } = this.app.screen;
     const origin = this.worldLayer.position;
-    this.three!.render(this.projection.toWorld(vec2(width / 2 - origin.x, height / 2 - origin.y)), width, height, playerPos, dt);
+    const k = this.camera.zoom;
+    const center = this.projection.toWorld(vec2((width / 2 - origin.x) / k, (height / 2 - origin.y) / k));
+    three.renderFloor(center, width, height, k, playerPos, lightRadius(this.world.progress.level), pixi.background.color.toNumber(), dt);
+    pixi.resetState();
+    show(upper, upper.map(() => false));
+    pixi.render({ container: this.app.stage, clear: false });
+    show(upper, upperVisible);
+    three.renderObjects();
     pixi.resetState();
     show(lower, lower.map(() => false));
     pixi.render({ container: this.app.stage, clear: false });
@@ -409,11 +432,8 @@ export class Renderer {
     const alive = new Set<ActorId>();
     // 畫面外的角色不更新模型（多面體每幀重畫，只畫看得到的）
     const { width, height } = this.app.screen;
-    const offset = this.camera.offset;
     const onScreen = (p: Vec2) => {
-      const s = this.projection.toScreen(p);
-      const x = s.x + offset.x;
-      const y = s.y + offset.y;
+      const { x, y } = this.camera.worldToScreen(p);
       return x > -CULL_MARGIN && x < width + CULL_MARGIN && y > -CULL_MARGIN && y < height + CULL_MARGIN * 2;
     };
     // 機關有自己的外觀（DeviceLayer），不建立角色模型

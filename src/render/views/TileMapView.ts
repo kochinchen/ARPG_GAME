@@ -80,15 +80,20 @@ export class TileMapView {
   /** 地板層：地磚 + 競技場的紋路 */
   readonly floor = new Container();
   private readonly tiles = new Graphics();
+  /** 會發光的地上標記（熔岩縫的亮點）：Three.js 畫法時仍由 Pixi 畫 */
+  private readonly decals = new Graphics();
   private readonly walls: WallChunk[] = [];
   private readonly lights: Light[] = [];
   /** 競技場的擺設（換樓層時移除） */
   private readonly props: Graphics[] = [];
   private arenaGlow: Graphics | null = null;
-  private readonly theme: ThemeColors;
+  /** 這一層的配色（已偏暖） */
+  readonly theme: ThemeColors;
   private time = 0;
-  /** Three.js 畫法：牆與光源改由 ThreeWorld 畫，這裡的牆不顯示 */
-  hideWalls = false;
+  /** Three.js 畫法：地板、牆與光源改由 ThreeWorld 畫，這裡的地磚與牆不顯示 */
+  threeMode = false;
+  /** 地板的三角形（Three.js 畫法）：每 7 個數字一個——三個頂點的 World (x, y) 與顏色 */
+  readonly floorTriangles: number[] = [];
   /** 每一格牆（Three.js 畫法建立牆的立體模型） */
   readonly wallCells: WallCell[] = [];
   /** 牆邊光源的位置（World）與顏色（Three.js 畫法的點光源） */
@@ -106,7 +111,7 @@ export class TileMapView {
     const warm = (c: number) => mix(c, FLOOR_FACETS.warm, base.warmth);
     this.theme = { ...base, floorA: warm(base.floorA), floorB: warm(base.floorB), wallTop: warm(base.wallTop), wallLeft: warm(base.wallLeft), wallRight: warm(base.wallRight) };
     const t = this.theme;
-    this.floor.addChild(this.tiles);
+    this.floor.addChild(this.tiles, this.decals);
     const c0 = nav.cell;
     /** 這一格屬於競技場的程度（0～1） */
     const inArena = (x: number, y: number) => (arena ? arenaBlend(arena, vec2((x + 0.5) * c0, (y + 0.5) * c0)) : 0);
@@ -186,6 +191,7 @@ export class TileMapView {
   /** 牆：畫面外不顯示；在玩家前方、蓋住玩家身體的改為半透明；光源閃爍 */
   update(playerPos: Vec2, dt = 1 / 60): void {
     this.time += dt;
+    this.tiles.visible = !this.threeMode;
     // 競技場的紋路緩慢脈動
     if (this.arenaGlow) this.arenaGlow.alpha = 0.75 + 0.25 * Math.sin(this.time * 1.8);
     const playerDepth = this.projection.depth(playerPos);
@@ -193,7 +199,7 @@ export class TileMapView {
     for (const wall of this.walls) {
       const dy = wall.screen.y - p.y;
       const visible = Math.abs(wall.screen.x - p.x) < CULL_X && Math.abs(dy) < CULL_Y;
-      wall.graphics.visible = visible && !this.hideWalls;
+      wall.graphics.visible = visible && !this.threeMode;
       if (!visible) continue;
       const occludes = wall.depth > playerDepth && Math.abs(wall.screen.x - p.x) < OCCLUDE_HALF_WIDTH && dy > 0 && dy < OCCLUDE_BELOW;
       wall.graphics.alpha = occludes ? FADE_ALPHA : 1;
@@ -203,33 +209,43 @@ export class TileMapView {
     }
   }
 
-  /** 一格地板：依切面樣式切成 8 個三角面，各面明暗略有不同 */
+  /** 一格地板：依切面樣式切成 8 個三角面，各面明暗略有不同（同時記下 World 座標給 Three.js 畫法） */
   private drawFloorTile(x: number, y: number, color: number): void {
     const pattern = FLOOR_PATTERNS[Math.floor(hash(x, y, 31) * FLOOR_PATTERNS.length)]!;
     const turn = Math.floor(hash(x, y, 37) * 4);
-    const corners = this.cornerPoints(x, y);
-    const at = (u: number, v: number) => {
-      // 格子座標 (u, v) → 畫面座標（四角雙線性內插）
-      const [a, b, , d] = corners;
-      return { x: a.x + (b.x - a.x) * u + (d.x - a.x) * v, y: a.y + (b.y - a.y) * u + (d.y - a.y) * v };
-    };
+    const c = this.nav.cell;
+    const corners = [vec2(x * c, y * c), vec2((x + 1) * c, y * c), vec2((x + 1) * c, (y + 1) * c), vec2(x * c, (y + 1) * c)];
     const [cu, cv] = pattern.center;
-    const center = at(cu, cv);
+    const center = vec2((x + cu) * c, (y + cv) * c);
     const k = FLOOR_FACETS.contrast;
     for (let i = 0; i < 4; i++) {
       const e = (i + turn) % 4;
       const p0 = corners[e]!;
       const p1 = corners[(e + 1) % 4]!;
       const s = pattern.splits[i]!;
-      const m = { x: p0.x + (p1.x - p0.x) * s, y: p0.y + (p1.y - p0.y) * s };
+      const m = vec2(p0.x + (p1.x - p0.x) * s, p0.y + (p1.y - p0.y) * s);
       for (const [j, a, b] of [
         [i * 2, p0, m],
         [i * 2 + 1, m, p1],
       ] as const) {
         const shade = pattern.shades[j]!;
-        this.tiles.poly([center.x, center.y, a.x, a.y, b.x, b.y]).fill({ color: mix(color, shade > 0 ? 0xffffff : 0x000000, Math.abs(shade) * k) });
+        this.floorTriangle(center, a, b, mix(color, shade > 0 ? 0xffffff : 0x000000, Math.abs(shade) * k));
       }
     }
+  }
+
+  /** 地板上的一個三角形（World 座標）：Pixi 畫在 tiles，同時記給 Three.js 畫法 */
+  private floorTriangle(a: Vec2, b: Vec2, c: Vec2, color: number): void {
+    const p = this.projection;
+    const [sa, sb, sc] = [p.toScreen(a), p.toScreen(b), p.toScreen(c)];
+    this.tiles.poly([sa.x, sa.y, sb.x, sb.y, sc.x, sc.y]).fill({ color });
+    this.floorTriangles.push(a.x, a.y, b.x, b.y, c.x, c.y, color);
+  }
+
+  /** 地上的小裝飾（畫面座標的多邊形）：同 floorTriangle，扇形切成三角形 */
+  private floorPoly(points: number[], color: number): void {
+    const w = (i: number) => this.projection.toWorld(vec2(points[i * 2]!, points[i * 2 + 1]!));
+    for (let i = 1; i < points.length / 2 - 1; i++) this.floorTriangle(w(0), w(i), w(i + 1), color);
   }
 
   /** 風格特有的地板色塊 */
@@ -275,11 +291,12 @@ export class TileMapView {
     // 小裝飾：碎石、骨頭、熔岩縫的亮點
     if (hash(x, y, 23) >= 0.02) return;
     if (t.decor === 'bones') {
-      this.tiles.poly([center.x - 5, center.y - 1, center.x + 5, center.y + 1, center.x + 5, center.y + 2.5, center.x - 5, center.y + 0.5]).fill({ color: 0xcfc6b0 });
+      this.floorPoly([center.x - 5, center.y - 1, center.x + 5, center.y + 1, center.x + 5, center.y + 2.5, center.x - 5, center.y + 0.5], 0xcfc6b0);
     } else if (t.decor === 'cracks') {
-      this.tiles.poly([center.x - 7, center.y, center.x, center.y - 1.5, center.x + 7, center.y + 1, center.x, center.y + 1]).fill({ color: t.glow, alpha: 0.8 });
+      // 熔岩縫的亮點會發光：畫在 decals（Three.js 畫法也由 Pixi 疊在地板上，不受光線影響）
+      this.decals.poly([center.x - 7, center.y, center.x, center.y - 1.5, center.x + 7, center.y + 1, center.x, center.y + 1]).fill({ color: t.glow, alpha: 0.8 });
     } else {
-      this.tiles.poly([center.x - 3, center.y, center.x, center.y - 2.5, center.x + 3.5, center.y, center.x, center.y + 1.5]).fill({ color: mix(t.wallTop, 0x000000, 0.2) });
+      this.floorPoly([center.x - 3, center.y, center.x, center.y - 2.5, center.x + 3.5, center.y, center.x, center.y + 1.5], mix(t.wallTop, 0x000000, 0.2));
     }
   }
 

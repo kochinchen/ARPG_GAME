@@ -5,11 +5,13 @@ import type { V3 } from '../figure/Poly3D';
 import type { TriangleSink } from '../figure/PolyFigure';
 import type { WallCell } from '../views/TileMapView';
 import { THREE_LIGHTING as L } from './ThreeLighting';
+import { wallStones, type WallLook } from './WallStones';
 
 /**
  * Three.js 畫法（試驗，開發版按 G 切換；正式版網址加 ?three）：
- * 角色與牆改由 Three.js 在 GPU 上畫（即時光源、投射陰影、深度緩衝），地板、特效、文字仍由 Pixi 畫。
- * 與 Pixi 共用同一個 WebGL：Pixi 先畫地板 → Three.js 畫角色與牆 → Pixi 再畫其他東西（Renderer.present）。
+ * 地板、角色與牆改由 Three.js 在 GPU 上畫（即時光源、投射陰影、深度緩衝），特效、文字仍由 Pixi 畫。
+ * 主角身上的燭光是真的點光源（亮區以外只剩微弱的環境光與火把）。
+ * 與 Pixi 共用同一個 WebGL：Three.js 畫地板 → Pixi 疊上地上標記 → Three.js 畫角色與牆 → Pixi 再畫其他東西（Renderer.present）。
  *
  * 座標：Three.js 的 (X, Y, Z) = (World x, 高度, World y)。正交鏡頭從 (1, √(2/3), 1) 方向看，
  * 地面投影與 IsoProjection（2:1）完全重合，Pixi 與 Three.js 畫的東西在畫面上對得起來。
@@ -27,6 +29,10 @@ const FADE_ALPHA = 0.35;
 const OCCLUDE_HALF_WIDTH = 72;
 const OCCLUDE_BELOW = 72;
 const CHUNK = 8;
+/** 地板：每 FLOOR_CHUNK × FLOOR_CHUNK 格合成一個物件（畫面外的整塊略過） */
+const FLOOR_CHUNK = 16;
+/** 地板放在另一個圖層：先畫地板，Pixi 疊上地上標記，再畫牆與角色 */
+const FLOOR_LAYER = 1;
 
 const linear = new Map<number, THREE.Color>();
 /** sRGB 色碼 → Three.js 的線性顏色（快取） */
@@ -136,9 +142,11 @@ export class ThreeWorld {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera();
   private readonly key = new THREE.DirectionalLight(L.key.color, L.key.intensity);
-  /** 只畫影子的地面（地板本身由 Pixi 畫） */
-  private readonly shadowGround = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ opacity: L.shadowOpacity }));
   private readonly torches: THREE.PointLight[] = [];
+  /** 主角身上的燭光（真的光源：由內向外漸暗、投射影子） */
+  private readonly candle = new THREE.PointLight(L.candle.color, L.candle.intensity, 0, L.candle.decay);
+  private readonly floors: THREE.Mesh[] = [];
+  private readonly floorMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });
   private lightSpots: { position: Vec2; color: number }[] = [];
   private readonly walls: WallChunk[] = [];
   private time = 0;
@@ -160,7 +168,7 @@ export class ThreeWorld {
 
     // 光源的數值在 ThreeLighting.ts
     this.scene.add(new THREE.AmbientLight(L.ambient.color, L.ambient.intensity), new THREE.HemisphereLight(L.hemisphere.sky, L.hemisphere.ground, L.hemisphere.intensity));
-    this.key.castShadow = true;
+    this.key.castShadow = L.key.shadow;
     this.key.shadow.mapSize.set(L.key.shadowMap, L.key.shadowMap);
     this.key.shadow.bias = -0.0005;
     this.key.shadow.normalBias = 0.02;
@@ -173,9 +181,17 @@ export class ThreeWorld {
       this.torches.push(torch);
       this.scene.add(torch);
     }
-    this.shadowGround.rotation.x = -Math.PI / 2;
-    this.shadowGround.receiveShadow = true;
-    this.scene.add(this.shadowGround);
+    this.candle.castShadow = L.candle.shadow;
+    this.candle.shadow.mapSize.set(L.candle.shadowMap, L.candle.shadowMap);
+    this.candle.shadow.bias = -0.002;
+    this.candle.shadow.camera.near = 0.2;
+    this.scene.add(this.candle);
+    // 光源兩個圖層都要照到（地板在 FLOOR_LAYER）
+    this.scene.traverse((o) => {
+      if (o instanceof THREE.Light) o.layers.enableAll();
+    });
+    // 影子在畫地板時算一次，畫牆與角色時沿用
+    this.renderer.shadowMap.autoUpdate = false;
   }
 
   createFigure(): ThreeFigure {
@@ -184,8 +200,9 @@ export class ThreeWorld {
     return figure;
   }
 
-  /** 換樓層：重建牆（每 CHUNK 格合成一個物件，與 TileMapView 相同的分組）與光源位置 */
-  setMap(cells: readonly WallCell[], cell: number, lightSpots: { position: Vec2; color: number }[]): void {
+  /** 換樓層：重建牆（每 CHUNK 格合成一個物件，與 TileMapView 相同的分組；石塊樣式依區域）與光源位置 */
+  setMap(cells: readonly WallCell[], cell: number, lightSpots: { position: Vec2; color: number }[], look: WallLook, floor: readonly number[]): void {
+    this.buildFloor(floor, cell);
     for (const wall of this.walls) {
       wall.mesh.removeFromParent();
       wall.mesh.geometry.dispose();
@@ -203,9 +220,9 @@ export class ThreeWorld {
     for (const list of groups.values()) {
       const pos: number[] = [];
       const col: number[] = [];
-      const quad = (a: V3, b: V3, c: V3, d: V3, color: number) => {
+      const push = (a: V3, b: V3, c: V3, color: number) => {
         const rgb = colorOf(color);
-        for (const v of [a, b, c, a, c, d]) {
+        for (const v of [a, b, c]) {
           pos.push(...v);
           col.push(rgb.r, rgb.g, rgb.b);
         }
@@ -213,14 +230,7 @@ export class ThreeWorld {
       let sx = 0;
       let sy = 0;
       for (const w of list) {
-        const [x0, x1, z0, z1] = [w.x * cell, (w.x + 1) * cell, w.y * cell, (w.y + 1) * cell];
-        const h = w.height / PX_PER_HEIGHT;
-        quad([x0, h, z0], [x1, h, z0], [x1, h, z1], [x0, h, z1], w.top);
-        // 看得到的兩面（朝 +Z = Pixi 的左面、朝 +X = 右面）；背面只用來擋光、投影子
-        quad([x0, 0, z1], [x1, 0, z1], [x1, h, z1], [x0, h, z1], w.left);
-        quad([x1, 0, z1], [x1, 0, z0], [x1, h, z0], [x1, h, z1], w.right);
-        quad([x0, 0, z0], [x1, 0, z0], [x1, h, z0], [x0, h, z0], w.right);
-        quad([x0, 0, z0], [x0, 0, z1], [x0, h, z1], [x0, h, z0], w.left);
+        wallStones(w, cell, w.height / PX_PER_HEIGHT, look, push);
         sx += w.x;
         sy += w.y;
       }
@@ -240,25 +250,34 @@ export class ThreeWorld {
   }
 
   /**
-   * 畫一幀（接在 Pixi 畫完地板之後，不清除畫面）。
-   * center：畫面正中央的 World 座標；width / height：畫面大小（CSS px）；player：玩家位置（牆的半透明、火把）。
+   * 畫一幀的第一步：清除畫面、算影子、畫地板（之後 Pixi 疊上地上標記，再 renderObjects 畫牆與角色）。
+   * center：畫面正中央的 World 座標；width / height：畫面大小（CSS px）；zoom：鏡頭放大倍率；
+   * player：玩家位置（燭光、牆的半透明、火把）；candleRadius：燭光的半徑（World）；background：底色。
    */
-  render(center: Vec2, width: number, height: number, player: Vec2, dt: number): void {
+  renderFloor(center: Vec2, width: number, height: number, zoom: number, player: Vec2, candleRadius: number, background: number, dt: number): void {
     this.time += dt;
     const target = new THREE.Vector3(center.x, 0, center.y);
     const cam = this.camera;
-    Object.assign(cam, { left: -width / 2 / PX_PER_UNIT, right: width / 2 / PX_PER_UNIT, top: height / 2 / PX_PER_UNIT, bottom: -height / 2 / PX_PER_UNIT, near: 0.1, far: 400 });
+    const u = PX_PER_UNIT * zoom;
+    Object.assign(cam, { left: -width / 2 / u, right: width / 2 / u, top: height / 2 / u, bottom: -height / 2 / u, near: 0.1, far: 400 });
     cam.position.copy(target).addScaledVector(VIEW_DIR, 100);
     cam.lookAt(target);
     cam.updateProjectionMatrix();
 
     // 主光的陰影範圍跟著鏡頭
-    const extent = Math.max(width, height) / PX_PER_UNIT / 2 + 2;
+    const extent = Math.max(width, height) / u / 2 + 2;
     this.key.position.copy(target).addScaledVector(KEY_DIR, 40);
     this.key.target.position.copy(target);
     Object.assign(this.key.shadow.camera, { left: -extent, right: extent, top: extent, bottom: -extent, near: 0.1, far: 100 });
     this.key.shadow.camera.updateProjectionMatrix();
-    this.shadowGround.position.set(center.x, 0, center.y);
+
+    // 燭光：在主角頭上、稍微偏向鏡頭（臉與身體正面才照得到），照到 candleRadius 為止
+    const c = L.candle;
+    this.candle.position.set(player.x + c.toward, c.height, player.y + c.toward);
+    this.candle.distance = candleRadius * c.reach;
+    this.candle.shadow.camera.far = this.candle.distance;
+    const t = this.time;
+    this.candle.intensity = c.intensity * (1 + c.flicker * (Math.sin(t * 9) * 0.6 + Math.sin(t * 23) * 0.4));
 
     this.updateWalls(player);
     this.updateTorches(player);
@@ -266,8 +285,54 @@ export class ThreeWorld {
     const gl = this.renderer.getContext();
     this.renderer.resetState();
     this.renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    this.renderer.clearDepth();
+    this.renderer.setClearColor(background, 1);
+    this.renderer.clear(true, true, true);
+    this.renderer.shadowMap.needsUpdate = true;
+    cam.layers.set(FLOOR_LAYER);
     this.renderer.render(this.scene, cam);
+  }
+
+  /** 畫一幀的第二步：牆與角色（接在 Pixi 畫完地上標記之後，不清除畫面；地板的深度保留） */
+  renderObjects(): void {
+    const gl = this.renderer.getContext();
+    this.renderer.resetState();
+    this.renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    this.camera.layers.set(0);
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  /** 地板：TileMapView 記下的三角形（World x, y 與顏色），每 FLOOR_CHUNK 格一塊 */
+  private buildFloor(triangles: readonly number[], cell: number): void {
+    for (const mesh of this.floors) {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+    }
+    this.floors.length = 0;
+    const chunks = new Map<string, { pos: number[]; col: number[] }>();
+    const size = FLOOR_CHUNK * cell;
+    for (let i = 0; i < triangles.length; i += 7) {
+      const cx = (triangles[i]! + triangles[i + 2]! + triangles[i + 4]!) / 3;
+      const cz = (triangles[i + 1]! + triangles[i + 3]! + triangles[i + 5]!) / 3;
+      const key = `${Math.floor(cx / size)}:${Math.floor(cz / size)}`;
+      let chunk = chunks.get(key);
+      if (!chunk) chunks.set(key, (chunk = { pos: [], col: [] }));
+      const rgb = colorOf(triangles[i + 6]!);
+      for (let v = 0; v < 3; v++) {
+        chunk.pos.push(triangles[i + v * 2]!, 0, triangles[i + v * 2 + 1]!);
+        chunk.col.push(rgb.r, rgb.g, rgb.b);
+      }
+    }
+    for (const { pos, col } of chunks.values()) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      geometry.computeBoundingSphere();
+      const mesh = new THREE.Mesh(geometry, this.floorMaterial);
+      mesh.receiveShadow = true;
+      mesh.layers.set(FLOOR_LAYER);
+      this.scene.add(mesh);
+      this.floors.push(mesh);
+    }
   }
 
   private updateWalls(player: Vec2): void {

@@ -50,7 +50,7 @@
 - Shift + L：隨機掉落 5 件傳奇（橘）+ 5 件神話（紅）
 - H：融合測試包（2 萬金幣、武器精華 200、防具精華 100、四把武器含一把傳奇斧、一件 2 孔頭盔），物品等級 = 目前樓層
 - Shift + H：同上，物品等級 45（融出 T5 熔核；核階看投入裝備的平均物品等級，每 8 級一階、32 以上是 T5）
-- G：切換 Three.js 畫法（試驗：角色與牆用 Three.js、即時光源與投射陰影；地板、特效、文字仍是 Pixi；`src/render/three/ThreeWorld.ts`）。正式版網址加 `?three` 直接開啟
+- G：切換 Three.js 畫法（試驗：地板、角色與石砌的牆用 Three.js，主角的燭光是真的點光源、投射陰影；特效、文字仍是 Pixi；`src/render/three/ThreeWorld.ts`，光源參數在 `ThreeLighting.ts`，牆的石材在 `WallStones.ts`）。正式版網址加 `?three` 直接開啟
 - F3：顯示 / 隱藏除錯資訊
 
 ## 流程
