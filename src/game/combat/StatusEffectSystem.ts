@@ -45,7 +45,7 @@ export class StatusEffectSystem {
     return Math.min(this.maxControlResist, Math.max(0, actor.stats.get(stat)));
   }
 
-  apply(target: Actor, kind: StatusKind, duration: number, magnitude: number, source: Actor | null, physicalMagnitude = 0, skillId?: string, maxStacks = 1): void {
+  apply(target: Actor, kind: StatusKind, duration: number, magnitude: number, source: Actor | null, physicalMagnitude = 0, skillId?: string, maxStacks = 1, burnScaling: 'spell' | 'attack' = 'spell'): void {
     if (!target.alive || duration <= 0) return;
     if (kind === 'freeze' && target.isBoss) {
       kind = 'slow';
@@ -55,7 +55,7 @@ export class StatusEffectSystem {
     if (kind === 'slow') magnitude *= 1 - this.controlResist(target, 'slowResist');
     if (kind === 'stun') duration *= 1 - this.controlResist(target, 'stunResist');
     if (duration <= 0) return;
-    const dps = dotDps(kind, source, duration, magnitude);
+    const dps = dotDps(kind, source, duration, magnitude, burnScaling);
     const instance: StatusInstance = { kind, remaining: duration, magnitude, source, dps, tickTimer: DOTS[kind]?.tick ?? 0, physicalMagnitude };
     const existing = target.statuses.find((s) => s.kind === kind);
     const stackCap = kind === 'poison' ? POISON_MAX_STACKS : maxStacks;
@@ -146,14 +146,14 @@ export class StatusEffectSystem {
 
 /**
  * 持續傷害的每秒傷害（施加當下依施放者屬性計算）：
- * 燃燒 = Spell Power × magnitude；中毒 / 流血 = 攻擊力（武器平均傷害與法術強度取高）× magnitude 的總量平均分到持續時間（中毒另乘附加毒素傷害）
+ * 燃燒 = Spell Power（戰術技能為攻擊力）× magnitude；中毒 / 流血 = 攻擊力（武器平均傷害與法術強度取高）× magnitude 的總量平均分到持續時間（中毒另乘附加毒素傷害）
  */
-function dotDps(kind: StatusKind, source: Actor | null, duration: number, magnitude: number): number {
+function dotDps(kind: StatusKind, source: Actor | null, duration: number, magnitude: number, burnScaling: 'spell' | 'attack'): number {
   if (!source) return 0;
-  if (kind === 'burn') return source.stats.get('spellPower') * magnitude;
-  if (kind !== 'poison' && kind !== 'bleed') return 0;
   // 攻擊力：武器平均傷害與法術強度取較高者（中毒 / 流血都來自戰術技能，與 DamageEffect 的 attackPower 相同）
   const power = Math.max((source.stats.get('damageMin') + source.stats.get('damageMax')) / 2, source.stats.get('spellPower'));
+  if (kind === 'burn') return (burnScaling === 'attack' ? power : source.stats.get('spellPower')) * magnitude;
+  if (kind !== 'poison' && kind !== 'bleed') return 0;
   const bonus = kind === 'poison' ? 1 + source.stats.get('poisonDamagePct') : 1;
   return (power * magnitude * bonus) / duration;
 }

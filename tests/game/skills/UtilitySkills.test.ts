@@ -118,7 +118,7 @@ describe('戰術 · 投擲', () => {
     expect(statusCount(near, 'poison')).toBe(3);
   });
 
-  it('霜凍瓶（設計者 2026-10-29 改為自動投射器）：放在游標處，每 0.5 秒朝最近的敵人射一支冰箭，持續 20 秒', () => {
+  it('霜凍投射器（設計者 2026-10-30）：放在游標處，每秒朝最近的敵人射一支冰箭，持續 20 秒；Lv5 每支 15% 武器傷害', () => {
     const { world, commands, events } = setup([dummyAt(6.5, 2.5)]);
     const dummy = enemiesOf(world)[0]!;
     let arrows = 0;
@@ -126,9 +126,10 @@ describe('戰術 · 投擲', () => {
       if (e.targetId === dummy.id && e.element === 'cold') arrows++;
     });
     cast(world, commands, 'utility.frost_flask', 5, { x: 4, y: 2.5 }, 3);
-    // 3 秒約 6 支
-    expect(arrows).toBeGreaterThanOrEqual(5);
-    expect(arrows).toBeLessThanOrEqual(7);
+    // 3 秒約 3 支
+    expect(arrows).toBeGreaterThanOrEqual(2);
+    expect(arrows).toBeLessThanOrEqual(4);
+    expect(data.skills.get('utility.frost_flask').effects[0]).toMatchObject({ interval: 1, onShot: [{ onHit: [{ element: 'cold', multiplier: [0.05, 0.075, 0.1, 0.125, 0.15] }] }] });
   });
 
   it('擲斧：Lv5 三把扇形、每把穿透 2 個，一排三隻都流血', () => {

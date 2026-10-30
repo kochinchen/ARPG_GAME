@@ -218,7 +218,7 @@ export function castRange(actor: Actor, skill: SkillDef): number {
 }
 
 const projectileSkills = new WeakMap<SkillDef, boolean>();
-/** 吃射擊距離的技能：效果裡有投射物，或戰術的投擲分支（霜凍瓶、閃光粉等拋投） */
+/** 吃射擊距離的技能：效果裡有投射物，或戰術的投擲分支（霜凍投射器、閃光粉等） */
 export function usesProjectileRange(skill: SkillDef): boolean {
   let uses = projectileSkills.get(skill);
   if (uses === undefined) {

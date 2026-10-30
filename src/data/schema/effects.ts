@@ -84,6 +84,8 @@ export const StatusEffectSchema = z.strictObject({
   chance: RankNumberSchema.default(1),
   /** 同一個目標最多疊幾層（每層各自計時、各自結算；1 = 不疊層，重新命中刷新）。中毒固定最多 3 層 */
   maxStacks: z.int().positive().default(1),
+  /** 燃燒的基礎：spell = 法術強度、attack = 攻擊力（武器平均傷害與法術強度取高；戰術技能用） */
+  burnScaling: z.enum(['spell', 'attack']).default('spell'),
 });
 
 /** 把目標往遠離效果中心的方向推開 */

@@ -54,7 +54,7 @@ export class DeviceSystem {
     const group = def.group;
     this.evict((a) => (group ? a.device!.def.group === group : a.device!.skillId === ctx.skill.id), Math.round(rankValue(def.maxAlive, rank)));
     if (!group) this.evict((a) => !a.device!.def.group, this.config.maxAlive);
-    const hpPct = rankValue(def.hpPct, rank);
+    const hpPct = this.hpPct(def, rank);
     const minion = def.behavior === 'minion';
     const radius = minion ? MINION_RADIUS : DEVICE_RADIUS;
     const actor = new Actor({
@@ -64,7 +64,7 @@ export class DeviceSystem {
       defId: ctx.skill.id,
       position: this.spot(def, ctx, index, radius),
       radius,
-      stats: new StatBlock({ maxHp: Math.max(1, owner.maxHp * hpPct), defense: owner.stats.get('defense'), moveSpeed: minion ? def.moveSpeed : 0 }),
+      stats: new StatBlock({ maxHp: Math.max(1, owner.maxHp * hpPct), defense: this.defense(def, owner), moveSpeed: minion ? def.moveSpeed : 0 }),
       summonedBy: owner.id,
       device: {
         def,
@@ -96,7 +96,8 @@ export class DeviceSystem {
         this.vanish(actor);
         continue;
       }
-      this.follow(actor, owner, rankValue(device.def.hpPct, device.rank));
+      this.follow(actor, owner, device.def);
+
       device.remaining -= dt;
       if (device.remaining <= 0) {
         this.fire(actor, device.def.onExpire, null);
@@ -135,15 +136,27 @@ export class DeviceSystem {
     return this.nav.isClearAt(center, radius) ? center : ctx.caster.position;
   }
 
+  /** 戰術機關的生命比例：最高 statCap（設計者 2026-10-30）；有群組的毒蛛照自己的資料 */
+  private hpPct(def: DeviceEffectDef, rank: number): number {
+    const pct = rankValue(def.hpPct, rank);
+    return def.group ? pct : Math.min(pct, this.config.statCap);
+  }
+
+  /** 戰術機關的防禦 = 玩家防禦 × statCap；有群組的毒蛛同玩家 */
+  private defense(def: DeviceEffectDef, owner: Actor): number {
+    const defense = owner.stats.get('defense');
+    return def.group ? defense : defense * this.config.statCap;
+  }
+
   /** 最大血量與防禦即時跟隨玩家；最大血量變動時維持血量比例（P0-8） */
-  private follow(actor: Actor, owner: Actor, hpPct: number): void {
-    const max = Math.max(1, owner.maxHp * hpPct);
+  private follow(actor: Actor, owner: Actor, def: DeviceEffectDef): void {
+    const max = Math.max(1, owner.maxHp * this.hpPct(def, actor.device!.rank));
     if (Math.abs(max - actor.maxHp) > 1e-6) {
       const ratio = actor.hp / actor.maxHp;
       actor.stats.setBase('maxHp', max);
       actor.hp = ratio * max;
     }
-    const defense = owner.stats.get('defense');
+    const defense = this.defense(def, owner);
     if (actor.stats.get('defense') !== defense) actor.stats.setBase('defense', defense);
   }
 

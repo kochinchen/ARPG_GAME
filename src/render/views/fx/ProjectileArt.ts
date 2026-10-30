@@ -57,7 +57,7 @@ const ARTS: Record<string, ProjectileArt> = {
   'utility.throwing_axe': orb('axe', 0xd84848, 0xc8ccd4, 'spark', 2.6, 40),
   // 冰霜新星：在地上滾的巨大冰球
   'magic.frost_nova': orb('ice', 0x7fd4ff, 0xeaf8ff, 'flake', 3.4, 60),
-  // 霜凍瓶（自動投射器）射出的冰箭
+  // 霜凍投射器射出的冰箭
   'utility.frost_flask': arrow('small', 0x7fd4ff, 0xeaf8ff, 'flake', 1, 18),
   'utility.storm_totem': orb('bolt', 0xf5e663, 0xffffff, 'spark', 1, 50),
   // 投射物指定的外觀（effects 的 look）

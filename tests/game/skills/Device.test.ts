@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { distance, vec2 } from '../../../src/core/math/Vec2';
+import { gameData } from '../../../src/data';
+import { DataRegistry } from '../../../src/data/DataRegistry';
 import type { GameCommand } from '../../../src/game/Commands';
 import type { Actor } from '../../../src/game/entities/Actor';
 import type { GameWorld } from '../../../src/game/GameWorld';
@@ -47,7 +49,7 @@ const devicesOf = (world: GameWorld) => world.actors.filter((a) => a.device && a
 const hurt = (a: Actor) => a.hp < a.maxHp;
 
 describe('機關的共通規則', () => {
-  it('血量 = 玩家最大生命 × 比例、防禦 = 玩家防禦；玩家數值變動時即時跟隨，並維持血量比例', () => {
+  it('生命、防禦都是玩家的 10%（設計者 2026-10-30）；玩家數值變動時即時跟隨，並維持血量比例', () => {
     const { world, commands } = setup();
     const p = world.player;
     p.stats.setBase('maxHp', 1000);
@@ -55,38 +57,46 @@ describe('機關的共通規則', () => {
     p.stats.setBase('defense', 40);
     cast(world, commands, 'utility.powder_keg', 1, { x: 8, y: 3.5 });
     const keg = devicesOf(world)[0]!;
-    expect(keg.maxHp).toBeCloseTo(250);
-    expect(keg.stats.get('defense')).toBe(40);
-    keg.hp = 125;
+    expect(keg.maxHp).toBeCloseTo(100);
+    expect(keg.stats.get('defense')).toBeCloseTo(4);
+    keg.hp = 50;
     p.stats.setBase('maxHp', 2000);
     p.stats.setBase('defense', 60);
     run(world, 0.1);
-    expect(keg.maxHp).toBeCloseTo(500);
-    expect(keg.hp).toBeCloseTo(250);
-    expect(keg.stats.get('defense')).toBe(60);
+    expect(keg.maxHp).toBeCloseTo(200);
+    expect(keg.hp).toBeCloseTo(100);
+    expect(keg.stats.get('defense')).toBeCloseTo(6);
   });
 
-  it('全身最多 5 個（設計者 2026-10-29，原本 2 個）：放第 6 個時最舊的消失，而且不會爆炸', () => {
+  it('所有戰術機關的生命比例都不超過 10%', () => {
+    const data = DataRegistry.load(gameData);
+    const tactics = data.skills.all.filter((s) => s.tree?.category === 'utility');
+    const devices = tactics.flatMap((s) => s.effects.flatMap((e) => (e.type === 'device' ? [e] : [])));
+    expect(devices.length).toBeGreaterThanOrEqual(5);
+    for (const d of devices) for (const v of [d.hpPct].flat()) expect(v).toBeLessThanOrEqual(data.balance.devices.statCap);
+  });
+
+  it('全身最多 3 個（設計者 2026-10-30）：放第 4 個時最舊的消失，而且不會爆炸', () => {
     const { world, commands } = setup([dummyAt(8, 3.5)]);
     const dummy = enemiesOf(world)[0]!;
     world.player.position = vec2(12, 3.5);
     cast(world, commands, 'utility.powder_keg', 1, { x: 8, y: 3.5 });
     cast(world, commands, 'utility.storm_totem', 1, { x: 16, y: 6 });
-    for (const y of [2, 3.5, 5]) cast(world, commands, 'utility.frost_mine', 1, { x: 20, y });
-    expect(devicesOf(world)).toHaveLength(5);
+    cast(world, commands, 'utility.frost_mine', 1, { x: 20, y: 3.5 });
+    expect(devicesOf(world)).toHaveLength(3);
     cast(world, commands, 'utility.trip_net', 1, { x: 16, y: 3.5 });
     const kinds = devicesOf(world).map((d) => d.device!.skillId);
-    expect(kinds).toHaveLength(5);
+    expect(kinds).toHaveLength(3);
     expect(kinds).not.toContain('utility.powder_keg');
     // 火藥桶旁邊的木樁沒有被炸到（圖騰射程外）
     expect(hurt(dummy)).toBe(false);
   });
 
-  it('同一種機關也可以放到 5 個（不另外限制）；第 6 個讓最早的消失', () => {
+  it('同一種機關也可以放到 3 個（不另外限制）；第 4 個讓最早的消失', () => {
     const { world, commands } = setup();
     world.player.position = vec2(10, 3.5);
-    for (const x of [4, 6, 8, 12, 14, 16]) cast(world, commands, 'utility.frost_mine', 1, { x, y: 3.5 });
-    expect(devicesOf(world).map((d) => d.position.x)).toEqual([6, 8, 12, 14, 16]);
+    for (const x of [4, 6, 14, 16]) cast(world, commands, 'utility.frost_mine', 1, { x, y: 3.5 });
+    expect(devicesOf(world).map((d) => d.position.x)).toEqual([6, 14, 16]);
   });
 
   it('玩家的技能不會傷到機關；玩家倒地時機關全部消失', () => {
@@ -147,6 +157,24 @@ describe('怪物與機關', () => {
     cast(world, commands, 'utility.powder_keg', 1, { x: 8, y: 2.5 });
     run(world, 0.3);
     expect(skeleton.ai!.targetId).not.toBe(devicesOf(world)[0]!.id);
+  });
+});
+
+describe('火藥桶的燃燒（設計者 2026-10-30）', () => {
+  it('爆炸後燃燒 3 秒、每秒 20% 攻擊力（武器平均傷害與法術強度取高，拿劍也有傷害）', () => {
+    const { world, commands } = setup([dummyAt(8, 3.5)]);
+    const dummy = enemiesOf(world)[0]!;
+    const p = world.player;
+    p.stats.setBase('damageMin', 100);
+    p.stats.setBase('damageMax', 100);
+    p.stats.setBase('spellPower', 10);
+    world.player.position = vec2(4, 3.5);
+    cast(world, commands, 'utility.powder_keg', 1, { x: 8, y: 3.5 });
+    devicesOf(world)[0]!.hp = 0;
+    run(world, 0.1);
+    const burn = dummy.statuses.find((s) => s.kind === 'burn')!;
+    expect(burn.remaining).toBeGreaterThan(2.8);
+    expect(burn.dps).toBeCloseTo(20);
   });
 });
 

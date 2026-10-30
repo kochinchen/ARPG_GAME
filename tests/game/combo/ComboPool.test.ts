@@ -80,7 +80,7 @@ describe('v0.4.0 新規則', () => {
   it('佈雷引爆：遠距範圍佈置 → 位移 / 拉近 → 爆發 / 重擊 / 範圍', () => {
     expect(ruleOf('utility.powder_keg', 'utility.grapple_hook', 'magic.thunder_strike')).toBe('combo.trap_detonation');
     expect(ruleOf('utility.trip_net', 'utility.roll', 'magic.storm_core')).toBe('combo.trap_detonation');
-    // 中距離的霜凍瓶不算遠距佈置
+    // 中距離的霜凍投射器不算遠距佈置
     expect(ruleOf('utility.frost_flask', 'utility.grapple_hook', 'magic.thunder_strike')).not.toBe('combo.trap_detonation');
   });
 

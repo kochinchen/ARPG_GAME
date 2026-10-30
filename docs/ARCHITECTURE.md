@@ -575,7 +575,7 @@ Summon 召喚系已移除
 | 近戰 | 重擊（高傷、破甲、擊退） | 連擊（快速、多段） | 防禦（防守、反擊、控制） |
 | 遠程 | 精準（單體、處決） | 彈幕（多箭、穿透） | 機動（射擊結合位移） |
 | 魔法 | 火焰（爆發、燃燒） | 冰霜（緩速、冰凍） | 雷電（連鎖、爆發） |
-| 戰術 | 身法（翻滾、影步、鉤索、幻影突襲） | 機關（絆索網、霜凍地雷、雷電圖騰、火藥桶） | 投擲（淬毒飛刀、霜凍瓶、擲斧、閃光粉） |
+| 戰術 | 身法（翻滾、影步、鉤索、幻影突襲） | 機關（絆索網、霜凍地雷、雷電圖騰、火藥桶） | 投擲（淬毒飛刀、霜凍投射器、擲斧、閃光粉） |
 | 輔助 | 生存 | 資源 | 戰鬥強化 |
 
 全部 60 個技能的數值寫在 `data/skills.ts` 與 `data/utilitySkills.ts`（戰術 12 招）；每級倍率與魔力以 Lv1～Lv5 陣列指定。
@@ -595,8 +595,8 @@ Summon 召喚系已移除
 ### 機關（v0.4.0，`skills/DeviceSystem.ts`、`render/views/DeviceLayer.ts`）
 
 - `device` 效果佈置一個玩家陣營（`summon`）的 Actor，`Actor.device` 存執行狀態；不存檔，換樓層隨實體清除，玩家倒地時消失
-- 血量 = 玩家目前最大生命 × hpPct、防禦 = 玩家目前防禦（即時跟隨，上限變動時維持比例）；玩家的技能打不到
-- 全身最多 2 個（`balance.devices.maxAlive`）＋同技能上限，超過時最舊的消失（不觸發 onDestroy）
+- 血量 = 玩家目前最大生命 × hpPct、防禦 = 玩家目前防禦 × `balance.devices.statCap`（10%；hpPct 也不超過 10%，有群組的毒蛛不受限；即時跟隨，上限變動時維持比例）；玩家的技能打不到
+- 全身最多 3 個（`balance.devices.maxAlive`；設計者 2026-10-30）＋同技能上限，超過時最舊的消失（不觸發 onDestroy）
 - 行為：`trip`（橫向長方形、每隻敵人一次）、`proximity`（待命後近接觸發）、`turret`（每 interval 秒朝最近敵人觸發 onShot）、`none`；`onDestroy` / `onExpire`
 - 子效果以玩家為施放者、從機關位置發出；怪物在 `balance.devices.aggroRange`（3 格）內改打機關（`AiSystem.lureToDevice`），機關沒了改回追玩家
 

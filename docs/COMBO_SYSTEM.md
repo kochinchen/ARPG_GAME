@@ -576,7 +576,7 @@ function stepMatches(m: StepMatcher, s: SkillComboInfo): boolean {
 | 雷電圖騰 | Far / Amplifier | Projectile · Pierce · MultiHit · Lightning |
 | 火藥桶 | Far / Setup | AoE · Burst · Heavy · Fire · Knockback |
 | 淬毒飛刀 | Mid / Starter | Fast · Projectile · Physical |
-| 霜凍瓶 | Mid / Setup | AoE · Ice · Slow |
+| 霜凍投射器 | Mid / Setup | AoE · Ice · Slow |
 | 擲斧 | Mid / Amplifier | Heavy · Projectile · Pierce · Physical |
 | 閃光粉 | Mid / Setup | AoE · Expose |
 

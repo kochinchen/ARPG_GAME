@@ -344,6 +344,8 @@ export const BalanceSchema = z.strictObject({
     maxAlive: z.int().positive(),
     /** 怪物在這個距離內（Tile）會把機關當目標 */
     aggroRange: z.number().positive(),
+    /** 戰術機關的生命與防禦最高是主角的這個比例（有群組的毒蛛不受限） */
+    statCap: z.number().positive().max(1),
   }),
   combo: z.strictObject({
     /** 「近 → 近 → 遠」的 Combo：第三招額外加成（前兩招承擔貼身風險的回報） */

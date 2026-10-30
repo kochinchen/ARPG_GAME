@@ -236,7 +236,7 @@ function drawTotem(g: Graphics, t: number, shotTimer: number): void {
   g.circle(0, top - 5, 10 + Math.sin(t * 10) * 1.5).fill({ color: 0xf5e663, alpha: 0.12 + 0.18 * charge });
 }
 
-/** 霜凍瓶的自動投射器：三腳架上的弩，弩臂兩端與箭槽裡的冰晶發藍光；快要射擊時變亮，弩朝向最近的敵人 */
+/** 霜凍投射器：三腳架上的弩，弩臂兩端與箭槽裡的冰晶發藍光；快要射擊時變亮，弩朝向最近的敵人 */
 function drawBallista(g: Graphics, t: number, reload: number, facing: Vec2): void {
   g.ellipse(0, 0, 13, 6.5).fill({ color: PALETTE.shadow, alpha: 0.4 });
   // 三腳架

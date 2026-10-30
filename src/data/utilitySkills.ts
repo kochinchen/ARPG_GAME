@@ -114,14 +114,15 @@ const kegBlast: EffectInput[] = [
     type: 'area',
     radius: [2, 2.05, 2.1, 2.15, 2.2],
     effects: [
-      { type: 'damage', element: 'fire', scaling: 'weapon', multiplier: pct(300, 340, 380, 420, 460) },
+      { type: 'damage', element: 'fire', scaling: 'weapon', multiplier: pct(150, 170, 190, 210, 230) },
       { type: 'knockback', distance: 2 },
-      { type: 'status', status: 'burn', duration: 3 },
+      // 設計者調整（2026-10-30）：燃燒 3 秒、每秒 20% 攻擊力
+      { type: 'status', status: 'burn', duration: 3, magnitude: 0.2, burnScaling: 'attack' },
     ],
   },
 ];
 
-// 機關：有血量的佈置物（血量 = 玩家最大生命 × 比例、防禦 = 玩家防禦），怪物在 3 格內會改打機關；全身最多 2 個
+// 機關：有血量的佈置物（生命與防禦最高是玩家的 10%），怪物在 3 格內會改打機關；全身最多 3 個（設計者 2026-10-30）
 const devices: SkillInput[] = [
   {
     id: 'utility.trip_net',
@@ -136,7 +137,7 @@ const devices: SkillInput[] = [
       {
         type: 'device',
         behavior: 'trip',
-        hpPct: pct(15, 20, 25, 30, 35),
+        hpPct: 0.1,
         duration: [8, 8, 8, 8, 12],
         forward: 3,
         line: { length: 8, width: 1 },
@@ -174,7 +175,7 @@ const devices: SkillInput[] = [
   {
     id: 'utility.storm_totem',
     name: '雷電圖騰',
-    description: '豎起雷電圖騰，每秒朝最近的敵人射出一道穿透所有敵人的閃電（吃法術強度）。',
+    description: '豎起雷電圖騰，每秒朝最近的敵人射出一道穿透所有敵人的閃電（20%～40% 攻擊力，隨技能等級增加）。',
     tree: { category: 'utility', tier: 3, branch: 'B' },
     targeting: 'ground',
     range: 6,
@@ -185,7 +186,7 @@ const devices: SkillInput[] = [
       {
         type: 'device',
         behavior: 'turret',
-        hpPct: 0.2,
+        hpPct: 0.1,
         // 射完 5～6 發就消失；附近一直沒有敵人時最多留 15 秒
         duration: 15,
         interval: 1,
@@ -198,7 +199,7 @@ const devices: SkillInput[] = [
             radius: 0.25,
             range: 6,
             pierce: 99,
-            onHit: [{ type: 'damage', element: 'lightning', scaling: 'spell', multiplier: pct(40, 45, 50, 55, 60) }],
+            onHit: [{ type: 'damage', element: 'lightning', scaling: 'spell', multiplier: pct(20, 25, 30, 35, 40) }],
           },
         ],
       },
@@ -207,7 +208,7 @@ const devices: SkillInput[] = [
   {
     id: 'utility.powder_keg',
     name: '火藥桶',
-    description: '放下火藥桶：被打壞或 10 秒後爆炸，範圍火焰傷害、擊退並燃燒。',
+    description: '放下火藥桶：被打壞或 10 秒後爆炸，範圍火焰傷害（150%～230% 攻擊力，隨技能等級增加）、擊退並燃燒 3 秒（每秒 20% 攻擊力）。',
     tree: { category: 'utility', tier: 4, branch: 'B' },
     targeting: 'ground',
     range: 6,
@@ -218,7 +219,7 @@ const devices: SkillInput[] = [
       {
         type: 'device',
         behavior: 'none',
-        hpPct: 0.25,
+        hpPct: 0.1,
         duration: 10,
         onDestroy: kegBlast,
         onExpire: kegBlast,
@@ -255,23 +256,23 @@ const throwables: SkillInput[] = [
   },
   {
     id: 'utility.frost_flask',
-    name: '霜凍瓶',
-    description: '放下一座自動投射器，每 0.5 秒朝最近的敵人射出一支冰箭（10%～20% 武器冰寒傷害，隨技能等級增加），持續 20 秒。',
+    name: '霜凍投射器',
+    description: '放下一座自動投射器，每秒朝最近的敵人射出一支冰箭（5%～15% 攻擊力的冰寒傷害，隨技能等級增加），持續 20 秒。',
     tree: { category: 'utility', tier: 2, branch: 'C' },
     targeting: 'ground',
     range: 6,
     castTime: 0.2,
     cost: { mana: 7 },
     tags: ['utility', 'device'],
-    // 設計者調整（2026-10-29）：原本是落地碎裂的冰霜範圍，改成自動投射器
+    // 設計者調整（2026-10-29）：原本是落地碎裂的冰霜範圍，改成自動投射器；2026-10-30 改名、改每秒一發、傷害最高 15%
     effects: [
       {
         type: 'device',
         behavior: 'turret',
-        hpPct: 0.15,
+        hpPct: 0.1,
         duration: 20,
-        interval: 0.5,
-        shots: 40,
+        interval: 1,
+        shots: 20,
         range: 7,
         onShot: [
           {
@@ -279,7 +280,7 @@ const throwables: SkillInput[] = [
             speed: 16,
             radius: 0.15,
             range: 7,
-            onHit: [{ type: 'damage', element: 'cold', scaling: 'weapon', multiplier: pct(10, 12.5, 15, 17.5, 20) }],
+            onHit: [{ type: 'damage', element: 'cold', scaling: 'weapon', multiplier: pct(5, 7.5, 10, 12.5, 15) }],
           },
         ],
       },

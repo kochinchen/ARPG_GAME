@@ -126,11 +126,13 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
         lines.push(`召喚 ${e.count} 隻（最多同時 ${e.maxAlive} 隻）`);
         break;
       case 'device': {
-        // 有群組的（毒蛛）只看自己的上限；其他同時受全身機關上限限制
+        // 有群組的（毒蛛）只看自己的上限與生命；戰術機關受全身上限、生命與防禦最高是主角的 statCap
+        const { maxAlive: cap, statCap } = balance.devices!;
         const own = rankValue(e.maxAlive, rank);
-        const maxAlive = e.group ? own : Math.min(own, balance.devices!.maxAlive);
+        const maxAlive = e.group ? own : Math.min(own, cap);
+        const hpPct = e.group ? rankValue(e.hpPct, rank) : Math.min(rankValue(e.hpPct, rank), statCap);
         lines.push(
-          `機關：生命 ${pctText(rankValue(e.hpPct, rank))} 最大生命、防禦同角色，持續 ${rankValue(e.duration, rank)} 秒${maxAlive > 1 ? `，可同時 ${maxAlive} 個${e.group ? '' : '（所有機關合計）'}` : ''}`,
+          `機關：生命 ${pctText(hpPct)} 最大生命、防禦${e.group ? '同角色' : ` ${pctText(statCap)} 角色防禦`}，持續 ${rankValue(e.duration, rank)} 秒${maxAlive > 1 ? `，可同時 ${maxAlive} 個${e.group ? '' : '（所有機關合計）'}` : ''}`,
         );
         if (e.behavior === 'trip' && e.line) lines.push(`面前 ${e.forward ?? 0} 格橫放 ${e.line.length} 格寬；碰到的敵人各觸發一次（共 ${rankValue(e.triggers, rank)} 次）：`, ...effectLines(e.onTrigger, rank));
         if (e.behavior === 'proximity') lines.push(`${e.armDelay} 秒後待命，敵人進入 ${e.triggerRadius} 格內時觸發：`, ...effectLines(e.onTrigger, rank));
