@@ -8,13 +8,15 @@ const RARITY_ORDER: readonly Rarity[] = [...RARITIES].reverse();
 
 /**
  * 自動整理背包：物品依「裝備類別 → 物品等級（高到低）→ 稀有度（高到低）」排在前面，
- * 藥水放在最後並合併成滿疊。手上拿著的物品不受影響。
+ * 接著是熔核（核階高到低 → 核色高到低），藥水放在最後並合併成滿疊。手上拿著的物品不受影響。
  */
 export function sortInventory(inventory: Inventory, data: Pick<DataRegistry, 'items' | 'potions'>): void {
   const items: Extract<InventoryEntry, { kind: 'item' }>[] = [];
+  const cores: Extract<InventoryEntry, { kind: 'core' }>[] = [];
   const potions = new Map<string, number>();
   for (const entry of inventory.cells) {
     if (entry?.kind === 'item') items.push(entry);
+    else if (entry?.kind === 'core') cores.push(entry);
     else if (entry?.kind === 'potion') potions.set(entry.potionId, (potions.get(entry.potionId) ?? 0) + entry.count);
   }
   items.sort((a, b) => {
@@ -28,7 +30,14 @@ export function sortInventory(inventory: Inventory, data: Pick<DataRegistry, 'it
       a.item.uid.localeCompare(b.item.uid)
     );
   });
-  const cells: (InventoryEntry | null)[] = [...items];
+  cores.sort(
+    (a, b) =>
+      b.core.tier - a.core.tier ||
+      RARITY_ORDER.indexOf(a.core.rarity) - RARITY_ORDER.indexOf(b.core.rarity) ||
+      a.core.types.join().localeCompare(b.core.types.join()) ||
+      a.core.uid.localeCompare(b.core.uid),
+  );
+  const cells: (InventoryEntry | null)[] = [...items, ...cores];
   for (const [potionId, total] of potions) {
     const max = data.potions.get(potionId).maxStack;
     for (let left = total; left > 0; left -= max) cells.push({ kind: 'potion', potionId, count: Math.min(left, max) });

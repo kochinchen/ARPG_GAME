@@ -52,6 +52,20 @@ describe('背包自動整理', () => {
     );
     expect(summary).toEqual(['weapon:7', 'weapon:2', 'helmet:4', 'boots:3', 'potion:20', 'potion:5', null]);
   });
+
+  it('背包裡的熔核不會消失：排在裝備之後、藥水之前，核階高的在前', () => {
+    const { world } = setup();
+    const inv = world.inventory;
+    inv.restore(inv.cells.map(() => null));
+    const core = (uid: string, tier: number) => ({ uid, types: ['fire'], tier, rarity: 'normal', power: 1, itemLevel: tier * 8 }) as never;
+    inv.place(5, { kind: 'potion', potionId: 'potion.rejuvenation', count: 3 });
+    inv.place(12, { kind: 'core', core: core('c1', 2) });
+    inv.place(33, { kind: 'item', item: world.itemGenerator.create(base('ring'), 'magic', 3) });
+    inv.place(41, { kind: 'core', core: core('c2', 5) });
+    sortInventory(inv, data);
+    const summary = inv.cells.slice(0, 5).map((c) => (c === null ? null : c.kind === 'core' ? `core:${c.core.uid}` : c.kind));
+    expect(summary).toEqual(['item', 'core:c2', 'core:c1', 'potion', null]);
+  });
 });
 
 describe('商人', () => {
