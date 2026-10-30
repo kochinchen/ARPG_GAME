@@ -35,6 +35,13 @@ const OCCLUDE_BELOW = 72;
 const CHUNK = 8;
 /** 地板：每 FLOOR_CHUNK × FLOOR_CHUNK 格合成一個物件（畫面外的整塊略過） */
 const FLOOR_CHUNK = 16;
+/**
+ * 地圖分區（World 單位）：牆與地板依位置放進分區，離鏡頭太遠的整區直接隱藏。
+ * 一層樓有幾千塊牆，每次畫（畫面三次、每個投影子的光源六個方向）都要逐一檢查；整區跳過才省得下來。
+ */
+const REGION = 16;
+/** 分區在鏡頭範圍外多遠以內仍要畫：分區本身的大小 + 牆高與影子 */
+const REGION_MARGIN = REGION + 3;
 /** 地板放在另一個圖層：先畫地板，Pixi 疊上地上標記，再畫牆與角色 */
 const FLOOR_LAYER = 1;
 
@@ -210,6 +217,8 @@ export class ThreeWorld {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera();
+  /** 只算影子用的鏡頭：在地板底下遠處、範圍極小，看不到任何物件（圖層 0：牆與角色照常投影子） */
+  private readonly shadowCamera = new THREE.OrthographicCamera(-0.01, 0.01, 0.01, -0.01, 0.1, 0.2);
   private readonly key = new THREE.DirectionalLight(L.key.color, L.key.intensity);
   private readonly torches: THREE.PointLight[] = [];
   /** 發光特效的點光源（火球、爆炸閃光…）與這一幀的特效 */
@@ -225,6 +234,8 @@ export class ThreeWorld {
   /** 主角身上的燭光（真的光源：由內向外漸暗、投射影子） */
   private readonly candle = new THREE.PointLight(L.candle.color, L.candle.intensity, 0, L.candle.decay);
   private readonly floors: THREE.Mesh[] = [];
+  /** 地圖分區（見 REGION）：中心的 World 座標 */
+  private readonly regions = new Map<string, { group: THREE.Group; x: number; z: number }>();
   private readonly floorMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });
   private lightSpots: { position: Vec2; color: number; height: number }[] = [];
   private readonly walls: WallChunk[] = [];
@@ -288,6 +299,8 @@ export class ThreeWorld {
     });
     // 影子在畫地板時算一次，畫牆與角色時沿用
     this.renderer.shadowMap.autoUpdate = false;
+    this.shadowCamera.position.set(0, -1000, 0);
+    this.shadowCamera.lookAt(0, -2000, 0);
   }
 
   /** gpu：用 GPU 蒙皮（見 GPU_SKINNING） */
@@ -308,6 +321,12 @@ export class ThreeWorld {
       wall.material.dispose();
     }
     this.walls.length = 0;
+    // 地板、牆都移除後再清掉分區（buildFloor 已經放進新分區的地板留著）
+    for (const [key, region] of this.regions) {
+      if (region.group.children.length > 0) continue;
+      region.group.removeFromParent();
+      this.regions.delete(key);
+    }
     this.lightSpots = lightSpots;
     const groups = new Map<string, WallCell[]>();
     for (const c of cells) {
@@ -341,9 +360,9 @@ export class ThreeWorld {
       const mesh = new THREE.Mesh(geometry, material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      this.scene.add(mesh);
       const cx = sx / list.length;
       const cy = sy / list.length;
+      this.region((cx + 0.5) * cell, (cy + 0.5) * cell).add(mesh);
       this.walls.push({ mesh, material, screen: this.projection.toScreen(vec2((cx + 0.5) * cell, (cy + 0.5) * cell)), depth: (cx + cy + 1) * cell });
     }
   }
@@ -382,6 +401,8 @@ export class ThreeWorld {
     const t = this.time;
     this.candle.intensity = c.intensity * (1 + c.flicker * (Math.sin(t * 9) * 0.6 + Math.sin(t * 23) * 0.4));
 
+    // 正等角鏡頭（仰角 30°）：畫面上下方向的地面距離是左右方向的 2 倍
+    this.cullRegions(target, width / u / 2, height / u);
     this.updateWalls(player);
     this.updateTorches(player);
     this.updateFxLights(player);
@@ -396,12 +417,12 @@ export class ThreeWorld {
     this.renderer.setClearColor(background, 1);
     this.renderer.clear(true, true, true);
     // 影子：Three.js 只讓「目前鏡頭圖層看得到」的物件投影子，畫地板的圖層看不到牆與角色，
-    // 所以先用一般圖層算影子（裁切成 0 × 0，畫面上什麼都不畫），之後畫地板、牆與角色都沿用
+    // 所以先用一般圖層算影子（裁切成 0 × 0，畫面上什麼都不畫），之後畫地板、牆與角色都沿用。
+    // 這一次用看不到任何東西的鏡頭（shadowCamera）：影子照常算，牆與角色不必準備畫到畫面上
     this.renderer.shadowMap.needsUpdate = true;
-    cam.layers.set(0);
     this.renderer.setScissorTest(true);
     this.renderer.setScissor(0, 0, 0, 0);
-    this.renderer.render(this.scene, cam);
+    this.renderer.render(this.scene, this.shadowCamera);
     this.renderer.setScissorTest(false);
     cam.layers.set(FLOOR_LAYER);
     this.renderer.render(this.scene, cam);
@@ -445,9 +466,30 @@ export class ThreeWorld {
       const mesh = new THREE.Mesh(geometry, this.floorMaterial);
       mesh.receiveShadow = true;
       mesh.layers.set(FLOOR_LAYER);
-      this.scene.add(mesh);
+      const center = geometry.boundingSphere!.center;
+      this.region(center.x, center.z).add(mesh);
       this.floors.push(mesh);
     }
+  }
+
+  /** 這個位置所在的地圖分區（沒有就建立） */
+  private region(x: number, z: number): THREE.Group {
+    const i = Math.floor(x / REGION);
+    const j = Math.floor(z / REGION);
+    const key = `${i}:${j}`;
+    let region = this.regions.get(key);
+    if (!region) {
+      region = { group: new THREE.Group(), x: (i + 0.5) * REGION, z: (j + 0.5) * REGION };
+      this.regions.set(key, region);
+      this.scene.add(region.group);
+    }
+    return region.group;
+  }
+
+  /** 只留鏡頭範圍附近的分區（halfWidth / halfDepth：畫面左右、前後看得到的地面半徑，World） */
+  private cullRegions(target: THREE.Vector3, halfWidth: number, halfDepth: number): void {
+    const reach = Math.hypot(halfWidth, halfDepth) + REGION_MARGIN;
+    for (const r of this.regions.values()) r.group.visible = Math.hypot(r.x - target.x, r.z - target.z) < reach;
   }
 
   private updateWalls(player: Vec2): void {

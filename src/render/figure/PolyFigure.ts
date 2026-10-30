@@ -1,6 +1,7 @@
-import { Graphics } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import type { Vec2 } from '../../core/math/Vec2';
 import { IDLE_ROAR_OFFSET, lerpPose, samplePoses, skinVerts, solveJoints, type AttackVariant, type FigureModel, type Joint, type JointFrames, type Pose } from './FigureModel';
+import { FacetMesh } from './FacetMesh';
 import { apply, dot, faceNormal, jointRotation, normalize, rotY, type M3, type Mesh, type V3 } from './Poly3D';
 
 /** 模型單位 → 畫面像素（45° 等角：地面 2:1，垂直略為縮短） */
@@ -107,7 +108,10 @@ export class PolyFigure {
   static debug: FigureDebug = {};
   /** 所有角色共用的光影（viewer 的 ?light= 試驗用）；null = 照各模型的 lighting */
   static lighting: FigureModel['lighting'] | null = null;
-  readonly graphics = new Graphics();
+  /** 角色的顯示物件（放進場景、設定位置 / 縮放 / tint 都用它）：裡面是多面體網格與除錯疊圖 */
+  readonly graphics = new Container();
+  private readonly facets = this.graphics.addChild(new FacetMesh());
+  private debugLayer: Graphics | null = null;
   /** 設定後改用 Three.js 畫（見 TriangleSink）；null = Pixi 多邊形 */
   sink: TriangleSink | null = null;
   private time = 0;
@@ -283,7 +287,8 @@ export class PolyFigure {
 
   /** 組出每個關節的位置與旋轉，投影、背面剔除、由遠到近畫出每個面 */
   private draw(yaw: number, facing?: Vec2): void {
-    const faces: { depth: number; color: number; points: number[] }[] = [];
+    const facets = this.facets;
+    facets.begin();
     const k = SCALE * this.scale;
     const toScreen = (v: V3) => [(v[0] - v[2]) * 0.707 * k, ((v[0] + v[2]) * 0.354 - v[1] * 0.94) * k] as const;
     const world = solveJoints(this.model.parts, this.model.hipHeight, this.current, yaw, this.model.secondary ? this.lag : undefined);
@@ -316,11 +321,11 @@ export class PolyFigure {
       const facingView = dot(n, VIEW);
       if (facingView <= 0) return;
       let depth = 0;
-      const points: number[] = [];
+      facets.open();
       for (const i of idx) {
         const v = verts[i]!;
         depth += dot(v, VIEW);
-        points.push(...toScreen(v));
+        facets.point((v[0] - v[2]) * 0.707 * k, ((v[0] + v[2]) * 0.354 - v[1] * 0.94) * k);
       }
       const d = dot(n, LIGHT);
       const lit = soft ? Math.max(0, (d + 0.45) / 1.45) : Math.max(0, d);
@@ -332,7 +337,7 @@ export class PolyFigure {
         // 輪廓光：接近輪廓（幾乎側對鏡頭）且背光的面，加一點暖色
         if (rim > 0) color = addRim(color, rim * Math.max(0, 1 - facingView * 2.2) * (1 - lit));
       }
-      faces.push({ depth: depth / idx.length, color, points });
+      facets.close(depth / idx.length, color);
     };
     for (const part of this.model.parts) {
       const { m, p } = world.get(part.joint)!;
@@ -377,14 +382,19 @@ export class PolyFigure {
     if (this.model.dynamicShadow) this.shadow = footprint([world.get('footL')?.p, world.get('footR')?.p, world.get('head')?.p], world.get('root')!.p, toScreen, k);
     if (sink) {
       sink.end();
-      this.graphics.clear();
+      facets.visible = false;
+      this.debugLayer?.clear();
       return;
     }
-    faces.sort((a, b) => a.depth - b.depth);
-    const g = this.graphics.clear();
-    for (const f of faces) g.poly(f.points).fill({ color: f.color });
+    facets.visible = true;
+    facets.end();
     const dbg = PolyFigure.debug;
-    if (dbg.edges) for (const f of faces) g.poly(f.points).stroke({ color: 0xffffff, width: 0.35, alpha: 0.45 });
+    if (!dbg.edges && !dbg.joints && !dbg.bones && !dbg.pivot && !dbg.facing && !dbg.anchor) {
+      this.debugLayer?.clear();
+      return;
+    }
+    const g = (this.debugLayer ??= this.graphics.addChild(new Graphics())).clear();
+    if (dbg.edges) facets.forEachFace((points) => g.poly(points).stroke({ color: 0xffffff, width: 0.35, alpha: 0.45 }));
     if (dbg.joints || dbg.bones || dbg.pivot || dbg.facing || dbg.anchor) this.drawDebug(g, world, toScreen, yaw, facing, weaponJoint);
   }
 
