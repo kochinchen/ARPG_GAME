@@ -14,6 +14,8 @@ export class IdleState implements IAiState {
     self.intent = null;
     self.path = [];
     brain.targetId = null;
+    brain.rallied = false;
+    brain.alertTargetId = null;
     brain.wanderTimer = rng.range(WANDER_PAUSE[0], WANDER_PAUSE[1]);
   }
 
@@ -21,7 +23,7 @@ export class IdleState implements IAiState {
     const { self, brain, targeting } = ctx;
     const provoker = brain.provokedBy === null ? null : targeting.getValidTarget(self, brain.provokedBy);
     brain.provokedBy = null;
-    const target = provoker ?? findVisibleHostile(ctx);
+    const target = provoker ?? findVisibleHostile(ctx) ?? answerAlert(ctx);
     if (!target) {
       wander(ctx);
       return null;
@@ -29,6 +31,17 @@ export class IdleState implements IAiState {
     brain.targetId = target.id;
     return 'chase' as const;
   }
+}
+
+/** 被同伴叫醒：反應時間過後追同伴發現的目標（不再往外叫） */
+function answerAlert({ self, brain, targeting, dt }: AiContext): Actor | null {
+  if (brain.alertTargetId === null) return null;
+  brain.alertTimer -= dt;
+  if (brain.alertTimer > 0) return null;
+  const target = targeting.getValidTarget(self, brain.alertTargetId);
+  brain.alertTargetId = null;
+  if (target) brain.rallied = true;
+  return target;
 }
 
 /** 偵測範圍內、視線未被牆擋住的最近敵人 */

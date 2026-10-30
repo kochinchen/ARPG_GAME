@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">20</b> 個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">981</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">999</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -465,6 +465,11 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p>劍刃旋舞改成跟著主角 3～7 秒的劍風；毀滅重擊改單體；冰槍最多 3 支；冰霜新星改成滾動的冰球；淬毒飛刀毒傷 60%～200%；霜凍瓶改成 20 秒的自動投射器（每 0.5 秒冰箭）；擲斧流血可疊 5 層。絕對零度持續 6～10 秒，範圍內持續緩速並每秒 20%～40% 冰寒傷害。10/30 試玩後覺得霜凍瓶、火藥桶太強：場上機關最多 3 個（第 4 個讓最早的消失），所有機關的生命與防禦最高只有主角的 10%；霜凍瓶改名「霜凍投射器」、每秒一發 5%～15% 攻擊力；火藥桶爆炸 150%～230%，並燃燒 3 秒、每秒 20% 攻擊力；雷電圖騰 20%～40% 攻擊力。</p>
             <p class="why">Combo 標籤跟著效果自動檢查，改完重新產生組合技圖鑑（25364 種排列）與角色成長模擬。</p>
           </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">怪物的戰術與習得技能</span><span class="hash mono">10/30</span></div>
+            <p>怪物發現主角會招呼 6 格內的同伴（只傳一層）；近戰在主角四周分配站位包圍、快怪繞側翼，背後留 70 度缺口（圍師必闕）；同時貼身最多 6 隻，其餘外圈等候；法師與弓手站在前排後方。機關的吸引力改成主角的 2/3，同樣距離先打主角。10 樓起怪物會學一招主角技能（法術系學法術樹、其他依近戰 / 遠程），越深學得越高層；怪物版傷害 ×0.6、前搖與冷卻放慢，施放時頭上顯示招式名稱。</p>
+            <p class="why">站位與學到的招式都由規則與世界種子決定，可以用測試把關（新增 18 個）。</p>
+          </div>
         </div>
       </div>
     </div>
@@ -476,17 +481,17 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <h2>測試數量隨 Milestone 累積</h2>
       <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/30 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 981">
-      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.9%"></div><span class="val mono">28</span></div>
-      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.3%"></div><span class="val mono">52</span></div>
-      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:8.3%"></div><span class="val mono">81</span></div>
-      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:9.6%"></div><span class="val mono">94</span></div>
-      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:11.6%"></div><span class="val mono">114</span></div>
-      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:14.0%"></div><span class="val mono">137</span></div>
-      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:18.2%"></div><span class="val mono">179</span></div>
-      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:26.5%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">981</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 981 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個）。</p>
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 999">
+      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.8%"></div><span class="val mono">28</span></div>
+      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.2%"></div><span class="val mono">52</span></div>
+      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:8.1%"></div><span class="val mono">81</span></div>
+      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:9.4%"></div><span class="val mono">94</span></div>
+      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:11.4%"></div><span class="val mono">114</span></div>
+      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.7%"></div><span class="val mono">137</span></div>
+      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.9%"></div><span class="val mono">179</span></div>
+      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:26.0%"></div><span class="val mono">260</span></div>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">999</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 999 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；怪物戰術與習得技能 18 個）。</p>
     </div>
   </section>
 

@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { SkillDefSchema } from './schema/skill';
 import { bossSkills } from './bosses';
+import { mimicSkills } from './mimicSkills';
 import { skillComboTags } from './skillComboTags';
 import { utilitySkills } from './utilitySkills';
 
@@ -1530,4 +1531,5 @@ const creatureSkills: SkillInput[] = [
   },
 ];
 
-export const skills: SkillInput[] = [...special, ...withComboTags([...melee, ...ranged, ...magic, ...utilitySkills]), ...support, ...enemySkills, ...creatureSkills, ...bossSkills];
+const playerSkills = withComboTags([...melee, ...ranged, ...magic, ...utilitySkills]);
+export const skills: SkillInput[] = [...special, ...playerSkills, ...support, ...enemySkills, ...creatureSkills, ...bossSkills, ...mimicSkills(playerSkills)];

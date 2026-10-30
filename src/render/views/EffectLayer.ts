@@ -4,6 +4,7 @@ import { vec2, type Vec2 } from '../../core/math/Vec2';
 import { rankValue } from '../../data/schema/common';
 import type { Projectile } from '../../game/entities/Projectile';
 import type { PendingEffect, Zone } from '../../game/skills/EffectScheduler';
+import { originalSkillId } from '../../game/enemies/MimicSkills';
 import { firstElement } from '../../game/skills/effects/AreaEffect';
 import { ELEMENT_COLORS } from '../palette';
 import { ImpactFx, type ImpactInput } from './fx/ImpactFx';
@@ -240,7 +241,7 @@ export class EffectLayer {
       g.alpha = 0.7 + 0.3 * Math.sin(performance.now() / 90 + zone.id);
       // 持續區域一直亮著（火牆、毒池、冰霜地面），亮度隨閃爍起伏
       const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
-      this.glows.push({ skillId: zone.ctx.skill.id, id: `z${zone.id}`, kind: 'zone', position: zone.position, height: ZONE_GLOW_HEIGHT, color, strength: 0.55 * g.alpha, radius: zone.radius, t: 0 });
+      this.glows.push({ skillId: originalSkillId(zone.ctx.skill.id), id: `z${zone.id}`, kind: 'zone', position: zone.position, height: ZONE_GLOW_HEIGHT, color, strength: 0.55 * g.alpha, radius: zone.radius, t: 0 });
     }
     for (const [id, g] of this.zoneViews) {
       if (seen.has(id)) continue;
@@ -272,7 +273,7 @@ export class EffectLayer {
       const k = start > 0 ? 1 - p.remaining / start : 1;
       const color = ELEMENT_COLORS[firstElement(area.effects) ?? 'physical'] ?? 0xffffff;
       const radius = rankValue(area.radius, p.ctx.rank) * (1 + p.ctx.mods.aoeRadius);
-      this.glows.push({ skillId: p.ctx.skill.id, id: `p${p.id}`, kind: 'pending', position: p.position, height: ZONE_GLOW_HEIGHT, color, strength: 0.15 + 0.6 * k * k, radius, t: k });
+      this.glows.push({ skillId: originalSkillId(p.ctx.skill.id), id: `p${p.id}`, kind: 'pending', position: p.position, height: ZONE_GLOW_HEIGHT, color, strength: 0.15 + 0.6 * k * k, radius, t: k });
     }
     for (const [id, g] of this.pendingViews) {
       if (seen.has(id)) continue;
@@ -297,7 +298,7 @@ export class EffectLayer {
       if (!view) {
         const element = firstElement(p.onHit);
         const special = p.mods.combo?.success ?? false;
-        const base = projectileArt(p.look ? `look.${p.look}` : p.skill.id, element, p.skill.tags.includes('ranged'));
+        const base = projectileArt(p.look ? `look.${p.look}` : originalSkillId(p.skill.id), element, p.skill.tags.includes('ranged'));
         const style = special ? specialArt(base) : base;
         const container = new Container();
         const px = p.radius * this.projection.tileWidth * 0.6;
@@ -321,8 +322,8 @@ export class EffectLayer {
       const s = this.projection.toScreen(pos);
       view.container.position.set(s.x, s.y);
       view.container.zIndex = this.projection.depth(pos);
-      this.flying.push({ id: p.id, skillId: p.skill.id, position: vec2(pos.x, pos.y), direction: p.direction });
-      if (view.glows) this.glows.push({ skillId: p.skill.id, id: `o${p.id}`, kind: 'orb', position: vec2(pos.x, pos.y), height: FLIGHT_HEIGHT, color: view.style.color, strength: 0.6 + 0.4 * Math.min(1, view.style.size), radius: p.radius * view.style.size, t: 0 });
+      this.flying.push({ id: p.id, skillId: originalSkillId(p.skill.id), position: vec2(pos.x, pos.y), direction: p.direction });
+      if (view.glows) this.glows.push({ skillId: originalSkillId(p.skill.id), id: `o${p.id}`, kind: 'orb', position: vec2(pos.x, pos.y), height: FLIGHT_HEIGHT, color: view.style.color, strength: 0.6 + 0.4 * Math.min(1, view.style.size), radius: p.radius * view.style.size, t: 0 });
       // 依畫面上的飛行方向轉動（箭、冰槍朝前；火球的火舌往後拖）
       const d0 = this.projection.toScreen(vec2(0, 0));
       const d1 = this.projection.toScreen(p.direction);

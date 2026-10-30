@@ -5,11 +5,16 @@ import type { AiContext, IAiState } from '../IAiState';
 
 /** 後退時一次拉開的距離（Tile） */
 const RETREAT_STEP = 3;
+/** 後排離自己的站位超過這個距離，出手之間會走回站位（Tile） */
+const BACKLINE_SLACK = 2;
+/** 等候補位時離站位這麼近就停下（Tile） */
+const STATION_SLACK = 0.4;
 
 /**
  * 追擊並攻擊目標（交給 SkillSystem 執行）；目標消失或離家太遠就放棄。
  * - 特殊技能冷卻結束、目標在範圍內時優先使用
  * - 遠程怪（keepDistance > 0）被貼近時先後退，再繼續攻擊；每次後退之間至少出手一次
+ * - 集體戰術（SquadTactics）分配了站位時：近戰走向站位包圍、後排在出手之間走回前排後方、等候補位的不出手
  */
 export class ChaseState implements IAiState {
   readonly name = 'chase' as const;
@@ -34,6 +39,11 @@ export class ChaseState implements IAiState {
     const { self, brain } = ctx;
     if (brain.targetId === null || self.cast) return;
     if (target && this.retreat(ctx, target)) return;
+    if (brain.waiting) {
+      this.holdStation(ctx);
+      return;
+    }
+    if (target && this.toBackline(ctx)) return;
     if (target) {
       const special = this.readySpecial(ctx, target);
       if (special) {
@@ -42,9 +52,33 @@ export class ChaseState implements IAiState {
         return;
       }
     }
-    // SkillSystem 在目標暫時無效時會清掉意圖，這裡持續維持主要攻擊
-    if (self.intent?.targetId === brain.targetId && self.intent.skillId === brain.skillId) return;
-    self.intent = { skillId: brain.skillId, targetId: brain.targetId, point: self.position, hold: true };
+    // SkillSystem 在目標暫時無效時會清掉意圖，這裡持續維持主要攻擊（站位每次重新分配都會變）
+    const approach = brain.slot ?? undefined;
+    if (self.intent?.targetId === brain.targetId && self.intent.skillId === brain.skillId) {
+      self.intent.approach = approach;
+      return;
+    }
+    self.intent = { skillId: brain.skillId, targetId: brain.targetId, point: self.position, hold: true, approach };
+  }
+
+  /** 等候補位：不出手，走到外圈的站位停下 */
+  private holdStation({ self, brain, pathfinder }: AiContext): void {
+    self.intent = null;
+    if (!brain.slot || self.isMoving || distance(self.position, brain.slot) <= STATION_SLACK) return;
+    self.path = pathfinder.findPath(self.position, brain.slot, self.radius);
+  }
+
+  /** 後排離站位太遠：出手之間走回前排後方（與後退共用「至少出手一次才再移動」）。回傳是否正在移動 */
+  private toBackline({ self, brain, pathfinder }: AiContext): boolean {
+    if (brain.keepDistance <= 0 || !brain.slot || brain.retreating) return false;
+    if (distance(self.position, brain.slot) <= BACKLINE_SLACK || self.castCount === brain.castsAtRetreat) return false;
+    const path = pathfinder.findPath(self.position, brain.slot, self.radius);
+    if (path.length === 0) return false;
+    self.intent = null;
+    self.path = path;
+    brain.retreating = true;
+    brain.castsAtRetreat = self.castCount;
+    return true;
   }
 
   /** 冷卻已結束、且目標在施放範圍內的第一個特殊技能 */

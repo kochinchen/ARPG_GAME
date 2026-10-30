@@ -13,6 +13,7 @@ import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { BossSystem } from './enemies/BossSystem';
 import { applyFloorResist, EnemyFactory, rollSize, type FloorResist } from './enemies/EnemyFactory';
+import { rollMimic, teachMimic } from './enemies/MimicSkills';
 import { ItemEffectSystem } from './items/ItemEffectSystem';
 import { SalvageSystem } from './items/SalvageSystem';
 import { Materials } from './player/Materials';
@@ -244,7 +245,7 @@ export class GameWorld {
     this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories, this.statuses);
     this.projectileSystem = new ProjectileSystem(this.nav, this.targeting, executor);
     // 閒置走動用獨立的亂數：不影響其他系統（掉寶、戰鬥）的亂數順序
-    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, this.events, data.skills, streams.ai, data.balance.devices.aggroRange);
+    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, data.skills, streams.ai, data.balance.devices, data.balance.enemyTactics, this.events);
     this.devices = new DeviceSystem(this.actors, this.targeting, this.nav, this.events, data.balance.devices, () => this.nextActorId++);
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
@@ -502,6 +503,11 @@ export class GameWorld {
     const resists = plan.map((): FloorResist =>
       resistRng.chance(0.5) ? { physical: eliteResist, elemental: 0 } : { physical: 0, elemental: eliteResist },
     );
+    // 怪物學主角技能：同樣每個索引都擲一次，讀檔後不變；精英必定學到
+    const mimicRng = new Rng(this.seed).fork(`mimic-${floor}`);
+    const mimics = plan.map((request) =>
+      rollMimic(this.data.enemies.get(request.enemyId), floor, request.eliteAffixes !== undefined, this.data.skills, this.data.balance.enemyMimic, mimicRng),
+    );
     const spawnedIds: [number, number][] = [];
     plan.forEach((request, index) => {
       if (killed.has(index)) return;
@@ -511,6 +517,8 @@ export class GameWorld {
       const enemyDef = this.data.enemies.get(request.enemyId);
       const enemy = this.enemyFactory.create(enemyDef, this.nextActorId++, request.position, scaling, eliteSpec, null, sizes[index]);
       if (eliteSpec) applyFloorResist(enemy, resists[index]!);
+      const mimic = mimics[index];
+      if (mimic) teachMimic(enemy, mimic);
       const actor = this.addActor(enemy);
       spawnedIds.push([actor.id, index]);
     });
@@ -609,6 +617,8 @@ export class GameWorld {
     };
     const actor = this.addActor(this.enemyFactory.create(def, this.nextActorId++, spot, scaling, eliteSpec));
     applyFloorResist(actor, { physical: resist, elemental: resist });
+    const mimic = rollMimic(def, floor, true, this.data.skills, this.data.balance.enemyMimic, rng);
+    if (mimic) teachMimic(actor, mimic);
     this.champion = { actorId: actor.id };
     spawnedIds.push([actor.id, index]);
     return spot;

@@ -598,7 +598,12 @@ Summon 召喚系已移除
 - 血量 = 玩家目前最大生命 × hpPct、防禦 = 玩家目前防禦 × `balance.devices.statCap`（10%；hpPct 也不超過 10%，有群組的毒蛛不受限；即時跟隨，上限變動時維持比例）；玩家的技能打不到
 - 全身最多 3 個（`balance.devices.maxAlive`；設計者 2026-10-30）＋同技能上限，超過時最舊的消失（不觸發 onDestroy）
 - 行為：`trip`（橫向長方形、每隻敵人一次）、`proximity`（待命後近接觸發）、`turret`（每 interval 秒朝最近敵人觸發 onShot）、`none`；`onDestroy` / `onExpire`
-- 子效果以玩家為施放者、從機關位置發出；怪物在 `balance.devices.aggroRange`（3 格）內改打機關（`AiSystem.lureToDevice`），機關沒了改回追玩家
+- 子效果以玩家為施放者、從機關位置發出；怪物在 `balance.devices.aggroRange`（3 格）內、而且比主角「更有吸引力」時改打機關（`AiSystem.lureToDevice`）：機關的有效距離 = 實際距離 ÷ `attraction`（2/3），同樣距離一定先打主角；換目標要好 `retargetMargin`（20%）以上。機關沒了改回追玩家
+
+### 怪物的集體戰術與習得技能（設計者 2026-10-30）
+
+- `ai/SquadTactics.ts`（`balance.enemyTactics`）：發現敵人時 `rally` 叫醒附近看得到的閒置同伴（`AiBrain.alertTargetId`，只傳一層，發 `EnemyAlerted`）；每 0.5 秒依目標分組分配站位 `AiBrain.slot`——近戰從正面往兩邊排開、背後留缺口、快怪拿兩側，超過 `maxEngaged` 的 `waiting` 在外圈不出手；後排站在前排後方。只決定站位，追擊仍由 `ChaseState` 設 `SkillIntent.approach`、`SkillSystem` 走過去。魔王不參與
+- 怪物版主角技能：`data/mimicSkills.ts` 由近戰 / 遠程 / 法術樹產生 `mimic.<原 ID>`（傷害 ×0.6、不耗魔、冷卻與前搖放慢、法術強度改用怪物傷害）；`enemies/MimicSkills.ts` 在生成時依樓層擲骰（每個生成索引固定擲兩次，讀檔不變），學會的招式排在特殊技能最前面。Render 以 `originalSkillId` 沿用主角的特效，施放時頭上顯示招式名稱
 
 ### 鑲嵌與融合（v0.5.0，規格：`release/設計文件/版更討論/v0.5.0_鑲嵌與融合/`）
 

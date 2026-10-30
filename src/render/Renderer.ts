@@ -8,6 +8,7 @@ import { lerp, rotate, sub, vec2, type Vec2 } from '../core/math/Vec2';
 import type { DataRegistry } from '../data/DataRegistry';
 import { MATERIAL_LABELS, type MaterialId } from '../data/schema/item';
 import type { Actor, ActorId } from '../game/entities/Actor';
+import { originalSkillId } from '../game/enemies/MimicSkills';
 import type { GameWorld } from '../game/GameWorld';
 import { equippedItems, gearAura } from '../game/items/GearAura';
 import { coreTypeColor } from './icons/CoreIcons';
@@ -127,9 +128,11 @@ export class Renderer {
       const attacker = world.targeting.getActor(e.actorId);
       if (!attacker) return;
       const skill = data.skills.get(e.skillId);
+      // 怪物學會的主角技能：頭上顯示招式名稱（前搖較長，看得到就躲得掉）
+      if (e.skillId !== originalSkillId(e.skillId)) say(attacker.position, skill.name, PALETTE.critText);
       // Three.js 畫法的出招特效（蓄力、拋射的箭、突進的風、飛向落點的火球…）
       const target = e.targetId !== null ? world.targeting.getActor(e.targetId) : undefined;
-      this.effects.cast({ skillId: e.skillId, caster: attacker.position, point: target?.position ?? e.point, direction: e.direction, impactIn: e.impactIn, ...castExtras(skill, attacker.position, target?.position, e.direction) });
+      this.effects.cast({ skillId: originalSkillId(e.skillId), caster: attacker.position, point: target?.position ?? e.point, direction: e.direction, impactIn: e.impactIn, ...castExtras(skill, attacker.position, target?.position, e.direction) });
       if (skill.telegraph) {
         // 前搖提示：在地上畫出攻擊範圍，填滿時命中
         const motion = this.motionFor(attacker, skill.tags);
@@ -155,7 +158,9 @@ export class Renderer {
       const dir = sub(projection.toScreen(e.point), projection.toScreen(attacker.position));
       this.actorViews.get(e.actorId)?.lunge(dir);
     });
-    world.events.on('AreaTriggered', (e) => {
+    world.events.on('AreaTriggered', (event) => {
+      // 怪物學會的主角技能沿用主角的特效
+      const e = { ...event, skillId: originalSkillId(event.skillId) };
       const skill = data.skills.has(e.skillId) ? data.skills.get(e.skillId) : null;
       this.effects.spawnImpact({
         kind: impactKind(e.skillId, skill?.tags ?? [], e.element, e.angleDeg, e.radius),
@@ -174,7 +179,7 @@ export class Renderer {
     });
     // 牽制射擊：被緩速的敵人腰部拉出束縛線
     world.events.on('StatusApplied', (e) => {
-      if (e.kind === 'slow' && e.skillId === 'ranged.pinning_shot') this.actorViews.get(e.actorId)?.pin();
+      if (e.kind === 'slow' && e.skillId !== undefined && originalSkillId(e.skillId) === 'ranged.pinning_shot') this.actorViews.get(e.actorId)?.pin();
     });
     world.events.on('ChainTriggered', (e) => this.effects.spawnChain(e.points, ELEMENT_COLORS[e.element] ?? 0xffffff, e.special));
     let lastFailure = { text: '', at: 0 };
@@ -264,6 +269,11 @@ export class Renderer {
         PALETTE.manaText,
       ),
     );
+    // 怪物發現主角並招呼同伴
+    world.events.on('EnemyAlerted', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (actor) say(actor.position, '!', PALETTE.critText);
+    });
     world.events.on('StatusTriggered', (e) => {
       const actor = world.targeting.getActor(e.actorId);
       if (!actor) return;

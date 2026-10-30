@@ -26,8 +26,17 @@ export interface AiBrain {
   keepDistance: number;
   /** 正在後退拉開距離 */
   retreating: boolean;
-  /** 上次後退時的施放次數：至少出手一次才會再後退（避免被追時一直逃、從不攻擊） */
+  /** 上次後退 / 移動到後排站位時的施放次數：至少出手一次才會再移動（避免被追時一直逃、從不攻擊） */
   castsAtRetreat: number;
+  /** 被同伴叫醒：要追的目標與剩下的反應時間（秒） */
+  alertTargetId: ActorId | null;
+  alertTimer: number;
+  /** 這次追擊是被同伴叫來的（不再往外叫，警戒只傳一層） */
+  rallied: boolean;
+  /** 集體戰術分配的站位（SquadTactics）；null = 直接追目標 */
+  slot: Vec2 | null;
+  /** 貼身的近戰已達上限：在外圈等候補位，不出手 */
+  waiting: boolean;
   /** 閒置時在出生點附近走動：距離下次走動的秒數 */
   wanderTimer: number;
 }
@@ -55,5 +64,10 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     retreating: false,
     castsAtRetreat: -1,
     wanderTimer: 0,
+    alertTargetId: null,
+    alertTimer: 0,
+    rallied: false,
+    slot: null,
+    waiting: false,
   };
 }

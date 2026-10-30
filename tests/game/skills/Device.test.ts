@@ -150,6 +150,33 @@ describe('怪物與機關', () => {
     expect(skeleton!.ai!.targetId).toBe(world.player.id);
   });
 
+  it('機關的吸引力小於主角：同樣距離先打主角（設計者 2026-10-30）', () => {
+    const { world, commands } = setup([skeletonAt(12, 3.5)]);
+    const skeleton = enemiesOf(world)[0]!;
+    skeleton.stats.setBase('moveSpeed', 0.01);
+    world.player.position = vec2(9, 3.5);
+    cast(world, commands, 'utility.powder_keg', 1, { x: 14, y: 3.5 });
+    expect(devicesOf(world)[0]!.position.x).toBeCloseTo(14);
+    world.player.position = vec2(10, 3.5);
+    run(world, 0.2);
+    expect(skeleton.ai!.targetId).toBe(world.player.id);
+  });
+
+  it('主角走得比機關明顯更近時，怪物改回打主角', () => {
+    const { world, commands } = setup([skeletonAt(14, 3.5)]);
+    const skeleton = enemiesOf(world)[0]!;
+    skeleton.stats.setBase('moveSpeed', 0.01);
+    world.player.position = vec2(11, 3.5);
+    cast(world, commands, 'utility.powder_keg', 1, { x: 16, y: 3.5 });
+    world.player.position = vec2(4, 3.5);
+    run(world, 0.2);
+    const keg = devicesOf(world)[0]!;
+    expect(skeleton.ai!.targetId).toBe(keg.id);
+    world.player.position = vec2(13, 3.5);
+    run(world, 0.2);
+    expect(skeleton.ai!.targetId).toBe(world.player.id);
+  });
+
   it('距離超過 3 格的怪物不受影響', () => {
     const { world, commands } = setup([skeletonAt(20, 6)]);
     const skeleton = enemiesOf(world)[0]!;

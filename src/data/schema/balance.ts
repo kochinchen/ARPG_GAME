@@ -157,6 +157,46 @@ export const BalanceSchema = z.strictObject({
       lootTable: IdSchema,
     }),
   }),
+  /** 怪物學主角技能（data/mimicSkills.ts 產生怪物版技能；GameWorld 生成怪物時抽） */
+  enemyMimic: z.strictObject({
+    /** 由淺到深：minFloor 起可學到第 1～maxTier 層的技能，一般怪學到的機率 chance（精英、首領必定學到） */
+    unlocks: z
+      .array(z.strictObject({ minFloor: z.int().positive(), maxTier: z.int().min(1).max(4), chance: z.number().min(0).max(1) }))
+      .min(1)
+      .refine((u) => u.every((x, i) => i === 0 || x.minFloor > u[i - 1]!.minFloor), { message: 'unlocks 必須依 minFloor 由小到大排列' }),
+    /** 技能等級：第一個解鎖樓層為 Lv1，之後每這麼多層 +1（最高 Lv5） */
+    floorsPerRank: z.int().positive(),
+    /** 怪物版的傷害與持續傷害倍率 */
+    damage: z.number().positive().max(1),
+    cooldownMultiplier: z.number().min(1),
+    /** 怪物版的冷卻至少 minCooldown + cooldownPerTier ×（層級 − 1）秒（主角沒有冷卻的技能也不會連發） */
+    minCooldown: z.number().nonnegative(),
+    cooldownPerTier: z.number().nonnegative(),
+    castTimeMultiplier: z.number().min(1),
+  }),
+  /** 怪物的集體戰術（AiSystem 的 SquadTactics） */
+  enemyTactics: z.strictObject({
+    /** 怪物發現敵人時，叫醒這個距離內、看得到牠的閒置同伴（只傳一層，不會連鎖） */
+    alertRadius: z.number().positive(),
+    /** 被叫醒的同伴過幾秒才行動（秒，最小～最大） */
+    alertDelay: RangeSchema,
+    /** 離目標這個距離內才照站位包圍；更遠就直接追 */
+    surroundRange: z.number().positive(),
+    /** 同時貼身攻擊同一個目標的近戰上限；其餘在外圈等候補位 */
+    maxEngaged: z.int().positive(),
+    /** 圍師必闕：包圍時在目標背後留下的缺口（度） */
+    gapDegrees: z.number().min(0).max(180),
+    /** 站位間距至少照這麼多個站位平分（怪少時不會一下子散到背後） */
+    minSlots: z.int().min(2),
+    /** 移動速度至少這麼快的近戰怪當遊擊，拿兩側與背後的站位 */
+    flankSpeed: z.number().positive(),
+    /** 等候補位的怪站在攻擊站位外這麼遠（Tile） */
+    waitDistance: z.number().nonnegative(),
+    /** 後排（遠程、法師）比自己的保持距離再退後這麼多，站在前排後方（Tile） */
+    backlineOffset: z.number().nonnegative(),
+    /** 每隔幾秒重新分配站位（太頻繁會抖動） */
+    reassignInterval: z.number().positive(),
+  }),
   /** 精英怪（每群隊長）的共通強化 */
   elite: EliteConfigSchema,
   /**
@@ -346,6 +386,10 @@ export const BalanceSchema = z.strictObject({
     aggroRange: z.number().positive(),
     /** 戰術機關的生命與防禦最高是主角的這個比例（有群組的毒蛛不受限） */
     statCap: z.number().positive().max(1),
+    /** 機關對怪物的吸引力（主角 = 1；必須小於 1）：有效距離 = 實際距離 ÷ attraction */
+    attraction: z.number().positive().lt(1),
+    /** 在主角與機關之間換目標時，新目標的有效距離要短這個比例以上（避免來回轉頭） */
+    retargetMargin: z.number().nonnegative(),
   }),
   combo: z.strictObject({
     /** 「近 → 近 → 遠」的 Combo：第三招額外加成（前兩招承擔貼身風險的回報） */

@@ -60,6 +60,8 @@ export interface GameEvents {
   ComboDiscovered: { comboId: string; name: string; description: string[] };
   /** 連段中斷（沒有目標、魔力不足…） */
   ComboInterrupted: { step: number };
+  /** 怪物發現敵人並招呼同伴（Render 在頭上顯示「!」）；allies：叫醒了幾隻 */
+  EnemyAlerted: { actorId: ActorId; allies: number };
   ActorDamaged: {
     targetId: ActorId;
     sourceId: ActorId | null;

@@ -171,7 +171,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     </div>
     <nav class="toc" id="toc">
       <a href="#monsters">怪物屬性</a><a href="#appear">出現樓層</a><a href="#tiers">樓層區間</a><a href="#scaling">難度成長</a>
-      <a href="#elite">精英怪</a><a href="#champion">每層首領</a><a href="#challenge">極限挑戰</a><a href="#bosses">魔王</a>
+      <a href="#elite">精英怪</a><a href="#champion">每層首領</a><a href="#tactics">戰術與習得技能</a><a href="#challenge">極限挑戰</a><a href="#bosses">魔王</a>
     </nav>
   </header>
 
@@ -290,6 +290,45 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
         <li><b>掉落</b>：首領本身的掉落＋精英掉落表；擊敗後原地出現<b>首領寶箱</b>。</li>
         <li><b>首領寶箱</b>：擲 6 次（一般寶箱 3 次）、必出 1 件裝備；金幣比重 35%、每次 40～100 金幣（一般寶箱 15%、10～30），是金幣的另一個來源。每層只能開一次。</li>
         <li>重新進入樓層時首領會重生，但寶箱開過就不會再出現。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="tactics">
+    <div class="sec-head">
+      <div class="eyebrow">balance.enemyTactics · balance.enemyMimic · balance.devices（設計者 2026-10-30）</div>
+      <h2>怪物的戰術與習得技能</h2>
+      <p>怪物不再各打各的：發現主角會招呼同伴、近戰分散包圍、法師站在後排（參考孫子兵法）。10 樓起，部分怪物還會學會一招主角的技能。</p>
+    </div>
+    <div class="two">
+      <div class="tbl"><table><thead><tr><th>樓層</th><th class="n">學得到的技能</th><th class="n">一般怪機率</th></tr></thead><tbody>
+        <tr><td>1～9</td><td class="n">不學</td><td class="n">0%</td></tr>
+        <tr><td>10～14</td><td class="n">第 1 層</td><td class="n">10%</td></tr>
+        <tr><td>15～19</td><td class="n">第 1～2 層</td><td class="n">15%</td></tr>
+        <tr><td>20～27</td><td class="n">第 1～3 層</td><td class="n">20%</td></tr>
+        <tr><td>28～35</td><td class="n">第 1～4 層</td><td class="n">25%</td></tr>
+      </tbody></table></div>
+      <ul class="notes">
+        <li><b>精英與首領</b>必定學到一招；魔王與小王不學（有自己的技能與階段）。</li>
+        <li><b>物理系 / 法術系</b>：原本技能有「法術」標籤的學法術樹；會保持距離的（弓手、噴吐異種）學遠程樹；其他學近戰樹。每隻最多一招。</li>
+        <li><b>技能等級</b>：10 樓 Lv1，之後每 5 層 +1（30 樓 Lv5）。</li>
+        <li><b>怪物版</b>：傷害與持續傷害 ×0.6、不耗魔力、前搖 ×1.5；冷卻 ×1.5，而且依技能層級至少 4 / 6 / 8 / 10 秒。施放時頭上顯示招式名稱，看得到就躲得掉。</li>
+        <li>學到哪一招由世界種子決定，讀檔後不變。</li>
+      </ul>
+    </div>
+    <div class="two" style="margin-top:16px">
+      <div class="tbl"><table><thead><tr><th>集體戰術</th><th>規則</th></tr></thead><tbody>
+        <tr><td>呼朋引伴</td><td>發現主角（或被打）時頭上出現「!」，叫醒 6 格內、看得到牠的閒置同伴；同伴 0.3～0.6 秒後加入。只傳一層，不會把整張地圖拉過來</td></tr>
+        <tr><td>包圍</td><td>主角 6 格內的近戰從怪物來的那一側往兩邊分配站位；速度 ≥ 3.2 的快怪（遊擊）拿兩側與背後</td></tr>
+        <tr><td>圍師必闕</td><td>主角正背後留 70 度的缺口，永遠有退路</td></tr>
+        <tr><td>圍攻上限</td><td>同時貼身攻擊同一個目標的近戰最多 6 隻，其餘在外圈 2.5 格等候補位、不出手</td></tr>
+        <tr><td>後排</td><td>遠程與法師站在前排後方（自己的保持距離 + 1.5 格），出手之間走回位置</td></tr>
+      </tbody></table></div>
+      <ul class="notes">
+        <li><b>機關的吸引力</b>是主角的 2/3：機關的有效距離 = 實際距離 × 1.5，同樣距離一定先打主角。例如主角在 3 格外，機關要比 2 格更近才會被選上（機關仍只在 3 格內有效）。</li>
+        <li>在主角與機關之間換目標，新目標要好 20% 以上，避免來回轉頭；主角走得明顯更近時，怪物會丟下機關改打主角。</li>
+        <li>站位每 0.5 秒重新分配；包圍的正面方向在包圍開始時決定，怪物繞到側面時缺口不會跟著轉。</li>
+        <li>魔王不參與集體戰術。</li>
       </ul>
     </div>
   </section>

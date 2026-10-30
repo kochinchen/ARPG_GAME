@@ -106,6 +106,35 @@ export const balance: z.input<typeof BalanceSchema> = {
     lastFloor: 35,
     miniBoss: { maxPerFloor: 4, arenaBodies: 15, hpMultiplier: 0.5, damageMultiplier: 0.5, xpMultiplier: 0.5, lootTable: 'loot.elite' },
   },
+  // 怪物學主角技能（設計者 2026-10-30）：10 樓起，每隻最多一招；法術系學法術樹，其他依近戰 / 遠程。
+  // 精英與首領必定學到；怪物版傷害 ×0.6、冷卻 ×1.5（至少 4 / 6 / 8 / 10 秒，依技能層級）、前搖 ×1.5，施放時頭上顯示招式名稱
+  enemyMimic: {
+    unlocks: [
+      { minFloor: 10, maxTier: 1, chance: 0.1 },
+      { minFloor: 15, maxTier: 2, chance: 0.15 },
+      { minFloor: 20, maxTier: 3, chance: 0.2 },
+      { minFloor: 28, maxTier: 4, chance: 0.25 },
+    ],
+    floorsPerRank: 5,
+    damage: 0.6,
+    cooldownMultiplier: 1.5,
+    minCooldown: 4,
+    cooldownPerTier: 2,
+    castTimeMultiplier: 1.5,
+  },
+  // 怪物的集體戰術（設計者 2026-10-30，參考孫子兵法）：呼朋引伴、包圍站位（圍師必闕）、後排站在前排後方
+  enemyTactics: {
+    alertRadius: 6,
+    alertDelay: [0.3, 0.6],
+    surroundRange: 6,
+    maxEngaged: 6,
+    gapDegrees: 70,
+    minSlots: 4,
+    flankSpeed: 3.2,
+    waitDistance: 2.5,
+    backlineOffset: 1.5,
+    reassignInterval: 0.5,
+  },
   elite: {
     minFloor: 3,
     hpMultiplier: 3,
@@ -241,7 +270,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     staff: ['magic', 'utility'],
   },
   // 設計者調整（2026-10-30）：場上最多 3 個機關，第四個讓最早的消失；機關的生命、防禦最高是主角的 10%
-  devices: { maxAlive: 3, aggroRange: 3, statCap: 0.1 },
+  // 機關的吸引力是主角的 2/3（有效距離 ×1.5）：同樣距離一定先打主角；換目標要好 20% 以上（設計者 2026-10-30）
+  devices: { maxAlive: 3, aggroRange: 3, statCap: 0.1, attraction: 2 / 3, retargetMargin: 0.2 },
   combo: {
     nearNearFarBonus: { damage: 0.1, aoeRadius: 0.1 },
   },

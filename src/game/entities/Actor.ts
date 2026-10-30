@@ -88,6 +88,8 @@ export interface SkillIntent {
   mods?: Readonly<StepMods>;
   /** 原地施放（按住 Shift）：不走向目標；目標不在範圍內時朝 point 施放 */
   stationary?: boolean;
+  /** 目標不在範圍內時走向這個點而不是目標本身（怪物的包圍站位）；到了還打不到就直接走向目標 */
+  approach?: Vec2 | undefined;
 }
 
 /** 施放中的技能：施放時間結束前不能移動或施放其他技能 */

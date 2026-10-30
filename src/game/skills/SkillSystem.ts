@@ -18,6 +18,8 @@ import { flattenEffects } from '../../data/skillAnalysis';
 const BASIC_ATTACK = 'basic.attack';
 /** 追擊時重新尋路的間隔（秒） */
 const REPATH_INTERVAL = 0.25;
+/** 走到站位（SkillIntent.approach）這麼近就算到了，之後直接走向目標 */
+const STATION_REACHED = 0.3;
 
 /** 「下一個近戰 / 遠程技能傷害 +X%」：同類技能施放時消耗 */
 const EMPOWER: Partial<Record<CombatCategory, StatusKind>> = { melee: 'meleeEmpower', ranged: 'rangedEmpower' };
@@ -104,7 +106,8 @@ export class SkillSystem {
           return;
         }
         if (!inReach) {
-          this.approach(actor, target.position);
+          const station = intent.approach && distance(actor.position, intent.approach) > STATION_REACHED ? intent.approach : null;
+          this.approach(actor, station ?? target.position);
           return;
         }
         targetId = target.id;
