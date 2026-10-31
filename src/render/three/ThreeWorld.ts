@@ -273,6 +273,8 @@ export class ThreeWorld {
   /** 地圖分區（見 REGION）：中心的 World 座標 */
   private readonly regions = new Map<string, { group: THREE.Group; x: number; z: number }>();
   private readonly floorMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });
+  /** 牆底下的地板：不受光，只留一點點原本的顏色（接近背景的暗） */
+  private readonly underWallMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, color: 0x141414, side: THREE.DoubleSide });
   private lightSpots: { position: Vec2; color: number; height: number }[] = [];
   private readonly walls: WallChunk[] = [];
   /** 深度板（見 DepthProxy）：共用一個單位正方形，左下角為原點 */
@@ -363,8 +365,15 @@ export class ThreeWorld {
   }
 
   /** 換樓層：重建牆（每 CHUNK 格合成一個物件，與 TileMapView 相同的分組；石塊樣式依區域）與光源位置 */
-  setMap(cells: readonly WallCell[], cell: number, lightSpots: { position: Vec2; color: number; height: number }[], look: WallLook, floor: readonly number[]): void {
-    this.buildFloor(floor, cell);
+  setMap(
+    cells: readonly WallCell[],
+    cell: number,
+    lightSpots: { position: Vec2; color: number; height: number }[],
+    look: WallLook,
+    floor: readonly number[],
+    underWall: readonly number[] = [],
+  ): void {
+    this.buildFloor(floor, cell, underWall);
     // 換樓層：上一層還沒結束的特效（冰柱、火焰）不帶過來
     this.skillFx.clear();
     for (const wall of this.walls) {
@@ -548,12 +557,21 @@ export class ThreeWorld {
   }
 
   /** 地板：TileMapView 記下的三角形（World x, y 與顏色），每 FLOOR_CHUNK 格一塊 */
-  private buildFloor(triangles: readonly number[], cell: number): void {
+  /**
+   * underWall：牆底下的地板，畫成不受光的暗色、不收影子（牆變半透明時看得到暗的地面）。
+   * 用一般地板的材質的話，燭光、火把的影子圖解析度有限，光會從石塊之間的縫隙漏到牆外，照出一條亮帶與亮線。
+   */
+  private buildFloor(triangles: readonly number[], cell: number, underWall: readonly number[]): void {
     for (const mesh of this.floors) {
       mesh.removeFromParent();
       mesh.geometry.dispose();
     }
     this.floors.length = 0;
+    this.addFloorChunks(triangles, cell, this.floorMaterial, true);
+    this.addFloorChunks(underWall, cell, this.underWallMaterial, false);
+  }
+
+  private addFloorChunks(triangles: readonly number[], cell: number, material: THREE.Material, receiveShadow: boolean): void {
     const chunks = new Map<string, { pos: number[]; col: number[] }>();
     const size = FLOOR_CHUNK * cell;
     for (let i = 0; i < triangles.length; i += 7) {
@@ -573,8 +591,8 @@ export class ThreeWorld {
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
       geometry.computeBoundingSphere();
-      const mesh = new THREE.Mesh(geometry, this.floorMaterial);
-      mesh.receiveShadow = true;
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.receiveShadow = receiveShadow;
       mesh.layers.set(FLOOR_LAYER);
       mesh.matrixAutoUpdate = false;
       const center = geometry.boundingSphere!.center;

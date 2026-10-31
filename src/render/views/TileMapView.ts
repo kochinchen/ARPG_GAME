@@ -98,6 +98,8 @@ export class TileMapView {
   threeMode = false;
   /** 地板的三角形（Three.js 畫法）：每 7 個數字一個——三個頂點的 World (x, y) 與顏色 */
   readonly floorTriangles: number[] = [];
+  /** 牆底下的地板三角形（格式同 floorTriangles）：Three.js 畫法畫成不受光的暗色，燭光才不會從石塊縫隙照亮牆外 */
+  readonly underWallTriangles: number[] = [];
   /** 每一格牆（Three.js 畫法建立牆的立體模型） */
   readonly wallCells: WallCell[] = [];
   /** 牆邊光源的位置（World）與顏色（Three.js 畫法的點光源） */
@@ -134,7 +136,7 @@ export class TileMapView {
         const k = inArena(x, y);
         if (walkable && k < 1) color = this.floorAccent(x, y, color);
         if (k > 0) color = mix(color, this.arenaFloor(x, y), k);
-        this.drawFloorTile(x, y, color);
+        this.drawFloorTile(x, y, color, walkable ? this.floorTriangles : this.underWallTriangles);
         if (walkable) {
           // 競技場裡不放一般的火把與小裝飾（有自己的擺設）
           if (k === 0) this.decorate(x, y);
@@ -224,7 +226,7 @@ export class TileMapView {
   }
 
   /** 一格地板：依切面樣式切成 8 個三角面，各面明暗略有不同（同時記下 World 座標給 Three.js 畫法） */
-  private drawFloorTile(x: number, y: number, color: number): void {
+  private drawFloorTile(x: number, y: number, color: number, out: number[]): void {
     const pattern = FLOOR_PATTERNS[Math.floor(hash(x, y, 31) * FLOOR_PATTERNS.length)]!;
     const turn = Math.floor(hash(x, y, 37) * 4);
     const c = this.nav.cell;
@@ -243,17 +245,17 @@ export class TileMapView {
         [i * 2 + 1, m, p1],
       ] as const) {
         const shade = pattern.shades[j]!;
-        this.floorTriangle(center, a, b, mix(color, shade > 0 ? 0xffffff : 0x000000, Math.abs(shade) * k));
+        this.floorTriangle(center, a, b, mix(color, shade > 0 ? 0xffffff : 0x000000, Math.abs(shade) * k), out);
       }
     }
   }
 
   /** 地板上的一個三角形（World 座標）：Pixi 畫在 tiles，同時記給 Three.js 畫法 */
-  private floorTriangle(a: Vec2, b: Vec2, c: Vec2, color: number): void {
+  private floorTriangle(a: Vec2, b: Vec2, c: Vec2, color: number, out = this.floorTriangles): void {
     const p = this.projection;
     const [sa, sb, sc] = [p.toScreen(a), p.toScreen(b), p.toScreen(c)];
     this.tiles.poly([sa.x, sa.y, sb.x, sb.y, sc.x, sc.y]).fill({ color });
-    this.floorTriangles.push(a.x, a.y, b.x, b.y, c.x, c.y, color);
+    out.push(a.x, a.y, b.x, b.y, c.x, c.y, color);
   }
 
   /** 地上的小裝飾（畫面座標的多邊形）：同 floorTriangle，扇形切成三角形 */

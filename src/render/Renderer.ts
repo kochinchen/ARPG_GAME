@@ -325,7 +325,7 @@ export class Renderer {
   private syncThreeMap(): void {
     this.tileMap.threeMode = this.threeOn;
     const t = this.tileMap.theme;
-    if (this.three) this.three.setMap(this.tileMap.wallCells, this.world.nav.cell, this.tileMap.lightSpots, { style: t.wall, accent: t.accent, glow: t.glow }, this.tileMap.floorTriangles);
+    if (this.three) this.three.setMap(this.tileMap.wallCells, this.world.nav.cell, this.tileMap.lightSpots, { style: t.wall, accent: t.accent, glow: t.glow }, this.tileMap.floorTriangles, this.tileMap.underWallTriangles);
   }
 
   /** 游標下的地上物品或寶箱（名稱標籤也算） */
