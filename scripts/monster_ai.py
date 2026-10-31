@@ -242,30 +242,33 @@ def abyss_sovereign():
 PROPS = {"abyss_sovereign": {"sword": 1500, "shield": 2500}}
 
 
-def sovereign_zone(p, bone):
+def limb_zone(in_arm, wing_ok):
     """
-    深淵統御者的手臂區：手臂和軀幹之間只有 1～4 公分的空隙，只看距離時軀幹側面、腋下會跟著手臂，
-    手臂往外伸時被拉成大片三角面。所以身體兩側、前半身、手臂位置的頂點才能跟手臂骨頭（同一邊），
-    其他頂點不跟手臂；手臂區裡除了手臂，只能和鎖骨（肩膀）混合。
+    人形魔王的手臂區（只看距離會分錯）：手臂和軀幹、大腿之間只有幾公分的空隙，軀幹側面、腋下、大腿外側
+    會跟著手臂，手一舉就被拉成大片三角面。所以只有 in_arm(頂點) 範圍內的頂點能跟手臂骨頭（同一邊），
+    範圍內除了手臂只能和鎖骨（肩膀）混合；翅膀骨頭只能在 wing_ok(頂點) 的範圍；兩腳之間垂下的腰布跟骨盆。
     """
-    ax = abs(p.x)
-    in_arm = p.y < -0.03 and ((-0.08 <= p.z < 0.17 and ax > 0.185) or (-0.25 < p.z < -0.08 and ax > 0.195))
-    arm = re.match(r"(upperArm|forearm|hand|ex_fingers)([LR])$", bone)
-    if arm:
-        return in_arm and (arm.group(2) == "L") == (p.x > 0)
-    if in_arm and not bone.startswith("ex_clav"):
-        return False
-    # 前腳之間垂下的腰布：跟骨盆，不跟左右大腿（否則兩腳分開時被拉成一根連到地上的尖刺）
-    if abs(p.x) < 0.05 and p.y < -0.05 and re.match(r"(thigh|shin|foot|ex_toe)[LR]$", bone):
-        return False
-    # 翅膀只能在背後高處（翅膀下緣垂到後腳旁，只看距離會和後腳、獸身混在一起）
-    if bone.startswith("ex_wing") and not (p.y > -0.05 and p.z > -0.12 and abs(p.x) > 0.12):
-        return False
-    return True
+
+    def zone(p, bone):
+        arm = re.match(r"(upperArm|forearm|hand|ex_fingers)([LR])$", bone)
+        inside = in_arm(p)
+        if arm:
+            return inside and (arm.group(2) == "L") == (p.x > 0)
+        if inside and not bone.startswith("ex_clav"):
+            return False
+        # 腰布：跟骨盆，不跟左右大腿（否則兩腳分開時被拉成一根連到地上的尖刺）
+        if abs(p.x) < 0.05 and p.y < -0.05 and re.match(r"(thigh|shin|foot|ex_toe)[LR]$", bone):
+            return False
+        # 翅膀下緣垂到腳旁，只看距離會和腳、身體混在一起
+        if bone.startswith("ex_wing") and not wing_ok(p):
+            return False
+        return True
+
+    return zone
 
 
-def sovereign_part(bone):
-    """骨頭屬於哪個部位：arm / clav / wing / leg / hind 加左右，或 body"""
+def limb_part(bone):
+    """骨頭屬於哪個部位：arm / clav / wing / leg / hind 加左右，或 body（軀幹、頭、尾巴）"""
     for pattern, name in ((r"(upperArm|forearm|hand|ex_fingers)", "arm"), (r"ex_clav", "clav"), (r"ex_wing", "wing"), (r"(thigh|shin|foot|ex_toe)", "leg"), (r"ex_h(thigh|shin|foot)", "hind")):
         m = re.match(pattern + r"([LR])\d*$", bone)
         if m:
@@ -274,17 +277,17 @@ def sovereign_part(bone):
 
 
 # 部位之間只能從這些關節接起來（部位的根部骨頭 → 可以相連的身體骨頭）
-SOVEREIGN_ROOTS = {"clav": ("chest", "torso", "neck"), "leg": ("root", "torso"), "hind": ("ex_barrel", "root"), "wing": ("chest", "torso")}
-SOVEREIGN_ROOT_BONE = {"clav": "ex_clav", "leg": "thigh", "hind": "ex_hthigh", "wing": "ex_wing"}
+LIMB_ROOTS = {"clav": ("chest", "torso", "neck"), "leg": ("root", "torso"), "hind": ("ex_barrel", "root"), "wing": ("chest", "torso")}
+LIMB_ROOT_BONE = {"clav": "ex_clav", "leg": "thigh", "hind": "ex_hthigh", "wing": "ex_wing"}
 
 
-def sovereign_joined(bones, ws):
+def limbs_joined(bones, ws):
     """
     一個三角形跨到的骨頭可以留下來嗎：生成的網格把垂下的手、翅膀下緣、兩腳之間的腰布黏在旁邊的部位上，
-    這些三角形在動作時會被拉成長條（連到地上的尖刺、翅膀黏著後腳）。同一個部位、或部位的根部接身體才留下：
-    手臂只接同一邊的鎖骨（而且只在肩膀，不到手肘）；鎖骨接胸 / 腰 / 頸；前腳的大腿接骨盆；後腳的大腿接獸身；翅膀的根部（第 1 節）接胸。
+    這些三角形在動作時會被拉成長條（連到地上的尖刺、翅膀黏著腳、手黏著大腿）。同一個部位、或部位的根部接身體才留下：
+    手臂只接同一邊的鎖骨（而且只在肩膀，不到手肘）；鎖骨接胸 / 腰 / 頸；腳的大腿接骨盆；後腳的大腿接獸身；翅膀的根部（第 1 節）接胸。
     """
-    parts = {sovereign_part(b) for b in bones}
+    parts = {limb_part(b) for b in bones}
     if len(parts) <= 1:
         return True
     if len(parts) > 2:
@@ -296,18 +299,29 @@ def sovereign_joined(bones, ws):
     if a != "body":
         return False
     kind = b[:-1]
-    if kind not in SOVEREIGN_ROOTS:
+    if kind not in LIMB_ROOTS:
         return False
-    limb = [x for x in bones if sovereign_part(x) == b]
-    body = [x for x in bones if sovereign_part(x) == "body"]
-    root = SOVEREIGN_ROOT_BONE[kind]
-    return all(x.startswith(root) and (kind != "wing" or x.endswith("1")) for x in limb) and all(x in SOVEREIGN_ROOTS[kind] for x in body)
+    limb = [x for x in bones if limb_part(x) == b]
+    body = [x for x in bones if limb_part(x) == "body"]
+    root = LIMB_ROOT_BONE[kind]
+    return all(x.startswith(root) and (kind != "wing" or x.endswith("1")) for x in limb) and all(x in LIMB_ROOTS[kind] for x in body)
 
 
 # 限制某些頂點只能跟哪些骨頭（zone(頂點, 骨頭名稱) → 可以或不可以）；沒有列出的怪物只看距離
-ZONES = {"abyss_sovereign": sovereign_zone}
+ZONES = {
+    # 深淵統御者：手臂在身體兩側前半、大腿外側；翅膀在背後高處
+    "abyss_sovereign": limb_zone(
+        lambda p: p.y < -0.03 and ((-0.08 <= p.z < 0.17 and abs(p.x) > 0.185) or (-0.25 < p.z < -0.08 and abs(p.x) > 0.195)),
+        lambda p: p.y > -0.05 and p.z > -0.12 and abs(p.x) > 0.12,
+    ),
+    # 深淵魔王：手臂垂在大腿外側（手肘以下比大腿更往外）；翅膀在背後
+    "abyss_lord": limb_zone(
+        lambda p: p.y < 0.02 and -0.25 < p.z < 0.17 and abs(p.x) > (0.17 if p.z >= -0.05 else 0.2),
+        lambda p: p.y > -0.02 and abs(p.x) > 0.1,
+    ),
+}
 # 分開的部位（joined(三角形三個頂點的主要骨頭, 三個頂點的權重) → 可以留下嗎）：跨到不相連部位的三角形在動作時會被拉長，輸出時拿掉
-JOINED = {"abyss_sovereign": sovereign_joined}
+JOINED = {"abyss_sovereign": limbs_joined, "abyss_lord": limbs_joined}
 
 SKELETONS = {"spider_queen": spider_queen, "abyss_lord": abyss_lord, "abyss_sovereign": abyss_sovereign}
 bones, extra = SKELETONS[NAME]()
@@ -322,7 +336,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {"abyss_sovereign": 0.04}
+JOINT_SOFT = {"abyss_sovereign": 0.04, "abyss_lord": 0.04}
 parent_of = {name: parent for name, parent, *_ in bones}
 weights = []
 zone = ZONES.get(NAME)
@@ -366,13 +380,56 @@ def G(v):
 
 faces = []
 joined = JOINED.get(NAME)
-cut = 0
-for p in me.polygons:
-    idx = list(p.vertices)
-    if joined and not joined({weights[i][0][0] for i in idx[:3]}, [weights[i] for i in idx[:3]]):
-        cut += 1
-        continue
-    faces.append([idx[0], idx[1], idx[2], face_color(p)])
+tris = [list(p.vertices)[:3] for p in me.polygons]
+
+
+def kept_faces():
+    return [joined({weights[i][0][0] for i in t}, [weights[i] for i in t]) if joined else True for t in tris]
+
+
+keep = kept_faces()
+if joined:
+    # 切開後變成小碎片的部分（例如手爪內側被分到大腿、翅膀尖被切下）：整片改跟原本相連的部位，
+    # 否則手或翅膀一動，碎片就留在原地浮在空中
+    for _ in range(2):
+        par = list(range(len(co)))
+
+        def find(x):
+            while par[x] != x:
+                par[x] = par[par[x]]
+                x = par[x]
+            return x
+
+        for t, k in zip(tris, keep):
+            if k:
+                par[find(t[0])] = find(t[1])
+                par[find(t[1])] = find(t[2])
+        islands = {}
+        for t, k in zip(tris, keep):
+            if k:
+                islands.setdefault(find(t[0]), []).append(t)
+        changed = False
+        for root, ts in islands.items():
+            if len(ts) >= 40:
+                continue
+            verts = {v for t in ts for v in t}
+            # 被切掉的三角形另一端（不在這片碎片裡）的骨頭：碎片原本連著的部位
+            others = [weights[v][0][0] for t, k in zip(tris, keep) if not k and verts & set(t) for v in t if v not in verts]
+            if not others:
+                continue
+            bone = max(set(others), key=others.count)
+            for v in verts:
+                weights[v] = [[bone, 1.0]]
+            changed = True
+        if not changed:
+            break
+        keep = kept_faces()
+
+cut = keep.count(False)
+for p, k in zip(me.polygons, keep):
+    if k:
+        idx = list(p.vertices)
+        faces.append([idx[0], idx[1], idx[2], face_color(p)])
 data = {
     "joints": {name: G(a) for name, _, a, _, _ in bones},
     "tips": {name: G(b) for name, _, _, b, _ in bones},
