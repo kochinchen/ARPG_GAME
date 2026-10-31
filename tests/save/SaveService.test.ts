@@ -33,6 +33,7 @@ function sample(gold: number): SaveData {
     codex: [],
     floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, bossGateActive: false, midwayFloors: [], exitOpen: false, killed: [], corpses: [], openedChests: {}, groundItems: [], shopBought: [] },
     endgame: { cleared: false, completedHidden: false },
+    cutscenes: [],
     bestiary: {},
     collection: [],
     materials: {},
@@ -193,6 +194,16 @@ describe('Migration v10 → v11（魔王門前存檔點、到過中途的樓層�
     };
     expect(make(true).floor).toMatchObject({ bossGateActive: false, midwayFloors: [4] });
     expect(make(false).floor).toMatchObject({ bossGateActive: false, midwayFloors: [] });
+  });
+});
+
+describe('Migration v18 → v19（看過的過場影片）', () => {
+  it('舊存檔一部都沒看過；已有紀錄的不被覆蓋', () => {
+    const v18 = structuredClone(sample(3)) as unknown as Record<string, unknown>;
+    delete v18.cutscenes;
+    expect(SaveDataSchema.parse(migrate(v18, 18)).cutscenes).toEqual([]);
+    const seen = { ...sample(3), cutscenes: ['prelude.f1'] };
+    expect((migrate(seen, 18) as SaveData).cutscenes).toEqual(['prelude.f1']);
   });
 });
 

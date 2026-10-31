@@ -8,9 +8,9 @@ import type { SlotSummary, TitleState } from '../bridge/TitleView';
  * 只負責選擇；實際讀檔、刪除、離開由 main.ts 處理。
  */
 const props = defineProps<{ state: TitleState }>();
-const emit = defineEmits<{ start: [slot: number, mode: 'new' | 'load', floor?: number | null]; delete: [slot: number]; import: [slot: number, file: File]; quit: [] }>();
+const emit = defineEmits<{ start: [slot: number, mode: 'new' | 'load', floor?: number | null]; delete: [slot: number]; import: [slot: number, file: File]; watch: [id: string]; quit: [] }>();
 
-type Page = 'main' | 'new' | 'load' | 'import' | 'floor';
+type Page = 'main' | 'new' | 'load' | 'import' | 'floor' | 'cutscenes';
 const page = ref<Page>('main');
 /** 匯入：先選檔案，再選要放進哪個欄位 */
 const importFile = ref<File | null>(null);
@@ -31,7 +31,7 @@ async function importTo(s: SlotSummary) {
   importFile.value = null;
   page.value = 'load';
 }
-const heading: Record<Exclude<Page, 'main' | 'floor'>, string> = { new: '新遊戲：選擇存檔欄位', load: '讀取存檔', import: '匯入存檔：選擇要放進的欄位' };
+const heading: Record<Exclude<Page, 'main' | 'floor' | 'cutscenes'>, string> ={ new: '新遊戲：選擇存檔欄位', load: '讀取存檔', import: '匯入存檔：選擇要放進的欄位' };
 /** 選層：已通關的存檔可以選擇前往的樓層（docs/ENDGAME.md 第 2 節） */
 const floorSlot = ref<SlotSummary | null>(null);
 const floorBack = ref<Page>('main');
@@ -53,6 +53,8 @@ function pick(s: SlotSummary) {
 
 const continueSlot = computed(() => props.state.slots.find((s) => s.slot === props.state.lastSlot && s.status === 'ok') ?? props.state.slots.find((s) => s.status === 'ok') ?? null);
 const hasSave = computed(() => props.state.slots.some((s) => s.status !== 'empty'));
+/** 過場影片：任一存檔看過才能重看 */
+const hasCutscene = computed(() => props.state.cutscenes.some((c) => c.watched));
 
 function describe(s: SlotSummary): string {
   if (s.status === 'empty') return '空欄位';
@@ -94,8 +96,19 @@ async function remove(s: SlotSummary) {
       <button type="button" :disabled="!hasSave" @click="page = 'load'">讀取存檔</button>
       <button type="button" @click="fileInput?.click()">匯入存檔</button>
       <input ref="fileInput" type="file" accept=".json,application/json" hidden @change="onFile" />
+      <button type="button" :disabled="!hasCutscene" @click="page = 'cutscenes'">過場影片</button>
       <button type="button" @click="emit('quit')">離開遊戲</button>
     </nav>
+
+    <section v-else-if="page === 'cutscenes'" class="slots cutscenes">
+      <h2>過場影片</h2>
+      <p class="hint">看過的過場影片可以重看。</p>
+      <button v-for="c in state.cutscenes" :key="c.id" type="button" class="pick scene" :disabled="!c.watched" @click="emit('watch', c.id)">
+        <span class="no">{{ c.label }}</span>
+        <span class="desc">{{ c.watched ? c.title : '？？？' }}</span>
+      </button>
+      <button type="button" class="back" @click="page = 'main'">返回</button>
+    </section>
 
     <section v-else-if="page === 'floor' && floorSlot" class="slots floors">
       <h2>欄位 {{ floorSlot.slot }}：選擇要前往的樓層</h2>
@@ -117,7 +130,7 @@ async function remove(s: SlotSummary) {
     </section>
 
     <section v-else class="slots">
-      <h2>{{ heading[page as Exclude<Page, 'main' | 'floor'>] }}</h2>
+      <h2>{{ heading[page as Exclude<Page, 'main' | 'floor' | 'cutscenes'>] }}</h2>
       <p v-if="page === 'import' && importFile" class="hint">檔案：{{ importFile.name }}</p>
       <div v-for="s in state.slots" :key="s.slot" class="slot" :class="[s.status, { disabled: page === 'load' && s.status === 'empty' }]">
         <button type="button" class="pick" :disabled="page === 'load' && s.status === 'empty'" @click="pick(s)">
@@ -137,6 +150,28 @@ async function remove(s: SlotSummary) {
 </template>
 
 <style scoped>
+.cutscenes {
+  gap: 5px;
+}
+.scene {
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  padding: 6px 14px;
+}
+.scene .no {
+  grid-row: auto;
+  white-space: nowrap;
+  letter-spacing: 0.1em;
+}
+.scene .desc {
+  font-family: 'IM Fell English', Georgia, serif;
+  font-size: 17px;
+}
+.scene:disabled .desc {
+  font-family: inherit;
+  font-size: 14px;
+  color: #6a5c48;
+}
 .floor-grid {
   display: grid;
   grid-template-columns: repeat(7, 44px);

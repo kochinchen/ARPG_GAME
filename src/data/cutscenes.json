@@ -1,0 +1,257 @@
+[
+  {
+    "id": "prelude.f1",
+    "trigger": {
+      "type": "floor",
+      "floor": 1
+    },
+    "label": "第一層",
+    "media": "f1",
+    "panels": [
+      {
+        "image": "f1-1",
+        "title": "The Well",
+        "lines": [
+          {
+            "en": "Beneath the village lieth the Well. For a thousand years, guardians have descended to keep it sealed. Not one hath returned.",
+            "zh": "村子底下有一口井。一千年來，守門人一個接一個下去封住它，沒有人回來過。"
+          },
+          {
+            "en": "Now the dead climb forth from the cellars — and the Order hath sent one more.",
+            "zh": "如今死者從地窖裡爬出來，騎士團又派了一個人下去。"
+          }
+        ]
+      },
+      {
+        "image": "f1-2",
+        "title": "The Last Command",
+        "lines": [
+          {
+            "en": "Below the cellars, a captain keepeth still his last command, three hundred winters old: let none pass below.",
+            "zh": "地窖底下，一位隊長還守著三百年前的最後一道命令：不准任何人往下走。"
+          },
+          {
+            "en": "His men slumber in the tombs about him. They shall rise when he calleth.",
+            "zh": "他的部下睡在周圍的墓穴裡，他一喊，他們就會醒來。"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "prelude.f6",
+    "trigger": {
+      "type": "floor",
+      "floor": 6
+    },
+    "label": "第六層",
+    "media": "f6",
+    "panels": [
+      {
+        "image": "f6-1",
+        "title": "The Bells",
+        "lines": [
+          {
+            "en": "Beyond the tombs, the bells yet toll in the sanctum where once the Well was held shut by prayer.",
+            "zh": "墓穴之後，聖堂的鐘還在響。這口井曾經靠祈禱封住。"
+          },
+          {
+            "en": "Its priest prayeth no more. Now he listeneth — to a voice that riseth from beneath his altar.",
+            "zh": "那裡的神官已經不再祈禱。他在聽，聽一個從祭壇底下傳上來的聲音。"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "prelude.f11",
+    "trigger": {
+      "type": "floor",
+      "floor": 11
+    },
+    "label": "第十一層",
+    "media": "f11",
+    "panels": [
+      {
+        "image": "f11-1",
+        "title": "The Fire Below",
+        "lines": [
+          {
+            "en": "Beneath the sanctum lie the mines of an elder kingdom. They delved for a fire that might be forged into power — the very cores she beareth were born of it.",
+            "zh": "聖堂底下，是一個更古老王國的礦坑。他們挖的是能鍛成力量的火，她身上的熔核就是從這裡來的。"
+          },
+          {
+            "en": "They delved too deep. Something within the mountain burneth still — and it walketh.",
+            "zh": "他們挖得太深了。山裡有個東西還在燒，而且會走。"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "prelude.f16",
+    "trigger": {
+      "type": "floor",
+      "floor": 16
+    },
+    "label": "第十六層",
+    "media": "f16",
+    "panels": [
+      {
+        "image": "f16-1",
+        "title": "The Keeper of the Gate",
+        "lines": [
+          {
+            "en": "Past the mines standeth the fortress of the Order — her Order. Ten winters past, her master went down to seal the Well anew, and came never back.",
+            "zh": "礦坑之後，是騎士團的要塞，她的騎士團。十年前，師父下去重新封井，再也沒有回來。"
+          },
+          {
+            "en": "One yet holdeth the fortress gate, with a blade that burneth, freezeth and thundereth — even as he taught her.",
+            "zh": "如今有人守在要塞門口，劍會燃燒、會結冰、會打雷，就像他當年教她的那樣。"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "prelude.f21",
+    "trigger": {
+      "type": "floor",
+      "floor": 21
+    },
+    "label": "第二十一層",
+    "media": "f21",
+    "panels": [
+      {
+        "image": "f21-1",
+        "title": "She Who Waits",
+        "lines": [
+          {
+            "en": "Below the fortress, the passages twist and change, as though something yet weaveth them.",
+            "zh": "要塞之下，通道會扭曲、會改變，像是有什麼東西還在編織它們。"
+          },
+          {
+            "en": "Here the eldest kingdom met its end. Its queen swore to wait for one who walked into the dark — and she waiteth still.",
+            "zh": "最古老的王國在這裡結束。它的女王發誓要等一個走進黑暗的人，她到現在還在等。"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "prelude.f26",
+    "trigger": {
+      "type": "floor",
+      "floor": 26
+    },
+    "label": "第二十六層",
+    "media": "f26",
+    "panels": [
+      {
+        "image": "f26-1",
+        "title": "The Temple upon the Wound",
+        "lines": [
+          {
+            "en": "At the very bottom, a temple was raised upon the wound itself. Its lord beareth wings, and nameth himself master of the abyss.",
+            "zh": "最底下，有人在傷口正上方蓋了一座神殿。神殿的主人長著翅膀，自稱深淵的主宰。"
+          },
+          {
+            "en": "Many have reached his steps. Each of them believed him to be the end.",
+            "zh": "很多人走到過他的階梯前，每個人都以為他就是盡頭。"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "prelude.f31",
+    "trigger": {
+      "type": "floor",
+      "floor": 31
+    },
+    "label": "第三十一層",
+    "media": "f31",
+    "panels": [
+      {
+        "image": "f31-1",
+        "title": "But a Hand",
+        "lines": [
+          {
+            "en": "The lord was but a hand. Beneath the temple, the thing that grew it hath watched her, learning every stroke she maketh.",
+            "zh": "魔王只是一隻手。神殿底下，長出那隻手的東西一直在看著她，學她的每一招。"
+          },
+          {
+            "en": "The way back is no more. It shall show her the guardians it hath swallowed, one by one — and at the very bottom, it beareth Aislinn's sword and shield.",
+            "zh": "回頭的路已經沒了。牠會把吞下的守門人一個一個放出來給她看，而在最底下，牠拿著艾希琳的劍與盾。"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "epilogue",
+    "trigger": {
+      "type": "hiddenComplete"
+    },
+    "label": "終章",
+    "media": "f35",
+    "panels": [
+      {
+        "image": "f35-1",
+        "title": "Light at the Bottom",
+        "lines": [
+          {
+            "en": "One by one, the eyes did close. Aislinn and the queen rose together, hand in hand, as they had parted a thousand years before.",
+            "zh": "眼睛一顆一顆闔上。艾希琳和女王一起升起，手牽著手，就像一千年前分開時那樣。"
+          },
+          {
+            "en": "For the first time in a thousand years, light fell to the bottom of the Well. She climbed alone, past every place where a guardian had fallen.",
+            "zh": "一千年來，第一次有光照到井底。她獨自往上爬，經過每一位守門人倒下的地方。"
+          }
+        ]
+      },
+      {
+        "image": "f35-2",
+        "title": "The Surface",
+        "lines": [
+          {
+            "en": "The village she returned to lay half in ruin. The Order was but an empty hall. None had waited for her.",
+            "zh": "她回到的村子已經半毀。騎士團只剩一座空蕩的大廳，沒有人在等她回來。"
+          },
+          {
+            "en": "When the kingdom heard the thing below was dead, it did not mourn. It sent miners — to dig the cores that none now guarded.",
+            "zh": "王國聽說井底的東西死了，沒有哀悼，而是派了礦工下去，挖那些不再有人看守的熔核。"
+          }
+        ]
+      },
+      {
+        "image": "f35-3",
+        "title": "The Keeper",
+        "lines": [
+          {
+            "en": "She set Aislinn's sword and shield at the mouth of the Well, and stayed. No seal. No sacrifice. A keeper — living.",
+            "zh": "她把艾希琳的盾與劍立在井口，留了下來。不是封印，也不是祭品，而是一個活著的守望者。"
+          },
+          {
+            "en": "She stood not against what lay below, but against those who would go down. And upon old parchment, she set down all that she had seen.",
+            "zh": "她擋的不是井底的東西，而是想往下走的人。她把一路看到的一切，畫在舊紙上。"
+          }
+        ]
+      },
+      {
+        "image": "f35-4",
+        "title": "The Well Remembers",
+        "lines": [
+          {
+            "en": "Many winters after, her red hair gone to grey, a child leaned over the Well — and from far below came the faintest whisper.",
+            "zh": "很多年後，她的紅髮已經灰白。一個孩子趴在井邊往下看，底下傳來很輕的一聲低語。"
+          },
+          {
+            "en": "She drew the child away. \"The Well still remembereth. But it shall not take our children anymore.\"",
+            "zh": "她把孩子拉回來：「井還記得。但它再也不會帶走我們的孩子。」"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -170,6 +170,18 @@ describe('SaveMapper：Round-trip', () => {
   });
 });
 
+describe('SaveMapper：過場影片', () => {
+  it('看過的過場影片（MarkCutsceneSeen）存檔後還原，存檔版本號跟著變', () => {
+    const { world, commands } = newWorld();
+    const before = world.progress.version;
+    commands.push({ type: 'MarkCutsceneSeen', id: 'prelude.f1' });
+    commands.push({ type: 'MarkCutsceneSeen', id: 'prelude.f1' });
+    run(world, 1 / 60);
+    expect(world.progress.version).toBe(before + 1);
+    expect([...reload(world).world.progress.cutscenes]).toEqual(['prelude.f1']);
+  });
+});
+
 describe('SaveMapper：屬性點', () => {
   it('已分配與未分配的屬性點還原；加成重新套用', () => {
     const { world } = progressedWorld();

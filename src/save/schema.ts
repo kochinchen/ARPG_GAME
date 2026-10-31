@@ -21,10 +21,11 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v16：盾牌也能鑲嵌——熔核主屬性多了盾牌欄（main.shield）。
  * v17：傳奇 / 神話效果行的擲骰（毒蛛生命）接在 legendaryRolls 的固定屬性之後。
  * v18：本層的屍體（floor.corpses：生成索引、位置、面向）。
+ * v19：看過的過場影片（cutscenes）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -166,6 +167,8 @@ export const SaveDataSchema = z.object({
   }),
   /** 終局紀錄（v10；docs/ENDGAME.md）：已通關（擊敗第 30 層魔王）、已完成隱藏難關（擊敗第 35 層魔王） */
   endgame: z.object({ cleared: z.boolean(), completedHidden: z.boolean() }),
+  /** 看過的過場影片 ID（v19；每個存檔只自動播一次） */
+  cutscenes: z.array(z.string()),
   /** 持續推進的亂數序列狀態：序列名稱 → Rng 狀態（v9；缺少的序列讀檔時重新混合種子） */
   rng: z.record(z.string(), z.number().int().min(0).max(0xffffffff)),
 });

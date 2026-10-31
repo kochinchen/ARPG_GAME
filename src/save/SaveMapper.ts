@@ -84,6 +84,7 @@ export const SaveMapper = {
         shopBought: world.shop.boughtIndices,
       },
       endgame: { cleared: progress.cleared, completedHidden: progress.completedHidden },
+      cutscenes: [...progress.cutscenes].sort(),
       bestiary: Object.fromEntries(progress.bestiary),
       collection: [...progress.collection].sort(),
       materials: world.materials.snapshot(),
@@ -121,6 +122,8 @@ export const SaveMapper = {
     for (const [id, kills] of Object.entries(save.bestiary)) progress.bestiary.set(id, kills);
     progress.collection.clear();
     for (const key of save.collection) progress.collection.add(key);
+    progress.cutscenes.clear();
+    for (const id of save.cutscenes) progress.cutscenes.add(id);
     world.materials.restore(save.materials);
     world.salvage.restore(save.salvage.map((s) => (s === null ? null : 'baseId' in s ? { kind: 'item', item: toItem(s) } : { kind: 'core', core: toCore(s) })));
     world.shop.ascendSlot = save.ascendSlot ? toItem(save.ascendSlot) : null;

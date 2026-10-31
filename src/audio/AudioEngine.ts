@@ -107,6 +107,11 @@ export class AudioEngine {
     if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend().catch(() => undefined);
   }
 
+  /** 主音量（含靜音）之後的輸出：過場影片的旁白與低語接在這裡 */
+  get output(): AudioNode | null {
+    return this.master;
+  }
+
   /** 音樂暫時變小（倒地時）；level = 1 恢復 */
   duckMusic(level: number, seconds = 1): void {
     if (!this.ctx) return;

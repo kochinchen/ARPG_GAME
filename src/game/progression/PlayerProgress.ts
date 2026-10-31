@@ -26,6 +26,8 @@ export class PlayerProgress {
   cleared = false;
   /** 已完成隱藏難關：擊敗第 35 層的深淵統御者 */
   completedHidden = false;
+  /** 看過的過場影片 ID（每個存檔只自動播一次） */
+  readonly cutscenes = new Set<string>();
   private _version = 0;
 
   get version(): number {

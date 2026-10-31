@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>過場影片預覽</title>
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #0b0a09; color: #d8cbb4; font: 14px sans-serif; }
+      main { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 16px; }
+      h1 { margin: 0 0 10px; font: 22px serif; color: #e8c47a; letter-spacing: 0.1em; }
+      #list { display: flex; flex-direction: column; gap: 6px; width: min(420px, 100%); }
+      #list button { padding: 10px 14px; font: 15px serif; text-align: left; color: #d8cbb4; background: #1a1410; border: 1px solid #4a3c30; cursor: pointer; }
+      #list button:hover { border-color: #c8a25a; color: #f0e2c0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>過場影片預覽</h1>
+      <div id="list"></div>
+    </main>
+    <script type="module" src="/src/tools/prelude/main.ts"></script>
+  </body>
+</html>

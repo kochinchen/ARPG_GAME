@@ -12,6 +12,17 @@ export interface SlotSummary {
   floors?: number[];
   /** 顯示用的存檔時間 */
   savedAt?: string;
+  /** 這個存檔看過的過場影片 */
+  cutscenes?: string[];
+}
+
+/** 標題畫面「過場影片」的一部（看過的才能重看） */
+export interface CutsceneEntry {
+  id: string;
+  title: string;
+  /** 第一層、終章… */
+  label: string;
+  watched: boolean;
 }
 
 export interface TitleState {
@@ -22,4 +33,6 @@ export interface TitleState {
   version: string;
   /** 瀏覽器還不允許出聲（第一次點擊 / 按鍵之後才會有音樂） */
   soundLocked?: boolean;
+  /** 過場影片（依播放順序） */
+  cutscenes: CutsceneEntry[];
 }

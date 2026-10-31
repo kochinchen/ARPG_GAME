@@ -100,6 +100,8 @@ export type GameCommand =
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 確認進入極限挑戰（第 31 層，之後回不到 1～30 層） */
   | { type: 'ConfirmEnterChallenge' }
+  /** 過場影片播完（或跳過）：記錄已看過，之後不再自動播放 */
+  | { type: 'MarkCutsceneSeen'; id: string }
   /** 開發用：直接升一級（只有 dev 版的 Input 會送出） */
   | { type: 'DebugLevelUp' }
   /** 開發用：在玩家周圍生成寶箱 */

@@ -46,6 +46,12 @@ import { AudioDirector } from './audio/AudioDirector';
 import { ask, tell } from './ui/ask';
 import { audioBridge } from './ui/bridge/AudioBridge';
 import { displayBridge } from './ui/bridge/DisplayBridge';
+import { cutscenes, type CutsceneDef } from './data/cutscenes';
+import { playCutscene } from './ui/cutscene/CutscenePlayer';
+import { dueCutscene, watchedCutscenes } from './ui/cutscene/dueCutscene';
+
+/** 擊敗深淵統御者之後，等倒地動作與魂魄飄出再播終章（秒） */
+const EPILOGUE_DELAY = 4;
 
 async function bootstrap(): Promise<void> {
   // 1. 資料驗證失敗就停止
@@ -199,6 +205,35 @@ async function bootstrap(): Promise<void> {
 
   // 9. Loop（先建立，UI 的暫停需要它；最後才開始）
   const now = () => performance.now() / 1000;
+  // 過場影片：第一次站上各環的第一層、擊敗深淵統御者之後自動播放（每個存檔一次）；播放時遊戲暫停、音樂壓到最小
+  let playingCutscene = false;
+  /** 已送出 MarkCutsceneSeen、但遊戲還沒處理（暫停中）的影片：避免重播 */
+  const cutscenesPlayed = new Set<string>();
+  let epilogueAt: number | null = null;
+  const playStory = (def: CutsceneDef) => {
+    playingCutscene = true;
+    cutscenesPlayed.add(def.id);
+    loop.paused = true;
+    audio.duckMusic(0.0001, 1);
+    void playCutscene(def, { ctx: audio.ctx, output: audio.output }).finally(() => {
+      commands.push({ type: 'MarkCutsceneSeen', id: def.id });
+      audio.duckMusic(1, 2);
+      loop.paused = false;
+      playingCutscene = false;
+    });
+  };
+  const checkCutscene = (t: number) => {
+    if (playingCutscene) return;
+    const p = world.progress;
+    const seen = cutscenesPlayed.size > 0 ? new Set([...p.cutscenes, ...cutscenesPlayed]) : p.cutscenes;
+    const def = dueCutscene(cutscenes, { floor: world.floors.floor, completedHidden: p.completedHidden, seen });
+    if (!def) return;
+    if (def.trigger.type === 'hiddenComplete') {
+      epilogueAt ??= t + EPILOGUE_DELAY;
+      if (t < epilogueAt) return;
+    }
+    playStory(def);
+  };
   let viewSync: ViewSync | null = null;
   let input: InputManager | null = null;
   let lastFrame = now();
@@ -221,6 +256,7 @@ async function bootstrap(): Promise<void> {
       else if (sig.normal !== saveSig.normal) autoSaver.markDirty();
       saveSig = sig;
       autoSaver.update(now());
+      checkCutscene(frameTime);
     },
   });
 
@@ -363,6 +399,7 @@ async function slotSummaries(serviceFor: (slot: number) => SaveService, endgame:
         completedHidden,
         floors,
         savedAt: formatTime(r.savedAt),
+        cutscenes: r.data.cutscenes,
       });
     } else list.push({ slot, status: r.status });
   }
@@ -376,7 +413,14 @@ async function showTitle(
   audio: AudioEngine,
 ): Promise<{ slot: number; mode: 'new' | 'load'; floor: number | null }> {
   const summaries = () => slotSummaries(serviceFor, endgame);
-  const state = reactive<TitleState>({ slots: await summaries(), lastSlot: lastSlot(), version: VERSION, soundLocked: audio.ctx?.state === 'suspended' });
+  /** 過場影片：任一存檔看過的都可以重看 */
+  const entries = (slots: SlotSummary[]) => {
+    const watched = watchedCutscenes(cutscenes, slots.map((s) => s.cutscenes ?? []));
+    return cutscenes.map((c) => ({ id: c.id, title: c.panels[0]?.title ?? '', label: c.label, watched: watched.has(c.id) }));
+  };
+  const slots = await summaries();
+  const state = reactive<TitleState>({ slots, lastSlot: lastSlot(), version: VERSION, soundLocked: audio.ctx?.state === 'suspended', cutscenes: entries(slots) });
+  let watching = false;
   audio.ctx?.addEventListener('statechange', () => (state.soundLocked = audio.ctx?.state === 'suspended'));
   return new Promise((resolve) => {
     const app = createApp(TitleScreen, {
@@ -389,7 +433,21 @@ async function showTitle(
         void serviceFor(slot)
           .clear()
           .then(() => summaries())
-          .then((slots) => (state.slots = slots));
+          .then((slots) => {
+            state.slots = slots;
+            state.cutscenes = entries(slots);
+          });
+      },
+      onWatch: (id: string) => {
+        const def = cutscenes.find((c) => c.id === id);
+        if (!def || watching) return;
+        watching = true;
+        audio.unlock();
+        audio.duckMusic(0.0001, 1);
+        void playCutscene(def, { ctx: audio.ctx, output: audio.output }).finally(() => {
+          audio.duckMusic(1, 2);
+          watching = false;
+        });
       },
       onImport: (slot: number, file: File) => {
         void file.text().then(async (text) => {
@@ -402,6 +460,7 @@ async function showTitle(
           await service.clear();
           await service.write(decoded.data);
           state.slots = await summaries();
+          state.cutscenes = entries(state.slots);
           await tell('已匯入', `欄位 ${slot}：Lv ${decoded.data.character.level}・第 ${decoded.data.floor.current} 層`);
         });
       },

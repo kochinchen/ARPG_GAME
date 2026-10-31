@@ -14,6 +14,8 @@ export default defineConfig({
     outDir: 'release/.build',
     emptyOutDir: true,
     chunkSizeWarningLimit: 4000,
+    // 過場影片的圖與聲音（src/ui/cutscene/media）也內嵌成 data: 網址：file:// 不能用 fetch 讀旁邊的檔案
+    assetsInlineLimit: Number.MAX_SAFE_INTEGER,
     rolldownOptions: {
       output: { codeSplitting: false },
     },

@@ -249,8 +249,14 @@ const v17ToV18: Migration = (v17) => {
   return { ...v17, floor: { ...floor, corpses: [] } };
 };
 
+/**
+ * v18 → v19：看過的過場影片（cutscenes）。舊存檔一部都沒看過：
+ * 之後第一次站上各環的第一層（含讀檔時所在的樓層）會播一次。
+ */
+const v18ToV19: Migration = (v18) => (Array.isArray(v18.cutscenes) ? v18 : { ...v18, cutscenes: [] });
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19];
 
 export class MigrationError extends Error {}
 

@@ -950,6 +950,12 @@ export class GameWorld {
       case 'ConfirmEnterChallenge':
         if (this.player.alive && this.floors.exitOpen) this.floors.requestDescend();
         return true;
+      case 'MarkCutsceneSeen':
+        if (command.id && !this.progress.cutscenes.has(command.id)) {
+          this.progress.cutscenes.add(command.id);
+          this.progress.changed();
+        }
+        return true;
       case 'DebugSpawnLoot':
         if (command.uniques) this.spawnUniqueSamples();
         else this.spawnLootSamples();
