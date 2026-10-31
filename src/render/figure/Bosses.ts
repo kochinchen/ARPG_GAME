@@ -4,7 +4,7 @@ import { ABYSS_SOVEREIGN } from './bosses/AbyssSovereign';
 import { ARMORED_BOSSES } from './bosses/ArmoredBosses';
 import { LAVA_BEHEMOTH } from './bosses/LavaBehemoth';
 import { ROBED_BOSSES } from './bosses/RobedBosses';
-import { SPIDER_QUEEN } from './bosses/SpiderQueen';
+import { SPIDER_QUEEN } from './bosses/SpiderQueenAI';
 
 /**
  * 樓層魔王（每 5 層）與眷屬的多面體模型。零件、骨架與動作分在 bosses/ 目錄：

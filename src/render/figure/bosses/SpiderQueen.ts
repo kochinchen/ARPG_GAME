@@ -40,8 +40,7 @@ const LEGS: { z: number; forward: number }[] = [
   { z: -1.8, forward: -0.2 },
   { z: -5, forward: -0.6 },
 ];
-const legJoint = (side: Side, i: number, seg: 'a' | 'b' | 'c'): Joint => `ex_leg${side === 1 ? 'L' : 'R'}${i + 1}${seg}`;
-const FEET: Joint[] = ([1, -1] as const).flatMap((side) => LEGS.map((_, i) => legJoint(side, i, 'c')));
+export const legJoint = (side: Side, i: number, seg: 'a' | 'b' | 'c'): Joint => `ex_leg${side === 1 ? 'L' : 'R'}${i + 1}${seg}`;
 
 /** 發光的綠色細線（蜘蛛網、光紋） */
 const strand = (a: V3, b: V3, r = 0.24): Mesh => FSeg(a, b, r, r, [WEB], 0, 4);
@@ -272,19 +271,6 @@ const PARTS: PartDef[] = [
 
 type Angles = Partial<Record<Joint, V3>>;
 
-/** 每隻腳的角度：swing = 往前擺（+ 前）、lift = 抬起（+ 上）、bend = 脛節與跗節往內彎 */
-function legs(fn: (side: Side, i: number) => { swing?: number; lift?: number; bend?: number }): Angles {
-  const a: Angles = {};
-  for (const side of [1, -1] as const) {
-    LEGS.forEach((l, i) => {
-      const { swing = 0, lift = 0, bend = 0 } = fn(side, i);
-      a[legJoint(side, i, 'a')] = [0, -side * (l.forward + swing), lift * side];
-      a[legJoint(side, i, 'b')] = [0, 0, -bend * side];
-      a[legJoint(side, i, 'c')] = [0, 0, -bend * 0.6 * side];
-    });
-  }
-  return a;
-}
 const merge = (...sets: Angles[]): Angles => {
   const out: Angles = {};
   for (const set of sets) {
@@ -295,141 +281,164 @@ const merge = (...sets: Angles[]): Angles => {
   }
   return out;
 };
-/** 讓最低的腳踩在地上（rootZ 為往前撲） */
-const onFeet = (angles: Angles, rootZ = 0, lift = 0): Pose => {
-  const p = grounded(PARTS, HIP, { rootY: 0, rootZ, angles }, FEET);
-  return { ...p, rootY: p.rootY + lift };
-};
 
-/** 威嚇站姿：身體抬高、腳大開、前腳微抬；人形上身挺直、雙爪舉在肩高；腹部翹起 */
-const STANCE: Angles = merge(
-  legs((_, i) => ({ lift: i === 0 ? 0.25 : 0.05, bend: i === 0 ? 0.15 : -0.05 })),
-  {
-    root: [-0.08, 0, 0],
-    ex_abd1: [0.28, 0, 0],
-    ex_abd2: [0.25, 0, 0],
-    ex_sting: [0.3, 0, 0],
-    torso: [-0.12, 0, 0],
-    chest: [-0.06, 0, 0],
-    head: [0.12, 0, 0],
-    ex_hair1: [0.35, 0, 0],
-    // 雙臂往外張、前臂往上彎，鐮刀爪舉在身體兩側（螳螂般的威嚇姿勢）
-    upperArmL: [-0.45, 0, 0.75],
-    upperArmR: [-0.45, 0, -0.75],
-    forearmL: [-1.9, 0, 0],
-    forearmR: [-1.9, 0, 0],
-    ex_clawL: [0.6, 0, 0],
-    ex_clawR: [0.6, 0, 0],
-  },
-);
-const BASE = onFeet(STANCE);
+/**
+ * 蜘蛛女王的動作（舊版程式模型與 AI 版共用）。parts / hip：貼地的計算用；
+ * forward：每隻腳（由前到後）靜止時往前的角度（弧度，前腳 +、後腳 −），腳的隻數依這個陣列。
+ */
+export function spiderQueenPoses(parts: readonly PartDef[], hip: number, forward: readonly number[]): PoseSet {
+  const feet: Joint[] = ([1, -1] as const).flatMap((side) => forward.map((_, i) => legJoint(side, i, 'c')));
 
-/** 前腳高舉、雙爪舉過頭 → 往前撲下（前腳刺向地面、雙爪劈下） */
-const overhead = {
-  windup: [
-    onFeet(merge(STANCE, legs((_, i) => ({ bend: 0.15 })), { root: [0.05, 0, 0] })),
-    onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: 0.9, swing: 0.2, bend: -0.3 } : i === 1 ? { lift: 0.3 } : { bend: 0.1 })), { root: [-0.3, 0, 0], torso: [-0.25, 0, 0], head: [-0.2, 0, 0], ex_abd1: [0.3, 0, 0], ex_mandL: [0, 0, 0.4], ex_mandR: [0, 0, -0.4], upperArmL: [-1.9, 0, 0.1], upperArmR: [-1.9, 0, -0.1], forearmL: [0.2, 0, 0], forearmR: [0.2, 0, 0] }), -1, 2),
-    onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: 1.1, swing: 0.3, bend: -0.4 } : i === 1 ? { lift: 0.4 } : { bend: 0.15 })), { root: [-0.38, 0, 0], torso: [-0.3, 0, 0], head: [-0.25, 0, 0], ex_abd1: [0.35, 0, 0], ex_mandL: [0, 0, 0.5], ex_mandR: [0, 0, -0.5], upperArmL: [-2.2, 0, 0.1], upperArmR: [-2.2, 0, -0.1], forearmL: [0.3, 0, 0], forearmR: [0.3, 0, 0] }), -0.5, 3),
-    onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: 0.4, swing: 0.4 } : {})), { root: [0, 0, 0], torso: [0.15, 0, 0], upperArmL: [-1.4, 0, 0.2], upperArmR: [-1.4, 0, -0.2], forearmL: [0.1, 0, 0], forearmR: [0.1, 0, 0] }), 2),
-  ],
-  strike: [
-    onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: -0.35, swing: 0.45, bend: 0.3 } : { bend: 0.25 })), { root: [0.22, 0, 0], torso: [0.35, 0, 0], head: [0.1, 0, 0], ex_mandL: [0, 0, 0.5], ex_mandR: [0, 0, -0.5], upperArmL: [-0.6, 0, 0.3], upperArmR: [-0.6, 0, -0.3], forearmL: [0.5, 0, 0], forearmR: [0.5, 0, 0] }), 3.4),
-    onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: -0.3, swing: 0.4, bend: 0.25 } : { bend: 0.2 })), { root: [0.18, 0, 0], torso: [0.3, 0, 0], upperArmL: [-0.5, 0, 0.35], upperArmR: [-0.5, 0, -0.35], forearmL: [0.4, 0, 0], forearmR: [0.4, 0, 0] }), 3),
-  ],
-};
+  /** 每隻腳的角度：swing = 往前擺（+ 前）、lift = 抬起（+ 上）、bend = 脛節與跗節往內彎 */
+  function legs(fn: (side: Side, i: number) => { swing?: number; lift?: number; bend?: number }): Angles {
+    const a: Angles = {};
+    for (const side of [1, -1] as const) {
+      forward.forEach((f, i) => {
+        const { swing = 0, lift = 0, bend = 0 } = fn(side, i);
+        a[legJoint(side, i, 'a')] = [0, -side * (f + swing), lift * side];
+        a[legJoint(side, i, 'b')] = [0, 0, -bend * side];
+        a[legJoint(side, i, 'c')] = [0, 0, -bend * 0.6 * side];
+      });
+    }
+    return a;
+  }
+  /** 讓最低的腳踩在地上（rootZ 為往前撲） */
+  const onFeet = (angles: Angles, rootZ = 0, lift = 0): Pose => {
+    const p = grounded(parts, hip, { rootY: 0, rootZ, angles }, feet);
+    return { ...p, rootY: p.rootY + lift };
+  };
 
-/** 身體往右扭、雙爪由右往左橫掃 */
-const slash = {
-  windup: [
-    onFeet(merge(STANCE, legs(() => ({ bend: 0.1 })))),
-    onFeet(merge(STANCE, { root: [0, -0.2, 0], torso: [0, -0.3, 0], upperArmR: [-0.4, 0, -0.9], upperArmL: [-0.6, 0, -0.3] }), -0.5),
-    onFeet(merge(STANCE, { root: [0, -0.35, 0], torso: [-0.05, -0.55, 0], head: [0, 0.4, 0], upperArmR: [-0.3, 0, -1.2], forearmR: [0.6, 0, 0], upperArmL: [-0.8, 0, -0.5] }), -0.8),
-    onFeet(merge(STANCE, { root: [0.05, 0.1, 0], torso: [0.05, -0.2, 0], upperArmR: [-0.9, 0, -0.9], forearmR: [0.9, 0, 0], upperArmL: [-0.8, 0, -0.4] }), 1),
-  ],
-  strike: [
-    onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { swing: 0.2 } : {})), { root: [0.08, 0.4, 0], torso: [0.1, 0.4, 0], head: [0, -0.3, 0], upperArmR: [-0.9, 0, 0.4], forearmR: [1.1, 0, 0], upperArmL: [-0.4, 0, 0.6], forearmL: [0.6, 0, 0] }), 2),
-    onFeet(merge(STANCE, { root: [0.05, 0.5, 0], torso: [0.08, 0.55, 0], head: [0, -0.4, 0], upperArmR: [-0.8, 0, 0.7], forearmR: [1, 0, 0], upperArmL: [-0.3, 0, 0.7], forearmL: [0.5, 0, 0] }), 1.8),
-  ],
-};
+  /** 威嚇站姿：身體抬高、腳大開、前腳微抬；人形上身挺直、雙爪舉在肩高；腹部翹起 */
+  const STANCE: Angles = merge(
+    legs((_, i) => ({ lift: i === 0 ? 0.25 : 0.05, bend: i === 0 ? 0.15 : -0.05 })),
+    {
+      root: [-0.08, 0, 0],
+      ex_abd1: [0.28, 0, 0],
+      ex_abd2: [0.25, 0, 0],
+      ex_sting: [0.3, 0, 0],
+      torso: [-0.12, 0, 0],
+      chest: [-0.06, 0, 0],
+      head: [0.12, 0, 0],
+      ex_hair1: [0.35, 0, 0],
+      // 雙臂往外張、前臂往上彎，鐮刀爪舉在身體兩側（螳螂般的威嚇姿勢）
+      upperArmL: [-0.45, 0, 0.75],
+      upperArmR: [-0.45, 0, -0.75],
+      forearmL: [-1.9, 0, 0],
+      forearmR: [-1.9, 0, 0],
+      ex_clawL: [0.6, 0, 0],
+      ex_clawR: [0.6, 0, 0],
+    },
+  );
+  const BASE = onFeet(STANCE);
 
-/** 腹部往上往前捲起、毒針從頭頂上方往前刺出（蠍子般） */
-const thrust = {
-  windup: [
-    onFeet(merge(STANCE, legs(() => ({ bend: 0.15 })))),
-    onFeet(merge(STANCE, legs(() => ({ bend: 0.25 })), { root: [0.08, 0, 0], ex_abd1: [0.6, 0, 0], ex_abd2: [0.7, 0, 0], ex_sting: [0.6, 0, 0] }), -0.8),
-    onFeet(merge(STANCE, legs(() => ({ bend: 0.3 })), { root: [0.12, 0, 0], ex_abd1: [0.95, 0, 0], ex_abd2: [1.1, 0, 0], ex_sting: [1, 0, 0], torso: [0.1, 0, 0] }), -1),
-    onFeet(merge(STANCE, legs(() => ({ bend: 0.1 })), { root: [0.15, 0, 0], ex_abd1: [1.1, 0, 0], ex_abd2: [1.3, 0, 0], ex_sting: [1.3, 0, 0], torso: [0.25, 0, 0] }), 1.5),
-  ],
-  strike: [
-    onFeet(merge(STANCE, legs((_, i) => ({ swing: i < 2 ? 0.15 : -0.1, bend: 0.05 })), { root: [0.2, 0, 0], ex_abd1: [1.15, 0, 0], ex_abd2: [1.45, 0, 0], ex_sting: [1.65, 0, 0], torso: [0.35, 0, 0], head: [0.1, 0, 0] }), 3),
-    onFeet(merge(STANCE, { root: [0.15, 0, 0], ex_abd1: [1, 0, 0], ex_abd2: [1.2, 0, 0], ex_sting: [1.4, 0, 0], torso: [0.25, 0, 0] }), 2.6),
-  ],
-};
+  /** 前腳高舉、雙爪舉過頭 → 往前撲下（前腳刺向地面、雙爪劈下） */
+  const overhead = {
+    windup: [
+      onFeet(merge(STANCE, legs((_, i) => ({ bend: 0.15 })), { root: [0.05, 0, 0] })),
+      onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: 0.9, swing: 0.2, bend: -0.3 } : i === 1 ? { lift: 0.3 } : { bend: 0.1 })), { root: [-0.3, 0, 0], torso: [-0.25, 0, 0], head: [-0.2, 0, 0], ex_abd1: [0.3, 0, 0], ex_mandL: [0, 0, 0.4], ex_mandR: [0, 0, -0.4], upperArmL: [-1.9, 0, 0.1], upperArmR: [-1.9, 0, -0.1], forearmL: [0.2, 0, 0], forearmR: [0.2, 0, 0] }), -1, 2),
+      onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: 1.1, swing: 0.3, bend: -0.4 } : i === 1 ? { lift: 0.4 } : { bend: 0.15 })), { root: [-0.38, 0, 0], torso: [-0.3, 0, 0], head: [-0.25, 0, 0], ex_abd1: [0.35, 0, 0], ex_mandL: [0, 0, 0.5], ex_mandR: [0, 0, -0.5], upperArmL: [-2.2, 0, 0.1], upperArmR: [-2.2, 0, -0.1], forearmL: [0.3, 0, 0], forearmR: [0.3, 0, 0] }), -0.5, 3),
+      onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: 0.4, swing: 0.4 } : {})), { root: [0, 0, 0], torso: [0.15, 0, 0], upperArmL: [-1.4, 0, 0.2], upperArmR: [-1.4, 0, -0.2], forearmL: [0.1, 0, 0], forearmR: [0.1, 0, 0] }), 2),
+    ],
+    strike: [
+      onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: -0.35, swing: 0.45, bend: 0.3 } : { bend: 0.25 })), { root: [0.22, 0, 0], torso: [0.35, 0, 0], head: [0.1, 0, 0], ex_mandL: [0, 0, 0.5], ex_mandR: [0, 0, -0.5], upperArmL: [-0.6, 0, 0.3], upperArmR: [-0.6, 0, -0.3], forearmL: [0.5, 0, 0], forearmR: [0.5, 0, 0] }), 3.4),
+      onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: -0.3, swing: 0.4, bend: 0.25 } : { bend: 0.2 })), { root: [0.18, 0, 0], torso: [0.3, 0, 0], upperArmL: [-0.5, 0, 0.35], upperArmR: [-0.5, 0, -0.35], forearmL: [0.4, 0, 0], forearmR: [0.4, 0, 0] }), 3),
+    ],
+  };
 
-const castWindup = onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: 0.6 } : {})), { root: [-0.25, 0, 0], torso: [-0.3, 0, 0], head: [-0.35, 0, 0], ex_abd1: [0.5, 0, 0], ex_mandL: [0, 0, 0.5], ex_mandR: [0, 0, -0.5], upperArmL: [-2.4, 0, -0.8], upperArmR: [-2.4, 0, 0.8], forearmL: [0.3, 0, 0], forearmR: [0.3, 0, 0] }), 0, 1.5);
-const castRelease = onFeet(merge(STANCE, { torso: [0.2, 0, 0], ex_abd1: [0.1, 0, 0], upperArmL: [-1.3, 0, 0.2], upperArmR: [-1.3, 0, -0.2], forearmL: [0.2, 0, 0], forearmR: [0.2, 0, 0] }), 1);
+  /** 身體往右扭、雙爪由右往左橫掃 */
+  const slash = {
+    windup: [
+      onFeet(merge(STANCE, legs(() => ({ bend: 0.1 })))),
+      onFeet(merge(STANCE, { root: [0, -0.2, 0], torso: [0, -0.3, 0], upperArmR: [-0.4, 0, -0.9], upperArmL: [-0.6, 0, -0.3] }), -0.5),
+      onFeet(merge(STANCE, { root: [0, -0.35, 0], torso: [-0.05, -0.55, 0], head: [0, 0.4, 0], upperArmR: [-0.3, 0, -1.2], forearmR: [0.6, 0, 0], upperArmL: [-0.8, 0, -0.5] }), -0.8),
+      onFeet(merge(STANCE, { root: [0.05, 0.1, 0], torso: [0.05, -0.2, 0], upperArmR: [-0.9, 0, -0.9], forearmR: [0.9, 0, 0], upperArmL: [-0.8, 0, -0.4] }), 1),
+    ],
+    strike: [
+      onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { swing: 0.2 } : {})), { root: [0.08, 0.4, 0], torso: [0.1, 0.4, 0], head: [0, -0.3, 0], upperArmR: [-0.9, 0, 0.4], forearmR: [1.1, 0, 0], upperArmL: [-0.4, 0, 0.6], forearmL: [0.6, 0, 0] }), 2),
+      onFeet(merge(STANCE, { root: [0.05, 0.5, 0], torso: [0.08, 0.55, 0], head: [0, -0.4, 0], upperArmR: [-0.8, 0, 0.7], forearmR: [1, 0, 0], upperArmL: [-0.3, 0, 0.7], forearmL: [0.5, 0, 0] }), 1.8),
+    ],
+  };
 
-const hitKeys = [
-  onFeet(merge(STANCE, { head: [-0.3, 0, 0], ex_mandL: [0, 0, 0.4], ex_mandR: [0, 0, -0.4] })),
-  onFeet(merge(STANCE, legs(() => ({ lift: 0.15, bend: -0.15 })), { torso: [-0.3, 0, 0.1], head: [-0.25, 0, 0] }), -0.6),
-  onFeet(merge(STANCE, legs(() => ({ lift: 0.1 })), { root: [-0.1, 0, 0.05], torso: [-0.2, 0, 0.1], ex_abd1: [0.15, 0, 0] }), -1),
-  onFeet(merge(STANCE, { root: [-0.05, 0, 0], torso: [-0.1, 0, 0] }), -0.6),
-];
+  /** 腹部往上往前捲起、毒針從頭頂上方往前刺出（蠍子般） */
+  const thrust = {
+    windup: [
+      onFeet(merge(STANCE, legs(() => ({ bend: 0.15 })))),
+      onFeet(merge(STANCE, legs(() => ({ bend: 0.25 })), { root: [0.08, 0, 0], ex_abd1: [0.6, 0, 0], ex_abd2: [0.7, 0, 0], ex_sting: [0.6, 0, 0] }), -0.8),
+      onFeet(merge(STANCE, legs(() => ({ bend: 0.3 })), { root: [0.12, 0, 0], ex_abd1: [0.95, 0, 0], ex_abd2: [1.1, 0, 0], ex_sting: [1, 0, 0], torso: [0.1, 0, 0] }), -1),
+      onFeet(merge(STANCE, legs(() => ({ bend: 0.1 })), { root: [0.15, 0, 0], ex_abd1: [1.1, 0, 0], ex_abd2: [1.3, 0, 0], ex_sting: [1.3, 0, 0], torso: [0.25, 0, 0] }), 1.5),
+    ],
+    strike: [
+      onFeet(merge(STANCE, legs((_, i) => ({ swing: i < 2 ? 0.15 : -0.1, bend: 0.05 })), { root: [0.2, 0, 0], ex_abd1: [1.15, 0, 0], ex_abd2: [1.45, 0, 0], ex_sting: [1.65, 0, 0], torso: [0.35, 0, 0], head: [0.1, 0, 0] }), 3),
+      onFeet(merge(STANCE, { root: [0.15, 0, 0], ex_abd1: [1, 0, 0], ex_abd2: [1.2, 0, 0], ex_sting: [1.4, 0, 0], torso: [0.25, 0, 0] }), 2.6),
+    ],
+  };
 
-// 死亡：失去平衡 → 腳一隻隻蜷縮 → 身體落地、八隻腳往內捲起
-const curled = (k: number) => legs(() => ({ lift: 0.6 * k, bend: 1.6 * k }));
-const deathKeys = [
-  onFeet(merge(STANCE, legs(() => ({ bend: 0.3 })), { torso: [-0.3, 0, 0.15], head: [-0.4, 0, 0], ex_abd1: [-0.1, 0, 0] }), -1),
-  grounded(PARTS, HIP, { rootY: 0, angles: merge(STANCE, curled(0.4), { root: [0.1, 0, 0.1], torso: [0.4, 0, 0.2], head: [0.3, 0, 0], ex_abd1: [-0.2, 0, 0] }) }, 'all'),
-  grounded(PARTS, HIP, { rootY: 0, angles: merge(STANCE, curled(0.8), { root: [0.15, 0, 0.15], torso: [0.8, 0, 0.3], head: [0.4, 0.4, 0.2], upperArmL: [0.4, 0, 0.8], upperArmR: [0.4, 0, -0.8], ex_abd1: [-0.35, 0, 0] }) }, 'all'),
-  grounded(PARTS, HIP, { rootY: 0, angles: merge(STANCE, curled(1), { root: [0.15, 0, 0.2], torso: [0.9, 0, 0.3], head: [0.4, 0.5, 0.3], upperArmL: [0.4, 0, 0.9], upperArmR: [0.4, 0, -0.9], ex_abd1: [-0.4, 0, 0], ex_abd2: [-0.2, 0, 0] }) }, 'all'),
-];
+  const castWindup = onFeet(merge(STANCE, legs((_, i) => (i === 0 ? { lift: 0.6 } : {})), { root: [-0.25, 0, 0], torso: [-0.3, 0, 0], head: [-0.35, 0, 0], ex_abd1: [0.5, 0, 0], ex_mandL: [0, 0, 0.5], ex_mandR: [0, 0, -0.5], upperArmL: [-2.4, 0, -0.8], upperArmR: [-2.4, 0, 0.8], forearmL: [0.3, 0, 0], forearmR: [0.3, 0, 0] }), 0, 1.5);
+  const castRelease = onFeet(merge(STANCE, { torso: [0.2, 0, 0], ex_abd1: [0.1, 0, 0], upperArmL: [-1.3, 0, 0.2], upperArmR: [-1.3, 0, -0.2], forearmL: [0.2, 0, 0], forearmR: [0.2, 0, 0] }), 1);
 
-const poses: PoseSet = {
-  /** 待機：身體隨呼吸起伏、腹部緩緩擺動、腳尖輕點、雙爪開合 */
-  ready: (t) => {
-    const b = Math.sin(t * 1.8);
-    const angles = merge(STANCE, legs((side, i) => ({ lift: Math.max(0, Math.sin(t * 1.4 + i * 1.3 + (side === 1 ? 0 : 2))) * (i === 0 ? 0.12 : 0.03) })), {
-      torso: [b * 0.03, Math.sin(t * 0.6) * 0.1, 0],
-      head: [0, Math.sin(t * 0.5 + 1) * 0.12, 0],
-      ex_abd1: [Math.sin(t * 0.9) * 0.05, Math.sin(t * 0.7) * 0.08, 0],
-      ex_sting: [Math.sin(t * 1.3) * 0.12, 0, 0],
-      ex_clawL: [Math.max(0, Math.sin(t * 1.1)) * 0.3, 0, 0],
-      ex_clawR: [Math.max(0, Math.sin(t * 1.1 + 1.5)) * 0.3, 0, 0],
-      ex_mandL: [0, 0, Math.max(0, Math.sin(t * 2.3)) * 0.2],
-      ex_mandR: [0, 0, -Math.max(0, Math.sin(t * 2.3)) * 0.2],
-    });
-    return { ...BASE, angles, rootY: BASE.rootY + b * 0.5 };
-  },
-  /** 走路：八隻腳分兩組交替（左 1、右 2、左 3、右 4 一組），抬起的腳往前擺；身體與腹部左右晃 */
-  run: (p) => {
-    const angles = merge(
-      STANCE,
-      legs((side, i) => {
-        const phase = p + ((i + (side === 1 ? 0 : 1)) % 2) * Math.PI;
-        return { swing: Math.sin(phase) * 0.28, lift: Math.max(0, Math.cos(phase)) * 0.4 };
-      }),
-      { root: [0.04, Math.sin(p) * 0.06, 0], torso: [0.05, -Math.sin(p) * 0.08, 0], ex_abd1: [0, -Math.sin(p - 0.8) * 0.15, 0], ex_abd2: [0, -Math.sin(p - 1.4) * 0.12, 0] },
-    );
-    return onFeet(angles, 0, Math.abs(Math.sin(p * 2)) * 0.6);
-  },
-  attackWindup: overhead.windup[2]!,
-  attackStrike: overhead.strike[0]!,
-  castWindup,
-  castRelease,
-  hit: hitKeys[1]!,
-  dead: deathKeys[deathKeys.length - 1]!,
-  attackChain: overhead,
-  attackVariants: { overhead, slash, thrust },
-  hitKeys,
-  deathKeys,
-};
+  const hitKeys = [
+    onFeet(merge(STANCE, { head: [-0.3, 0, 0], ex_mandL: [0, 0, 0.4], ex_mandR: [0, 0, -0.4] })),
+    onFeet(merge(STANCE, legs(() => ({ lift: 0.15, bend: -0.15 })), { torso: [-0.3, 0, 0.1], head: [-0.25, 0, 0] }), -0.6),
+    onFeet(merge(STANCE, legs(() => ({ lift: 0.1 })), { root: [-0.1, 0, 0.05], torso: [-0.2, 0, 0.1], ex_abd1: [0.15, 0, 0] }), -1),
+    onFeet(merge(STANCE, { root: [-0.05, 0, 0], torso: [-0.1, 0, 0] }), -0.6),
+  ];
 
-export const SPIDER_QUEEN: FigureModel = {
+  // 死亡：失去平衡 → 腳一隻隻蜷縮 → 身體落地、八隻腳往內捲起
+  const curled = (k: number) => legs(() => ({ lift: 0.6 * k, bend: 1.6 * k }));
+  const deathKeys = [
+    onFeet(merge(STANCE, legs(() => ({ bend: 0.3 })), { torso: [-0.3, 0, 0.15], head: [-0.4, 0, 0], ex_abd1: [-0.1, 0, 0] }), -1),
+    grounded(parts, hip, { rootY: 0, angles: merge(STANCE, curled(0.4), { root: [0.1, 0, 0.1], torso: [0.4, 0, 0.2], head: [0.3, 0, 0], ex_abd1: [-0.2, 0, 0] }) }, 'all'),
+    grounded(parts, hip, { rootY: 0, angles: merge(STANCE, curled(0.8), { root: [0.15, 0, 0.15], torso: [0.8, 0, 0.3], head: [0.4, 0.4, 0.2], upperArmL: [0.4, 0, 0.8], upperArmR: [0.4, 0, -0.8], ex_abd1: [-0.35, 0, 0] }) }, 'all'),
+    grounded(parts, hip, { rootY: 0, angles: merge(STANCE, curled(1), { root: [0.15, 0, 0.2], torso: [0.9, 0, 0.3], head: [0.4, 0.5, 0.3], upperArmL: [0.4, 0, 0.9], upperArmR: [0.4, 0, -0.9], ex_abd1: [-0.4, 0, 0], ex_abd2: [-0.2, 0, 0] }) }, 'all'),
+  ];
+
+  return {
+    /** 待機：身體隨呼吸起伏、腹部緩緩擺動、腳尖輕點、雙爪開合 */
+    ready: (t) => {
+      const b = Math.sin(t * 1.8);
+      const angles = merge(STANCE, legs((side, i) => ({ lift: Math.max(0, Math.sin(t * 1.4 + i * 1.3 + (side === 1 ? 0 : 2))) * (i === 0 ? 0.12 : 0.03) })), {
+        torso: [b * 0.03, Math.sin(t * 0.6) * 0.1, 0],
+        head: [0, Math.sin(t * 0.5 + 1) * 0.12, 0],
+        ex_abd1: [Math.sin(t * 0.9) * 0.05, Math.sin(t * 0.7) * 0.08, 0],
+        ex_sting: [Math.sin(t * 1.3) * 0.12, 0, 0],
+        ex_clawL: [Math.max(0, Math.sin(t * 1.1)) * 0.3, 0, 0],
+        ex_clawR: [Math.max(0, Math.sin(t * 1.1 + 1.5)) * 0.3, 0, 0],
+        ex_mandL: [0, 0, Math.max(0, Math.sin(t * 2.3)) * 0.2],
+        ex_mandR: [0, 0, -Math.max(0, Math.sin(t * 2.3)) * 0.2],
+      });
+      return { ...BASE, angles, rootY: BASE.rootY + b * 0.5 };
+    },
+    /** 走路：八隻腳分兩組交替（左 1、右 2、左 3、右 4 一組），抬起的腳往前擺；身體與腹部左右晃 */
+    run: (p) => {
+      const angles = merge(
+        STANCE,
+        legs((side, i) => {
+          const phase = p + ((i + (side === 1 ? 0 : 1)) % 2) * Math.PI;
+          return { swing: Math.sin(phase) * 0.28, lift: Math.max(0, Math.cos(phase)) * 0.4 };
+        }),
+        { root: [0.04, Math.sin(p) * 0.06, 0], torso: [0.05, -Math.sin(p) * 0.08, 0], ex_abd1: [0, -Math.sin(p - 0.8) * 0.15, 0], ex_abd2: [0, -Math.sin(p - 1.4) * 0.12, 0] },
+      );
+      return onFeet(angles, 0, Math.abs(Math.sin(p * 2)) * 0.6);
+    },
+    attackWindup: overhead.windup[2]!,
+    attackStrike: overhead.strike[0]!,
+    castWindup,
+    castRelease,
+    hit: hitKeys[1]!,
+    dead: deathKeys[deathKeys.length - 1]!,
+    attackChain: overhead,
+    attackVariants: { overhead, slash, thrust },
+    hitKeys,
+    deathKeys,
+  };
+}
+
+/** 舊版（程式產生的模型）：遊戲裡現在用 AI 版（SpiderQueenAI.ts） */
+export const SPIDER_QUEEN_CLASSIC: FigureModel = {
   hipHeight: HIP,
   referenceRadius: 0.5,
   parts: PARTS,
-  poses,
+  poses: spiderQueenPoses(PARTS, HIP, LEGS.map((l) => l.forward)),
   secondary: {
     ex_hair1: { rate: 10, gravity: 0.4 },
     ex_hair2: { rate: 7, gravity: 0.5 },

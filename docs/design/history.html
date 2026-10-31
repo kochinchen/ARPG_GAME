@@ -490,6 +490,11 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p>正式版直接用 Three.js（真的燭光、火把與影子）；選單「立體光影」可關掉改用 Pixi，網址加 ?pixi / ?three 強制指定，瀏覽器不支援 WebGL2 時自動用 Pixi。火把、機關、投射物、競技場擺設不再穿過牆或蓋住角色；精英光圈、面向小點、裝備腳下光環改畫在腳下；上層特效不再畫兩次。</p>
             <p class="why">Pixi 畫的物件各放一塊看不見的深度板，Three.js 只重畫在它們前面的牆與角色，透明的部分不留空洞。</p>
           </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">蜘蛛女王 AI 版</span><span class="hash mono">10/31</span></div>
+            <p>怪物型態換成 AI 生成的第一隻：把遊戲裡的蜘蛛女王截圖交給 ChatGPT 重新設計、畫四視圖，再用微軟 TRELLIS 生成模型；Blender 減面成約 7000 個小三角面、接上骨架算好權重，整隻是一張蒙皮網格。動作沿用原本的威嚇站姿、撲下、橫掃、毒針突刺與蜷縮倒地；AI 模型每邊有 6 隻腳，走路一樣分兩組交替。</p>
+            <p class="why">骨架依模型手動擺放，每根骨頭一個顏色的截圖檢查分區；腳在靜止姿勢轉到正側面、往前的角度由動作加回，原本的動作不用改。</p>
+          </div>
         </div>
       </div>
     </div>
