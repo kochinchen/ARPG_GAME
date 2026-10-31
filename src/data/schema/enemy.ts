@@ -16,6 +16,19 @@ export const BossPhaseSchema = z.strictObject({
 });
 export type BossPhase = z.infer<typeof BossPhaseSchema>;
 
+/**
+ * 被動技能：戰鬥中（有目標時）自動發動，不用施法、不打斷其他動作（熔岩巨獸走過留下岩漿、身上不定時噴發）。
+ * every = 每隔幾秒（隨機 ±30%）；trail = 每移動幾格。在施放者腳下以等級 1 執行。
+ */
+export const EnemyPassiveSchema = z
+  .strictObject({
+    skill: IdSchema,
+    every: z.number().positive().optional(),
+    trail: z.number().positive().optional(),
+  })
+  .refine((p) => (p.every === undefined) !== (p.trail === undefined), { message: '被動技能要設定 every 或 trail 其中一個' });
+export type EnemyPassive = z.infer<typeof EnemyPassiveSchema>;
+
 export const EnemyDefSchema = z
   .strictObject({
   id: IdSchema,
@@ -64,6 +77,8 @@ export const EnemyDefSchema = z
     })
     .partial()
     .default({}),
+  /** 被動技能（見 EnemyPassiveSchema） */
+  passives: z.array(EnemyPassiveSchema).default([]),
   /** Boss 的階段變化（依 hpBelow 由高到低） */
   phases: z.array(BossPhaseSchema).default([]),
   /** 怪物圖鑑：分類與介紹 */

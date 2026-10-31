@@ -187,6 +187,8 @@ export const DelayedEffectSchema = z.strictObject({
   scatter: z.number().nonnegative().default(0),
   /** 每重複一次，施放方向旋轉的角度（旋轉光束） */
   spinDeg: z.number().default(0),
+  /** > 0：每次的落點排成一排（與施放方向垂直、以中心點為中央），間隔 spacing 格（火牆） */
+  spacing: z.number().nonnegative().default(0),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },

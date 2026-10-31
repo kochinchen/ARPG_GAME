@@ -12,6 +12,7 @@ import { DamagePipeline } from './combat/DamagePipeline';
 import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { BossSystem } from './enemies/BossSystem';
+import { PassiveSkillSystem } from './enemies/PassiveSkillSystem';
 import { applyFloorResist, EnemyFactory, NORMAL_SIZE, rollSize, visualRadiusOf, type FloorResist } from './enemies/EnemyFactory';
 import { rollMimic, teachMimic } from './enemies/MimicSkills';
 import { ItemEffectSystem } from './items/ItemEffectSystem';
@@ -191,6 +192,7 @@ export class GameWorld {
    */
   readonly rngStreams: Readonly<Record<RngStream, Rng>>;
   readonly bosses: BossSystem;
+  private readonly passives: PassiveSkillSystem;
   readonly shop: ShopSystem;
   /** 累計遊戲時間（秒，只算有執行的 Tick） */
   playTime = 0;
@@ -278,6 +280,8 @@ export class GameWorld {
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
     this.bosses = new BossSystem(data, this.events);
+    // 被動技能的時間差：獨立的亂數序列（不影響其他系統的亂數順序，也不必存檔）
+    this.passives = new PassiveSkillSystem(data, executor, new Rng(options.seed).fork('passives'));
 
     const p = data.balance.player;
     const start = markerPoint(this.map, MAP_TILES.spawn)!;
@@ -837,6 +841,7 @@ export class GameWorld {
     this.waypoints = [];
     this.scheduler.clear();
     this.bosses.clear();
+    this.passives.clear();
     this.combos.cancel(this.player);
     this.interaction.clear();
     this.statuses.clear(this.player);
@@ -1203,6 +1208,7 @@ export class GameWorld {
     this.statuses.update(this.actors, dt, this.pipeline);
     this.itemEffects.update(dt);
     this.bosses.update(this.actors);
+    this.passives.update(this.actors, dt);
     this.ai.update(this.actors, dt);
     this.combos.update(this.actors);
     this.skills.update(this.actors, dt);

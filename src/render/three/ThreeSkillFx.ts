@@ -233,6 +233,16 @@ interface Later {
   run: () => void;
 }
 
+/** 持續區域每秒冒出幾道火舌 / 寒霧（依技能；沒有列出的不冒） */
+const FLAME_RATE: Record<string, number> = {
+  'magic.firewall': 120,
+  'magic.meteor': 70,
+  'magic.absolute_zero': 26,
+  // 熔岩巨獸：火牆每段（半徑小、5 段）、走過留下的岩漿足跡
+  'enemy.behemoth_firewall': 60,
+  'enemy.lava_trail': 14,
+};
+
 export class ThreeSkillFx implements SkillFxListener {
   readonly group = new THREE.Group();
   private readonly glowTex = softDot();
@@ -430,7 +440,7 @@ export class ThreeSkillFx implements SkillFxListener {
     this.smoke.update(dt, scale);
   }
 
-  /** 持續的效果：火牆的火焰、隕石坑的岩漿、絕對零度的寒霧、隕石落下 */
+  /** 持續的效果：火牆的火焰、隕石坑的岩漿、絕對零度的寒霧、隕石落下（熔岩巨獸的火牆、岩漿足跡也是） */
   private persistent(glows: readonly FxGlow[], dt: number): void {
     const live = new Set<string>();
     for (const g of glows) {
@@ -441,7 +451,7 @@ export class ThreeSkillFx implements SkillFxListener {
       }
       if (g.kind === 'zone' && g.skillId === 'magic.absolute_zero') this.zeroZones.set(g.id, { at: g.position, radius: g.radius });
       if (g.kind === 'zone') {
-        const rate = g.skillId === 'magic.firewall' ? 120 : g.skillId === 'magic.meteor' ? 70 : g.skillId === 'magic.absolute_zero' ? 26 : 0;
+        const rate = (g.skillId && FLAME_RATE[g.skillId]) || 0;
         if (!rate) continue;
         let timer = (this.emitTimer.get(g.id) ?? 0) - dt * rate;
         while (timer <= 0) {
@@ -450,7 +460,7 @@ export class ThreeSkillFx implements SkillFxListener {
           const d = g.radius * Math.sqrt(Math.random());
           const at = vec2(g.position.x + Math.cos(a) * d, g.position.y + Math.sin(a) * d);
           if (g.skillId === 'magic.absolute_zero') this.fog(at, ICE, 0.5);
-          else this.flameTongue(at, g.skillId === 'magic.firewall' ? 1 : 0.55);
+          else this.flameTongue(at, g.skillId === 'magic.firewall' || g.skillId === 'enemy.behemoth_firewall' ? 1 : 0.55);
         }
         this.emitTimer.set(g.id, timer);
         live.add(g.id);

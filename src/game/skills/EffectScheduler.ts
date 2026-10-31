@@ -74,7 +74,7 @@ export class EffectScheduler implements EffectSchedulerPort {
       this.pending.push({
         id: this.nextId++,
         ctx: { ...ctx, direction },
-        position: this.scatter(ctx.origin, def.scatter),
+        position: this.scatter(def.spacing > 0 ? this.inLine(ctx.origin, ctx.direction, (i - (def.repeat - 1) / 2) * def.spacing) : ctx.origin, def.scatter),
         remaining: def.delay + i * def.interval,
         followCaster,
         effects: def.effects,
@@ -124,6 +124,12 @@ export class EffectScheduler implements EffectSchedulerPort {
       if (zone.remaining <= 0) this.zones.splice(i, 1);
       else i++;
     }
+  }
+
+  /** 與方向垂直、離中心 offset 格的位置（排成一排用） */
+  private inLine(center: Vec2, direction: Vec2, offset: number): Vec2 {
+    const len = Math.hypot(direction.x, direction.y) || 1;
+    return vec2(center.x - (direction.y / len) * offset, center.y + (direction.x / len) * offset);
   }
 
   /** 在中心附近隨機取一個地板上的點 */
