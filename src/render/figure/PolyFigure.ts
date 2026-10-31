@@ -138,6 +138,8 @@ export class PolyFigure {
   private outfit: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string>; skinColors?: ReadonlyMap<number, number> }) | null = null;
   /** 不畫的關節（魔王階段變化：盾牌碎裂、巨劍落地） */
   private hidden: ReadonlySet<Joint> = new Set();
+  /** 目前階段的動作（魔王的 phasePoses；沒有時是模型的 poses） */
+  private poses: FigureModel['poses'];
   /** 腳下影子（相對腳底，px；模型有 dynamicShadow 時才有）：中心與水平半徑 */
   shadow: { x: number; y: number; rx: number } | null = null;
 
@@ -147,6 +149,9 @@ export class PolyFigure {
     private readonly scale = 1,
   ) {
     this.current = model.poses.ready(0);
+    // 一開始是第 1 階段（魔王第 1 階段要藏起的關節，例如第 3 階段才出現的元素球）
+    this.hidden = new Set(model.phaseHidden?.[0] ?? []);
+    this.poses = model.phasePoses?.[0] ?? model.poses;
   }
 
   /** 攻擊 / 施法：windup 秒後命中（前搖），之後揮下、收回；variant 為招式（模型有對應動作時使用） */
@@ -167,6 +172,7 @@ export class PolyFigure {
   /** 魔王的階段：依模型的 phaseHidden 隱藏關節 */
   setPhase(phase: number): void {
     this.hidden = new Set(this.model.phaseHidden?.[phase] ?? []);
+    this.poses = this.model.phasePoses?.[phase] ?? this.model.poses;
   }
 
   /** 是否剛開始待機怒吼（讀取後清除） */
@@ -177,7 +183,7 @@ export class PolyFigure {
   }
 
   hit(): void {
-    this.hitTime = this.model.poses.hitKeys ? HIT_KEYS_TIME : HIT_TIME;
+    this.hitTime = this.poses.hitKeys ? HIT_KEYS_TIME : HIT_TIME;
   }
 
   /** 直接畫出某個姿勢（樣態預覽用；次級運動直接用目標方向） */
@@ -196,18 +202,18 @@ export class PolyFigure {
     }
     this.time += dt;
     this.stepDt = dt;
-    const walking = state.moving && !!this.model.poses.walk && (state.speed ?? Infinity) < WALK_BELOW;
+    const walking = state.moving && !!this.poses.walk && (state.speed ?? Infinity) < WALK_BELOW;
     if (state.moving) this.runPhase += dt * (walking ? 7.5 : 11) * (this.model.gaitRate ?? 1);
     this.hitTime = Math.max(0, this.hitTime - dt);
     const target = this.targetPose(state, dt, walking);
     // 動作（攻擊 / 施法 / 死亡過程）直接用時間軸的姿勢，其他狀態平滑過渡
-    const k = this.action || (this.death && this.model.poses.deathKeys) ? 1 : Math.min(1, dt * 14);
+    const k = this.action || (this.death && this.poses.deathKeys) ? 1 : Math.min(1, dt * 14);
     this.current = lerpPose(this.current, target, k);
     this.draw(yawFor(state.facing), state.facing);
   }
 
   private targetPose(state: FigureState, dt: number, walking: boolean): Pose {
-    const poses = this.model.poses;
+    const poses = this.poses;
     if (!state.alive) {
       this.action = null;
       if (!poses.deathKeys) return poses.dead;

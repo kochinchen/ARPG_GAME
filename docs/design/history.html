@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">20</b> 個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1000</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1004</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -495,6 +495,21 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p>怪物型態換成 AI 生成的第一隻：把遊戲裡的蜘蛛女王截圖交給 ChatGPT 重新設計、畫四視圖，再用微軟 TRELLIS 生成模型；Blender 減面成約 7000 個小三角面、接上骨架算好權重，整隻是一張蒙皮網格。動作沿用原本的威嚇站姿、撲下、橫掃、毒針突刺與蜷縮倒地；AI 模型每邊有 6 隻腳，走路一樣分兩組交替。</p>
             <p class="why">骨架依模型手動擺放，每根骨頭一個顏色的截圖檢查分區；腳在靜止姿勢轉到正側面、往前的角度由動作加回，原本的動作不用改。</p>
           </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">深淵魔王 AI 版</span><span class="hash mono">10/31</span></div>
+            <p>設計者給了預期的造型圖（紅色肌肉甲殼、黑角、骨金鑲邊、熔岩裂紋、破爛翼膜、箭頭長尾），直接請 ChatGPT 畫成白底四視圖，再用 TRELLIS 生成；30 層魔王與深淵分身都換成這個模型。關節名稱沿用魔王的人形骨架，厚重步伐、爪擊、仰天怒吼時張開翅膀、甩尾都照舊；翅膀由四根翼指撐住翼膜跟著翼肘動。</p>
+            <p class="why">Blender 腳本改成怪物共用（scripts/monster_ai.py，每隻只定義骨架），遊戲端共用 AiRig.ts。TRELLIS 未登入的免費 GPU 額度一天只夠一次，第二隻改在 Hugging Face 登入後操作。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">深淵統御者 AI 版</span><span class="hash mono">10/31</span></div>
+            <p>設計者的參考圖（金色尖刺重甲、獸顱巨盾、鋸齒巨劍）＋舊版模型的結構（人形上身接四足獸身）＋30 層深淵魔王的外型，交給 ChatGPT 設計出最終魔王；四視圖不拿劍盾，巨劍與盾牌另外生成成獨立的模型。動作照舊（四足對角步伐、巨劍招式、低吼張翅），三個階段的持武器方式不同：雙手往前舉劍（劍尖朝上、劍鋒朝前）與盾 → 盾牌落地後雙手持劍 → 巨劍也落地後雙手往前、手掌微張，隨呼吸與步伐前後擺動。掉下的盾與劍留在場上。</p>
+            <p class="why">TRELLIS 把左右側面的尾巴混在一起，身體正前方多長出一條尾巴，在減面前切掉。手臂往前彎時網格不跟著骨頭：AI 模型的骨盆偏前 18 公分，遊戲又一律把骨盆放在正中央，網格與骨頭錯開，所有關節都在錯的位置旋轉（共用的 AiRig.ts 修正，蜘蛛女王、深淵魔王也一起修好）。生成的網格把垂下的手、翅膀下緣、兩腳間的腰布黏在旁邊的部位上，動作時被拉成長條，所以各部位分開、只從肩膀與髖接身體。新增魔王動作預覽頁（boss-viewer.html），可切換動作、招式、階段，並用「T 字」姿勢與依骨頭上色檢查手臂。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">通道加寬（方便包圍）</span><span class="hash mono">10/31</span></div>
+            <p>試玩時發現地圖幾乎都是通道，怪物很難包圍主角，只會排成一列。通道寬度改成樓層設定（layout.corridorWidth），從 5.5～7.5 格加寬到 9.5～13.5 格（約 1.7 倍），邊緣侵蝕後大多數地方也有 6 格以上，近戰排得開兩側與背後的站位。</p>
+            <p class="why">怪物數依「每 100 格地板」計算，通道變寬會讓地板多出 24～29%，所以密度同時除以 1.26，每層怪物數維持加寬前的數量（測試把關誤差 7% 內）。地圖產生器改版（v5），舊存檔的樓層會重新生成。</p>
+          </div>
         </div>
       </div>
     </div>
@@ -506,7 +521,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <h2>測試數量隨 Milestone 累積</h2>
       <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/31 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1000">
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1004">
       <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.8%"></div><span class="val mono">28</span></div>
       <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.2%"></div><span class="val mono">52</span></div>
       <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:8.1%"></div><span class="val mono">81</span></div>
@@ -515,8 +530,8 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.7%"></div><span class="val mono">137</span></div>
       <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.9%"></div><span class="val mono">179</span></div>
       <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:26.0%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1000</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1000 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個）。</p>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1004</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1004 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個）。</p>
     </div>
   </section>
 

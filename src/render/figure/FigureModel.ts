@@ -160,6 +160,8 @@ export interface FigureModel {
   skin?: SkinMesh;
   /** 魔王階段變化時不再畫的關節（index = 階段；例如第 2 階段盾牌碎裂、第 3 階段巨劍落地） */
   phaseHidden?: readonly (readonly Joint[])[];
+  /** 魔王每個階段的動作（index = 階段；沒有的階段用 poses）：例如盾牌掉了改成雙手持劍 */
+  phasePoses?: readonly (PoseSet | undefined)[];
   /** 魔王階段變化時掉在地上、留在場上的物件（index = 階段；模型與相對魔王的位置） */
   phaseDrops?: readonly ({ model: FigureModel; offset: [number, number] } | null)[];
 }

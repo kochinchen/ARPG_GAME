@@ -1,6 +1,6 @@
 import type { FigureModel } from './FigureModel';
-import { ABYSS_LORD } from './bosses/AbyssLord';
-import { ABYSS_SOVEREIGN } from './bosses/AbyssSovereign';
+import { ABYSS_LORD } from './bosses/AbyssLordAI';
+import { ABYSS_SOVEREIGN } from './bosses/AbyssSovereignAI';
 import { ARMORED_BOSSES } from './bosses/ArmoredBosses';
 import { LAVA_BEHEMOTH } from './bosses/LavaBehemoth';
 import { ROBED_BOSSES } from './bosses/RobedBosses';

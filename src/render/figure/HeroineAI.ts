@@ -31,8 +31,8 @@ const HIP = 32;
 /** 公尺 → 遊戲單位 */
 const S = HIP / J('pelvis')[1];
 
-/** 把方向 d 轉到正下方的旋轉矩陣（四肢轉正用；AI 版蜘蛛女王的手臂也用） */
-export function alignDown(d: V3): M3 {
+/** 把方向 d 轉到正下方的旋轉矩陣（四肢轉正用） */
+function alignDown(d: V3): M3 {
   const a = mulS(d, 1 / len(d));
   const b: V3 = [0, -1, 0];
   const v: V3 = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];

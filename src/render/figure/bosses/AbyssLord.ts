@@ -2,7 +2,7 @@ import { seg } from '../Creatures';
 import type { FigureModel, PartDef } from '../FigureModel';
 import { box, lowSphere, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
 import { F, FF, FS, FSeg } from './BossParts';
-import { bossPoses, roarEnvelope } from './BossPoses';
+import { bossPoses, roarEnvelope, type BossStyle } from './BossPoses';
 import { BOSS_HIP, bossRig, bossSecondary, type Side } from './BossRig';
 
 /**
@@ -286,46 +286,53 @@ const PARTS = bossRig({
 });
 
 /** 怒吼的節奏（翅膀與身體同步）：每 9 秒一次、持續 2.2 秒 */
-const ROAR = { period: 9, duration: 2.2 };
+export const ABYSS_LORD_ROAR = { period: 9, duration: 2.2 };
 
-export const ABYSS_LORD: FigureModel = {
+/** 動作（舊版程式模型與 AI 版共用，AbyssLordAI.ts） */
+export const ABYSS_LORD_STYLE: BossStyle = {
+  weapon: 'claws',
+  cast: 'roar',
+  idleRoar: ABYSS_LORD_ROAR,
+  // 翅膀：平時半張往上、走路時隨步伐輕拍、出招時大張、怒吼時完全張開；尾巴：拖在身後，左右甩動
+  // 重擊命中時膝蓋與身體再往下壓（重挫感）
+  accent: (kind, x) => {
+    const roar = kind === 'idle' ? roarEnvelope(x, ABYSS_LORD_ROAR.period, ABYSS_LORD_ROAR.duration) : 0;
+    const spread = kind === 'windup' ? 0.3 + x * 0.12 : kind === 'strike' ? 0.6 - x * 0.2 : roar * 0.55;
+    const flap = kind === 'walk' ? Math.sin(x * 2) * 0.12 : kind === 'idle' ? Math.sin(x * 0.8) * 0.05 : 0;
+    const sway = kind === 'walk' ? Math.sin(x - 0.8) * 0.35 : kind === 'idle' ? Math.sin(x * 0.6) * 0.18 : kind === 'strike' ? 0.45 : 0;
+    const slam: Record<string, [number, number, number]> =
+      kind === 'strike' && x === 0 ? { chest: [0.12, 0, 0], torso: [0.08, 0, 0], shinL: [0.25, 0, 0], shinR: [0.25, 0, 0], thighL: [-0.12, 0, 0], thighR: [-0.12, 0, 0] } : {};
+    return {
+      ...slam,
+      ex_wingL1: [0.15, -0.3 + spread, -0.05 - flap - spread * 0.55],
+      ex_wingR1: [0.15, 0.3 - spread, 0.05 + flap + spread * 0.55],
+      ex_wingL2: [0, 0.15 - spread * 0.35, -flap - spread * 0.2],
+      ex_wingR2: [0, -0.15 + spread * 0.35, flap + spread * 0.2],
+      ex_tail1: [1.15, sway * 0.4, 0],
+      ex_tail2: [-0.35, sway * 0.3, 0],
+      ex_tail3: [-0.3, sway * 0.3, 0],
+      ex_tail4: [-0.25, sway * 0.2, 0],
+    };
+  },
+};
+
+/** 翅膀與尾巴的次級運動（舊版與 AI 版共用） */
+export const ABYSS_LORD_SECONDARY: NonNullable<FigureModel['secondary']> = {
+  ex_wingL2: { rate: 8, gravity: 0 },
+  ex_wingR2: { rate: 8, gravity: 0 },
+  ex_tail2: { rate: 8, gravity: 0.3 },
+  ex_tail3: { rate: 6, gravity: 0.35 },
+  ex_tail4: { rate: 5, gravity: 0.4 },
+};
+
+/** 舊版（程式產生的模型）：遊戲裡現在用 AI 版（AbyssLordAI.ts） */
+export const ABYSS_LORD_CLASSIC: FigureModel = {
   hipHeight: BOSS_HIP,
   referenceRadius: 0.5,
   parts: PARTS,
-  idleRoar: ROAR,
-  poses: bossPoses(PARTS, {
-    weapon: 'claws',
-    cast: 'roar',
-    idleRoar: ROAR,
-    // 翅膀：平時半張往上、走路時隨步伐輕拍、出招時大張、怒吼時完全張開；尾巴：拖在身後，左右甩動
-    // 重擊命中時膝蓋與身體再往下壓（重挫感）
-    accent: (kind, x) => {
-      const roar = kind === 'idle' ? roarEnvelope(x, ROAR.period, ROAR.duration) : 0;
-      const spread = kind === 'windup' ? 0.3 + x * 0.12 : kind === 'strike' ? 0.6 - x * 0.2 : roar * 0.55;
-      const flap = kind === 'walk' ? Math.sin(x * 2) * 0.12 : kind === 'idle' ? Math.sin(x * 0.8) * 0.05 : 0;
-      const sway = kind === 'walk' ? Math.sin(x - 0.8) * 0.35 : kind === 'idle' ? Math.sin(x * 0.6) * 0.18 : kind === 'strike' ? 0.45 : 0;
-      const slam: Record<string, [number, number, number]> =
-        kind === 'strike' && x === 0 ? { chest: [0.12, 0, 0], torso: [0.08, 0, 0], shinL: [0.25, 0, 0], shinR: [0.25, 0, 0], thighL: [-0.12, 0, 0], thighR: [-0.12, 0, 0] } : {};
-      return {
-        ...slam,
-        ex_wingL1: [0.15, -0.3 + spread, -0.05 - flap - spread * 0.55],
-        ex_wingR1: [0.15, 0.3 - spread, 0.05 + flap + spread * 0.55],
-        ex_wingL2: [0, 0.15 - spread * 0.35, -flap - spread * 0.2],
-        ex_wingR2: [0, -0.15 + spread * 0.35, flap + spread * 0.2],
-        ex_tail1: [1.15, sway * 0.4, 0],
-        ex_tail2: [-0.35, sway * 0.3, 0],
-        ex_tail3: [-0.3, sway * 0.3, 0],
-        ex_tail4: [-0.25, sway * 0.2, 0],
-      };
-    },
-  }),
-  secondary: bossSecondary(PARTS, {
-    ex_wingL2: { rate: 8, gravity: 0 },
-    ex_wingR2: { rate: 8, gravity: 0 },
-    ex_tail2: { rate: 8, gravity: 0.3 },
-    ex_tail3: { rate: 6, gravity: 0.35 },
-    ex_tail4: { rate: 5, gravity: 0.4 },
-  }),
+  idleRoar: ABYSS_LORD_ROAR,
+  poses: bossPoses(PARTS, ABYSS_LORD_STYLE),
+  secondary: bossSecondary(PARTS, ABYSS_LORD_SECONDARY),
   gaitRate: 0.6,
   dynamicShadow: true,
 };

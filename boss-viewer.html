@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>魔王動作預覽</title>
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #16130f; color: #d8cbb4; font: 14px sans-serif; }
+      #bar { position: fixed; top: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; background: #1f1a15; border-bottom: 1px solid #3a3027; box-sizing: border-box; z-index: 1; }
+      #bar b { color: #e8c47a; }
+      #bar .group { display: flex; align-items: center; gap: 3px; }
+      #bar .group > span { color: #9c8c74; font-size: 12px; margin-right: 3px; }
+      #bar button, #bar select { padding: 4px 9px; font: 13px sans-serif; color: #d8cbb4; background: #2a231d; border: 1px solid #5a4c3e; border-radius: 3px; cursor: pointer; }
+      #bar button:hover { border-color: #a8875a; }
+      #bar button.on { background: #5a4630; color: #ffe3a8; border-color: #a8875a; }
+      #bar label { cursor: pointer; white-space: nowrap; }
+      #view { position: fixed; left: 0; right: 0; bottom: 0; }
+      #status { position: fixed; left: 12px; bottom: 10px; color: #9c8c74; font-size: 13px; pointer-events: none; }
+      #status b { color: #e8c47a; }
+    </style>
+  </head>
+  <body>
+    <div id="bar"></div>
+    <canvas id="view"></canvas>
+    <div id="status"></div>
+    <script type="module" src="/src/tools/bossViewer.ts"></script>
+  </body>
+</html>

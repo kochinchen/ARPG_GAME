@@ -2,7 +2,7 @@ import { seg } from '../Creatures';
 import type { FigureModel, PartDef, Pose } from '../FigureModel';
 import { box, lowSphere, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
 import { F, FF, FS, FSeg } from './BossParts';
-import { bossPoses, roarEnvelope } from './BossPoses';
+import { bossPoses, roarEnvelope, type BossStyle } from './BossPoses';
 import { BOSS_HIP, bossRig, bossSecondary, type Side } from './BossRig';
 
 /**
@@ -308,7 +308,7 @@ const PARTS = bossRig({
 // ─────────────────────────── 動作 ───────────────────────────
 
 /** 低吼（抬頭、翅膀稍微張開）：每 8 秒一次、持續 2 秒 */
-const ROAR = { period: 8, duration: 2 };
+export const ABYSS_SOVEREIGN_ROAR = { period: 8, duration: 2 };
 
 /** 待機時巨劍往前下方傾斜的角度 */
 const SWORD_LOWER = 2.55;
@@ -325,15 +325,16 @@ const hindLegs = (swingL: number, swingR: number, liftL = 0, liftR = 0): Record<
   ex_hfootR: [-(HIND_STAND.thigh + HIND_STAND.shin + swingR + liftR), 0, 0],
 });
 
-const poses = bossPoses(PARTS, {
+/** 動作（舊版程式模型與 AI 版共用，AbyssSovereignAI.ts） */
+export const ABYSS_SOVEREIGN_STYLE: BossStyle = {
   weapon: 'greatsword',
   cast: 'roar',
   hunch: 0.1,
-  idleRoar: ROAR,
+  idleRoar: ABYSS_SOVEREIGN_ROAR,
   // 後腳、翅膀、尾巴：待機時尾巴慢慢擺、翅膀偶爾張開；走路時四足對角步伐（前左＋後右），
   // 出招前翅膀往外張開蓄力、命中時完全張開，尾巴往反方向甩（慣性）
   accent: (kind, x) => {
-    const roar = kind === 'idle' ? roarEnvelope(x, ROAR.period, ROAR.duration) : 0;
+    const roar = kind === 'idle' ? roarEnvelope(x, ABYSS_SOVEREIGN_ROAR.period, ABYSS_SOVEREIGN_ROAR.duration) : 0;
     const spread = kind === 'windup' ? 0.35 + x * 0.14 : kind === 'strike' ? 0.75 - x * 0.2 : roar * 0.6;
     const flap = kind === 'walk' ? Math.sin(x * 2) * 0.08 : kind === 'idle' ? Math.sin(x * 0.7) * 0.05 : 0;
     const sway = kind === 'walk' ? Math.sin(x - 0.8) * 0.3 : kind === 'idle' ? Math.sin(x * 0.5) * 0.25 : kind === 'strike' ? -0.5 : 0.2;
@@ -357,22 +358,28 @@ const poses = bossPoses(PARTS, {
       ex_tail5: [-0.1, sway * 0.2, 0],
     };
   },
-});
+};
 
-export const ABYSS_SOVEREIGN: FigureModel = {
+const poses = bossPoses(PARTS, ABYSS_SOVEREIGN_STYLE);
+
+/** 翅膀與尾巴的次級運動（舊版與 AI 版共用） */
+export const ABYSS_SOVEREIGN_SECONDARY: NonNullable<FigureModel['secondary']> = {
+  ex_wingL2: { rate: 7, gravity: 0 },
+  ex_wingR2: { rate: 7, gravity: 0 },
+  ex_tail2: { rate: 7, gravity: 0.25 },
+  ex_tail3: { rate: 6, gravity: 0.3 },
+  ex_tail4: { rate: 5, gravity: 0.35 },
+  ex_tail5: { rate: 4, gravity: 0.4 },
+};
+
+/** 舊版（程式產生的模型）：遊戲裡現在用 AI 版（AbyssSovereignAI.ts） */
+export const ABYSS_SOVEREIGN_CLASSIC: FigureModel = {
   hipHeight: BOSS_HIP,
   referenceRadius: 0.5,
   parts: PARTS,
-  idleRoar: ROAR,
+  idleRoar: ABYSS_SOVEREIGN_ROAR,
   poses,
-  secondary: bossSecondary(PARTS, {
-    ex_wingL2: { rate: 7, gravity: 0 },
-    ex_wingR2: { rate: 7, gravity: 0 },
-    ex_tail2: { rate: 7, gravity: 0.25 },
-    ex_tail3: { rate: 6, gravity: 0.3 },
-    ex_tail4: { rate: 5, gravity: 0.35 },
-    ex_tail5: { rate: 4, gravity: 0.4 },
-  }),
+  secondary: bossSecondary(PARTS, ABYSS_SOVEREIGN_SECONDARY),
   gaitRate: 0.5,
   dynamicShadow: true,
   // 第 2 階段（index 1）盾牌碎裂；第 3 階段（index 2）巨劍也落地
@@ -381,7 +388,8 @@ export const ABYSS_SOVEREIGN: FigureModel = {
 
 // ─────────────────────────── 掉在地上的盾與劍 ───────────────────────────
 
-const still = (meshes: Mesh[]): FigureModel => {
+/** 不會動的模型（掉在地上的盾與劍） */
+export const still = (meshes: Mesh[]): FigureModel => {
   const pose: Pose = { rootY: 0, angles: {} };
   return {
     hipHeight: 0,
@@ -410,4 +418,4 @@ const SHIELD_SHARDS = still(
 /** 插在地上的巨劍：劍尖朝下插入地面、微微傾斜 */
 const PLANTED_SWORD = still(greatsword().map((m) => placeMesh(m, [0.18, 0.5, 0.12], [0, 34, 0])));
 
-ABYSS_SOVEREIGN.phaseDrops = [null, { model: SHIELD_SHARDS, offset: [1.4, 1.2] }, { model: PLANTED_SWORD, offset: [-1.6, 0.8] }];
+ABYSS_SOVEREIGN_CLASSIC.phaseDrops = [null, { model: SHIELD_SHARDS, offset: [1.4, 1.2] }, { model: PLANTED_SWORD, offset: [-1.6, 0.8] }];

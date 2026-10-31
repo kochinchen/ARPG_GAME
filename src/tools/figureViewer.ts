@@ -243,7 +243,7 @@ function gallery(app: Application, bosses: boolean): void {
 
 /**
  * ?model=X&close=1：單一模型的特寫（左 / 下（正面）/ 右 / 上（背面）四個方向，自動放大到填滿格子；diag=1 改看斜 45° 的四個方向）。
- * pose=attack / windup / cast / dead 切換樣態，省略為待機動畫；寶箱可用 pose=half / open 看箱蓋打開。
+ * pose=attack / windup / cast / dead 切換樣態，省略為待機動畫；寶箱可用 pose=half / open 看箱蓋打開；phase=2 / 3 看魔王的階段。
  */
 function closeUp(app: Application): void {
   // diag=1：斜 45° 的四個方向（寶箱在遊戲中的擺法）
@@ -262,7 +262,8 @@ function closeUp(app: Application): void {
       ];
   const w = (window.innerWidth - 32) / dirs.length;
   const h = window.innerHeight - 80;
-  const P = selected.model.poses;
+  const phase = Math.max(0, (Number(params.get('phase')) || 1) - 1);
+  const P = selected.model.phasePoses?.[phase] ?? selected.model.poses;
   const poseKey = params.get('pose');
   // pose=a1～a6：多段攻擊的第 n 個關鍵姿勢
   const chain = P.attackChain ? [...P.attackChain.windup, ...P.attackChain.strike] : [];
@@ -284,6 +285,8 @@ function closeUp(app: Application): void {
     const cell = new Container();
     cell.position.set(16 + i * w + w / 2, 60 + h * 0.78);
     const figure = armed(new PolyFigure(selected.model, 1));
+    // phase=2 / 3：魔王的第 2、3 階段（持武器方式與藏起的武器）
+    figure.setPhase(phase);
     figure.showPose(P.ready(0), d.facing);
     // 依模型大小自動縮放
     const b = figure.graphics.getLocalBounds();
