@@ -97,6 +97,7 @@ interface SaveDataV1 {
     midwayFloors: number[];     // v11：到過中途存檔點的樓層；跨層永久保留（見 4.10）
     exitOpen: boolean;
     killed: number[];           // 本層已擊殺的怪物（SpawnSystem 產生順序的索引）；換層時清空
+    corpses: { index: number; x: number; y: number; facing: number }[];  // v18：本層的屍體（生成索引、死掉的位置、面向弧度）；外觀由索引推導，換層時清空
     openedChests: Record<number, number[]>;   // 樓層 → 已開啟的寶箱索引；跨層永久保留（見 4.9）
     groundItems: { entry: SavedEntry; x: number; y: number; droppedByPlayer: boolean }[];
   };
@@ -158,6 +159,7 @@ type SavedEntry = { kind: 'item'; item: ItemInstance } | { kind: 'potion'; potio
 **處理**：
 - 樓層佈局由 `runSeed + 樓層號` 決定（目前已經是 `new Rng(seed).fork('floor-N')`，只需把 seed 存起來）。
 - 存 `killed` 與 `openedChests` 索引：讀檔後已擊殺的怪不再出現、已開的寶箱維持開啟。
+- 存 `corpses`（v18）：讀檔後屍體留在死掉的位置與面向，直接躺著（不再播倒地動作）。
 - `exitOpen` 直接存：出口開過就不會因讀檔又鎖上。
 - 擊殺數由 `killed.length` 還原，HUD「還需 N 隻」一致。
 - 想刷怪練等級要走「回到上一層」（4.9），而不是重新整理。
@@ -295,7 +297,7 @@ db: arpg-save
 | 裝備欄位不符（例如資料把戒指改成護符） | 卸下放回背包，背包滿則放到存檔點地上 |
 | 藥水疊超過上限 | 拆成多疊，放不下的放到地上 |
 | Codex 的 ruleId 不存在 | 移除該條目 |
-| `floor.mapId` 與目前該層應使用的地圖不同 | 丟棄本層的 killed / openedChests / groundItems，重新生成整層（地上的物品移到樓梯口） |
+| `floor.mapId` 與目前該層應使用的地圖不同 | 丟棄本層的 killed / corpses / openedChests / groundItems，重新生成整層（地上的物品移到樓梯口） |
 | 樓層號超過資料範圍 | 目前最後一個區間是 6～999，不會發生；保留檢查 |
 
 所有修復都是純函式（`SaveRepair`），可以單元測試。

@@ -20,10 +20,11 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v15：鑲嵌與融合——裝備的孔位與熔核（sockets）、背包 / 地上 / 拆解區的熔核、商人的融合格（fusion）。
  * v16：盾牌也能鑲嵌——熔核主屬性多了盾牌欄（main.shield）。
  * v17：傳奇 / 神話效果行的擲骰（毒蛛生命）接在 legendaryRolls 的固定屬性之後。
+ * v18：本層的屍體（floor.corpses：生成索引、位置、面向）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -138,6 +139,8 @@ export const SaveDataSchema = z.object({
     midwayFloors: z.array(int.min(1)),
     exitOpen: z.boolean(),
     killed: z.array(nonNegInt),
+    /** 本層的屍體（v18）：生成索引、位置、面向（弧度）；外觀由生成索引推導 */
+    corpses: z.array(z.object({ index: nonNegInt, x: finite, y: finite, facing: finite })),
     /** 樓層（JSON 的 key 一定是字串）→ 已開啟的寶箱索引 */
     openedChests: z.record(z.string(), z.array(nonNegInt)),
     groundItems: z.array(z.object({ entry: GroundContentSchema, x: finite, y: finite, droppedByPlayer: z.boolean() })),

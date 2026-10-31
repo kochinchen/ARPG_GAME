@@ -21,6 +21,7 @@ import { ActorView, HIT_BOX, sizeOf } from './views/ActorView';
 import { EffectLayer } from './views/EffectLayer';
 import type { ImpactKind } from './views/fx/ImpactFx';
 import { FloatingTextLayer } from './views/FloatingTextLayer';
+import { CorpseLayer } from './views/CorpseLayer';
 import { DeviceLayer } from './views/DeviceLayer';
 import { InteractableLayer } from './views/InteractableLayer';
 import { FloorMarkersView } from './views/FloorMarkersView';
@@ -62,6 +63,8 @@ export class Renderer {
   private readonly effects: EffectLayer;
   private readonly interactables: InteractableLayer;
   private readonly devices: DeviceLayer;
+  /** 怪物的屍體（地面層，換樓層才消失） */
+  private readonly corpses: CorpseLayer;
   private readonly actorViews = new Map<ActorId, ActorView>();
   private readonly roars: ActorId[] = [];
   /** 魔王階段變化時掉在地上的物件（碎盾、插在地上的巨劍）；換樓層時清除 */
@@ -88,6 +91,7 @@ export class Renderer {
     this.effects = new EffectLayer(projection, this.objectLayer);
     this.interactables = new InteractableLayer(projection, this.objectLayer, data);
     this.devices = new DeviceLayer(projection, this.objectLayer);
+    this.corpses = new CorpseLayer(projection);
     this.markers = new FloorMarkersView(projection);
     this.markers.rebuild(world.checkpoints.checkpoints);
     this.marker.poly([0, -6, 12, 0, 0, 6, -12, 0]).stroke({ color: PALETTE.marker, width: 2 });
@@ -98,6 +102,7 @@ export class Renderer {
       this.effects.ground,
       this.interactables.ground,
       this.marker,
+      this.corpses.container,
       this.actorGround,
       this.objectLayer,
       this.actorOverlay,
@@ -306,6 +311,7 @@ export class Renderer {
     this.syncThreeMap();
     for (const view of this.actorViews.values()) view.setThree(this.threeOn ? this.three : null);
     this.interactables.setThree(this.threeOn ? this.three : null);
+    this.corpses.setThree(this.threeOn ? this.three : null);
     this.effects.listener = this.threeOn ? this.three.skillFx : null;
   }
 
@@ -416,7 +422,7 @@ export class Renderer {
       return;
     }
     const three = this.three!;
-    const lower: Container[] = [this.tileMap.floor, this.markers.container, this.effects.ground, this.interactables.ground, this.marker, this.actorGround];
+    const lower: Container[] = [this.tileMap.floor, this.markers.container, this.effects.ground, this.interactables.ground, this.marker, this.corpses.container, this.actorGround];
     const objects: Container[] = [this.objectLayer];
     // 其他全部（血條、上層特效、文字、小地圖、角色預覽…）畫在最上面；每一層只會畫一次
     const all = [...this.worldLayer.children, ...this.app.stage.children.filter((c) => c !== this.worldLayer)];
@@ -502,6 +508,7 @@ export class Renderer {
     };
     // 機關有自己的外觀（DeviceLayer），不建立角色模型
     this.devices.sync(this.world.actors, alpha, dt);
+    this.corpses.update(this.world.corpses, dt, onScreen);
     for (const actor of this.world.actors) {
       if (actor.device) continue;
       alive.add(actor.id);

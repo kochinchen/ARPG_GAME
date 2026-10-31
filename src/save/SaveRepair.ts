@@ -213,6 +213,7 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
       midwayFloors: save.floor.midwayFloors.filter((f) => f !== save.floor.current),
       exitOpen: false,
       killed: [],
+      corpses: [],
       shopBought: [],
       openedChests: Object.fromEntries(Object.entries(save.floor.openedChests).filter(([f]) => Number(f) !== save.floor.current)),
       groundItems: [],

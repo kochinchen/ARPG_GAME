@@ -12,7 +12,7 @@ import { DamagePipeline } from './combat/DamagePipeline';
 import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { BossSystem } from './enemies/BossSystem';
-import { applyFloorResist, EnemyFactory, rollSize, type FloorResist } from './enemies/EnemyFactory';
+import { applyFloorResist, EnemyFactory, NORMAL_SIZE, rollSize, visualRadiusOf, type FloorResist } from './enemies/EnemyFactory';
 import { rollMimic, teachMimic } from './enemies/MimicSkills';
 import { ItemEffectSystem } from './items/ItemEffectSystem';
 import { SalvageSystem } from './items/SalvageSystem';
@@ -73,8 +73,34 @@ import { TargetingService } from './targeting/TargetingService';
 const ARENA_BODIES = 19;
 /** 首領寶箱的生成索引（一般寶箱是 0 起的流水號，不會撞到） */
 const CHAMPION_CHEST_INDEX = 1000;
+/**
+ * 屍體：怪物死後留在地上，換樓層才消失（重新進入樓層時怪物重生）。不是 Actor：不擋路、不能被選取、AI 與技能都看不到，只給畫面用。
+ * 存檔只記生成索引、位置與面向；外觀（哪一種怪、體型）讀檔時由生成索引推導。
+ */
+export interface Corpse {
+  /** 生成索引（沒有索引的怪不存檔） */
+  index: number | null;
+  defId: string;
+  position: Vec2;
+  facing: Vec2;
+  visualRadius: number;
+  /** 讀檔還原的（直接躺在地上，不播倒地動作） */
+  restored: boolean;
+}
+
+/** 存檔裡的屍體 */
+export interface SavedCorpse {
+  index: number;
+  x: number;
+  y: number;
+  /** 面向（弧度） */
+  facing: number;
+}
+
 /** 讀檔時還原本層狀態（一般換層不需要） */
 export interface FloorRestore {
+  /** 本層的屍體（v18） */
+  corpses?: readonly SavedCorpse[];
   /** 已擊殺怪物的生成索引 */
   killed: readonly number[];
   midwayActive: boolean;
@@ -120,6 +146,8 @@ export class GameWorld {
   readonly projectiles: Projectile[] = [];
   readonly groundItems: GroundItem[] = [];
   readonly chests: Chest[] = [];
+  /** 本層的屍體（換樓層時清空） */
+  readonly corpses: Corpse[] = [];
   readonly player: Actor;
   readonly loadout: PlayerLoadout;
   readonly potions: PotionBelt;
@@ -392,6 +420,20 @@ export class GameWorld {
         this.events.emit('GameCleared', { stage: 'hidden' });
       }
     });
+    // 怪物死後留下屍體（召喚物、機關不留）
+    this.events.on('ActorDied', (e) => {
+      if (e.faction !== 'enemy' || e.summoned || e.defId === null) return;
+      const actor = this.targeting.getActor(e.actorId);
+      if (!actor) return;
+      this.corpses.push({
+        index: this.floors.spawnIndex(e.actorId) ?? null,
+        defId: e.defId,
+        position: vec2(actor.position.x, actor.position.y),
+        facing: vec2(actor.facing.x, actor.facing.y),
+        visualRadius: actor.visualRadius,
+        restored: false,
+      });
+    });
     // 首領被擊敗：原地出現首領寶箱
     this.events.on('ActorDied', (e) => {
       if (this.champion !== null && e.actorId === this.champion.actorId) this.placeChampionChest(e.position);
@@ -509,7 +551,11 @@ export class GameWorld {
       rollMimic(this.data.enemies.get(request.enemyId), floor, request.eliteAffixes !== undefined, this.data.skills, this.data.balance.enemyMimic, mimicRng),
     );
     const spawnedIds: [number, number][] = [];
+    /** 每個生成索引的外觀（讀檔還原屍體用） */
+    const looks = new Map<number, { defId: string; visualRadius: number }>();
     plan.forEach((request, index) => {
+      const look = this.data.enemies.get(request.enemyId);
+      looks.set(index, { defId: look.id, visualRadius: visualRadiusOf(look, sizes[index], request.eliteAffixes ? eliteConfig.radiusMultiplier : 1) });
       if (killed.has(index)) return;
       const eliteSpec = request.eliteAffixes
         ? { config: eliteConfig, affixes: request.eliteAffixes.map((id) => this.data.eliteAffixes.get(id)) }
@@ -525,6 +571,7 @@ export class GameWorld {
     // Boss 層：Boss 放在競技場中央，生成索引接在一般怪物之後（存檔的擊殺紀錄一併適用）；王座廳是最終魔王
     const bossId = def.throne?.enemyId ?? (def.boss && floor % def.boss.every === 0 ? def.boss.enemyId : null);
     const bossIndex = bossId !== null ? plan.length : undefined;
+    if (bossId !== null && bossIndex !== undefined) looks.set(bossIndex, { defId: bossId, visualRadius: visualRadiusOf(this.data.enemies.get(bossId), NORMAL_SIZE) });
     if (bossId !== null && bossIndex !== undefined && !killed.has(bossIndex)) {
       const bossDef = this.data.enemies.get(bossId);
       const bossActor = this.enemyFactory.create(bossDef, this.nextActorId++, this.bossSpot(Math.min(0.8, bossDef.radius * bossDef.size)), scaling);
@@ -540,8 +587,9 @@ export class GameWorld {
     const minis = def.miniBosses ? this.map.subArenas.slice(0, miniConfig.maxPerFloor) : [];
     minis.forEach((spot, i) => {
       const index = miniStart + i;
-      if (killed.has(index)) return;
       const miniDef = this.data.enemies.get(def.miniBosses![i % def.miniBosses!.length]!);
+      looks.set(index, { defId: miniDef.id, visualRadius: visualRadiusOf(miniDef, NORMAL_SIZE) });
+      if (killed.has(index)) return;
       const at = this.spotNear(vec2(spot.x, spot.y), 0, Math.min(0.8, miniDef.radius * miniDef.size));
       const actor = this.addActor(this.enemyFactory.create(miniDef, this.nextActorId++, at, scaling, undefined, null, undefined, miniConfig));
       applyFloorResist(actor, { physical: eliteResist, elemental: eliteResist });
@@ -551,7 +599,7 @@ export class GameWorld {
     const championIndex = bossId === null && this.exit ? miniStart + minis.length : undefined;
     this.champion = null;
     const championSpot =
-      championIndex !== undefined ? this.spawnChampion(floor, pool.monsterPool, championIndex, killed.has(championIndex), scaling, eliteResist, spawnedIds) : null;
+      championIndex !== undefined ? this.spawnChampion(floor, pool.monsterPool, championIndex, killed.has(championIndex), scaling, eliteResist, spawnedIds, looks) : null;
     const monsterCount = championIndex !== undefined ? championIndex + 1 : miniStart + minis.length;
     const arenaZone = this.map.arena ? [{ center: vec2(this.map.arena.x, this.map.arena.y), radius: this.map.arena.radius + 2 }] : [];
     const chestCount = rng.int(def.chests[0], def.chests[1]);
@@ -567,6 +615,12 @@ export class GameWorld {
       ...(bossIndex === undefined ? {} : { bossIndex }),
       ...(championIndex === undefined ? {} : { championIndex }),
     });
+    // 讀檔：還原屍體（只還原這一層確實擊殺過的）
+    for (const c of restore?.corpses ?? []) {
+      const look = looks.get(c.index);
+      if (!look || !killed.has(c.index)) continue;
+      this.corpses.push({ index: c.index, ...look, position: vec2(c.x, c.y), facing: vec2(Math.cos(c.facing), Math.sin(c.facing)), restored: true });
+    }
     // 讀檔時首領已被擊敗、寶箱還沒開：寶箱放在首領原本站的位置
     if (championSpot && championIndex !== undefined && killed.has(championIndex)) this.placeChampionChest(championSpot);
     for (const [actorId, index] of spawnedIds) this.floors.trackSpawn(actorId, index);
@@ -603,12 +657,14 @@ export class GameWorld {
     scaling: FloorScaling,
     resist: number,
     spawnedIds: [number, number][],
+    looks: Map<number, { defId: string; visualRadius: number }>,
   ): Vec2 {
     const config = this.data.balance.champion;
     const rng = new Rng(this.seed).fork(`champion-${floor}`);
     const def = this.data.enemies.get(rng.weighted(monsterPool).enemyId);
     const affixes = rollElite({ chance: 1, count: config.affixCount, pool: this.data.eliteAffixes.all.filter((a) => a.minFloor <= floor), rng }) ?? [];
     const spot = this.spotNear(this.exit!.position, config.guardDistance, Math.min(0.8, def.radius * def.size * config.radiusMultiplier));
+    looks.set(index, { defId: def.id, visualRadius: visualRadiusOf(def, NORMAL_SIZE, config.radiusMultiplier) });
     if (defeated) return spot;
     const eliteSpec = {
       config: { ...this.data.balance.elite, ...config },
@@ -772,6 +828,7 @@ export class GameWorld {
     this.nav.load(map);
     this.actors.length = 0;
     this.actors.push(this.player);
+    this.corpses.length = 0;
     this.projectiles.length = 0;
     this.groundItems.length = 0;
     this.chests.length = 0;

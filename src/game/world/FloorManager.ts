@@ -98,6 +98,11 @@ export class FloorManager {
     this.checkExit();
   }
 
+  /** 怪物的生成索引（沒有記錄的，例如開發用生成的怪：undefined） */
+  spawnIndex(actorId: ActorId): number | undefined {
+    return this.spawnIndexOf.get(actorId);
+  }
+
   /** 記錄怪物的生成索引（擊殺時寫入 killedSpawns） */
   trackSpawn(actorId: ActorId, index: number): void {
     this.spawnIndexOf.set(actorId, index);

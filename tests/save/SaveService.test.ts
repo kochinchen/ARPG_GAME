@@ -31,7 +31,7 @@ function sample(gold: number): SaveData {
     inventory: { cells, cursor: null },
     equipment: {},
     codex: [],
-    floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, bossGateActive: false, midwayFloors: [], exitOpen: false, killed: [], openedChests: {}, groundItems: [], shopBought: [] },
+    floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, bossGateActive: false, midwayFloors: [], exitOpen: false, killed: [], corpses: [], openedChests: {}, groundItems: [], shopBought: [] },
     endgame: { cleared: false, completedHidden: false },
     bestiary: {},
     collection: [],

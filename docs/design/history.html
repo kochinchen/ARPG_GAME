@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">20</b> 個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1004</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1007</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -510,6 +510,11 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p>試玩時發現地圖幾乎都是通道，怪物很難包圍主角，只會排成一列。通道寬度改成樓層設定（layout.corridorWidth），從 5.5～7.5 格加寬到 9.5～13.5 格（約 1.7 倍），邊緣侵蝕後大多數地方也有 6 格以上，近戰排得開兩側與背後的站位。</p>
             <p class="why">怪物數依「每 100 格地板」計算，通道變寬會讓地板多出 24～29%，所以密度同時除以 1.26，每層怪物數維持加寬前的數量（測試把關誤差 7% 內）。地圖產生器改版（v5），舊存檔的樓層會重新生成。</p>
           </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">怪物屍體留在地上</span><span class="hash mono">10/31</span><span class="badge">存檔 v18</span></div>
+            <p>怪物死後播一次倒地動作（每種怪都一樣），之後固定不動、整體變暗，像打開的寶箱；可以直接穿過，換樓層才消失（回到原本的樓層時怪物重生、沒有屍體）。召喚的毒蛛與機關不留屍體。存檔記錄每具屍體的生成索引、位置與面向，重新整理後屍體留在原地。</p>
+            <p class="why">屍體不是角色：AI、技能、碰撞、滑鼠選取都看不到。畫面上同時 200 具時，原本照活怪的畫法會掉到 30 FPS；改成靜態網格、不投也不收影子、不參與深度板重畫後維持 60 FPS。</p>
+          </div>
         </div>
       </div>
     </div>
@@ -521,7 +526,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <h2>測試數量隨 Milestone 累積</h2>
       <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/31 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1004">
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1007">
       <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.8%"></div><span class="val mono">28</span></div>
       <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.2%"></div><span class="val mono">52</span></div>
       <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:8.1%"></div><span class="val mono">81</span></div>
@@ -530,8 +535,8 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.7%"></div><span class="val mono">137</span></div>
       <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.9%"></div><span class="val mono">179</span></div>
       <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:26.0%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1004</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1004 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個）。</p>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1007</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1007 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個）。</p>
     </div>
   </section>
 

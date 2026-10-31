@@ -53,6 +53,11 @@ export function applyFloorResist(actor: Actor, resist: FloorResist): void {
   }
 }
 
+/** 外觀半徑（隨機體型、精英都會放大）：怪物生成與屍體共用 */
+export function visualRadiusOf(def: EnemyDef, size: SizeRoll = NORMAL_SIZE, radiusMultiplier = 1): number {
+  return def.radius * def.size * size.scale * radiusMultiplier;
+}
+
 /** 精英怪：共通強化 + 詞綴；title 加在名稱最前面（每層的首領） */
 export interface EliteSpec {
   config: Balance['elite'];
@@ -101,7 +106,7 @@ export class EnemyFactory {
       defId: def.id,
       position,
       radius: Math.min(def.boss ? MAX_BOSS_RADIUS : MAX_RADIUS, def.radius * def.size * size.scale * (e?.radiusMultiplier ?? 1)),
-      visualRadius: def.radius * def.size * size.scale * (e?.radiusMultiplier ?? 1),
+      visualRadius: visualRadiusOf(def, size, e?.radiusMultiplier),
       stats,
       elite: elite !== undefined,
       summonedBy,

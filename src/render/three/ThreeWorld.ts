@@ -88,6 +88,11 @@ export class ThreeFigure implements TriangleSink {
   constructor(
     private readonly projection: IsoProjection,
     gpu = false,
+    /**
+     * 屍體：不投影子、不接收影子、不參與深度板的重畫（躺著的影子很小、身體已經變暗；
+     * 一畫面可能有上百具，每具都查陰影圖、再重畫一次的話會掉到 30 FPS）
+     */
+    corpse = false,
   ) {
     this.group.scale.copy(FIGURE_SCALE);
     if (gpu) {
@@ -95,9 +100,9 @@ export class ThreeFigure implements TriangleSink {
       return;
     }
     const mesh = new THREE.Mesh(this.geometry, this.material);
-    mesh.layers.enable(OCCLUDER_LAYER);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    if (!corpse) mesh.layers.enable(OCCLUDER_LAYER);
+    mesh.castShadow = !corpse;
+    mesh.receiveShadow = !corpse;
     // 包圍球每幀依頂點重算（end）：陰影的每個方向只畫範圍內的模型
     this.group.add(mesh);
     this.grow(2048);
@@ -349,9 +354,9 @@ export class ThreeWorld {
     this.shadowCamera.lookAt(0, -2000, 0);
   }
 
-  /** gpu：用 GPU 蒙皮（見 GPU_SKINNING） */
-  createFigure(gpu = false): ThreeFigure {
-    const figure = new ThreeFigure(this.projection, gpu);
+  /** gpu：用 GPU 蒙皮（見 GPU_SKINNING）；corpse：屍體（不投、不收影子） */
+  createFigure(gpu = false, corpse = false): ThreeFigure {
+    const figure = new ThreeFigure(this.projection, gpu, corpse);
     this.scene.add(figure.group);
     this.figures.add(figure);
     return figure;

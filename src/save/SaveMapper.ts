@@ -76,6 +76,9 @@ export const SaveMapper = {
         midwayFloors: [...world.floors.midwayFloors].sort((a, b) => a - b),
         exitOpen: world.floors.exitOpen,
         killed: [...world.floors.killedSpawns],
+        corpses: world.corpses.flatMap((c) =>
+          c.index === null ? [] : [{ index: c.index, x: c.position.x, y: c.position.y, facing: Math.atan2(c.facing.y, c.facing.x) }],
+        ),
         openedChests: Object.fromEntries([...world.floors.openedChests].map(([floor, set]) => [String(floor), [...set].sort((a, b) => a - b)])),
         groundItems: captureGround(world),
         shopBought: world.shop.boughtIndices,
@@ -181,6 +184,7 @@ export const SaveMapper = {
     progress.completedHidden = save.endgame.completedHidden;
     world.enterFloor(save.floor.current, {
       killed: save.floor.killed,
+      corpses: save.floor.corpses,
       midwayActive: save.floor.midwayActive,
       bossGateActive: save.floor.bossGateActive,
       exitOpen: save.floor.exitOpen,
