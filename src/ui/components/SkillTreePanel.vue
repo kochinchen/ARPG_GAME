@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
+import { ask } from '../ask';
 import type { ComboKey, SkillCategory, SkillNodeView, SkillTreeView } from '../bridge/SkillTreeView';
 
 const props = defineProps<{ view: SkillTreeView }>();
@@ -87,9 +88,14 @@ function clearSupport(slot: number) {
 }
 
 /** 洗點：重置技能點（確認後送出） */
-function respec(e: MouseEvent) {
+async function respec(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
-  if (window.confirm(`花 ${props.view.respec.cost} 金幣重置技能點？所有技能回到起始狀態，技能點全部退回，連段裡沒學的技能會被移除。`)) gameBridge.send({ type: 'Respec', kind: 'skills' });
+  const ok = await ask({
+    title: '重置技能點？',
+    message: `花 ${props.view.respec.cost} 金幣，所有技能回到起始狀態，技能點全部退回，連段裡沒學的技能會被移除。`,
+    confirmLabel: '重置',
+  });
+  if (ok) gameBridge.send({ type: 'Respec', kind: 'skills' });
 }
 </script>
 

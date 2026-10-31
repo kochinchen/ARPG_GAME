@@ -43,6 +43,7 @@ import { LocalStorageStorage } from './save/storage/LocalStorageStorage';
 import type { ISaveStorage } from './save/storage/ISaveStorage';
 import { AudioEngine } from './audio/AudioEngine';
 import { AudioDirector } from './audio/AudioDirector';
+import { ask, tell } from './ui/ask';
 import { audioBridge } from './ui/bridge/AudioBridge';
 import { displayBridge } from './ui/bridge/DisplayBridge';
 
@@ -237,14 +238,18 @@ async function bootstrap(): Promise<void> {
       void file.text().then(async (text) => {
         const decoded = decodeSave(text);
         if (!decoded.ok) {
-          window.alert(`無法匯入：這不是有效的存檔檔案（${decoded.reason}）。目前的存檔沒有變動。`);
+          await tell('無法匯入', `這不是有效的存檔檔案（${decoded.reason}）。目前的存檔沒有變動。`);
           return;
         }
         const d = decoded.data;
-        const ok = window.confirm(
-          `匯入存檔：Lv ${d.character.level}・第 ${d.floor.current} 層（存檔時間 ${formatTime(decoded.savedAt)}）\n\n` +
+        const ok = await ask({
+          title: '匯入存檔？',
+          message:
+            `Lv ${d.character.level}・第 ${d.floor.current} 層（存檔時間 ${formatTime(decoded.savedAt)}）\n\n` +
             '目前的進度會被覆蓋。覆蓋前會先下載一份目前存檔作為備份。',
-        );
+          confirmLabel: '匯入',
+          danger: true,
+        });
         if (!ok) return;
         downloadText(exportFileName('備份'), encodeSave(SaveMapper.capture(world, createdAt), new Date()));
         await autoSaver.disable();
@@ -307,7 +312,9 @@ async function bootstrap(): Promise<void> {
     // 開發用快捷鍵（B 重置、N 升一級、M 生成寶箱）：只在開發模式啟用
     debugKeys: import.meta.env.DEV,
     onDebugReset: () => {
-      if (window.confirm('重置遊戲？目前的角色進度與存檔會全部刪除。')) newCharacter();
+      void ask({ title: '重置遊戲？', message: '目前的角色進度與存檔會全部刪除。', confirmLabel: '重置', danger: true }).then((ok) => {
+        if (ok) newCharacter();
+      });
     },
     onDebugToggleThree: () => renderer.toggleThree(),
   });
@@ -388,14 +395,14 @@ async function showTitle(
         void file.text().then(async (text) => {
           const decoded = decodeSave(text);
           if (!decoded.ok) {
-            window.alert(`無法匯入：這不是有效的存檔檔案（${decoded.reason}）。`);
+            await tell('無法匯入', `這不是有效的存檔檔案（${decoded.reason}）。`);
             return;
           }
           const service = serviceFor(slot);
           await service.clear();
           await service.write(decoded.data);
           state.slots = await summaries();
-          window.alert(`已匯入到欄位 ${slot}：Lv ${decoded.data.character.level}・第 ${decoded.data.floor.current} 層`);
+          await tell('已匯入', `欄位 ${slot}：Lv ${decoded.data.character.level}・第 ${decoded.data.floor.current} 層`);
         });
       },
       onQuit: () => quit(),
@@ -491,8 +498,9 @@ function showCorruptSave(saves: SaveService): void {
     void saves.dumpRaw().then((raw) => downloadText(exportFileName('損毀'), JSON.stringify(raw, null, 2)));
   });
   button('開新角色（刪除損毀的存檔）', () => {
-    if (!window.confirm('確定刪除所有存檔並開始新角色？這個動作無法復原。')) return;
-    void saves.clear().then(() => window.location.reload());
+    void ask({ title: '開始新角色？', message: '會刪除所有存檔，這個動作無法復原。', confirmLabel: '刪除並開始', danger: true }).then((ok) => {
+      if (ok) void saves.clear().then(() => window.location.reload());
+    });
   });
   box.appendChild(row);
 }

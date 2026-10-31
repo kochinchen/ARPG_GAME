@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { gameBridge } from '../bridge/GameBridge';
+import { ask } from '../ask';
 import type { CharacterView } from '../bridge/CharacterView';
 
 const props = defineProps<{ view: CharacterView }>();
 const emit = defineEmits<{ close: [] }>();
 
 /** 洗點：重置屬性點（確認後送出） */
-function respec(e: MouseEvent) {
+async function respec(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
-  if (window.confirm(`花 ${props.view.respec.cost} 金幣重置屬性點？所有屬性點會退回，可以重新分配。`)) gameBridge.send({ type: 'Respec', kind: 'attributes' });
+  const ok = await ask({ title: '重置屬性點？', message: `花 ${props.view.respec.cost} 金幣，所有屬性點會退回，可以重新分配。`, confirmLabel: '重置' });
+  if (ok) gameBridge.send({ type: 'Respec', kind: 'attributes' });
 }
 
 /** 點一下 +1；按住 Shift 一次 +5 */

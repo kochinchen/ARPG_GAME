@@ -665,7 +665,7 @@ export class ThreeSkillFx implements SkillFxListener {
     }, () => (mesh.material as THREE.Material).dispose());
   }
 
-  /** 狙殺：蓄力時一條紅色瞄準線，放箭時一道貫穿畫面的金色光矢 */
+  /** 狙殺：放箭時一道貫穿畫面的金色光矢（蓄力時不畫瞄準線） */
   private snipe(from: Vec2, dir: Vec2, impactIn: number): void {
     const len = 12;
     const mk = (width: number, color: number, h: number) => {
@@ -674,8 +674,6 @@ export class ThreeSkillFx implements SkillFxListener {
       m.rotation.set(-Math.PI / 2, 0, Math.atan2(dir.y, dir.x));
       return m;
     };
-    const aim = mk(0.06, 0xff3030, 0.9);
-    this.planeItem(aim, impactIn, (age) => (aim.material.opacity = 0.3 + 0.7 * (age / impactIn)));
     this.later.push({ at: this.time + impactIn, run: () => {
       const beam = mk(0.5, 0xffd870, 0.9);
       this.planeItem(beam, 0.45, (age) => {

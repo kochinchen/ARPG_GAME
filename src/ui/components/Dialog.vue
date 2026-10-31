@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 置中的對話框外框（離開樓層確認、選單共用） */
+/** 置中的對話框外框（離開樓層確認、問答框共用） */
 defineProps<{ title: string }>();
 </script>
 
@@ -60,5 +60,9 @@ header {
 }
 .body :deep(button.danger) {
   color: #ff9b8b;
+}
+.body :deep(button:focus-visible) {
+  outline: 1px solid #e8c47a;
+  outline-offset: 1px;
 }
 </style>

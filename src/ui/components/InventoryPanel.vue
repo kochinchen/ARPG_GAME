@@ -4,6 +4,7 @@ import { gameBridge } from '../bridge/GameBridge';
 import { resolveHover, type CoreHost, type EquipmentSlot, type HoverTarget, type InventoryView } from '../bridge/InventoryView';
 import { createPress, DOUBLE_TAP_MS, isFinger } from '../bridge/TouchPress';
 import HeroPreview from './HeroPreview.vue';
+import { ask } from '../ask';
 import ItemCell from './ItemCell.vue';
 
 /**
@@ -76,12 +77,18 @@ function salvageClick(e: MouseEvent, slot: number) {
   if (byFinger(e)) return;
   gameBridge.send({ type: 'SalvageClick', slot });
 }
-function salvageAll(e: MouseEvent) {
+async function salvageAll(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
   const count = props.view.salvage.filter((s) => s !== null).length;
   const rare = props.view.salvage.filter((s) => s && ['epic', 'legendary', 'mythic'].includes(s.rarity)).length;
   const warning = rare > 0 ? `\n\n其中有 ${rare} 件紫色以上的裝備！` : '';
-  if (window.confirm(`拆掉拆解區的 ${count} 件裝備？\n預計得到：${props.view.salvagePreview}${warning}\n\n拆掉後無法復原。`)) {
+  const ok = await ask({
+    title: `拆掉 ${count} 件裝備？`,
+    message: `預計得到：${props.view.salvagePreview}${warning}\n\n拆掉後無法復原。`,
+    confirmLabel: '拆掉',
+    danger: rare > 0,
+  });
+  if (ok) {
     gameBridge.send({ type: 'SalvageAll' });
   }
 }

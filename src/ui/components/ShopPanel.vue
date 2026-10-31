@@ -6,6 +6,7 @@ import { isFinger } from '../bridge/TouchPress';
 import type { ShopView } from '../bridge/ShopView';
 import ItemCell from './ItemCell.vue';
 import ItemTooltip from './ItemTooltip.vue';
+import { ask } from '../ask';
 import CoreReveal from './CoreReveal.vue';
 
 const props = defineProps<{ view: ShopView }>();
@@ -67,9 +68,10 @@ function sellHeld(e: MouseEvent) {
   blur(e);
   gameBridge.send({ type: 'ShopSellHeld' });
 }
-function sellTier(e: MouseEvent, t: ShopView['sellTiers'][number]) {
+async function sellTier(e: MouseEvent, t: ShopView['sellTiers'][number]) {
   blur(e);
-  if (window.confirm(`賣出背包裡 ${t.count} 件${t.label}裝備，得到 ${t.gold} 金幣？`)) gameBridge.send({ type: 'ShopSellUpTo', rarity: t.rarity });
+  const ok = await ask({ title: `賣出 ${t.count} 件裝備？`, message: `賣出背包裡 ${t.count} 件${t.label}裝備，得到 ${t.gold} 金幣。`, confirmLabel: '賣出' });
+  if (ok) gameBridge.send({ type: 'ShopSellUpTo', rarity: t.rarity });
 }
 function reroll(e: MouseEvent, index: number) {
   blur(e);
@@ -83,11 +85,13 @@ function fusionSlot(e: MouseEvent, zone: 'inputs' | 'jewelry', index: number) {
   blur(e);
   gameBridge.send({ type: 'ShopFusionSlotClick', zone, index });
 }
-function fuse(e: MouseEvent, view: ShopView) {
+async function fuse(e: MouseEvent, view: ShopView) {
   blur(e);
   const p = view.fusion.preview;
   if (!p) return;
-  const confirm = p.needsConfirm ? window.confirm('投入了傳奇 / 神話裝備，融合後無法復原。確定要融合嗎？') : false;
+  const confirm = p.needsConfirm
+    ? await ask({ title: '確定要融合嗎？', message: '投入了傳奇 / 神話裝備，融合後無法復原。', confirmLabel: '融合', danger: true })
+    : false;
   if (p.needsConfirm && !confirm) return;
   gameBridge.send({ type: 'ShopFuse', confirm });
 }

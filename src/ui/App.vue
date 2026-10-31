@@ -6,6 +6,7 @@ import { resolveHover, statDiff, type CoreHost, type HoverTarget } from './bridg
 import { displayBridge } from './bridge/DisplayBridge';
 import { createPress } from './bridge/TouchPress';
 import { systemBridge } from './bridge/SystemBridge';
+import { askState } from './askState';
 import BestiaryPanel from './components/BestiaryPanel.vue';
 import BossBar from './components/BossBar.vue';
 import ItemCodexPanel from './components/ItemCodexPanel.vue';
@@ -126,8 +127,9 @@ function toggle(panel: PanelName, value = !open[panel]) {
   if (value && (panel === 'character' || panel === 'skills')) shopOpen.value = false;
   if (!open.inventory) hoverTarget.value = null;
 }
+// 問答框開著時也暫停（像以前瀏覽器的確認框一樣，回答前遊戲不會動）
 watch(
-  () => open.menu || open.bestiary || itemCodexOpen.value,
+  () => open.menu || open.bestiary || itemCodexOpen.value || askState.current !== null,
   (paused) => systemBridge.setPaused(paused),
 );
 

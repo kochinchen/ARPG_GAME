@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { ask } from '../ask';
 import type { SlotSummary, TitleState } from '../bridge/TitleView';
 
 /**
@@ -22,10 +23,11 @@ function onFile(e: Event) {
   importFile.value = file;
   page.value = 'import';
 }
-function importTo(s: SlotSummary) {
-  if (!importFile.value) return;
-  if (s.status !== 'empty' && !window.confirm(`欄位 ${s.slot} 已有存檔（${describe(s)}），匯入會覆蓋它。確定嗎？`)) return;
-  emit('import', s.slot, importFile.value);
+async function importTo(s: SlotSummary) {
+  const file = importFile.value;
+  if (!file) return;
+  if (s.status !== 'empty' && !(await ask({ title: '覆蓋存檔？', message: `欄位 ${s.slot} 已有存檔（${describe(s)}），匯入會覆蓋它。`, confirmLabel: '覆蓋', danger: true }))) return;
+  emit('import', s.slot, file);
   importFile.value = null;
   page.value = 'load';
 }
@@ -59,8 +61,8 @@ function describe(s: SlotSummary): string {
   return `Lv ${s.level} · 第 ${s.floor} 層（最深 ${s.highestFloor} 層）${badge}`;
 }
 
-function startNew(s: SlotSummary) {
-  if (s.status !== 'empty' && !window.confirm(`欄位 ${s.slot} 已有存檔（${describe(s)}）。\n開始新遊戲會刪除這個存檔，無法復原。確定嗎？`)) return;
+async function startNew(s: SlotSummary) {
+  if (s.status !== 'empty' && !(await ask({ title: '開始新遊戲？', message: `欄位 ${s.slot} 已有存檔（${describe(s)}）。\n開始新遊戲會刪除這個存檔，無法復原。`, confirmLabel: '刪除並開始', danger: true }))) return;
   emit('start', s.slot, 'new');
 }
 
@@ -69,8 +71,8 @@ function load(s: SlotSummary) {
   open(s);
 }
 
-function remove(s: SlotSummary) {
-  if (!window.confirm(`刪除欄位 ${s.slot} 的存檔（${describe(s)}）？這個動作無法復原。`)) return;
+async function remove(s: SlotSummary) {
+  if (!(await ask({ title: `刪除欄位 ${s.slot} 的存檔？`, message: `${describe(s)}\n這個動作無法復原。`, confirmLabel: '刪除', danger: true }))) return;
   emit('delete', s.slot);
 }
 </script>

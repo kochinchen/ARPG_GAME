@@ -4,6 +4,7 @@ import type { GameView } from '../bridge/GameViewStore';
 import { systemBridge } from '../bridge/SystemBridge';
 import { audioBridge, volume, type VolumeState } from '../bridge/AudioBridge';
 import { display, displayBridge } from '../bridge/DisplayBridge';
+import { ask } from '../ask';
 import Dialog from './Dialog.vue';
 
 defineProps<{ save: GameView['save']; devAvailable: boolean; devEnabled: boolean }>();
@@ -29,13 +30,13 @@ async function saveNow() {
   window.setTimeout(() => (savedMessage.value = ''), 2500);
 }
 
-function returnToTitle() {
-  if (!window.confirm('儲存並返回標題畫面？')) return;
+async function returnToTitle() {
+  if (!(await ask({ title: '返回標題畫面？', message: '會先儲存目前的進度。', confirmLabel: '儲存並返回' }))) return;
   systemBridge.returnToTitle();
 }
 
-function quitGame() {
-  if (!window.confirm('儲存並離開遊戲？')) return;
+async function quitGame() {
+  if (!(await ask({ title: '離開遊戲？', message: '會先儲存目前的進度。', confirmLabel: '儲存並離開' }))) return;
   systemBridge.quitGame();
 }
 
