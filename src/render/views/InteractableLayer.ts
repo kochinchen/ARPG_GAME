@@ -89,12 +89,19 @@ export class InteractableLayer {
   private readonly merchantFigures = new Map<number, PolyFigure>();
   /** Three.js 畫法（試驗）；null = Pixi */
   private three: ThreeWorld | null = null;
+  /** 有多面體模型的物件（寶箱、商人、樓梯、出口）的 container */
+  private readonly modelContainers = new Set<Container>();
 
   constructor(
     private readonly projection: IsoProjection,
     private readonly objectLayer: Container,
     private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores' | 'balance'>,
   ) {}
+
+  /** 有 Three.js 模型的物件：Renderer 不幫它放深度板（深度板會切掉模型後半） */
+  hasModel(container: Container): boolean {
+    return this.modelContainers.has(container);
+  }
 
   /** 切換 Three.js 畫法：模型改由 Three.js 畫（有真正的影子，橢圓影子不畫） */
   setThree(world: ThreeWorld | null): void {
@@ -186,10 +193,12 @@ export class InteractableLayer {
     for (const [id, view] of this.views) {
       if (seen.has(id)) {
         const m = view.model;
+        if (m) this.modelContainers.add(view.container);
         m?.three?.place(m.position, { x: 0, y: 0 }, 0, m.figure.graphics.tint as number, 1, true);
         continue;
       }
       view.model?.three?.dispose();
+      this.modelContainers.delete(view.container);
       view.floor?.destroy({ children: true });
       view.container.destroy({ children: true });
       view.label?.destroy();

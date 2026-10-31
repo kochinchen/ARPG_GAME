@@ -113,9 +113,10 @@ async function bootstrap(): Promise<void> {
   const host = document.getElementById('game');
   if (!host) throw new Error('#game not found');
   const app = new Application();
-  // Three.js 畫法（試驗）：開發版按 G 切換；正式版網址加 ?three 直接開啟
-  const threeParam = new URLSearchParams(location.search).has('three');
-  const threeAvailable = import.meta.env.DEV || threeParam;
+  // Three.js 畫法（預設）：選單的「立體光影」可以關掉；網址加 ?pixi 強制用 Pixi、?three 強制用 Three.js；開發版按 G 切換
+  const params = new URLSearchParams(location.search);
+  const threeParam = params.has('three');
+  const pixiParam = params.has('pixi');
   await app.init({
     // Three.js 要與 Pixi 共用 WebGL（不能用 WebGPU）
     preference: 'webgl',
@@ -130,19 +131,30 @@ async function bootstrap(): Promise<void> {
   const projection = new IsoProjection();
   const camera = new Camera(projection);
   let three: ThreeWorld | null = null;
-  if (threeAvailable) {
-    const { ThreeWorld } = await import('./render/three/ThreeWorld');
-    three = new ThreeWorld(app.canvas, (app.renderer as WebGLRenderer).gl, projection);
-    // 建立 Three.js 時改過 WebGL 的狀態：Pixi 記得的狀態要重設，否則一開始的 Pixi 畫法畫不出來
+  if (!pixiParam) {
+    try {
+      // Three.js（r163 起）只支援 WebGL2；Pixi 拿不到 WebGL2 時會退回 WebGL1
+      const gl = (app.renderer as WebGLRenderer).gl;
+      if (!(gl instanceof WebGL2RenderingContext)) throw new Error('瀏覽器不支援 WebGL2');
+      const { ThreeWorld } = await import('./render/three/ThreeWorld');
+      three = new ThreeWorld(app.canvas, gl, projection);
+      // 每一幀改由 Renderer.present 分次畫（Pixi 地板 → Three.js → Pixi 其他）
+      app.ticker.remove(app.render, app);
+      // ticker 沒有任何監聽者時會停下來，deltaMS / lastTime / FPS 就不再更新（Renderer 的動畫時間、走路速度都用它）
+      app.ticker.add(() => {});
+    } catch (error) {
+      // 無法啟動 Three.js：整局用 Pixi 畫法（app.render 仍在 ticker 上）
+      console.warn('無法啟動 Three.js 畫法，改用 Pixi 畫法', error);
+      three = null;
+    }
+    // 建立 Three.js 時改過 WebGL 的狀態：Pixi 記得的狀態要重設，否則 Pixi 畫不出來
     app.renderer.resetState();
-    // 每一幀改由 Renderer.present 分次畫（Pixi 地板 → Three.js → Pixi 其他）
-    app.ticker.remove(app.render, app);
-    // ticker 沒有任何監聽者時會停下來，deltaMS / lastTime / FPS 就不再更新（Renderer 的動畫時間、走路速度都用它）
-    app.ticker.add(() => {});
   }
   const renderer = new Renderer(app, projection, world, camera, data, three);
-  if (threeParam) renderer.toggleThree();
-  displayBridge.connect((s) => (renderer.showHelmet = s.showHelmet));
+  displayBridge.connect((s) => {
+    renderer.showHelmet = s.showHelmet;
+    renderer.setThree(threeParam || s.threeD);
+  });
   displayBridge.connectMap({ toggle: () => renderer.toggleMap(), setRightInset: (px) => (renderer.minimapRightInset = px) });
   // 預覽區是 UI 的畫面座標：換算成畫布座標
   displayBridge.connectPreview((rect) => {

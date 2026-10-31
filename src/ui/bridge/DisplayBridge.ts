@@ -6,6 +6,8 @@ import { reactive } from 'vue';
 export interface DisplayState {
   /** 顯示頭盔（關掉時主角露出臉與頭髮；頭盔的屬性照常生效） */
   showHelmet: boolean;
+  /** 立體光影（Three.js 畫法：真的光源與影子）；關掉時用 Pixi 畫法，較省電。顯示卡不支援時一律 Pixi */
+  threeD: boolean;
 }
 
 const KEY = 'arpg.display';
@@ -34,9 +36,9 @@ let lastInset = 0;
 function load(): DisplayState {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<DisplayState>;
-    return { showHelmet: raw.showHelmet !== false };
+    return { showHelmet: raw.showHelmet !== false, threeD: raw.threeD !== false };
   } catch {
-    return { showHelmet: true };
+    return { showHelmet: true, threeD: true };
   }
 }
 

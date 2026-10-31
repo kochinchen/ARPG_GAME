@@ -209,8 +209,10 @@ export function buildArena(arena: ArenaView, projection: IsoProjection, floorLay
     const r = R * (0.84 + rand(i, 21) * 0.1);
     const world = vec2(center.x + Math.cos(a) * r, center.y + Math.sin(a) * r);
     const p = projection.toScreen(world);
+    // 以底部為原點（Three.js 畫法依位置放深度板）
     const g = new Graphics();
-    prop(g, style, p.x, p.y, i);
+    g.position.set(p.x, p.y);
+    prop(g, style, 0, 0, i);
     place(world, g);
     if (style.props === 'candles') lights.push(g);
   }
@@ -220,11 +222,12 @@ export function buildArena(arena: ArenaView, projection: IsoProjection, floorLay
     const world = vec2(center.x + Math.cos(a) * R * 0.96, center.y + Math.sin(a) * R * 0.96);
     const p = projection.toScreen(world);
     const g = new Graphics();
-    g.ellipse(p.x, p.y, 70, 35).fill({ color: c, alpha: 0.07 }).ellipse(p.x, p.y, 38, 19).fill({ color: c, alpha: 0.1 });
-    g.poly([p.x - 7, p.y, p.x + 7, p.y, p.x + 4, p.y - 10, p.x - 4, p.y - 10]).fill({ color: 0x2a2220 });
-    g.ellipse(p.x, p.y - 12, 6, 3).fill({ color: 0x3a302a });
-    g.poly([p.x - 5, p.y - 12, p.x, p.y - 26, p.x + 5, p.y - 12]).fill({ color: c, alpha: 0.9 });
-    g.poly([p.x - 2.5, p.y - 12, p.x, p.y - 20, p.x + 2.5, p.y - 12]).fill({ color: 0xffffff, alpha: 0.7 });
+    g.position.set(p.x, p.y);
+    g.ellipse(0, 0, 70, 35).fill({ color: c, alpha: 0.07 }).ellipse(0, 0, 38, 19).fill({ color: c, alpha: 0.1 });
+    g.poly([-7, 0, 7, 0, 4, -10, -4, -10]).fill({ color: 0x2a2220 });
+    g.ellipse(0, -12, 6, 3).fill({ color: 0x3a302a });
+    g.poly([-5, -12, 0, -26, 5, -12]).fill({ color: c, alpha: 0.9 });
+    g.poly([-2.5, -12, 0, -20, 2.5, -12]).fill({ color: 0xffffff, alpha: 0.7 });
     place(world, g);
     lights.push(g);
   }

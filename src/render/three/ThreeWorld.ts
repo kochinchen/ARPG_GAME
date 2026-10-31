@@ -12,7 +12,7 @@ import { ThreeSkillFx } from './ThreeSkillFx';
 import type { FxFlying } from '../views/EffectLayer';
 
 /**
- * Three.js 畫法（試驗，開發版按 G 切換；正式版網址加 ?three）：
+ * Three.js 畫法（預設；選單「立體光影」可關掉，開發版按 G 切換）：
  * 地板、角色與牆改由 Three.js 在 GPU 上畫（即時光源、投射陰影、深度緩衝），特效、文字仍由 Pixi 畫。
  * 主角身上的燭光是真的點光源（亮區以外只剩微弱的環境光與火把）。
  * 與 Pixi 共用同一個 WebGL：Three.js 畫地板 → Pixi 疊上地上標記 → Three.js 畫角色與牆 → Pixi 再畫其他東西（Renderer.present）。
@@ -42,6 +42,8 @@ const FLOOR_CHUNK = 16;
 const REGION = 16;
 /** 分區在鏡頭範圍外多遠以內仍要畫：分區本身的大小 + 牆高與影子 */
 const REGION_MARGIN = REGION + 3;
+/** 遮擋圖層：牆與角色也放這一層，renderOccluders 只重畫它們（加上深度板） */
+const OCCLUDER_LAYER = 2;
 /** 地板放在另一個圖層：先畫地板，Pixi 疊上地上標記，再畫牆與角色 */
 const FLOOR_LAYER = 1;
 
@@ -79,6 +81,8 @@ export class ThreeFigure implements TriangleSink {
   private skinned: THREE.SkinnedMesh | null = null;
   private bones: THREE.Bone[] = [];
   private skinKey: readonly unknown[] | null = null;
+  /** GPU 蒙皮的網格換過：包圍球要重算 */
+  private boundsStale = true;
   skin?: (key: readonly unknown[], build: () => SkinGeometry, bones: Float32Array) => void;
 
   constructor(
@@ -91,10 +95,10 @@ export class ThreeFigure implements TriangleSink {
       return;
     }
     const mesh = new THREE.Mesh(this.geometry, this.material);
+    mesh.layers.enable(OCCLUDER_LAYER);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    // 畫面外的角色由 ActorView 隱藏；頂點每幀改變，不算包圍球
-    mesh.frustumCulled = false;
+    // 包圍球每幀依頂點重算（end）：陰影的每個方向只畫範圍內的模型
     this.group.add(mesh);
     this.grow(2048);
   }
@@ -114,9 +118,9 @@ export class ThreeFigure implements TriangleSink {
       // 骨頭矩陣已經是模型空間（含畫面縮放），不需要綁定姿勢
       mesh.bindMode = THREE.DetachedBindMode;
       mesh.bind(new THREE.Skeleton(this.bones), new THREE.Matrix4());
+      mesh.layers.enable(OCCLUDER_LAYER);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      mesh.frustumCulled = false;
       this.group.add(mesh);
       this.skinned = mesh;
       this.skinKey = null;
@@ -139,8 +143,16 @@ export class ThreeFigure implements TriangleSink {
       geometry.setAttribute('skinWeight', new THREE.BufferAttribute(g.weights, 4));
       this.skinned.geometry.dispose();
       this.skinned.geometry = geometry;
+      this.boundsStale = true;
     }
     this.bones.forEach((bone, i) => bone.matrixWorld.fromArray(matrices, i * 16));
+    if (this.boundsStale) {
+      // 包圍球（陰影的每個方向只畫範圍內的模型）：外觀改變時依目前姿勢算一次，放大到攻擊、倒地等動作都在裡面
+      this.boundsStale = false;
+      this.skinned.skeleton.update();
+      this.skinned.computeBoundingSphere();
+      this.skinned.boundingSphere.radius *= 2;
+    }
   }
 
   triangle(a: V3, b: V3, c: V3, color: number): void {
@@ -164,6 +176,7 @@ export class ThreeFigure implements TriangleSink {
     this.geometry.attributes.position!.needsUpdate = true;
     this.geometry.attributes.color!.needsUpdate = true;
     this.geometry.setDrawRange(0, this.count * 3);
+    this.geometry.computeBoundingSphere();
   }
 
   /**
@@ -182,6 +195,11 @@ export class ThreeFigure implements TriangleSink {
       this.material.needsUpdate = true;
     }
     this.material.opacity = alpha;
+  }
+
+  /** renderOccluders 重畫時改成「比較近才畫」（避免同一個像素畫兩次、半透明疊兩層） */
+  setDepthFunc(func: THREE.DepthModes): void {
+    this.material.depthFunc = func;
   }
 
   dispose(): void {
@@ -204,9 +222,22 @@ export class ThreeFigure implements TriangleSink {
   }
 }
 
+/**
+ * Pixi 畫的直立物件（火把、機關、投射物、競技場擺設…）在 Three.js 裡的深度板：
+ * 腳底的 World 座標與畫面範圍（相對腳底的 px，y 往下為正）。深度板面向鏡頭、看不見，只寫入深度，
+ * 之後畫的牆與角色在它前面才蓋得過去（Pixi 已經先畫好物件本身）。
+ */
+export interface DepthProxy {
+  x: number;
+  y: number;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 interface WallChunk {
   mesh: THREE.Mesh;
-  material: THREE.MeshStandardMaterial;
   /** 中心的畫面座標（未加鏡頭位移）與深度 */
   screen: Vec2;
   depth: number;
@@ -239,6 +270,19 @@ export class ThreeWorld {
   private readonly floorMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });
   private lightSpots: { position: Vec2; color: number; height: number }[] = [];
   private readonly walls: WallChunk[] = [];
+  /** 深度板（見 DepthProxy）：共用一個單位正方形，左下角為原點 */
+  private readonly proxies: THREE.Mesh[] = [];
+  private readonly proxyGeometry = new THREE.PlaneGeometry(1, 1).translate(0.5, 0.5, 0);
+  /** 深度板一律寫入自己的深度（蓋掉原本的牆與角色），之後重畫時比它近的才畫得上去 */
+  private readonly proxyMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide, depthFunc: THREE.AlwaysDepth });
+  /** 所有角色模型（renderOccluders 暫時改深度比較方式用；已移除的下次清掉） */
+  private readonly figures = new Set<ThreeFigure>();
+  /**
+   * 所有牆共用的材質（不透明 / 蓋住玩家時的半透明）：每塊牆各一個材質的話，
+   * 每畫一塊都要重新上傳所有光源的參數，一層樓幾千塊牆就很慢
+   */
+  private readonly wallMaterial = figureMaterial();
+  private readonly wallFadeMaterial = Object.assign(figureMaterial(), { transparent: true, opacity: FADE_ALPHA });
   private time = 0;
 
   constructor(
@@ -299,6 +343,8 @@ export class ThreeWorld {
     });
     // 影子在畫地板時算一次，畫牆與角色時沿用
     this.renderer.shadowMap.autoUpdate = false;
+    // 一幀畫三次（影子、地板、牆與角色）：物件的位置矩陣只在 renderFloor 開頭算一次
+    this.scene.matrixWorldAutoUpdate = false;
     this.shadowCamera.position.set(0, -1000, 0);
     this.shadowCamera.lookAt(0, -2000, 0);
   }
@@ -307,6 +353,7 @@ export class ThreeWorld {
   createFigure(gpu = false): ThreeFigure {
     const figure = new ThreeFigure(this.projection, gpu);
     this.scene.add(figure.group);
+    this.figures.add(figure);
     return figure;
   }
 
@@ -318,7 +365,6 @@ export class ThreeWorld {
     for (const wall of this.walls) {
       wall.mesh.removeFromParent();
       wall.mesh.geometry.dispose();
-      wall.material.dispose();
     }
     this.walls.length = 0;
     // 地板、牆都移除後再清掉分區（buildFloor 已經放進新分區的地板留著）
@@ -356,14 +402,16 @@ export class ThreeWorld {
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
       geometry.computeBoundingSphere();
-      const material = figureMaterial();
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new THREE.Mesh(geometry, this.wallMaterial);
+      mesh.layers.enable(OCCLUDER_LAYER);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      // 牆不會動：位置矩陣算一次就好
+      mesh.matrixAutoUpdate = false;
       const cx = sx / list.length;
       const cy = sy / list.length;
       this.region((cx + 0.5) * cell, (cy + 0.5) * cell).add(mesh);
-      this.walls.push({ mesh, material, screen: this.projection.toScreen(vec2((cx + 0.5) * cell, (cy + 0.5) * cell)), depth: (cx + cy + 1) * cell });
+      this.walls.push({ mesh, screen: this.projection.toScreen(vec2((cx + 0.5) * cell, (cy + 0.5) * cell)), depth: (cx + cy + 1) * cell });
     }
   }
 
@@ -411,6 +459,7 @@ export class ThreeWorld {
     this.fx.update(this.glows, dt, pxScale);
     this.skillFx.update(dt, pxScale, this.glows, this.flying);
 
+    this.scene.updateMatrixWorld();
     const gl = this.renderer.getContext();
     this.renderer.resetState();
     this.renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -435,6 +484,62 @@ export class ThreeWorld {
     this.renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     this.camera.layers.set(0);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * 畫一幀的第三步（接在 Pixi 畫完物件層之後）：Pixi 的物件（火把、機關、投射物…）已經蓋在牆與角色上面，
+   * 這裡在每個物件的位置放深度板，再重畫牆與角色——只有比物件近的才畫得上去，物件就被前面的牆與角色擋住。
+   * 深度板外深度相同、畫不上去，畫面不變；物件透明的部分本來就看得到後面，也不會留下空洞。
+   */
+  renderOccluders(proxies: readonly DepthProxy[]): void {
+    if (proxies.length === 0) return;
+    this.placeProxies(proxies);
+    const less = THREE.LessDepth;
+    this.wallMaterial.depthFunc = less;
+    this.wallFadeMaterial.depthFunc = less;
+    for (const figure of this.figures) {
+      if (figure.group.parent) figure.setDepthFunc(less);
+      else this.figures.delete(figure);
+    }
+    const gl = this.renderer.getContext();
+    this.renderer.resetState();
+    this.renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    this.camera.layers.set(OCCLUDER_LAYER);
+    this.renderer.render(this.scene, this.camera);
+    const normal = THREE.LessEqualDepth;
+    this.wallMaterial.depthFunc = normal;
+    this.wallFadeMaterial.depthFunc = normal;
+    for (const figure of this.figures) figure.setDepthFunc(normal);
+  }
+
+  /** 深度板放到各物件腳底、面向鏡頭；多的藏起來 */
+  private placeProxies(proxies: readonly DepthProxy[]): void {
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
+    // 遠的先放、近的後放（深度板一律蓋掉深度，重疊時近的要留下來）
+    const sorted = [...proxies].sort((a, b) => a.x + a.y - (b.x + b.y));
+    sorted.forEach((p, i) => {
+      let mesh = this.proxies[i];
+      if (!mesh) {
+        mesh = new THREE.Mesh(this.proxyGeometry, this.proxyMaterial);
+        mesh.layers.set(OCCLUDER_LAYER);
+        mesh.frustumCulled = false;
+        this.scene.add(mesh);
+        this.proxies.push(mesh);
+      }
+      // 先畫深度板（依遠近），再畫牆與角色
+      mesh.renderOrder = -100000 + i;
+      mesh.visible = true;
+      mesh.quaternion.copy(this.camera.quaternion);
+      // Pixi 的 px → 鏡頭平面上的單位（正交鏡頭上下左右同一個比例）；y 往下為正，所以左下角是 (left, bottom)
+      mesh.position
+        .set(p.x, 0, p.y)
+        .addScaledVector(right, p.left / PX_PER_UNIT)
+        .addScaledVector(up, -p.bottom / PX_PER_UNIT);
+      mesh.scale.set((p.right - p.left) / PX_PER_UNIT, (p.bottom - p.top) / PX_PER_UNIT, 1);
+      mesh.updateMatrixWorld();
+    });
+    for (let i = proxies.length; i < this.proxies.length; i++) this.proxies[i]!.visible = false;
   }
 
   /** 地板：TileMapView 記下的三角形（World x, y 與顏色），每 FLOOR_CHUNK 格一塊 */
@@ -466,6 +571,7 @@ export class ThreeWorld {
       const mesh = new THREE.Mesh(geometry, this.floorMaterial);
       mesh.receiveShadow = true;
       mesh.layers.set(FLOOR_LAYER);
+      mesh.matrixAutoUpdate = false;
       const center = geometry.boundingSphere!.center;
       this.region(center.x, center.z).add(mesh);
       this.floors.push(mesh);
@@ -480,6 +586,7 @@ export class ThreeWorld {
     let region = this.regions.get(key);
     if (!region) {
       region = { group: new THREE.Group(), x: (i + 0.5) * REGION, z: (j + 0.5) * REGION };
+      region.group.matrixAutoUpdate = false;
       this.regions.set(key, region);
       this.scene.add(region.group);
     }
@@ -498,13 +605,11 @@ export class ThreeWorld {
     for (const wall of this.walls) {
       const dy = wall.screen.y - p.y;
       const occludes = wall.depth > playerDepth && Math.abs(wall.screen.x - p.x) < OCCLUDE_HALF_WIDTH && dy > 0 && dy < OCCLUDE_BELOW;
-      const transparent = occludes;
-      if (transparent !== wall.material.transparent) {
-        wall.material.transparent = transparent;
-        wall.material.opacity = occludes ? FADE_ALPHA : 1;
+      const material = occludes ? this.wallFadeMaterial : this.wallMaterial;
+      if (wall.mesh.material !== material) {
+        wall.mesh.material = material;
         // 半透明的牆不擋影子，免得玩家整個人被牆影蓋住
         wall.mesh.castShadow = !occludes;
-        wall.material.needsUpdate = true;
       }
     }
   }

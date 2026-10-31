@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">20</b> 個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">999</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1000</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -472,6 +472,26 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
           </div>
         </div>
       </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">10/31</span><span class="name">正式版改用<br>Three.js 畫法</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">背包整理保留熔核</span><span class="hash mono">f6f1331</span></div>
+            <p>按「整理」時，放在背包（沒鑲在裝備上）的熔核會消失；現在熔核排在裝備之後、藥水之前，核階高的在前。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">畫面效能</span><span class="hash mono">059599d · 10/31</span></div>
+            <p>深樓層從約 30 FPS 回到穩定 60 FPS（第 30 層、400 多隻怪，一幀 29.6 → 16.6 ms）。角色改用固定緩衝區的網格；畫面外的牆與怪物移出圖層；Three.js 的牆與地板分區、遠處整區跳過，所有牆共用材質，角色模型只畫進範圍內的影子；10 層起怪物數量減少 10%。</p>
+            <p class="why">特效的點光源不再投射影子（照樣照亮周圍）：每個投影子的光源都讓畫面上每個像素多查一次陰影圖，是最大的負擔。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">Three.js 成為預設畫法</span><span class="hash mono">10/31</span></div>
+            <p>正式版直接用 Three.js（真的燭光、火把與影子）；選單「立體光影」可關掉改用 Pixi，網址加 ?pixi / ?three 強制指定，瀏覽器不支援 WebGL2 時自動用 Pixi。火把、機關、投射物、競技場擺設不再穿過牆或蓋住角色；精英光圈、面向小點、裝備腳下光環改畫在腳下；上層特效不再畫兩次。</p>
+            <p class="why">Pixi 畫的物件各放一塊看不見的深度板，Three.js 只重畫在它們前面的牆與角色，透明的部分不留空洞。</p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -479,9 +499,9 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="sec-head">
       <div class="eyebrow">品質</div>
       <h2>測試數量隨 Milestone 累積</h2>
-      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/30 的 npm test 結果。</p>
+      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 10/31 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 999">
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1000">
       <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.8%"></div><span class="val mono">28</span></div>
       <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.2%"></div><span class="val mono">52</span></div>
       <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:8.1%"></div><span class="val mono">81</span></div>
@@ -490,8 +510,8 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.7%"></div><span class="val mono">137</span></div>
       <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.9%"></div><span class="val mono">179</span></div>
       <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:26.0%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">999</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 999 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；怪物戰術與習得技能 18 個）。</p>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1000</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1000 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個）。</p>
     </div>
   </section>
 

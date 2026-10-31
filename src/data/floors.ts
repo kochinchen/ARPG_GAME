@@ -69,6 +69,9 @@ const LATE_TEMPLE: FloorInput['monsterPool'] = [
   { enemyId: 'enemy.fallen_templar', weight: 8, minFloor: 30 },
 ];
 
+/** 10 層起的怪物數量（密度）倍率：減少 10%（設計者 2026-10-31，改善效能） */
+const LATE_DENSITY = 0.9;
+
 /** 樓層魔王：每個區間的第一層（5、10、15…）；深淵神殿（30 層起）每 5 層都是深淵魔王 */
 const boss = (enemyId: string) => ({ enemyId, every: 5 });
 
@@ -95,7 +98,7 @@ const TEMPLE: Partial<FloorInput> = {
   boss: boss('enemy.abyss_lord'),
   monsterPool: [...humanoids(0.3), ...creatures(0.4), ...LATE_FORTRESS(0.45), ...LATE_ABYSS(0.6), ...LATE_TEMPLE],
   layout: { width: 225, height: 172, rooms: [42, 52], loops: 15 },
-  density: 2.0,
+  density: 2.0 * LATE_DENSITY,
   packSize: [4, 7],
   eliteChance: 0.45,
   affixCount: [2, 2],
@@ -122,7 +125,7 @@ export const floors: FloorInput[] = [
     boss: boss('enemy.fallen_priest'),
     monsterPool: [...humanoids(), ...CREATURES],
     layout: { width: 202, height: 150, rooms: [34, 42], loops: 9 },
-    density: 1.7,
+    density: 1.7 * LATE_DENSITY,
     packSize: [3, 6],
     eliteChance: 0.3,
     affixCount: [1, 2],
@@ -134,7 +137,7 @@ export const floors: FloorInput[] = [
     boss: boss('enemy.lava_behemoth'),
     monsterPool: [...humanoids(0.7), ...CREATURES],
     layout: { width: 202, height: 150, rooms: [34, 42], loops: 10 },
-    density: 1.8,
+    density: 1.8 * LATE_DENSITY,
     packSize: [3, 6],
     eliteChance: 0.3,
     affixCount: [1, 2],
@@ -146,7 +149,7 @@ export const floors: FloorInput[] = [
     boss: boss('enemy.fallen_knight'),
     monsterPool: [...humanoids(0.5), ...creatures(0.6), ...LATE_FORTRESS()],
     layout: { width: 210, height: 158, rooms: [39, 47], loops: 14 },
-    density: 1.8,
+    density: 1.8 * LATE_DENSITY,
     packSize: [4, 6],
     eliteChance: 0.35,
     affixCount: [1, 2],
@@ -158,7 +161,7 @@ export const floors: FloorInput[] = [
     boss: boss('enemy.spider_queen'),
     monsterPool: [...humanoids(0.3), ...creatures(0.5), ...LATE_FORTRESS(0.5), ...LATE_ABYSS()],
     layout: { width: 218, height: 165, rooms: [31, 39], loops: 15 },
-    density: 1.9,
+    density: 1.9 * LATE_DENSITY,
     packSize: [4, 7],
     eliteChance: 0.4,
     affixCount: [2, 2],

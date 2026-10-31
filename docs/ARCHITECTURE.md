@@ -20,6 +20,9 @@
 分工原則：
 
 - **PixiJS（WebGL）**：地圖、角色、怪物、投射物、粒子。上百個 Sprite 同時移動仍能維持 60 FPS。
+- **Three.js（預設畫法，與 Pixi 共用同一個 WebGL2）**：地板、石砌的牆與角色模型（GPU 蒙皮）、真的燭光 / 火把點光源與影子。特效、火把、機關、投射物、血條、文字、小地圖仍由 Pixi 畫。選單的「立體光影」可以關掉改用 Pixi；拿不到 WebGL2 或 Three.js 啟動失敗時自動用 Pixi（`main.ts`）。
+  - 每幀的順序（`Renderer.present`）：Three.js 地板與影子 → Pixi 地上的東西（含角色腳下光圈 `ActorView.ground`）→ Three.js 角色與牆 → Pixi 物件層（火把、機關、投射物、地上的裝備…）→ Three.js 只重畫在這些物件前面的牆與角色（每個物件放一塊看不見的深度板，`ThreeWorld.renderOccluders`）→ Pixi 血條、名稱、上層特效、文字、小地圖。每一層只畫一次。
+  - 效能：牆與地板依 16 × 16 的地圖分區，離鏡頭太遠的整區跳過；所有牆共用兩個材質（不透明 / 半透明）；角色模型有包圍球，影子的每個方向只畫範圍內的模型；特效的點光源不投影子（每個投影子的光源，畫面上每個受光像素都要多查一次陰影圖）。畫面外的牆與角色從 Pixi 圖層移出（不只隱藏），圖層每幀排序才不會被拖慢。
 - **Vue 3**：技能樹、背包、角色面板、Tooltip、選單。Vue 的 Reactivity 不適合每幀更新數百個物件，所以**只用在面板，不用在戰鬥畫面**。
 - **純 TypeScript**：所有遊戲邏輯。不 import DOM / Pixi / Vue，才能在 Node 環境直接測試。
 
@@ -988,7 +991,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
     - `ArmorPieces.ts` / `ArmorLooks.ts`：頭盔、盔甲、靴子各 8 階基底造型與 15 件橘 / 紅專屬外觀；`outfitFor()` 回傳要換掉的關節網格（`PolyFigure.setOutfit`），同一組裝備重複使用。沒穿的部位保留原本的皮甲、長靴與頭髮；全罩頭盔蓋住臉，馬尾從頭盔後方垂下。
     - 武器：`WeaponLooks.themedLook()` 在基底造型上套用詞綴主題，武器微光改用主題色（紫起有主題粒子）。
     - 外觀完全由裝備資料推導，不存檔。預覽：viewer.html `?outfit=5&rarity=epic&theme=fire,guard&weapon=axe:5`（`&close=1` 特寫）。
-  - 效能：每幀重畫模型，畫面外的角色不更新（Renderer 的 `CULL_MARGIN`）；實測 26 個角色約 10 ms、單一角色約 0.1 ms。
+  - 效能：每幀重畫模型，畫面外的角色不更新（Renderer 的 `CULL_MARGIN`）；Pixi 畫法下每個角色一個固定緩衝區的網格（`figure/FacetMesh`），每幀只改頂點、不重新切三角形。
   - 樣態預覽：`npm run dev` 後開 http://localhost:5173/viewer.html（八方向 × 各種樣態，右上角下拉選單切換模型）；`?zoom=3` 放大檢查細節；`?model=gallery` 一次顯示所有非人形怪物（`&pose=attack|windup|cast|dead|run` 切換樣態）。
   - 之後換成真正的 Sprite 時，只需替換 ActorView 中主角的繪製，遊戲邏輯不變。
 

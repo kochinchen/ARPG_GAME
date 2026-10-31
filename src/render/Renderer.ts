@@ -31,7 +31,7 @@ import { MONSTER_MODELS } from './figure/Monsters';
 import { PolyFigure } from './figure/PolyFigure';
 import { figureScale } from './figure/FigureModel';
 import { MinimapView, type MinimapMarker } from './views/MinimapView';
-import type { ThreeWorld } from './three/ThreeWorld';
+import type { DepthProxy, ThreeWorld } from './three/ThreeWorld';
 import { lightRadius, PlayerLightView } from './views/PlayerLightView';
 
 /**
@@ -41,6 +41,8 @@ import { lightRadius, PlayerLightView } from './views/PlayerLightView';
 const CULL_MARGIN = 120;
 /** 縮放的平滑程度（每秒接近目標的速度） */
 const ZOOM_EASE = 12;
+/** Three.js 畫法：Pixi 物件的深度板最寬到腳底左右幾 px */
+const PROXY_HALF_WIDTH = 40;
 
 export class Renderer {
   /** 顯示頭盔（選單的畫面設定；關掉時主角露出臉與頭髮） */
@@ -48,6 +50,10 @@ export class Renderer {
   private readonly heroPreview = new HeroPreviewView();
   private readonly worldLayer = new Container();
   private readonly objectLayer = new Container({ sortableChildren: true });
+  /** Three.js 畫法：角色身體底下的東西（ActorView.ground），比 Three.js 的角色先畫 */
+  private readonly actorGround = new Container();
+  /** Three.js 畫法：角色的血條、名稱、狀態霧（ActorView.container），畫在 Three.js 的角色之上；Pixi 畫法時角色在 objectLayer */
+  private readonly actorOverlay = new Container({ sortableChildren: true });
   private readonly marker = new Graphics();
   private readonly floatingText = new FloatingTextLayer();
   private tileMap: TileMapView;
@@ -62,7 +68,7 @@ export class Renderer {
   private readonly drops: Container[] = [];
   private hoveredId: ActorId | null = null;
   private hoveredInteractable: number | null = null;
-  /** 目前用 Three.js 畫角色與牆（試驗；需要建立時傳入 ThreeWorld） */
+  /** 目前用 Three.js 畫角色與牆（需要建立時傳入 ThreeWorld；選單「立體光影」） */
   private threeOn = false;
   /** 主角身上的亮區（亮區以外偏暗） */
   private readonly playerLight = new PlayerLightView();
@@ -75,7 +81,7 @@ export class Renderer {
     private readonly world: GameWorld,
     private readonly camera: Camera,
     private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'skills' | 'balance' | 'cores'>,
-    /** Three.js 畫法（試驗）：有傳入時由 present() 自己畫每一幀（main.ts 已停掉 Pixi 的自動繪製） */
+    /** Three.js 畫法：有傳入時由 present() 自己畫每一幀（main.ts 已停掉 Pixi 的自動繪製） */
     private readonly three: ThreeWorld | null = null,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
@@ -92,7 +98,9 @@ export class Renderer {
       this.effects.ground,
       this.interactables.ground,
       this.marker,
+      this.actorGround,
       this.objectLayer,
+      this.actorOverlay,
       this.playerLight.container,
       this.interactables.labels,
       this.floatingText.container,
@@ -291,14 +299,20 @@ export class Renderer {
     this.zoomTarget = Math.min(ZOOM_RANGE.max, Math.max(ZOOM_RANGE.min, this.zoomTarget * factor));
   }
 
-  /** 切換 Three.js 畫法（試驗；沒有建立 ThreeWorld 時無效） */
-  toggleThree(): void {
-    if (!this.three) return;
-    this.threeOn = !this.threeOn;
+  /** 開關 Three.js 畫法（沒有建立 ThreeWorld 時無效：一律 Pixi） */
+  setThree(on: boolean): void {
+    if (!this.three || on === this.threeOn) return;
+    this.threeOn = on;
     this.syncThreeMap();
     for (const view of this.actorViews.values()) view.setThree(this.threeOn ? this.three : null);
     this.interactables.setThree(this.threeOn ? this.three : null);
     this.effects.listener = this.threeOn ? this.three.skillFx : null;
+  }
+
+  /** 開發版 G：切換畫法並在主角頭上顯示目前的畫法 */
+  toggleThree(): void {
+    if (!this.three) return;
+    this.setThree(!this.threeOn);
     this.floatingText.spawnText(this.projection.toScreen(this.world.player.position), this.threeOn ? 'Three.js 畫法' : 'Pixi 畫法', PALETTE.manaText);
   }
 
@@ -387,8 +401,13 @@ export class Renderer {
   }
 
   /**
-   * 畫出這一幀（有 ThreeWorld 時才由這裡畫）：Three.js 畫法分四次畫在同一個 WebGL 上——
-   * Three.js 畫地板 → Pixi 疊上地上標記（技能範圍、傳送門光暈…）→ Three.js 畫角色與牆 → Pixi 畫物件、特效、文字、小地圖。
+   * 畫出這一幀（有 ThreeWorld 時才由這裡畫）：Three.js 與 Pixi 輪流畫在同一個 WebGL 上——
+   * 1. Three.js 畫地板與影子
+   * 2. Pixi 畫地上的東西（地板標記、技能範圍、腳下光圈…）
+   * 3. Three.js 畫角色與牆
+   * 4. Pixi 畫物件層（火把、機關、投射物、地上的裝備、競技場擺設…）
+   * 5. Three.js 只重畫在這些物件前面的牆與角色（深度板，ThreeWorld.renderOccluders）
+   * 6. Pixi 畫血條、名稱、上層特效、文字、小地圖
    */
   private present(playerPos: Vec2, dt: number): void {
     const pixi = this.app.renderer;
@@ -397,26 +416,47 @@ export class Renderer {
       return;
     }
     const three = this.three!;
-    const upper = [this.objectLayer, this.playerLight.container, this.interactables.labels, this.floatingText.container, this.minimap.container, this.heroPreview.container];
-    const lower = [this.tileMap.floor, this.markers.container, this.effects.ground, this.interactables.ground, this.marker];
-    const show = (layers: Container[], visible: boolean[]) => layers.forEach((c, i) => (c.visible = visible[i]!));
-    const upperVisible = upper.map((c) => c.visible);
-    const lowerVisible = lower.map((c) => c.visible);
+    const lower: Container[] = [this.tileMap.floor, this.markers.container, this.effects.ground, this.interactables.ground, this.marker, this.actorGround];
+    const objects: Container[] = [this.objectLayer];
+    // 其他全部（血條、上層特效、文字、小地圖、角色預覽…）畫在最上面；每一層只會畫一次
+    const all = [...this.worldLayer.children, ...this.app.stage.children.filter((c) => c !== this.worldLayer)];
+    const upper = all.filter((c) => !lower.includes(c) && !objects.includes(c));
+    const visible = all.map((c) => c.visible);
+    /** 只畫其中幾層（其他暫時隱藏），畫完恢復 */
+    const drawOnly = (layers: readonly Container[]) => {
+      pixi.resetState();
+      all.forEach((c, i) => (c.visible = visible[i]! && layers.includes(c)));
+      pixi.render({ container: this.app.stage, clear: false });
+      all.forEach((c, i) => (c.visible = visible[i]!));
+    };
     const { width, height } = this.app.screen;
     const origin = this.worldLayer.position;
     const k = this.camera.zoom;
     const center = this.projection.toWorld(vec2((width / 2 - origin.x) / k, (height / 2 - origin.y) / k));
     three.setGlows(this.effects.glows, this.effects.flying);
     three.renderFloor(center, width, height, k, playerPos, lightRadius(this.world.progress.level), pixi.background.color.toNumber(), dt);
-    pixi.resetState();
-    show(upper, upper.map(() => false));
-    pixi.render({ container: this.app.stage, clear: false });
-    show(upper, upperVisible);
+    drawOnly(lower);
     three.renderObjects();
-    pixi.resetState();
-    show(lower, lower.map(() => false));
-    pixi.render({ container: this.app.stage, clear: false });
-    show(lower, lowerVisible);
+    drawOnly(objects);
+    three.renderOccluders(this.depthProxies());
+    drawOnly(upper);
+  }
+
+  /** 物件層裡 Pixi 畫的直立物件（有 Three.js 模型的寶箱、商人等除外）：深度板的位置與畫面範圍 */
+  private depthProxies(): DepthProxy[] {
+    const proxies: DepthProxy[] = [];
+    for (const c of this.objectLayer.children) {
+      if (!c.visible || this.interactables.hasModel(c)) continue;
+      const b = c.getLocalBounds();
+      // 只擋腳底以上、左右 PROXY_HALF_WIDTH 以內（絆索網這種橫躺很長的，兩端不擋，免得遮到後面的角色）
+      const left = Math.max(b.minX, -PROXY_HALF_WIDTH);
+      const right = Math.min(b.maxX, PROXY_HALF_WIDTH);
+      const bottom = Math.min(b.maxY, 0);
+      if (right <= left || bottom <= b.minY) continue;
+      const foot = this.projection.toWorld(vec2(c.position.x, c.position.y));
+      proxies.push({ x: foot.x, y: foot.y, left, right, top: b.minY, bottom });
+    }
+    return proxies;
   }
 
   /** 角色頁的人物預覽：顯示的區域與方向（null = 關閉） */
@@ -470,7 +510,7 @@ export class Renderer {
         view = new ActorView(this.projection, actor);
         if (this.threeOn) view.setThree(this.three);
         this.actorViews.set(actor.id, view);
-        this.objectLayer.addChild(view.container);
+        this.actorGround.addChild(view.ground);
       }
       view.hovered = actor.id === this.hoveredId;
       // 裝備光芒：依身上裝備的稀有度分數
@@ -486,7 +526,12 @@ export class Renderer {
         this.heroPreview.setLook(outfit, weapon?.look ?? null, weapon?.rarity ?? 'normal');
       }
       const position = lerp(actor.prevPosition, actor.position, alpha);
-      view.update(actor, position, dt, onScreen(position));
+      const shown = onScreen(position);
+      view.update(actor, position, dt, shown);
+      // 畫面外的角色移出圖層（不只是隱藏）：圖層每幀依深度排序，深樓層有上百個畫面外的角色
+      const layer = this.threeOn ? this.actorOverlay : this.objectLayer;
+      if (!shown) view.container.removeFromParent();
+      else if (view.container.parent !== layer) layer.addChild(view.container);
       if (view.roared) {
         view.roared = false;
         this.roars.push(actor.id);

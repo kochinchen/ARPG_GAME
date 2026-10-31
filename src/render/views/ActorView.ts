@@ -40,6 +40,11 @@ export const sizeOf = (actor: Actor) => Math.max(1, figureScale(modelOf(actor), 
  */
 export class ActorView {
   readonly container = new Container();
+  /**
+   * Three.js 畫法時，原本畫在身體底下的東西（精英光圈、面向小點、裝備光芒的腳下光環）搬到這裡：
+   * Renderer 把它放在地面層，比 Three.js 的角色先畫，才不會蓋住腳。Pixi 畫法時是空的。
+   */
+  readonly ground = new Container();
   private readonly body = new Container();
   private readonly figure: PolyFigure;
   private readonly facingMark = new Graphics();
@@ -162,11 +167,19 @@ export class ActorView {
     this.three = world?.createFigure(this.isPlayer ? GPU_SKINNING.player : GPU_SKINNING.others) ?? null;
     this.figure.sink = this.three;
     this.shadow.visible = !this.three;
+    const under = [...(this.gear ? [this.gear.back] : []), this.aura, this.facingMark];
+    if (this.three) this.ground.addChild(...under);
+    else {
+      // 回到 Pixi：放回影子與身體之間（原本的順序）
+      let at = this.container.getChildIndex(this.shadow) + 1;
+      for (const c of under) this.container.addChildAt(c, at++);
+    }
   }
 
   /** 移除角色時呼叫 */
   destroy(): void {
     this.setThree(null);
+    this.ground.destroy({ children: true });
     this.container.destroy({ children: true });
   }
 
@@ -198,6 +211,8 @@ export class ActorView {
     this.container.position.set(s.x, s.y);
     this.container.zIndex = this.projection.depth(position);
     this.container.visible = visible;
+    this.ground.position.set(s.x, s.y);
+    this.ground.visible = visible;
     if (!visible) {
       this.three?.place(position, s, 0, 0xffffff, 1, false);
       this.lastScreen = null;
@@ -231,6 +246,7 @@ export class ActorView {
     // 冰凍、暈眩、燃燒、緩速等狀態以顏色表示
     this.body.tint = STATUS_TINTS.find(([kind]) => actor.statuses.some((st) => st.kind === kind))?.[1] ?? 0xffffff;
     this.container.alpha = actor.alive ? 1 : 0.6;
+    this.ground.alpha = this.container.alpha;
     this.facingMark.visible = actor.alive;
     this.three?.place(position, { x: this.body.position.x, y: this.body.position.y + this.lift }, this.lift, this.body.tint, this.container.alpha * this.body.alpha, true);
 

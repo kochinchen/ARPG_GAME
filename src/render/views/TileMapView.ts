@@ -41,6 +41,8 @@ export interface WallCell {
 
 interface Light {
   graphics: Graphics;
+  /** 地上的光暈（畫在地板層；Three.js 畫法改用真的點光源，不畫） */
+  pool?: Graphics;
   phase: number;
 }
 
@@ -201,13 +203,23 @@ export class TileMapView {
     for (const wall of this.walls) {
       const dy = wall.screen.y - p.y;
       const visible = Math.abs(wall.screen.x - p.x) < CULL_X && Math.abs(dy) < CULL_Y;
-      wall.graphics.visible = visible && !this.threeMode;
+      // 看不到的牆移出圖層（不只是隱藏）：圖層每幀依深度排序，留著幾千塊隱藏的牆也要一起排
+      const shown = visible && !this.threeMode;
+      if (shown !== (wall.graphics.parent === this.objectLayer)) {
+        if (shown) this.objectLayer.addChild(wall.graphics);
+        else this.objectLayer.removeChild(wall.graphics);
+      }
       if (!visible) continue;
       const occludes = wall.depth > playerDepth && Math.abs(wall.screen.x - p.x) < OCCLUDE_HALF_WIDTH && dy > 0 && dy < OCCLUDE_BELOW;
       wall.graphics.alpha = occludes ? FADE_ALPHA : 1;
     }
     for (const light of this.lights) {
-      light.graphics.alpha = 0.75 + 0.2 * Math.sin(this.time * 7 + light.phase) + 0.08 * Math.sin(this.time * 13.7 + light.phase * 2);
+      const alpha = 0.75 + 0.2 * Math.sin(this.time * 7 + light.phase) + 0.08 * Math.sin(this.time * 13.7 + light.phase * 2);
+      light.graphics.alpha = alpha;
+      if (light.pool) {
+        light.pool.alpha = alpha;
+        light.pool.visible = !this.threeMode;
+      }
     }
   }
 
@@ -278,25 +290,30 @@ export class TileMapView {
     const center = this.projection.toScreen(world);
     // 光源：牆邊的火把 / 燭台 / 水晶
     if (nearWall && r < 0.012 * t.lights) {
+      // 地上的光暈畫在地板層：放在物件層的話，會蓋住站在火把後方的角色
+      const pool = new Graphics();
+      pool.ellipse(center.x, center.y, 58, 29).fill({ color: t.glow, alpha: 0.07 });
+      pool.ellipse(center.x, center.y, 34, 17).fill({ color: t.glow, alpha: 0.1 });
+      pool.ellipse(center.x, center.y, 16, 8).fill({ color: t.glow, alpha: 0.14 });
+      this.floor.addChild(pool);
+      // 燈架 / 水晶以底部為原點（Three.js 畫法依位置放深度板）
       const glow = new Graphics();
-      glow.ellipse(center.x, center.y, 58, 29).fill({ color: t.glow, alpha: 0.07 });
-      glow.ellipse(center.x, center.y, 34, 17).fill({ color: t.glow, alpha: 0.1 });
-      glow.ellipse(center.x, center.y, 16, 8).fill({ color: t.glow, alpha: 0.14 });
-      if (t.decor === 'crystals') glow.poly([center.x - 4, center.y, center.x, center.y - 14, center.x + 4, center.y]).fill({ color: t.glow, alpha: 0.9 });
+      glow.position.set(center.x, center.y);
+      if (t.decor === 'crystals') glow.poly([-4, 0, 0, -14, 4, 0]).fill({ color: t.glow, alpha: 0.9 });
       else {
         // 燈架：細桿立在地上，頂端一個托盤、上面是火焰（火焰高度 = 光源高度）
         const top = TORCH_FLAME_HEIGHT;
         glow
-          .rect(center.x - 1, center.y - top + 3, 2, top - 3)
+          .rect(-1, -top + 3, 2, top - 3)
           .fill({ color: 0x3a2a1a })
-          .rect(center.x - 3, center.y - top + 2, 6, 1.5)
+          .rect(-3, -top + 2, 6, 1.5)
           .fill({ color: 0x4a3622 })
-          .ellipse(center.x, center.y - top, 3, 5)
+          .ellipse(0, -top, 3, 5)
           .fill({ color: t.glow });
       }
       glow.zIndex = this.projection.depth(world);
       this.objectLayer.addChild(glow);
-      this.lights.push({ graphics: glow, phase: r * 100 });
+      this.lights.push({ graphics: glow, pool, phase: r * 100 });
       this.lightSpots.push({ position: world, color: t.glow, height: TORCH_FLAME_HEIGHT });
       return;
     }

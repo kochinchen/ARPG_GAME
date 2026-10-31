@@ -97,6 +97,7 @@ const CONTROLS: [string, string][] = [
 
       <h3>畫面</h3>
       <label class="check"><input type="checkbox" :checked="display.showHelmet" @change="displayBridge.set({ showHelmet: !display.showHelmet })" /> 顯示頭盔</label>
+      <label class="check" title="真的燭光、火把與影子；電腦較慢時可以關掉"><input type="checkbox" :checked="display.threeD" @change="displayBridge.set({ threeD: !display.threeD })" /> 立體光影</label>
 
       <h3>存檔（欄位 {{ save.slot }}）</h3>
       <p class="save-status">

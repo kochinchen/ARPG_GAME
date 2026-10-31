@@ -36,8 +36,10 @@ export const THREE_LIGHTING = {
   torch: { count: 4, range: 5, intensity: 7, reach: 14, shadow: true, shadowMap: 256, shadowStrength: 0.55 },
   /**
    * 發光的特效（火球、冰球、元素箭、爆炸閃光）：同時亮著的數量、照射距離、亮度（× 特效的 strength）、投射影子
+   * shadow 關掉（2026-10-31，效能）：每個投影子的點光源，畫面上每個受光的像素都要多查一次陰影圖（光源沒亮也一樣），
+   * 6 個特效光源加上去就掉到 30 FPS；只留燭光與火把的影子
    */
-  fx: { count: 6, range: 4, intensity: 6, decay: 1.5, shadow: true, shadowMap: 256, shadowStrength: 0.6 },
+  fx: { count: 6, range: 4, intensity: 6, decay: 1.5, shadow: false, shadowMap: 256, shadowStrength: 0.6 },
   /** 材質的粗糙度（1 = 完全不反光） */
   roughness: 0.8,
 };
