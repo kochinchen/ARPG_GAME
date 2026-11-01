@@ -19,7 +19,7 @@ const config = data.balance.enemySize;
 function world(floor: number, seed = 3) {
   return new GameWorld({ data, floor, commands: new CommandQueue<GameCommand>(), events: new EventBus<GameEvents>(), seed });
 }
-const monsters = (w: GameWorld) => w.actors.filter((a) => a.faction === 'enemy' && !a.isBoss && !a.elite);
+const monsters = (w: GameWorld) => w.actors.filter((a) => a.faction === 'enemy' && !data.enemies.get(a.defId!).treasure && !a.isBoss && !a.elite);
 
 describe('隨機體型', () => {
   it('近戰 100%～200%、HP 最多 150%；遠程 100%～130%、HP 不變', () => {

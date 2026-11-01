@@ -86,7 +86,7 @@ export class Renderer {
     private readonly projection: IsoProjection,
     private readonly world: GameWorld,
     private readonly camera: Camera,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'lore' | 'skills' | 'balance' | 'cores'>,
+    private readonly data: Pick<DataRegistry, 'enemies' | 'items' | 'affixes' | 'legendaries' | 'potions' | 'lore' | 'skills' | 'balance' | 'cores'>,
     /** Three.js 畫法：有傳入時由 present() 自己畫每一幀（main.ts 已停掉 Pixi 的自動繪製） */
     private readonly three: ThreeWorld | null = null,
   ) {
@@ -174,6 +174,11 @@ export class Renderer {
       if (e.targetId === null || motion.variant === 'shoot' || motion.variant === 'staff') return;
       const dir = sub(projection.toScreen(e.point), projection.toScreen(attacker.position));
       this.actorViews.get(e.actorId)?.lunge(dir);
+    });
+    // 死亡技能（結晶獸的晶核碎裂）：地上先顯示範圍，填滿時發動
+    world.events.on('ActorDied', (e) => {
+      const onDeath = e.faction === 'enemy' && e.defId !== null && data.enemies.has(e.defId) ? data.enemies.get(e.defId).onDeath : undefined;
+      if (onDeath) this.effects.spawnTelegraph(e.position, onDeath.warnRadius, { x: 1, y: 0 }, 360, onDeath.delay, () => true);
     });
     world.events.on('AreaTriggered', (event) => {
       // 怪物學會的主角技能沿用主角的特效

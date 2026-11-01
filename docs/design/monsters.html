@@ -164,14 +164,14 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   <header>
     <div class="eyebrow">Aisling - Wellkeeper · 資料表 · 由遊戲的 DataRegistry 直接輸出</div>
     <h1>怪物屬性與樓層變化</h1>
-    <p>整理一般怪物、樓層魔王、中途小王、每層的首領、精英詞綴，以及第 1～35 層（含 31～35 極限挑戰）的設定。拖動下方的樓層，表格會換算成該層的實際數值與出現比例。切到「模型」可以看每隻怪物的多面體模型，旁邊站著女主角當比例尺。</p>
+    <p>整理一般怪物、樓層魔王、中途小王、每層的首領、噴錢的結晶獸、精英詞綴，以及第 1～35 層（含 31～35 極限挑戰）的設定。拖動下方的樓層，表格會換算成該層的實際數值與出現比例。切到「模型」可以看每隻怪物的多面體模型，旁邊站著女主角當比例尺。</p>
     <div class="viewswitch" role="group" aria-label="切換畫面">
       <button type="button" id="btnTable" aria-pressed="true">資料表</button>
       <button type="button" id="btnModels" aria-pressed="false">模型</button>
     </div>
     <nav class="toc" id="toc">
       <a href="#monsters">怪物屬性</a><a href="#appear">出現樓層</a><a href="#tiers">樓層區間</a><a href="#scaling">難度成長</a>
-      <a href="#elite">精英怪</a><a href="#champion">每層首領</a><a href="#tactics">戰術與習得技能</a><a href="#challenge">極限挑戰</a><a href="#bosses">魔王</a>
+      <a href="#elite">精英怪</a><a href="#champion">每層首領</a><a href="#treasure">噴錢的結晶獸</a><a href="#tactics">戰術與習得技能</a><a href="#challenge">極限挑戰</a><a href="#bosses">魔王</a>
     </nav>
   </header>
 
@@ -292,6 +292,37 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
         <li>重新進入樓層時首領會重生，但寶箱開過就不會再出現。</li>
       </ul>
     </div>
+  </section>
+
+  <section id="treasure">
+    <div class="sec-head">
+      <div class="eyebrow">balance.goldWalker · enemies.ts（設計者 2026-11-01）</div>
+      <h2>噴錢的結晶獸</h2>
+      <p>專門噴錢的稀有怪，第 5 層起單獨出現，打倒後噴出一地金幣。一共四種屬性，不進一般怪物池，所以上面的「怪物屬性」與「出現樓層」沒有列。</p>
+    </div>
+    <div class="two">
+      <div class="tbl"><table><thead><tr><th>規則</th><th>內容</th></tr></thead><tbody>
+        <tr><td>出現</td><td class="wrap">第 5 層起，每次進入樓層（新樓層或回到上一層）30%、25%、20%、15%、10%、5% 各自擲一次，中幾個就出現幾隻。第 35 層王座廳沒有</td></tr>
+        <tr><td>數量</td><td class="wrap">平均約 1.05 隻：0 隻約 26%、1 隻約 41%、2 隻約 25%、3 隻以上約 8%，最多 6 隻</td></tr>
+        <tr><td>金幣</td><td class="wrap">第 1 層 400、第 35 層 1500 之間線性計算（實際從第 5 層起），±10%，分 6 堆噴出</td></tr>
+        <tr><td>強度</td><td class="wrap">HP ×3、傷害 ×1.8、經驗 ×3.5、樓層減傷（第 10 層起物理或屬性其一），都和精英相同</td></tr>
+        <tr><td>大小</td><td class="wrap">固定，與震地獸同高（女主角 ×2.26），不擲隨機體型</td></tr>
+      </tbody></table></div>
+      <ul class="notes">
+        <li><b>單獨行動</b>：離其他怪物至少 7 格；不招呼同伴，也不會被同伴叫醒。</li>
+        <li><b>不算精英</b>：沒有詞綴、金色光圈與精英掉落，也不學主角的技能；只掉金幣。</li>
+        <li><b>不影響過關</b>：不算進開出口的擊殺數。</li>
+        <li><b>打過還會再遇到</b>：每次進入樓層都重新擲。讀檔不重擲，所以不能靠重新整理刷錢；還活著時讀檔，這隻會消失。</li>
+        <li><b>晶核碎裂</b>：死亡後地上先顯示範圍，0.8 秒後才發動，來得及閃開；傷害以這隻怪的數值計算。</li>
+      </ul>
+    </div>
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>怪物</th><th>屬性</th><th class="n">HP</th><th class="n">傷害</th><th class="n">防禦</th><th class="n">移速</th><th class="n">攻速</th><th class="n">經驗</th><th>抗性</th><th>普攻</th><th>招式</th><th>晶核碎裂（死亡）</th></tr></thead>
+        <tbody id="treasureBody"></tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:13px" id="treasureNote"></p>
   </section>
 
   <section id="tactics">
@@ -580,10 +611,36 @@ const D = {"balance":{"difficulty":{"hpPerFloor":0.2,"damagePerFloor":0.12,"defe
     }).join('');
   }
 
+  // 噴錢的結晶獸（enemies.ts、balance.goldWalker）：不進怪物池，基礎數值寫在這裡
+  const GOLD_WALKER = { minFloor: 5, gold: [400, 1500], variance: 0.1 };
+  const GOLD_WALKERS = [
+    { id: 'ember_walker', name: '熾晶獸', element: '火焰', hp: 140, damage: [7.8, 13], defense: 30, speed: 2.1, atk: 0.7, xp: 62, primary: '灼拳：燃燒 2 秒', skills: '熔晶噴發：目標附近 3 處依序噴發，留下 3 秒的燃燒地面', death: '半徑 2 格爆炸，傷害 120%' },
+    { id: 'frost_walker', name: '霜晶獸', element: '冰寒', hp: 180, damage: [6.5, 10.4], defense: 38, speed: 1.6, atk: 0.7, xp: 62, primary: '凍拳：緩速 25%、2 秒', skills: '冰晶列：目標腳下排出 5 段，冰凍 0.8 秒，留下 4 秒的緩速 40% 區域', death: '環狀射出 8 根冰刺，傷害 60%，緩速 30%' },
+    { id: 'storm_walker', name: '雷晶獸', element: '閃電', hp: 120, damage: [7.8, 11.7], defense: 26, speed: 2.5, atk: 0.9, xp: 62, primary: '雷拳', skills: '雷晶突進：直線衝 5 格，暈眩 0.6 秒；落雷：目標附近 3 處依序落雷', death: '半徑 2 格放電，傷害 100%，不會暈眩' },
+    { id: 'venom_walker', name: '毒晶獸', element: '毒素', hp: 165, damage: [6.5, 10.4], defense: 30, speed: 1.8, atk: 0.7, xp: 62, primary: '腐拳：中毒，最多 3 層', skills: '毒泡投擲：留下半徑 1.3、5 秒的毒區；毒痕（被動）：每走 2 格留一小灘 4 秒的毒液', death: '留下半徑 2 格、5 秒的毒霧' },
+  ];
+  function renderTreasure(f) {
+    const s = D.scaling[f - 1];
+    const here = f >= GOLD_WALKER.minFloor && f < 35;
+    const n = Math.round;
+    $('treasureBody').innerHTML = GOLD_WALKERS.map((w) => `<tr class="${here ? '' : 'off'}">
+      <td class="name">${esc(w.name)}</td><td>${w.element}</td>
+      <td class="n">${n(w.hp * s.hp * E.hpMultiplier)}</td>
+      <td class="n">${n(w.damage[0] * s.damage * E.damageMultiplier)}～${n(w.damage[1] * s.damage * E.damageMultiplier)}</td>
+      <td class="n">${n(w.defense * s.defense)}</td><td class="n">${w.speed}</td><td class="n">${w.atk}</td>
+      <td class="n">${n(w.xp * s.xp * E.xpMultiplier)}</td>
+      <td>${w.element} 20%</td><td class="wrap">${esc(w.primary)}</td><td class="wrap">${esc(w.skills)}</td><td class="wrap">${esc(w.death)}</td>
+    </tr>`).join('');
+    const gold = GOLD_WALKER.gold[0] + ((GOLD_WALKER.gold[1] - GOLD_WALKER.gold[0]) * (f - 1)) / 34;
+    $('treasureNote').textContent = here
+      ? `表格是第 ${f} 層的實際數值（已套用精英倍率）。這一層一隻掉 ${n(gold * (1 - GOLD_WALKER.variance))}～${n(gold * (1 + GOLD_WALKER.variance))} 金幣。`
+      : `第 ${f} 層不會出現（第 5～34 層才有），表格是套用這一層倍率的參考值。`;
+  }
+
   function setFloor(v) {
     const f = Math.min(35, Math.max(1, Math.round(Number(v) || 1)));
     $('floor').value = f; $('floorNum').value = f;
-    renderControl(f); renderMonsters(f); renderGantt(f); renderTiers(f); renderScaling(f);
+    renderControl(f); renderMonsters(f); renderGantt(f); renderTiers(f); renderScaling(f); renderTreasure(f);
   }
   $('floor').addEventListener('input', (e) => setFloor(e.target.value));
   $('floorNum').addEventListener('change', (e) => setFloor(e.target.value));
@@ -624,6 +681,7 @@ const D = {"balance":{"difficulty":{"hpPerFloor":0.2,"damagePerFloor":0.12,"defe
   const SUMMONED = { demon: [['imp', '小惡魔', '深淵祭司召喚']] };
   function renderModels() {
     let html = `<div class="fam-block"><h3>樓層魔王與眷屬</h3><div class="cards">${BOSS_GROUP.map(([id, n, s]) => card(id, n, s, true)).join('')}</div></div>`;
+    html += `<div class="fam-block"><h3>噴錢的結晶獸</h3><div class="cards">${GOLD_WALKERS.map((w) => card(w.id, esc(w.name), `${GOLD_WALKER.minFloor}F 起・${w.element}`, false)).join('')}</div></div>`;
     for (const fam of Object.keys(FAMILIES)) {
       const rows = MONS.filter((mm) => mm.family === fam).sort((a, b) => firstFloor(a) - firstFloor(b));
       if (!rows.length) continue;

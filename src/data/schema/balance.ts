@@ -209,6 +209,25 @@ export const BalanceSchema = z.strictObject({
     armors: z.strictObject({ melee: z.array(z.string()), ranged: z.array(z.string()), magic: z.array(z.string()) }),
     attributePoints: z.int().nonnegative(),
   }),
+  /**
+   * 噴錢的結晶獸：單獨出現。每次進入樓層（新樓層或回到上一層），chances 每個機率各自擲一次，中幾個就出現幾隻。
+   * 讀檔不重擲（不能靠重新整理刷錢）。
+   * 血量、傷害、經驗與精英相同，樓層減傷也和精英一樣，但沒有詞綴、光圈與精英掉落。金幣由第 1 層到最後一層線性增加。
+   */
+  goldWalker: z.strictObject({
+    enemies: z.array(IdSchema).min(1),
+    /** 從第幾層開始出現 */
+    minFloor: z.int().positive(),
+    chances: z.array(z.number().gt(0).max(1)).min(1),
+    /** 第 1 層、最後一層的金幣 */
+    gold: z.tuple([z.int().positive(), z.int().positive()]),
+    /** 金幣的隨機幅度（0.1 = ±10%） */
+    variance: z.number().min(0).max(1),
+    /** 分成幾堆噴出來 */
+    piles: z.int().positive(),
+    /** 離其他怪物至少幾格（單獨行動） */
+    alone: z.number().positive(),
+  }),
   champion: z.strictObject({
     hpMultiplier: z.number().positive(),
     damageMultiplier: z.number().positive(),

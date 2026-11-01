@@ -24,6 +24,7 @@ export class LootSystem {
     private readonly itemLevel: () => number,
     /** 樓層的 lootTier：越深黃以上越容易掉 */
     private readonly lootTier: () => number,
+    private readonly floor: () => number,
     events: GameEventBus,
   ) {
     events.on('ActorDied', (e) => {
@@ -31,6 +32,7 @@ export class LootSystem {
       const table = e.miniBoss ? this.data.balance.endgame.miniBoss.lootTable : this.data.enemies.get(e.defId).lootTable;
       if (table) this.drop(table, e.position);
       if (e.elite) this.drop(this.data.balance.elite.lootTable, e.position);
+      if (this.data.enemies.get(e.defId).treasure) this.dropGoldBurst(e.position);
     });
     events.on('ChestOpened', (e) => this.drop(e.lootTable, e.position));
   }
@@ -80,6 +82,17 @@ export class LootSystem {
 
   drop(tableId: string, position: Vec2): void {
     for (const content of this.roll(tableId)) this.spawn(this.scatter(position), content);
+  }
+
+  /** 噴錢的結晶獸：金幣隨樓層增加（第 1 層 → 最後一層線性），分成幾堆噴出來 */
+  private dropGoldBurst(position: Vec2): void {
+    const { gold, variance, piles } = this.data.balance.goldWalker;
+    const progress = Math.min(1, (this.floor() - 1) / (this.data.balance.endgame.lastFloor - 1));
+    const total = Math.round((gold[0] + (gold[1] - gold[0]) * progress) * this.rng.range(1 - variance, 1 + variance));
+    for (let i = 0; i < piles; i++) {
+      const amount = Math.floor(total / piles) + (i < total % piles ? 1 : 0);
+      this.spawn(this.scatter(position), { kind: 'gold', amount });
+    }
   }
 
   /** 在附近找一個可走的位置，讓多個掉落物不疊在一起 */

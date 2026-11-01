@@ -4,6 +4,7 @@ import { enemies } from '../data/enemies';
 import { BOSS_MODELS } from '../render/figure/Bosses';
 import { figureScale, type AttackVariant, type FigureModel } from '../render/figure/FigureModel';
 import { PolyFigure, type FigureState } from '../render/figure/PolyFigure';
+import { STONE_WALKERS } from '../render/figure/StoneWalkers';
 import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
 
 /**
@@ -14,9 +15,9 @@ import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
  */
 
 const params = new URLSearchParams(location.search);
-const ids = Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && e.boss));
+const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && e.boss)), ...Object.keys(STONE_WALKERS)];
 const modelId = ids.includes(`enemy.${params.get('model')}`) ? `enemy.${params.get('model')}` : 'enemy.abyss_sovereign';
-const baseModel: FigureModel = BOSS_MODELS[modelId]!;
+const baseModel: FigureModel = BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId]!;
 /** ?bones=1：蒙皮網格每個面依權重最大的骨頭上色（手臂 = 黃 / 橘 / 紅、鎖骨 = 白，其他依名稱），檢查分區 */
 const BONE_COLORS: Record<string, number> = { upperArm: 0xffe040, forearm: 0xff8a20, hand: 0xff3030, ex_fingers: 0xff40c0, ex_clav: 0xffffff };
 const model: FigureModel =

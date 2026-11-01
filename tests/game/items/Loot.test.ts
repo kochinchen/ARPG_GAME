@@ -172,7 +172,7 @@ describe('掉寶（M5）', () => {
 describe('掉寶的樓層成長', () => {
   const data = DataRegistry.load(gameData);
   const loot = (lootTier: number) =>
-    new LootSystem(data, new Rng(3), new ItemGenerator(data, new Rng(4)), null as never, () => {}, () => 20, () => lootTier, new EventBus<GameEvents>());
+    new LootSystem(data, new Rng(3), new ItemGenerator(data, new Rng(4)), null as never, () => {}, () => 20, () => lootTier, () => 20, new EventBus<GameEvents>());
 
   it('lootTier 放大黃以上的權重，白 / 藍不變；超出設定的階級用最後一組', () => {
     const table = data.lootTables.get('loot.skeleton');

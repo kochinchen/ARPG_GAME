@@ -151,6 +151,7 @@ describe('精英 / Boss 的樓層減傷', () => {
     const kinds = new Set<string>();
     for (let seed = 1; seed <= 15; seed++) {
       for (const e of enemies(world(12, seed))) {
+        if (data.enemies.get(e.defId!).treasure) continue;
         if (!e.elite && !e.isBoss) {
           expect(physical(e) + elemental(e)).toBe(0);
           continue;

@@ -27,11 +27,12 @@ export class SquadTactics {
 
   /** 叫醒 alertRadius 內、看得到 caller 的閒置同伴；回傳叫醒了幾隻 */
   rally(caller: Actor, targetId: ActorId, actors: readonly Actor[]): number {
+    if (caller.ai?.solitary) return 0;
     const [minDelay, maxDelay] = this.config.alertDelay;
     let count = 0;
     for (const ally of actors) {
       const brain = ally.ai;
-      if (ally === caller || !brain || !ally.alive || ally.isBoss || ally.faction !== caller.faction) continue;
+      if (ally === caller || !brain || brain.solitary || !ally.alive || ally.isBoss || ally.faction !== caller.faction) continue;
       if (brain.state !== 'idle' || brain.alertTargetId !== null) continue;
       if (distance(ally.position, caller.position) > this.config.alertRadius) continue;
       if (!this.nav.hasLineOfSight(caller.position, ally.position, 0)) continue;

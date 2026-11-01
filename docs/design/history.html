@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">120</b> 多個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1036</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1045</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -554,6 +554,11 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p>比對設計文件時發現：詞綴每 10 級一階，T5 要物品等級 40，但物品等級等於樓層、最高 35，所以 T5 永遠拿不到。改成每 8 級一階（T5 在 32 層起），和熔核的核階相同。</p>
             <p class="why">既有裝備的詞綴數值由物品等級推導，所以舊裝備也會跟著變強。自動難度測試的預設角色也從物品等級 50 改成 35。</p>
           </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">噴錢的結晶獸</span><span class="hash mono">11/1</span></div>
+            <p>設計者用 TRELLIS 生成的石頭獸做成火、冰、雷、毒四種結晶獸，共用一張網格與骨架，外觀從模型的凹凸推導：凸出的尖岩變成各屬性的結晶、凹縫發光。第 5 層起單獨出現，每次進入樓層 30%、25%、20%、15%、10%、5% 各自擲一次，打倒噴出 400～1500 金幣（越深越多），死亡 0.8 秒後晶核碎裂；強度與精英相同，大小固定與震地獸同高（×2.26）。</p>
+            <p class="why">原本想用程式替石頭獸長結晶，細得像刺，改成用模型本身的尖岩。貼圖烤死了光影，所以不用貼圖、依部位上色。讀檔不重擲，避免靠重新整理刷錢；不算進開出口的擊殺數，打不打都不影響過關。</p>
+          </div>
         </div>
       </div>
     </div>
@@ -565,7 +570,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <h2>測試數量隨 Milestone 累積</h2>
       <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 11/1 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1036">
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1045">
       <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.7%"></div><span class="val mono">28</span></div>
       <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.0%"></div><span class="val mono">52</span></div>
       <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:7.8%"></div><span class="val mono">81</span></div>
@@ -574,8 +579,8 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.2%"></div><span class="val mono">137</span></div>
       <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.3%"></div><span class="val mono">179</span></div>
       <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:25.1%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1036</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1036 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個）。</p>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1045</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1045 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個）。</p>
     </div>
   </section>
 

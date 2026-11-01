@@ -70,7 +70,7 @@ import { notePageInChest } from './world/Notebook';
 import { fuse } from './items/FusionResolver';
 import { coreName } from './items/CoreDescriber';
 import type { CoreInstance } from './items/CoreInstance';
-import { rollElite, SpawnSystem } from './world/SpawnSystem';
+import { rollElite, SpawnSystem, type SafeZone } from './world/SpawnSystem';
 import { findMarker, reachableTiles } from '../data/mapAnalysis';
 import { TargetingService } from './targeting/TargetingService';
 
@@ -398,6 +398,7 @@ export class GameWorld {
       (position, content) => this.spawnGroundItem(position, content),
       () => this.itemLevel,
       () => this.lootTier,
+      () => this.floors.floor,
       this.events,
     );
     this.shop = new ShopSystem(
@@ -460,6 +461,11 @@ export class GameWorld {
         visualRadius: actor.visualRadius,
         restored: false,
       });
+    });
+    // 死亡技能（結晶獸的晶核碎裂）
+    this.events.on('ActorDied', (e) => {
+      const actor = this.targeting.getActor(e.actorId);
+      if (actor && !e.summoned) this.passives.onActorDied(actor);
     });
     // 首領被擊敗：原地出現首領寶箱
     this.events.on('ActorDied', (e) => {
@@ -666,6 +672,7 @@ export class GameWorld {
     // 讀檔時首領已被擊敗、寶箱還沒開：寶箱放在首領原本站的位置
     if (championSpot && championIndex !== undefined && killed.has(championIndex)) this.placeChampionChest(championSpot);
     for (const [actorId, index] of spawnedIds) this.floors.trackSpawn(actorId, index);
+    if (!def.throne && !restore) this.spawnGoldWalkers(floor, safe, zones, plan.map((r) => r.position), scaling, eliteResist);
     if (this.exit) this.exit.open = this.floors.exitOpen;
     // 往上的樓梯：挑戰的第一層不能回到一般模式（完成隱藏難關後解除）
     this.stairsUp = canAscend(floor, this.progress, this.data.balance.endgame) ? { kind: 'stairsUp', id: this.nextInteractableId++, position: this.spawnPoint } : null;
@@ -685,6 +692,28 @@ export class GameWorld {
     // 讀檔：回到最後啟動的存檔點（一般換層從樓梯口開始）
     if (restore) this.placePlayer(this.checkpoints.respawn.position);
     this.events.emit('FloorEntered', { floor, mapId: this.map.id });
+  }
+
+  /**
+   * 噴錢的結晶獸：每次進入樓層，balance.goldWalker.chances 每個機率各自擲一次，中幾個就出現幾隻；讀檔不呼叫（不能靠重新整理刷錢）。
+   * 分散在地圖上、離其他怪物一段距離（單獨行動）。不進怪物池、不算精英，也不算進開出口的擊殺數；體型固定（不擲隨機體型）。
+   * 亂數加上遊戲時間，每次進入都不同；這是獨立的亂數，不影響其他怪物與寶箱。
+   */
+  private spawnGoldWalkers(floor: number, safe: readonly Vec2[], zones: readonly SafeZone[], others: readonly Vec2[], scaling: FloorScaling, eliteResist: number): void {
+    const config = this.data.balance.goldWalker;
+    if (floor < config.minFloor) return;
+    const rng = new Rng(this.seed).fork(`gold-walker-${floor}-${Math.round(this.playTime * 60)}`);
+    let count = 0;
+    for (const chance of config.chances) if (rng.chance(chance)) count++;
+    if (count === 0) return;
+    const elite = this.data.balance.elite;
+    const away = others.map((center) => ({ center, radius: config.alone }));
+    for (const position of new SpawnSystem(this.nav, rng).planChests(count, safe, [...zones, ...away])) {
+      const def = this.data.enemies.get(rng.pick(config.enemies));
+      const enemy = this.enemyFactory.create(def, this.nextActorId++, position, scaling, undefined, null, NORMAL_SIZE, undefined, elite);
+      applyFloorResist(enemy, rng.chance(0.5) ? { physical: eliteResist, elemental: 0 } : { physical: 0, elemental: eliteResist });
+      this.floors.excludeFromClear(this.addActor(enemy).id);
+    }
   }
 
   /**

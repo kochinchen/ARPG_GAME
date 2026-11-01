@@ -4,6 +4,7 @@ import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
 import { LATE_MODELS } from './LateMonsters';
 import { SKELETON_WARRIOR } from './SkeletonWarrior';
+import { STONE_WALKERS } from './StoneWalkers';
 import type { FigureModel, Pose } from './FigureModel';
 import { BONE, BONE_DARK, boneLimb, humanoid, monsterPoses, pelvis, ribcage, skull } from './MonsterParts';
 import { box, lowSphere, placeMesh, prism, type Mesh } from './Poly3D';
@@ -490,6 +491,7 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   ...scaled(ABERRATION_MODELS),
   ...scaled(LATE_MODELS),
   ...scaled(BOSS_MODELS),
+  ...STONE_WALKERS,
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;

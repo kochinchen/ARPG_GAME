@@ -23,7 +23,8 @@ function floorWorld(floor = 1, seed = 1) {
   return { world, commands, events };
 }
 
-const enemies = (world: GameWorld) => world.actors.filter((a) => a.faction === 'enemy');
+/** 樓層的怪物（噴錢的結晶獸不算進樓層的擊殺數，另外測試） */
+const enemies = (world: GameWorld) => world.actors.filter((a) => a.faction === 'enemy' && !(a.defId !== null && data.balance.goldWalker.enemies.includes(a.defId)));
 /** 擊敗 n 隻怪物 */
 /** 擊殺 n 隻怪物；掉落物隨機，會影響「離開樓層前的確認」，所以一併清掉 */
 function kill(world: GameWorld, n: number) {

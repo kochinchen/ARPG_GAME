@@ -29,6 +29,8 @@ export interface AiBrain {
   /** 上次後退 / 移動到後排站位時的施放次數：至少出手一次才會再移動（避免被追時一直逃、從不攻擊） */
   castsAtRetreat: number;
   /** 被同伴叫醒：要追的目標與剩下的反應時間（秒） */
+  /** 單獨行動：不招呼同伴、也不被同伴叫醒（噴錢的結晶獸） */
+  solitary: boolean;
   alertTargetId: ActorId | null;
   alertTimer: number;
   /** 這次追擊是被同伴叫來的（不再往外叫，警戒只傳一層） */
@@ -46,6 +48,7 @@ export interface BrainOptions {
   leashRange: number;
   skills: readonly string[];
   keepDistance?: number;
+  solitary?: boolean;
 }
 
 export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
@@ -64,6 +67,7 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     retreating: false,
     castsAtRetreat: -1,
     wanderTimer: 0,
+    solitary: options.solitary ?? false,
     alertTargetId: null,
     alertTimer: 0,
     rallied: false,

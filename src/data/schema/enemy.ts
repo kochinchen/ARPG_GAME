@@ -77,6 +77,10 @@ export const EnemyDefSchema = z
     })
     .partial()
     .default({}),
+  /** 噴錢的怪（結晶獸）：死亡時噴出 balance.goldWalker 的金幣，單獨行動（不招呼同伴、不被同伴叫醒） */
+  treasure: z.boolean().default(false),
+  /** 死亡後 delay 秒在原地發動的技能（晶核碎裂）；地上先顯示半徑 warnRadius 的提示，技能等級 1、施放者已死亡 */
+  onDeath: z.strictObject({ skill: IdSchema, delay: z.number().positive(), warnRadius: z.number().positive() }).optional(),
   /** 被動技能（見 EnemyPassiveSchema） */
   passives: z.array(EnemyPassiveSchema).default([]),
   /** Boss 的階段變化（依 hpBelow 由高到低） */

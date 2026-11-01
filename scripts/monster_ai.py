@@ -7,6 +7,7 @@ AI 生成的怪物（微軟 TRELLIS 用設計圖四視圖生成的 .glb）→ �
   蜘蛛女王：art/monsters/spider_queen → src/render/figure/bosses/spiderQueenAI.json
   深淵魔王：art/monsters/abyss_lord → src/render/figure/bosses/abyssLordAI.json
   深淵統御者：art/monsters/abyss_sovereign → src/render/figure/bosses/abyssSovereignAI.json（另有巨劍、盾牌）
+  石頭獸（結晶獸四種屬性共用）：art/monsters/stone_walker → src/render/figure/monsters/stoneWalkerAI.json
   熔岩巨獸 / 墮落騎士 / 墓穴守衛 / 墮落神官：art/monsters/<lava_behemoth|fallen_knight|crypt_guardian|fallen_priest> → bosses/<lavaBehemothAI|fallenKnightAI|cryptGuardianAI|fallenPriestAI>.json
 
 輸入：<資料夾>/ai/trellis-1.glb；輸出：<資料夾>/<怪物>-ai.blend（網格 + 骨架 + 權重，可在 Blender 修整）、
@@ -34,6 +35,9 @@ args = sys.argv[sys.argv.index("--") + 1:]
 folder, out_json = args[0], args[1]
 NAME = os.path.basename(os.path.normpath(folder))
 TRIS = 7000
+# 一般怪物同時出現的數量多，面數要少；魔王用預設
+TRIS_OF = {"stone_walker": 4500}
+FLOOR_AT = {"stone_walker": -0.378}
 
 # 生成時多出來、要切掉的部分（Blender 座標、減面前判斷；整個三角形都在範圍內才刪）
 CLEANUP = {
@@ -105,8 +109,12 @@ def load(path, tris, name, cut=None):
 
 # ── 1、2. 匯入、減面、顏色 ──
 bpy.ops.wm.read_factory_settings(use_empty=True)
-src, face_color = load(os.path.join(folder, "ai", "trellis-1.glb"), TRIS, f"{NAME}_ai", CLEANUP.get(NAME))
+src, face_color = load(os.path.join(folder, "ai", "trellis-1.glb"), TRIS_OF.get(NAME, TRIS), f"{NAME}_ai", CLEANUP.get(NAME))
 me = src.data
+# 石頭獸：拳頭比腳底低約 3 公分（單圖生成的誤差），壓平到腳底的高度，否則腳會浮在地上
+if NAME in FLOOR_AT:
+    for v in me.vertices:
+        v.co.z = max(v.co.z, FLOOR_AT[NAME])
 
 
 # ── 3. 骨架（Blender 座標：Z 朝上、面向 -Y；左半邊 +X）──
@@ -302,6 +310,16 @@ def fallen_priest():
     return bones, {}
 
 
+def stone_walker():
+    """石頭獸：大猩猩般用拳頭撐地；小頭往前探在肩膀之間、腿短且在身體後方。遊戲端不轉正四肢（靜止姿勢就是模型的樣子）"""
+    return humanoid(
+        [(0, 0.14, -0.1), (0, 0.08, -0.03), (0, -0.02, 0.1), (0, -0.16, 0.12), (0, -0.2, 0.1), (0, -0.33, 0.03)], [0.14, 0.16, 0.2, 0.06, 0.11],
+        [(0.31, -0.03, 0.14), (0.37, -0.015, 0), (0.345, -0.04, -0.16), (0.33, -0.04, -0.26), (0.33, -0.04, -0.378)], [0.1, 0.11, 0.11, 0.1],
+        [(0.125, 0.17, -0.12), (0.13, 0.2, -0.24), (0.13, 0.22, -0.32), (0.13, 0.18, -0.36), (0.13, 0.13, -0.375)], [0.09, 0.08, 0.06, 0.03],
+        (0.08, -0.02, 0.2), 0.15,
+    ), {}
+
+
 # 另外生成的獨立物件（<資料夾>/ai/<名稱>.glb → 不綁骨架的網格，遊戲端掛在關節上或掉在地上）：名稱 → 三角形數
 PROPS = {"abyss_sovereign": {"sword": 1500, "shield": 2500}}
 
@@ -400,6 +418,8 @@ KNIGHT_ARMS = limb_zone(lambda p: -0.2 < p.z < 0.15 and abs(p.x) > (0.175 if p.z
 CRYPT_ARMS = limb_zone(lambda p: -0.22 < p.z < 0.17 and abs(p.x) > (0.2 if p.z > -0.03 else 0.23) and p.y < 0.11, lambda p: True)
 PRIEST_ARMS = limb_zone(lambda p: -0.125 < p.z < 0.17 and abs(p.x) > 0.195 and p.y < 0.07, lambda p: True)
 
+STONE_ARMS = limb_zone(lambda p: p.z < 0.12 and abs(p.x) > (0.2 if p.z < -0.25 else 0.22) and (p.z > -0.25 or p.y < 0.12), lambda p: True)
+
 # 限制某些頂點只能跟哪些骨頭（zone(頂點, 骨頭名稱) → 可以或不可以）；沒有列出的怪物只看距離
 ZONES = {
     # 深淵統御者：手臂在身體兩側前半、大腿外側；翅膀在背後高處
@@ -418,9 +438,11 @@ ZONES = {
     "fallen_knight": lambda p, bone: cloth_zone(p, bone, lambda p: p.y > 0.09 and abs(p.x) < 0.2 and p.z < 0.1, lambda p: p.y < -0.085 and abs(p.x) < 0.07 and p.z < -0.02) and KNIGHT_ARMS(p, bone),
     "crypt_guardian": lambda p, bone: cloth_zone(p, bone, lambda p: p.y > 0.115 and abs(p.x) < 0.22 and p.z < 0.14, lambda p: p.y < -0.11 and abs(p.x) < 0.07 and p.z < -0.01) and CRYPT_ARMS(p, bone),
     "fallen_priest": lambda p, bone: priest_zone(p, bone),
+    # 石頭獸：頭只帶動正前方；手臂在身體外側，拳頭下方要和後面的腳分開
+    "stone_walker": lambda p, bone: (not bone.startswith("head") or (abs(p.x) < 0.16 and p.y < -0.1)) and STONE_ARMS(p, bone),
 }
 # 分開的部位（joined(三角形三個頂點的主要骨頭, 三個頂點的權重) → 可以留下嗎）：跨到不相連部位的三角形在動作時會被拉長，輸出時拿掉
-JOINED = {n: limbs_joined for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest")}
+JOINED = {n: limbs_joined for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
 
 SKELETONS = {
     "spider_queen": spider_queen,
@@ -430,8 +452,16 @@ SKELETONS = {
     "fallen_knight": fallen_knight,
     "crypt_guardian": crypt_guardian,
     "fallen_priest": fallen_priest,
+    "stone_walker": stone_walker,
 }
 bones, extra = SKELETONS[NAME]()
+
+# 表面分類的範圍（只有背、肩、前臂、拳頭上的尖岩會變成結晶）與門檻（全部頂點凸出量的百分位：面數改變時絕對值會變）
+SURFACE_ZONE = {"stone_walker": lambda p: (p.y > -0.16 and p.z > 0.0) or (abs(p.x) > 0.22 and p.z > -0.28)}
+EYES = {"stone_walker": (0.08, -0.15, 0.11)}
+SPIKE_Q = 0.8
+SEAM_Q = 0.07
+
 
 # ── 4. 權重 ──
 def seg_dist(p, a, b):
@@ -443,7 +473,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest")}
+JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
@@ -535,11 +565,48 @@ if joined:
             break
         keep = kept_faces()
 
+# 表面分類（遊戲端換色用）：每個頂點和平滑後的表面比較，凸出的尖岩可以變成結晶，凹下的縫可以發光
+surface_kind = None
+spikes = []
+if NAME in SURFACE_ZONE:
+    pos = [c.copy() for c in co]
+    near = [[] for _ in co]
+    for e in me.edges:
+        near[e.vertices[0]].append(e.vertices[1])
+        near[e.vertices[1]].append(e.vertices[0])
+    for _ in range(50):
+        pos = [(sum((pos[n] for n in ns), Vector()) / len(ns)).lerp(p, 0.4) if ns else p for p, ns in zip(pos, near)]
+    me.calc_loop_triangles()
+    prot = [(c - q).dot(v.normal) for c, q, v in zip(co, pos, me.vertices)]
+    ordered = sorted(prot)
+    SPIKE, SEAM = ordered[int(len(prot) * SPIKE_Q)], ordered[int(len(prot) * SEAM_Q)]
+    spike = [prot[i] > SPIKE and SURFACE_ZONE[NAME](co[i]) for i in range(len(co))]
+    spikes = [[i, *G(co[i] - pos[i])] for i in range(len(co)) if spike[i]]
+    surface_kind = []
+
+
+def kind_of(idx, normal):
+    # 眼睛：貼圖模糊看不出來，直接標出位置（4 = 發光）：頭正面、左右對稱的一小塊
+    if NAME in EYES and normal.y < -0.25:
+        c = sum((co[i] for i in idx), Vector()) / 3
+        ex, ey, ez = EYES[NAME]
+        if abs(abs(c.x) - ex) < 0.03 and abs(c.z - ez) < 0.022 and c.y < ey:
+            return 4
+    n = sum(spike[i] for i in idx)
+    if n == 3:
+        return 2
+    if n >= 1:
+        return 1
+    return 3 if all(prot[i] < SEAM for i in idx) else 0
+
+
 cut = keep.count(False)
 for p, k in zip(me.polygons, keep):
     if k:
         idx = list(p.vertices)
         faces.append([idx[0], idx[1], idx[2], face_color(p)])
+        if surface_kind is not None:
+            surface_kind.append(kind_of(idx, p.normal))
 data = {
     "joints": {name: G(a) for name, _, a, _, _ in bones},
     "tips": {name: G(b) for name, _, _, b, _ in bones},
@@ -549,6 +616,9 @@ data = {
     "weights": weights,
     "faces": faces,
 }
+if surface_kind is not None:
+    data["surface"] = {"kind": surface_kind, "spikes": spikes}
+    print("表面分類：", {k: surface_kind.count(k) for k in range(5)}, "尖岩頂點", len(spikes))
 # 獨立物件：原本的位置與大小（公尺、遊戲軸向），檢查截圖與 .blend 裡藏起來
 props = {}
 for pname, ptris in PROPS.get(NAME, {}).items():

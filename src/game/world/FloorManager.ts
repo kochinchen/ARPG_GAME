@@ -40,6 +40,8 @@ export class FloorManager {
   private bossIndex: number | null = null;
   /** 首領的生成索引；沒有首領的樓層為 null */
   private championIndex: number | null = null;
+  /** 不算進開出口的擊殺數（噴錢的結晶獸） */
+  private readonly notCounted = new Set<ActorId>();
   private pendingFloor: number | null = null;
 
   constructor(
@@ -48,7 +50,7 @@ export class FloorManager {
   ) {
     events.on('ActorDied', (e) => {
       // 召喚物不計入擊殺數
-      if (e.faction !== 'enemy' || this.def === null || e.summoned) return;
+      if (e.faction !== 'enemy' || this.def === null || e.summoned || this.notCounted.delete(e.actorId)) return;
       const index = this.spawnIndexOf.get(e.actorId);
       if (index !== undefined) this.killedSpawns.push(index);
       this.killed++;
@@ -91,6 +93,7 @@ export class FloorManager {
     this.killedSpawns.push(...(options.killed ?? []));
     this.killed = this.killedSpawns.length;
     this.spawnIndexOf.clear();
+    this.notCounted.clear();
     this.bossIndex = options.bossIndex ?? null;
     this.championIndex = options.championIndex ?? null;
     // 預先開啟時不發事件（不是這次擊殺造成的）
@@ -106,6 +109,11 @@ export class FloorManager {
   /** 記錄怪物的生成索引（擊殺時寫入 killedSpawns） */
   trackSpawn(actorId: ActorId, index: number): void {
     this.spawnIndexOf.set(actorId, index);
+  }
+
+  /** 這隻怪物不算進開出口的擊殺數 */
+  excludeFromClear(actorId: ActorId): void {
+    this.notCounted.add(actorId);
   }
 
   isChestOpened(floor: number, index: number): boolean {

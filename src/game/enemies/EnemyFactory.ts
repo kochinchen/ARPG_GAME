@@ -80,10 +80,12 @@ export class EnemyFactory {
     size: SizeRoll = NORMAL_SIZE,
     /** 中途小王：魔王數值再乘這些倍率（balance.endgame.miniBoss） */
     miniBoss?: { hpMultiplier: number; damageMultiplier: number; xpMultiplier: number },
+    /** 只放大數值、不算精英（噴錢的結晶獸：血量、傷害、經驗與精英相同） */
+    boost?: { hpMultiplier: number; damageMultiplier: number; xpMultiplier: number },
   ): Actor {
     const e = elite?.config;
-    const hpMult = (def.boss ? scaling.bossHp : scaling.hp) * (e?.hpMultiplier ?? 1) * size.stat * (miniBoss?.hpMultiplier ?? 1);
-    const damageMult = scaling.damage * (e?.damageMultiplier ?? 1) * size.stat * (miniBoss?.damageMultiplier ?? 1);
+    const hpMult = (def.boss ? scaling.bossHp : scaling.hp) * (e?.hpMultiplier ?? 1) * size.stat * (miniBoss?.hpMultiplier ?? 1) * (boost?.hpMultiplier ?? 1);
+    const damageMult = scaling.damage * (e?.damageMultiplier ?? 1) * size.stat * (miniBoss?.damageMultiplier ?? 1) * (boost?.damageMultiplier ?? 1);
     const stats = new StatBlock({
       maxHp: def.hp * hpMult,
       moveSpeed: def.moveSpeed,
@@ -118,12 +120,13 @@ export class EnemyFactory {
               leashRange: def.leashRange,
               skills: def.skills,
               keepDistance: def.ai === 'ranged' ? def.keepDistance : 0,
+              solitary: def.treasure,
             }),
       skillRanks: new Map(def.skills.map((skillId) => [skillId, 1])),
       isBoss: def.boss,
       miniBoss: miniBoss !== undefined,
       skillArea: scaling.skillArea,
-      xpReward: Math.round(def.xp * scaling.xp * (e?.xpMultiplier ?? 1) * (miniBoss?.xpMultiplier ?? 1)),
+      xpReward: Math.round(def.xp * scaling.xp * (e?.xpMultiplier ?? 1) * (miniBoss?.xpMultiplier ?? 1) * (boost?.xpMultiplier ?? 1)),
     });
     return actor;
   }

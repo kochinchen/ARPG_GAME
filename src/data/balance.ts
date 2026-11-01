@@ -155,6 +155,15 @@ export const balance: z.input<typeof BalanceSchema> = {
     },
     attributePoints: 20,
   },
+  goldWalker: {
+    enemies: ['enemy.ember_walker', 'enemy.frost_walker', 'enemy.storm_walker', 'enemy.venom_walker'],
+    minFloor: 5,
+    chances: [0.3, 0.25, 0.2, 0.15, 0.1, 0.05],
+    gold: [400, 1500],
+    variance: 0.1,
+    piles: 6,
+    alone: 7,
+  },
   champion: {
     hpMultiplier: 6,
     damageMultiplier: 2,

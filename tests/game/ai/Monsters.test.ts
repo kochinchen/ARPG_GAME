@@ -140,12 +140,12 @@ describe('樓層分布（minFloor）', () => {
     const found = new Set<string>();
     for (let seed = 1; seed <= 12; seed++) {
       const world = new GameWorld({ data, floor, commands: new CommandQueue<GameCommand>(), events: new EventBus<GameEvents>(), seed });
-      for (const e of enemiesOf(world)) found.add(e.defId!);
+      for (const e of enemiesOf(world)) if (!data.enemies.get(e.defId!).treasure) found.add(e.defId!);
     }
     return found;
   };
 
-  it('第 1 層只有骷髏戰士與食屍鬼；第 2 層起有毒液食屍鬼', () => {
+  it('第 1 層只有骷髏戰士與食屍鬼；第 2 層起有毒液食屍鬼（不算噴錢的結晶獸）', () => {
     expect([...kinds(1)].sort()).toEqual(['enemy.ghoul', 'enemy.skeleton']);
     expect([...kinds(2)].sort()).toEqual(['enemy.ghoul', 'enemy.skeleton', 'enemy.venom_ghoul']);
   });

@@ -13,6 +13,8 @@ export class PassiveSkillSystem {
   /** 怪物 → 每個被動技能的計時（秒）或累積的移動距離（格） */
   private readonly progress = new Map<ActorId, number[]>();
   private readonly lastPosition = new Map<ActorId, { x: number; y: number }>();
+  /** 等待發動的死亡技能（EnemyDef.onDeath） */
+  private readonly deathBursts: { actor: Actor; skillId: string; timer: number }[] = [];
 
   constructor(
     private readonly data: Pick<DataRegistry, 'enemies' | 'skills'>,
@@ -20,7 +22,21 @@ export class PassiveSkillSystem {
     private readonly rng: Rng,
   ) {}
 
+  /** 怪物死亡時呼叫：有死亡技能的排進等待（施放者已死亡，技能照常以牠的數值結算） */
+  onActorDied(actor: Actor): void {
+    if (actor.defId === null || !this.data.enemies.has(actor.defId)) return;
+    const onDeath = this.data.enemies.get(actor.defId).onDeath;
+    if (onDeath) this.deathBursts.push({ actor, skillId: onDeath.skill, timer: onDeath.delay });
+  }
+
   update(actors: readonly Actor[], dt: number): void {
+    for (let i = this.deathBursts.length - 1; i >= 0; i--) {
+      const burst = this.deathBursts[i]!;
+      burst.timer -= dt;
+      if (burst.timer > 0) continue;
+      this.deathBursts.splice(i, 1);
+      this.cast(burst.actor, burst.skillId);
+    }
     for (const actor of actors) {
       if (actor.defId === null || !this.data.enemies.has(actor.defId)) continue;
       const passives = this.data.enemies.get(actor.defId).passives;
@@ -59,6 +75,7 @@ export class PassiveSkillSystem {
   clear(): void {
     this.progress.clear();
     this.lastPosition.clear();
+    this.deathBursts.length = 0;
   }
 
   private interval(every: number): number {
