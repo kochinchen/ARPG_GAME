@@ -161,7 +161,7 @@ export class InputManager {
         this.commands.push({ type: 'DebugSpawnLoot', uniques: shift, ...(shift && this.adapters.debugLoot?.length ? { ids: this.adapters.debugLoot } : {}) });
         break;
       case 'KeyH':
-        // Shift + H：物品等級 45 的測試包（平均物品等級 40 以上才融得出 T5）
+        // Shift + H：物品等級 45 的測試包（平均物品等級 32 以上才融得出 T5）
         this.commands.push({ type: 'DebugFusionKit', highLevel: shift });
         break;
     }

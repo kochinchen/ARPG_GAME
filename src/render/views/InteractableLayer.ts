@@ -3,7 +3,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp, Waypoint } from '../../game/entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, Relic, StairsUp, Waypoint } from '../../game/entities/Interactable';
 import { CHESTS, chestPose } from '../figure/Chest';
 import { EXIT_GATE } from '../figure/ExitGate';
 import { STAIRS } from '../figure/Stairs';
@@ -17,6 +17,9 @@ import { MATERIAL_LABELS } from '../../data/schema/item';
 
 /** 材料（飛昇碎片）的顏色 */
 const MATERIAL_COLOR = 0x7ad8ff;
+/** 遺物：沒讀過是舊紙色、微微發光；讀過變暗 */
+const RELIC_COLOR = 0xe6cf98;
+const RELIC_READ_COLOR = 0x8a7c62;
 
 /** 名稱標籤離地面的高度（px） */
 const LABEL_OFFSET = 18;
@@ -68,6 +71,8 @@ interface View {
   waypoint?: Graphics;
   /** 多面體模型（寶箱、商人、樓梯、出口）：位置、Three.js 畫法的模型、腳下的橢圓影子、重畫目前姿勢 */
   model?: { figure: PolyFigure; position: Vec2; three: ThreeFigure | null; shadow: Graphics | null; redraw: () => void };
+  /** 遺物：地上的光與讀過與否（讀過時換暗色） */
+  relic?: { glow: Graphics; label: Text; read: boolean };
   /** 畫在地上（角色下方）的部分：出口開啟時地上的光 */
   floor?: Container;
 }
@@ -95,7 +100,7 @@ export class InteractableLayer {
   constructor(
     private readonly projection: IsoProjection,
     private readonly objectLayer: Container,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores' | 'balance'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores' | 'balance' | 'lore'>,
   ) {}
 
   /** 有 Three.js 模型的物件：Renderer 不幫它放深度板（深度板會切掉模型後半） */
@@ -146,6 +151,7 @@ export class InteractableLayer {
     merchants: readonly Merchant[] = [],
     dt = 1 / 60,
     waypoints: readonly Waypoint[] = [],
+    relics: readonly Relic[] = [],
   ): void {
     const seen = new Set<number>();
     let changed = false;
@@ -178,6 +184,17 @@ export class InteractableLayer {
       const view = this.views.get(wp.id) ?? this.createWaypointView(wp);
       if (view.waypoint) this.drawWaypoint(view.waypoint, performance.now() / 1000);
       this.highlight(view, wp.id);
+    }
+    for (const relic of relics) {
+      seen.add(relic.id);
+      const view = this.views.get(relic.id) ?? this.createRelicView(relic);
+      const state = view.relic!;
+      if (state.read !== relic.read) {
+        state.read = relic.read;
+        state.label.style.fill = relic.read ? RELIC_READ_COLOR : RELIC_COLOR;
+      }
+      state.glow.alpha = relic.read ? 0 : 0.28 + 0.14 * Math.sin(performance.now() / 500 + relic.id);
+      this.highlight(view, relic.id);
     }
     if (stairsUp) {
       seen.add(stairsUp.id);
@@ -284,6 +301,48 @@ export class InteractableLayer {
       ...(beam ? { beam } : {}),
     };
     this.views.set(g.id, view);
+    return view;
+  }
+
+  private createRelicView(r: Relic): View {
+    const s = this.projection.toScreen(r.position);
+    const container = new Container();
+    container.position.set(s.x, s.y);
+    const glow = new Graphics().ellipse(0, -2, 24, 12).fill({ color: RELIC_COLOR });
+    glow.blendMode = 'add';
+    // 一張攤在地上的舊紙（等角的菱形）
+    const icon = new Graphics()
+      .poly([0, -9, 13, -3, 0, 3, -13, -3])
+      .fill({ color: RELIC_COLOR })
+      .stroke({ color: 0x4a3518, width: 1 })
+      .moveTo(-6, -3.5)
+      .lineTo(3, -7)
+      .moveTo(-3, -2)
+      .lineTo(6, -5.5)
+      .stroke({ color: 0x4a3518, width: 1, alpha: 0.7 });
+    container.addChild(glow, icon);
+    this.ground.addChild(container);
+
+    const name = this.data.lore.get(r.loreId).object;
+    const label = new Text({ text: name, style: { fontFamily: 'serif', fontSize: 12, fill: r.read ? RELIC_READ_COLOR : RELIC_COLOR } });
+    label.anchor.set(0.5, 1);
+    label.position.set(s.x, s.y - LABEL_OFFSET);
+    const width = label.width + LABEL_PAD * 2;
+    const height = label.height + LABEL_PAD;
+    const labelBack = new Graphics().rect(-width / 2, -label.height - LABEL_PAD / 2, width, height).fill({ color: LOOT_COLORS.labelBack });
+    labelBack.position.copyFrom(label.position);
+    this.labels.addChild(labelBack, label);
+
+    const view: View = {
+      container,
+      label,
+      labelBack,
+      labelShift: 0,
+      chest: null,
+      hit: [{ x: -width / 2, y: -LABEL_OFFSET - label.height - LABEL_PAD / 2, width, height }, ICON_HIT],
+      relic: { glow, label, read: r.read },
+    };
+    this.views.set(r.id, view);
     return view;
   }
 

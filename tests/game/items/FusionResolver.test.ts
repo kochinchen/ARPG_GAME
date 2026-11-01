@@ -128,10 +128,10 @@ describe('融合預覽：規則', () => {
     expect(four.types).toEqual(['pierce', 'heavy']);
   });
 
-  it('核階：平均物品等級每 8 級一階（32 以上 T5），最高 T5；與詞綴階級（每 10 級）分開', () => {
+  it('核階：平均物品等級每 8 級一階（32 以上 T5），最高 T5；與詞綴階級相同', () => {
     const tierOf = (lv: number) => previewFusion([weapon('sword', 'normal', lv), weapon('sword', 'normal', lv)], [], data).tier;
     expect([tierOf(7), tierOf(8), tierOf(31), tierOf(32), tierOf(80)]).toEqual([1, 2, 4, 5, 5]);
-    expect(data.balance.affixPower.levelsPerTier).toBe(10);
+    expect(data.balance.affixPower.levelsPerTier).toBe(data.balance.fusion.levelsPerTier);
   });
 
   it('不能融合：數量不對、合成區放了飾品、白飾品', () => {

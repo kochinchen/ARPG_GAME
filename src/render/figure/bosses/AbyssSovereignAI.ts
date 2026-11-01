@@ -2,7 +2,7 @@ import { aiFigure, aiPoints, alignDown, I3, sub, type AiMonsterData } from '../A
 import { solveJoints, type FigureModel, type Joint, type Pose, type PoseSet } from '../FigureModel';
 import { apply, jointRotation, mul, placeMesh, rotY, type M3, type Mesh, type V3 } from '../Poly3D';
 import { ABYSS_SOVEREIGN_ROAR, ABYSS_SOVEREIGN_SECONDARY, ABYSS_SOVEREIGN_STYLE, still } from './AbyssSovereign';
-import { bossPoses } from './BossPoses';
+import { bossPoses, mapPoses } from './BossPoses';
 import { BOSS_HIP, bossSecondary } from './BossRig';
 import DATA from './abyssSovereignAI.json';
 
@@ -110,33 +110,7 @@ parts.push(
 // 3. 劍也掉了：雙手往前、手掌微張，待機與走路時兩手輕微前後交替擺動（施法時往上舉、往前推）。
 
 type Angles = Partial<Record<Joint, V3>>;
-type Kind = 'stand' | 'action' | 'hit' | 'dead';
 const withAngles = (p: Pose, a: Angles): Pose => ({ ...p, angles: { ...p.angles, ...a } });
-
-/** 把一套動作的每個姿勢改過：stand = 待機 / 走路 / 跑步，action = 攻擊與施法，hit = 受傷，dead = 倒地 */
-function mapPoses(set: PoseSet, edit: (p: Pose, kind: Kind) => Pose): PoseSet {
-  const each = (keys: readonly Pose[] | undefined, kind: Kind) => keys?.map((k) => edit(k, kind));
-  const chain = (c: { windup: Pose[]; strike: Pose[] } | undefined) => c && { windup: each(c.windup, 'action')!, strike: each(c.strike, 'action')! };
-  const variants = set.attackVariants && (Object.fromEntries(Object.entries(set.attackVariants).map(([k, v]) => [k, chain(v)])) as PoseSet['attackVariants']);
-  const hitKeys = each(set.hitKeys, 'hit');
-  const deathKeys = each(set.deathKeys, 'dead');
-  const attackChain = chain(set.attackChain);
-  return {
-    ready: (t) => edit(set.ready(t), 'stand'),
-    run: (p) => edit(set.run(p), 'stand'),
-    ...(set.walk ? { walk: (p: number) => edit(set.walk!(p), 'stand') } : {}),
-    attackWindup: edit(set.attackWindup, 'action'),
-    attackStrike: edit(set.attackStrike, 'action'),
-    castWindup: edit(set.castWindup, 'action'),
-    castRelease: edit(set.castRelease, 'action'),
-    hit: edit(set.hit, 'hit'),
-    dead: edit(set.dead, 'dead'),
-    ...(variants ? { attackVariants: variants } : {}),
-    ...(hitKeys ? { hitKeys } : {}),
-    ...(deathKeys ? { deathKeys } : {}),
-    ...(attackChain ? { attackChain } : {}),
-  };
-}
 
 /** 劍尖朝上：手臂（上臂 + 前臂 + 手）往前抬的總角度，巨劍再轉到朝上 */
 const swordUp = (armX: number): V3 => [-Math.PI - armX, 0, 0];

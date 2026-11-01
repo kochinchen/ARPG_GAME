@@ -16,7 +16,7 @@ import type { LayoutDef } from '../../data/schema/floor';
  */
 
 /** 產生器版本：演算法改變時 + 1，讓舊存檔的樓層判定為佈局不符而重新生成 */
-export const GENERATOR_VERSION = 4;
+export const GENERATOR_VERSION = 5;
 
 export function generatedMapId(floor: number): string {
   return `map.generated.v${GENERATOR_VERSION}.f${floor}`;
@@ -162,7 +162,10 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaS
     const j = rng.int(0, rooms.length - 1);
     if (i !== j && dist(rooms[i]!, rooms[j]!) < 130) edges.push([i, j]);
   }
-  for (const [i, j] of edges) carveTunnel(rooms[i]!, rooms[j]!, rng, set);
+  // 通道寬度（Tile）換算成挖掘半徑（格）：直徑 2r - 1 格
+  const radius = (width: number) => Math.max(2, Math.round((width / layout.cellSize + 1) / 2));
+  const [rMin, rMax] = [radius(layout.corridorWidth[0]), radius(layout.corridorWidth[1])];
+  for (const [i, j] of edges) carveTunnel(rooms[i]!, rooms[j]!, rng.int(rMin, rMax), rng, set);
 
   // ── 3. 邊緣侵蝕 + 平滑 ──
   for (let y = 2; y < H - 2; y++) {
@@ -323,11 +326,10 @@ function carveRoom(r: Room, rng: Rng, set: (x: number, y: number, v: number) => 
   }
 }
 
-/** 彎曲的隧道：往目標前進時隨機偏移，寬度 11～15 格（約 5.5～7.5 Tile，邊緣侵蝕後仍然夠寬） */
-function carveTunnel(a: Room, b: Room, rng: Rng, set: (x: number, y: number, v: number) => void): void {
+/** 彎曲的隧道：往目標前進時隨機偏移，挖掘半徑 r 格（寬度 2r - 1 格，見 layout.corridorWidth） */
+function carveTunnel(a: Room, b: Room, r: number, rng: Rng, set: (x: number, y: number, v: number) => void): void {
   let x = a.cx;
   let y = a.cy;
-  const r = rng.int(6, 8);
   for (let steps = 0; steps < 2000 && (x !== b.cx || y !== b.cy); steps++) {
     for (let dy = -r + 1; dy < r; dy++) for (let dx = -r + 1; dx < r; dx++) if (dx * dx + dy * dy < r * r) set(x + dx, y + dy, FLOOR);
     const towardX = rng.chance(Math.abs(b.cx - x) / (Math.abs(b.cx - x) + Math.abs(b.cy - y) + 0.001));

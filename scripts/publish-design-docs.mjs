@@ -14,9 +14,10 @@ const out = join(root, 'docs', 'design');
 const PAGES = [
   { from: '怪物與樓層.html', to: 'monsters.html', title: '怪物與樓層', text: '怪物屬性、樓層難度成長、精英怪、極限挑戰與魔王；可切換到模型圖。' },
   { from: '裝備圖鑑.html', to: 'items.html', title: '裝備圖鑑', text: '六種稀有度、掉落機率、裝備基底、詞綴、傳奇與神話裝備。' },
-  { from: '角色成長模擬.html', to: 'growth.html', title: '角色成長模擬', text: '成長表、屬性點與技能點模擬器、三段 Combo 測試。' },
-  { from: '組合技圖鑑.html', to: 'combos.html', title: '組合技圖鑑', text: 'Q / W / E 連段的組合技規則、所有會觸發的排列與連段試算。' },
+  { from: '角色成長模擬.html', to: 'growth.html', title: '角色成長模擬', text: '成長表、屬性點與技能點模擬器、三段 Combo 測試、融合試算。' },
+  { from: '組合技圖鑑.html', to: 'combos.html', title: '組合技圖鑑', text: 'Q～D 七組連段的組合技規則、所有會觸發的排列與連段試算。' },
   { from: '開發歷程.html', to: 'history.html', title: '開發歷程', text: '開發方法與時間軸。' },
+  { from: '故事與世界觀.html', to: 'story.html', title: '故事與世界觀', text: '世界起源、統御者三相、七環編年史、魔王的魂魄與散落的遺物。' },
 ];
 const ASSETS = ['sim.js', 'item-icons.js', 'models'];
 
@@ -36,7 +37,7 @@ writeFileSync(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>地牢冒險 設計文件</title>
+<title>Aisling - Wellkeeper 設計文件</title>
 <style>
 :root { --bg: #FDFDFD; --ink: #0E2442; --ink-2: #2C4E82; --muted: #7d6547; --line: #ECECEB; --accent: #D78212; color-scheme: light; }
 @media (prefers-color-scheme: dark) {
@@ -57,7 +58,7 @@ a.card span { color: var(--muted); font-size: 14px; }
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">地牢冒險 Dungeon Adventure · 設計文件</div>
+  <div class="eyebrow">Aisling - Wellkeeper · 設計文件</div>
   <h1>設計文件</h1>
   <p><a class="play" href="../">▶ 開始遊玩</a></p>
   <ul>

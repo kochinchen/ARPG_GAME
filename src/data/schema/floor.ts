@@ -15,6 +15,8 @@ export const LayoutDefSchema = z.strictObject({
   rooms: RangeSchema,
   /** 最小生成樹之外額外的通道數（形成迴圈，不會只有一條路） */
   loops: z.int().nonnegative().default(4),
+  /** 通道寬度範圍（Tile，挖通道時的寬度，邊緣侵蝕後會窄一些）；每條通道在範圍內隨機 */
+  corridorWidth: z.tuple([z.number().positive(), z.number().positive()]).refine(([a, b]) => a <= b, 'min 必須 <= max').default([5.5, 7.5]),
 });
 export type LayoutDef = z.infer<typeof LayoutDefSchema>;
 

@@ -85,6 +85,9 @@ export const SaveMapper = {
       },
       endgame: { cleared: progress.cleared, completedHidden: progress.completedHidden },
       cutscenes: [...progress.cutscenes].sort(),
+      lore: [...progress.lore].sort(),
+      notebook: [...progress.notebook].sort(),
+      souls: [...progress.souls].sort(),
       bestiary: Object.fromEntries(progress.bestiary),
       collection: [...progress.collection].sort(),
       materials: world.materials.snapshot(),
@@ -124,6 +127,13 @@ export const SaveMapper = {
     for (const key of save.collection) progress.collection.add(key);
     progress.cutscenes.clear();
     for (const id of save.cutscenes) progress.cutscenes.add(id);
+    progress.lore.clear();
+    for (const id of save.lore) progress.lore.add(id);
+    progress.notebook.clear();
+    for (const id of save.notebook) progress.notebook.add(id);
+    progress.souls.clear();
+    for (const id of save.souls) progress.souls.add(id);
+    for (const relic of world.relics) relic.read = progress.lore.has(relic.loreId);
     world.materials.restore(save.materials);
     world.salvage.restore(save.salvage.map((s) => (s === null ? null : 'baseId' in s ? { kind: 'item', item: toItem(s) } : { kind: 'core', core: toCore(s) })));
     world.shop.ascendSlot = save.ascendSlot ? toItem(save.ascendSlot) : null;

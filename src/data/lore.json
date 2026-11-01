@@ -1,0 +1,42 @@
+[
+  { "id": "lore.f1", "floor": 1, "object": "沒寄出的信", "en": "Brother, come not home. Our mother walked up from the cellar last night. We buried her at harvest.", "zh": "哥哥，別回家。昨晚母親從地窖走上來了。我們是在秋收時埋葬她的。" },
+  { "id": "lore.f2", "floor": 2, "object": "村長的帳本", "en": "Seven cellars barred this week. The Order's rider saith one more guardian is sent. He would not say when the last came back.", "zh": "這週封了七個地窖。騎士團的信使說，又派了一位守門人來。他不肯說上一位什麼時候回來過。" },
+  { "id": "lore.f3", "floor": 3, "object": "冒險者的背包", "en": "Came for the gold they speak of. Found only stairs. The stairs are longer than they were yesterday.", "zh": "為了傳說中的黃金而來，只找到樓梯。這些樓梯比昨天更長了。" },
+  { "id": "lore.f4", "floor": 4, "object": "牆上的粉筆字", "en": "Count the steps going down. Count them again coming up. They will not match.", "zh": "下樓時數一次階梯，上樓時再數一次。兩個數字不會一樣。" },
+
+  { "id": "lore.f5", "floor": 5, "object": "墓碑銘文", "en": "Here lie the Sixth Watch, who were told to stay. They stayed.", "zh": "這裡躺著第六守衛隊。他們奉命留下，他們留下了。" },
+  { "id": "lore.f6", "floor": 6, "object": "值班日誌", "en": "Day nine thousand, or thereabouts. No relief. The captain saith the order standeth until it be lifted. None remaineth who can lift it.", "zh": "大約第九千天，沒有人來換班。隊長說命令解除前都算數。可是能解除命令的人，已經都不在了。" },
+  { "id": "lore.f7", "floor": 7, "object": "騎士團的命令書", "en": "By the Order: let none pass below, not king, not kin, not knight. Let this stand until the Well be quiet.", "zh": "騎士團令：不准任何人往下走，君王、親族、騎士皆然。此令持續到這口井安靜為止。" },
+  { "id": "lore.f8", "floor": 8, "object": "刻在墓穴裡的字", "en": "Something below singeth when we sleep. The captain saith it is only the stones. The captain doth not sleep.", "zh": "我們睡著時，底下有東西在唱歌。隊長說那只是石頭的聲音。隊長從來不睡。" },
+  { "id": "lore.f9", "floor": 9, "object": "隊長的字條", "en": "If I set this down, who holdeth it? I asked the dark. It said: hold forever. It is very kind.", "zh": "如果我放下，誰來扛？我問了黑暗。它說：永遠扛著吧。它真是仁慈。" },
+
+  { "id": "lore.f10", "floor": 10, "object": "儀式經卷", "en": "Sing at dusk, that the Well may know its walls. What hath no walls cannot be held; what hath walls can.", "zh": "在黃昏歌唱，讓這口井記得自己的牆。沒有牆的東西抓不住；有牆的才抓得住。" },
+  { "id": "lore.f11", "floor": 11, "object": "懺悔箱的紙條", "en": "I heard my dead son's voice from the crack. It knew what I said to him at the last. The Father saith this is the god.", "zh": "我從裂縫裡聽見死去兒子的聲音。它知道我最後對他說了什麼。神父說，這就是神。" },
+  { "id": "lore.f12", "floor": 12, "object": "神官的日記", "en": "It knoweth my prayers before I speak them. Surely only a god could. I have ceased to ask what it wanteth.", "zh": "我還沒開口，它就知道我要禱告什麼。只有神做得到吧。我已經不再問它想要什麼了。" },
+  { "id": "lore.f13", "floor": 13, "object": "撕下的書頁", "en": "The elders had a name for the voice: the Eye. It hath no body. It only learneth. We have struck this page from the book.", "zh": "前人替那個聲音取過名字：眼。它沒有身體，只會學習。我們已經把這一頁從經書裡刪去。" },
+  { "id": "lore.f14", "floor": 14, "object": "聖堂的門禁紀錄", "en": "Unbarred the lower doors at his word. What came up did not kneel.", "zh": "奉他的命令打開了下層的門。上來的東西，並沒有跪下。" },
+
+  { "id": "lore.f15", "floor": 15, "object": "礦工帳本", "en": "Eleven cores this month, six men lost. The Crown is pleased. Dig deeper.", "zh": "本月十一顆熔核，損失六人。王室很滿意。繼續往下挖。" },
+  { "id": "lore.f16", "floor": 16, "object": "熔核鑑定書", "en": "The stone is warm as a palm, and lendeth strength to any blade. Whence the heat? The assayer declineth to say, and hath resigned.", "zh": "這石頭像手掌一樣溫熱，能讓任何兵器變強。熱從哪裡來？鑑定師不肯說，並且辭職了。" },
+  { "id": "lore.f17", "floor": 17, "object": "工頭的報告", "en": "The seam reacheth toward us now. We do not dig it. It is offered.", "zh": "礦脈現在會朝我們伸過來。不是我們在挖，是它遞給我們的。" },
+  { "id": "lore.f18", "floor": 18, "object": "鍛造師的遺言", "en": "I have bound myself to the mountain's heart. While I burn, the ring holdeth. Tell them to stop digging. They will not.", "zh": "我已經把自己綁在山心上。只要我還在燒，這一環就撐得住。叫他們別再挖了。他們不會聽的。" },
+  { "id": "lore.f19", "floor": 19, "object": "最後一班的名冊", "en": "All hands accounted for. All hands. Only hands.", "zh": "全員點名完畢。所有的手都在。只剩下手。" },
+
+  { "id": "lore.f20", "floor": 20, "object": "騎士團名冊", "en": "Five halls: Blade, Bow, Art, Way and Ward. A guardian holdeth a ring alone; therefore a guardian must know all five.", "zh": "五堂：劍、弓、術、行、守。守門人要一個人撐住一環，所以五堂都要學。" },
+  { "id": "lore.f21", "floor": 21, "object": "守堂的門規", "en": "The Ward-hall was founded in the name of her who went first. It hath one lesson: endure. We do not teach what it costeth.", "zh": "守堂以第一位下井的人為名而立，只教一件事：撐住。至於代價，我們不教。" },
+  { "id": "lore.f22", "floor": 22, "object": "封緘的密函", "en": "Every guardian since the founding hath fallen to the thing they guarded. We have not told the candidates. Who then would go?", "zh": "自創團以來，每一位守門人都敗給了自己看守的東西。我們沒有告訴候選人。否則還有誰願意去？" },
+  { "id": "lore.f23", "floor": 23, "object": "師父沒寄出的家書", "en": "If this reach thee, I have failed. Come not. Be a smith, a farmer, anything. The Order will call it cowardice. Let them.", "zh": "如果這封信送到你手上，就表示我失敗了。不要來。去當鐵匠、當農夫，什麼都好。騎士團會說那是懦弱，讓他們說去。" },
+  { "id": "lore.f24", "floor": 24, "object": "刻在門樓的字", "en": "The gate stood empty; I took the post. I can hold this. I alone can hold this. They all wrote the same, I find, upon this very wall.", "zh": "門口沒有人，我接下了這個位置。我撐得住，只有我撐得住。我這才發現，前人都在這面牆上寫過一樣的話。" },
+
+  { "id": "lore.f25", "floor": 25, "object": "織錦殘片", "en": "Two girls in the weave, one crowned, one with a wooden sword. The thread is worn thin where a hand hath stroked it for centuries.", "zh": "織錦上有兩個女孩，一個戴著王冠，一個拿著木劍。有一處絲線磨得很薄，是一隻手撫摸了好幾百年留下的。" },
+  { "id": "lore.f26", "floor": 26, "object": "誓劍的誓詞", "en": "Sworn before the hall: Aislinn, blade to Maeve the Queen, her sword for all her days.", "zh": "於大殿前立誓：艾希琳，為女王梅芙的誓劍，此生以劍相守。" },
+  { "id": "lore.f27", "floor": 27, "object": "女王的詔書", "en": "Someone must go. The crown may not. I asked who would. She spoke before I had finished. — Maeve R.", "zh": "必須有人下去，戴王冠的人不能去。我問誰願意。我話還沒說完，她就開口了。——女王梅芙" },
+  { "id": "lore.f28", "floor": 28, "object": "女王的禱詞", "en": "Let me not end. If I end, none will remember her name. The dark answered: nothing need end. It was the kindest thing anyone had said to me.", "zh": "別讓我結束。我若結束，就沒有人記得她的名字了。黑暗回答：什麼都不必結束。這是我聽過最溫柔的話。" },
+  { "id": "lore.f29", "floor": 29, "object": "纏在蛛絲裡的紙", "en": "I weave walls, as she did. They will not hold still. My daughters are many, and not one of them knoweth my name.", "zh": "我和她一樣在築牆，但我織的牆不肯停在原地。我有很多女兒，沒有一個知道我的名字。" },
+
+  { "id": "lore.f30", "floor": 30, "object": "神殿壁畫", "en": "Before the Makers drew the first line there was only the Unbounded, and there was no here. All that is, is because it hath an edge.", "zh": "在界匠畫下第一道線之前，只有無垠，沒有「這裡」。一切之所以存在，都是因為有邊界。" },
+  { "id": "lore.f31", "floor": 31, "object": "祭壇上的誓詞", "en": "One scrap of the Unbounded was closed within the last line. It is no demon. It wisheth only that there be no lines.", "zh": "最後一道線，把一小塊無垠圍在了裡面。它不是惡魔，它只希望世上不再有任何邊界。" },
+  { "id": "lore.f32", "floor": 32, "object": "深淵祭司的經文", "en": "Three ways it reacheth us: the Hand that taketh, the Eye that learneth, the Maw that swalloweth. Call it lord if thou wilt. It heareth not.", "zh": "它用三種方式伸向我們：奪取的手、學習的眼、吞噬的口。你要稱它為主也可以，它聽不見。" },
+  { "id": "lore.f33", "floor": 33, "object": "最初的紀錄", "en": "How bind what hath no edge? Only with an edge. She went in with a shield for a wall and a sword for a line, and became both.", "zh": "要怎麼綁住沒有邊界的東西？只能用邊界。她帶著當作牆的盾、當作線的劍走進去，然後成為了它們。" },
+  { "id": "lore.f34", "floor": 34, "object": "深處的刻痕", "en": "It could not swallow her, so it grew around her. It weareth her shape, for hers is the only shape it hath ever known. She holdeth yet.", "zh": "它吞不下她，只好圍著她生長。它穿著她的形狀，因為那是它唯一認識的形狀。她還在撐著。" }
+]

@@ -1,3 +1,4 @@
+import type { SoulSmoke } from '../data/schema/story';
 import type { EventBus } from '../core/EventBus';
 import type { Vec2 } from '../core/math/Vec2';
 import type { ComboCastInfo } from './combo/StepMods';
@@ -115,6 +116,14 @@ export interface GameEvents {
   /** 使用傳送口（樓梯口 ⇄ 中途存檔點） */
   WaypointUsed: { from: Vec2; to: Vec2 };
   ExitOpened: { floor: number };
+  /** 翻開遺物（UI 翻開井誌） */
+  RelicRead: { loreId: string };
+  /** 寶箱裡夾著一頁筆記（UI 翻開井誌） */
+  NotePageFound: { noteId: string };
+  /** 《井誌》收集滿 quarter / 4；reward：給玩家看的獎勵說明 */
+  BookMilestone: { quarter: number; reward: string };
+  /** 魔王第一次倒下，魂魄飄出（Render 畫煙、UI 顯示台詞） */
+  SoulReleased: { soulId: string; smoke: SoulSmoke; position: Vec2 };
   /** 點了尚未開啟的出口；boss = Boss 層（擊敗 Boss 才開） */
   /** champion：首領還活著（擊敗首領後出口才會開） */
   ExitLocked: { remaining: number; boss: boolean; champion: boolean };

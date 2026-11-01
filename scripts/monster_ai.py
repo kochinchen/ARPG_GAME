@@ -7,6 +7,7 @@ AI 生成的怪物（微軟 TRELLIS 用設計圖四視圖生成的 .glb）→ �
   蜘蛛女王：art/monsters/spider_queen → src/render/figure/bosses/spiderQueenAI.json
   深淵魔王：art/monsters/abyss_lord → src/render/figure/bosses/abyssLordAI.json
   深淵統御者：art/monsters/abyss_sovereign → src/render/figure/bosses/abyssSovereignAI.json（另有巨劍、盾牌）
+  熔岩巨獸 / 墮落騎士 / 墓穴守衛 / 墮落神官：art/monsters/<lava_behemoth|fallen_knight|crypt_guardian|fallen_priest> → bosses/<lavaBehemothAI|fallenKnightAI|cryptGuardianAI|fallenPriestAI>.json
 
 輸入：<資料夾>/ai/trellis-1.glb；輸出：<資料夾>/<怪物>-ai.blend（網格 + 骨架 + 權重，可在 Blender 修整）、
 遊戲用的 .json、<資料夾>/ai/preview/bones-*.png（每根骨頭一個顏色，檢查分區用）。
@@ -238,6 +239,69 @@ def abyss_sovereign():
     return spine + barrel + tail + sides(side), {}
 
 
+def humanoid(spine, radii, arm, arm_radii, leg, leg_radii, clav_from, clav_radius):
+    """人形魔王（BossRig 的關節名稱）。spine：骨盆 → 腰 → 胸 → 頸 → 頭 → 頭頂；arm：肩 → 肘 → 腕 → 指根 → 指尖；leg：髖 → 膝 → 踝 → 趾根 → 趾尖（都是左半邊 +X）"""
+    bones = chain(["root", "torso", "chest", "neck", "head"], None, [V(p) for p in spine], radii)
+
+    def side(s, m):
+        out = [(f"ex_clav{s}", "chest", m(V(clav_from)), m(V(arm[0])), clav_radius)]
+        out += chain([f"upperArm{s}", f"forearm{s}", f"hand{s}", f"ex_fingers{s}"], f"ex_clav{s}", [m(V(p)) for p in arm], arm_radii)
+        return out + chain([f"thigh{s}", f"shin{s}", f"foot{s}", f"ex_toe{s}"], "root", [m(V(p)) for p in leg], leg_radii)
+
+    return bones + sides(side)
+
+
+def lava_behemoth():
+    """熔岩巨獸：粗壯的人形，巨大的岩拳、肩上的巨岩跟著鎖骨"""
+    return humanoid(
+        [(0, 0, -0.03), (0, 0, 0.04), (0, 0, 0.13), (0, -0.04, 0.24), (0, -0.07, 0.28), (0, -0.07, 0.44)], [0.11, 0.12, 0.14, 0.05, 0.08],
+        [(0.25, 0, 0.2), (0.29, -0.01, 0.06), (0.33, -0.04, -0.1), (0.34, -0.07, -0.18), (0.35, -0.07, -0.27)], [0.09, 0.11, 0.09, 0.06],
+        [(0.13, 0, -0.055), (0.135, -0.01, -0.2), (0.16, -0.03, -0.36), (0.185, -0.09, -0.42), (0.19, -0.17, -0.44)], [0.09, 0.08, 0.07, 0.05],
+        (0.06, 0, 0.22), 0.13,
+    ), {}
+
+
+def fallen_knight():
+    """墮落騎士：全身板甲；背後的披風（ex_capeC?）與腰前的布（cloth）是獨立的骨頭，會延遲擺動"""
+    bones = humanoid(
+        [(0, -0.02, -0.03), (0, -0.03, 0.05), (0, -0.04, 0.14), (0, -0.04, 0.25), (0, -0.04, 0.28), (0, -0.03, 0.42)], [0.1, 0.1, 0.12, 0.05, 0.08],
+        [(0.19, -0.03, 0.22), (0.24, -0.03, 0.08), (0.255, -0.04, -0.07), (0.24, -0.05, -0.12), (0.23, -0.06, -0.17)], [0.08, 0.08, 0.06, 0.04],
+        [(0.1, -0.02, -0.06), (0.11, -0.02, -0.235), (0.135, 0, -0.4), (0.14, -0.06, -0.47), (0.15, -0.14, -0.49)], [0.085, 0.07, 0.06, 0.04],
+        (0.06, -0.03, 0.23), 0.1,
+    )
+    bones += chain(["ex_capeC1", "ex_capeC2"], "chest", [V((0, 0.08, 0.18)), V((0, 0.12, 0)), V((0, 0.14, -0.24))], [0.2, 0.2])
+    bones.append(("cloth", "root", V((0, -0.13, -0.02)), V((0, -0.14, -0.22)), 0.08))
+    return bones, {}
+
+
+def crypt_guardian():
+    """墓穴守衛：矮壯的重甲；背後的破披風（ex_capeC?）與腰前的紅布（cloth）是獨立的骨頭"""
+    bones = humanoid(
+        [(0, 0, -0.03), (0, 0, 0.04), (0, 0, 0.14), (0, -0.01, 0.25), (0, -0.02, 0.28), (0, -0.02, 0.42)], [0.12, 0.12, 0.13, 0.05, 0.08],
+        [(0.23, 0.015, 0.24), (0.275, 0.015, 0.09), (0.29, 0.01, -0.07), (0.295, -0.03, -0.13), (0.295, -0.03, -0.19)], [0.085, 0.095, 0.06, 0.04],
+        [(0.11, 0, -0.06), (0.15, 0, -0.22), (0.2, 0.015, -0.4), (0.205, -0.04, -0.47), (0.22, -0.12, -0.49)], [0.1, 0.09, 0.07, 0.05],
+        (0.07, 0.01, 0.25), 0.11,
+    )
+    bones += chain(["ex_capeC1", "ex_capeC2"], "chest", [V((0, 0.1, 0.2)), V((0, 0.14, 0)), V((0, 0.16, -0.2))], [0.2, 0.2])
+    bones.append(("cloth", "root", V((0, -0.14, 0)), V((0, -0.15, -0.2)), 0.07))
+    return bones, {}
+
+
+def fallen_priest():
+    """墮落神官：長袍蓋住腿（大腿、小腿不帶動長袍，只有靴子跟著腳）；長袍下半分成前後左右四片（cloth、clothBack、ex_tasset?），會延遲擺動"""
+    bones = humanoid(
+        [(0, 0, -0.05), (0, 0, 0.03), (0, -0.01, 0.12), (0, -0.03, 0.2), (0, -0.03, 0.23), (0, -0.05, 0.45)], [0.13, 0.1, 0.11, 0.04, 0.1],
+        [(0.17, -0.02, 0.19), (0.225, -0.015, 0.08), (0.255, -0.02, -0.02), (0.26, -0.05, -0.055), (0.26, -0.05, -0.105)], [0.06, 0.07, 0.04, 0.03],
+        [(0.08, -0.02, -0.08), (0.1, -0.03, -0.26), (0.12, -0.03, -0.43), (0.12, -0.06, -0.48), (0.12, -0.13, -0.5)], [0.02, 0.05, 0.05, 0.03],
+        (0.05, -0.01, 0.19), 0.09,
+    )
+    bones.append(("cloth", "root", V((0, -0.1, -0.05)), V((0, -0.14, -0.42)), 0.15))
+    bones.append(("clothBack", "root", V((0, 0.08, -0.05)), V((0, 0.18, -0.42)), 0.15))
+    bones.append(("ex_tassetL", "root", V((0.14, 0, -0.05)), V((0.26, 0, -0.42)), 0.15))
+    bones.append(("ex_tassetR", "root", V((-0.14, 0, -0.05)), V((-0.26, 0, -0.42)), 0.15))
+    return bones, {}
+
+
 # 另外生成的獨立物件（<資料夾>/ai/<名稱>.glb → 不綁骨架的網格，遊戲端掛在關節上或掉在地上）：名稱 → 三角形數
 PROPS = {"abyss_sovereign": {"sword": 1500, "shield": 2500}}
 
@@ -307,6 +371,35 @@ def limbs_joined(bones, ws):
     return all(x.startswith(root) and (kind != "wing" or x.endswith("1")) for x in limb) and all(x in LIMB_ROOTS[kind] for x in body)
 
 
+def cloth_zone(p, bone, in_cape, in_cloth):
+    """披風（ex_cape*）只在 in_cape 的範圍、腰前的布（cloth）只在 in_cloth 的範圍；範圍內也只能跟披風、布（腰布上緣接骨盆）"""
+    cape, front = in_cape(p), in_cloth(p)
+    if bone.startswith("ex_cape"):
+        return cape
+    if bone == "cloth":
+        return front
+    if cape:
+        return bone == "chest"
+    return not front or bone == "root"
+
+
+def priest_zone(p, bone):
+    """墮落神官：靴子（長袍下擺裡）只跟腳；大腿不帶動任何頂點；手臂區同其他人形"""
+    boot = p.z < -0.37 and 0.05 < abs(p.x) < 0.19 and -0.16 < p.y < 0.03
+    if re.match(r"(thigh)[LR]$", bone):
+        return False
+    if re.match(r"(shin|foot|ex_toe)([LR])$", bone):
+        return boot and (bone[-1] == "L") == (p.x > 0)
+    if boot:
+        return False
+    return PRIEST_ARMS(p, bone)
+
+
+LAVA_ARMS = limb_zone(lambda p: -0.3 < p.z < 0.15 and abs(p.x) > (0.19 if p.z > -0.12 else 0.215 if p.z > -0.215 else 0.25), lambda p: True)
+KNIGHT_ARMS = limb_zone(lambda p: -0.2 < p.z < 0.15 and abs(p.x) > (0.175 if p.z > -0.03 else 0.18) and p.y < 0.09, lambda p: True)
+CRYPT_ARMS = limb_zone(lambda p: -0.22 < p.z < 0.17 and abs(p.x) > (0.2 if p.z > -0.03 else 0.23) and p.y < 0.11, lambda p: True)
+PRIEST_ARMS = limb_zone(lambda p: -0.125 < p.z < 0.17 and abs(p.x) > 0.195 and p.y < 0.07, lambda p: True)
+
 # 限制某些頂點只能跟哪些骨頭（zone(頂點, 骨頭名稱) → 可以或不可以）；沒有列出的怪物只看距離
 ZONES = {
     # 深淵統御者：手臂在身體兩側前半、大腿外側；翅膀在背後高處
@@ -319,11 +412,25 @@ ZONES = {
         lambda p: p.y < 0.02 and -0.25 < p.z < 0.17 and abs(p.x) > (0.17 if p.z >= -0.05 else 0.2),
         lambda p: p.y > -0.02 and abs(p.x) > 0.1,
     ),
+    # 熔岩巨獸：巨拳比大腿更往外；肩上的噴孔不跟頭
+    "lava_behemoth": lambda p, bone: (not bone.startswith("head") or abs(p.x) < 0.12) and LAVA_ARMS(p, bone),
+    # 墮落騎士：手臂在身體兩側；背後的披風、腰前的布只跟自己的骨頭
+    "fallen_knight": lambda p, bone: cloth_zone(p, bone, lambda p: p.y > 0.09 and abs(p.x) < 0.2 and p.z < 0.1, lambda p: p.y < -0.085 and abs(p.x) < 0.07 and p.z < -0.02) and KNIGHT_ARMS(p, bone),
+    "crypt_guardian": lambda p, bone: cloth_zone(p, bone, lambda p: p.y > 0.115 and abs(p.x) < 0.22 and p.z < 0.14, lambda p: p.y < -0.11 and abs(p.x) < 0.07 and p.z < -0.01) and CRYPT_ARMS(p, bone),
+    "fallen_priest": lambda p, bone: priest_zone(p, bone),
 }
 # 分開的部位（joined(三角形三個頂點的主要骨頭, 三個頂點的權重) → 可以留下嗎）：跨到不相連部位的三角形在動作時會被拉長，輸出時拿掉
-JOINED = {"abyss_sovereign": limbs_joined, "abyss_lord": limbs_joined}
+JOINED = {n: limbs_joined for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest")}
 
-SKELETONS = {"spider_queen": spider_queen, "abyss_lord": abyss_lord, "abyss_sovereign": abyss_sovereign}
+SKELETONS = {
+    "spider_queen": spider_queen,
+    "abyss_lord": abyss_lord,
+    "abyss_sovereign": abyss_sovereign,
+    "lava_behemoth": lava_behemoth,
+    "fallen_knight": fallen_knight,
+    "crypt_guardian": crypt_guardian,
+    "fallen_priest": fallen_priest,
+}
 bones, extra = SKELETONS[NAME]()
 
 # ── 4. 權重 ──
@@ -336,14 +443,17 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {"abyss_sovereign": 0.04, "abyss_lord": 0.04}
+JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest")}
+# 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
+SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
 weights = []
 zone = ZONES.get(NAME)
 for c in co:
     d = sorted(((seg_dist(c, a, b) - r, name) for name, _, a, b, r in bones if not zone or zone(c, name)))
     soft = SOFT
-    if len(d) > 1 and NAME in JOINT_SOFT and (parent_of[d[0][1]] == d[1][1] or parent_of[d[1][1]] == d[0][1]):
+    group = SOFT_GROUP.get(NAME, ())
+    if len(d) > 1 and NAME in JOINT_SOFT and (parent_of[d[0][1]] == d[1][1] or parent_of[d[1][1]] == d[0][1] or (d[0][1] in group and d[1][1] in group)):
         soft = JOINT_SOFT[NAME]
     near = [(dd, n) for dd, n in d[:3] if dd <= d[0][0] + 2.5 * soft]
     ws = [(n, math.exp(-(dd - d[0][0]) / soft)) for dd, n in near]

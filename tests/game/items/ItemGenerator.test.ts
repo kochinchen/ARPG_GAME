@@ -140,8 +140,8 @@ describe('詞綴強度', () => {
     return values;
   };
 
-  it('每 10 層提高一個階級（T1～T5）', () => {
-    expect([1, 9, 10, 19, 20, 39, 40, 99].map((l) => affixTier(l, data.balance))).toEqual([1, 1, 2, 2, 3, 4, 5, 5]);
+  it('每 8 層提高一個階級（T1～T5），第 35 層以內拿得到 T5', () => {
+    expect([1, 7, 8, 15, 16, 31, 32, 35].map((l) => affixTier(l, data.balance))).toEqual([1, 1, 2, 2, 3, 4, 5, 5]);
   });
 
   it('階級越高數值越高：固定值成長快、百分比成長慢', () => {

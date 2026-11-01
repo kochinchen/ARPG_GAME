@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export type PanelName = 'character' | 'skills' | 'inventory' | 'bestiary' | 'menu';
+export type PanelName = 'character' | 'skills' | 'inventory' | 'bestiary' | 'journal' | 'menu';
 
 /** touch：iPad 版面（直排在畫面右側、按鈕加大，多一個「大地圖」） */
 defineProps<{ open: Record<PanelName, boolean>; skillPoints: number; attributePoints: number; touch?: boolean }>();
@@ -21,6 +21,7 @@ function click(e: MouseEvent, panel: PanelName) {
     </button>
     <button type="button" :class="{ on: open.inventory }" title="背包（I）" @click="click($event, 'inventory')">背包</button>
     <button type="button" :class="{ on: open.bestiary }" title="怪物圖鑑（K）" @click="click($event, 'bestiary')">圖鑑</button>
+    <button type="button" :class="{ on: open.journal }" title="井誌（Y）" @click="click($event, 'journal')">井誌</button>
     <button type="button" :class="{ on: open.menu }" title="選單（Esc）" @click="click($event, 'menu')">選單</button>
     <button v-if="touch" type="button" title="小地圖 / 全地圖（Tab）" @click="emit('map')">大地圖</button>
   </nav>

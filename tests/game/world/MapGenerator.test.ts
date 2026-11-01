@@ -7,7 +7,7 @@ import { MAP_TILES } from '../../../src/data/schema/map';
 import { generateMap } from '../../../src/game/world/MapGenerator';
 
 /** 隨機產生的地牢：同一個種子相同、S / M / X 都在、走得到、通道夠寬 */
-const LAYOUT = { width: 120, height: 90, cellSize: 0.5, rooms: [20, 26] as [number, number], loops: 4 };
+const LAYOUT = { width: 120, height: 90, cellSize: 0.5, rooms: [20, 26] as [number, number], loops: 4, corridorWidth: [5.5, 7.5] as [number, number] };
 const gen = (seed: number, floor = 1) => generateMap('m', new Rng(seed).fork(`map-${floor}`), LAYOUT);
 
 describe('MapGenerator', () => {
@@ -72,5 +72,27 @@ describe('MapGenerator', () => {
       [31, 'temple'], [32, 'temple'], [33, 'temple'], [34, 'temple'], [35, 'temple'],
     ]);
     expect(data.floors.all.every((f) => f.layout !== undefined)).toBe(true);
+  });
+
+  it('通道寬度可調（layout.corridorWidth）：加寬後地板變多，但每層怪物數維持加寬前的數量', () => {
+    const data = DataRegistry.load(gameData);
+    const area = (m: { rows: string[]; cellSize: number }) => m.rows.join('').replace(/#/g, '').length * m.cellSize ** 2;
+    for (const floor of [3, 12, 22, 32]) {
+      const def = data.floors.all.find((f) => f.floors[0] <= floor && floor <= f.floors[1])!;
+      const layout = def.layout!;
+      expect(layout.corridorWidth[0]).toBeGreaterThanOrEqual(5.5 * 1.5);
+      let oldMonsters = 0;
+      let newMonsters = 0;
+      for (let seed = 1; seed <= 3; seed++) {
+        const wide = generateMap('m', new Rng(seed).fork(`map-${floor}`), layout);
+        const narrow = generateMap('m', new Rng(seed).fork(`map-${floor}`), { ...layout, corridorWidth: [5.5, 7.5] });
+        expect(area(wide)).toBeGreaterThan(area(narrow) * 1.1);
+        newMonsters += area(wide) * def.density;
+        // 加寬前的密度 = 現在的密度 ÷ CORRIDOR_DENSITY（1 / 1.26）
+        oldMonsters += area(narrow) * def.density * 1.26;
+      }
+      expect(newMonsters / oldMonsters, `floor ${floor}`).toBeGreaterThan(0.93);
+      expect(newMonsters / oldMonsters, `floor ${floor}`).toBeLessThan(1.07);
+    }
   });
 });

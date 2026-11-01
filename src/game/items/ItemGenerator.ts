@@ -214,7 +214,7 @@ export class ItemGenerator {
   }
 }
 
-/** 詞綴階級：物品等級每 levelsPerTier 提高一階（T1 = 1～9 層、T2 = 10～19 層…，最高 maxTier） */
+/** 詞綴階級：物品等級每 levelsPerTier 提高一階（T1 = 1～7 層、T2 = 8～15 層…T5 = 32 層起，最高 maxTier） */
 export function affixTier(itemLevel: number, balance: Pick<DataRegistry, 'balance'>['balance']): number {
   const { levelsPerTier, maxTier } = balance.affixPower;
   return Math.min(maxTier, 1 + Math.floor(itemLevel / levelsPerTier));

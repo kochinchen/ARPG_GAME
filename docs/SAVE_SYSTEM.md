@@ -24,6 +24,8 @@
 - **v14（盾擊）**：雙重斬（`melee.double_slash`）換成盾擊（`melee.shield_bash`）。Migration v13 → v14 把技能等級、左鍵與連段格轉給盾擊；組合技圖鑑中含雙重斬的組合移除。
 - **v15（鑲嵌與融合）**：物品的 `sockets`（`max` 孔數、`cores` 已鑲入的熔核）；背包、手上、地上的新格子種類 `{ kind: 'core', core }`；拆解區可以放熔核（以有無 `baseId` 區分裝備與熔核）；商人的融合格 `fusion { inputs[4], jewelry[2] }`。熔核只存 ID 與擲骰值（`types`、`tier`、`rarity`、`power`、`itemLevel`、`element?`、`pure?`、`main[部位]`、`secondary`、`brand?`），數值由 `data/cores.ts` 與 `balance.fusion` 推導。Migration v14 → v15 補上空的融合格；舊物品沒有孔。新增亂數序列 `sockets`、`fusion`，舊存檔沒有時由種子重新推得。
 - **v19（過場影片）**：`cutscenes`（看過的過場影片 ID，`data/cutscenes.json`）。播完或跳過時由 `MarkCutsceneSeen` 記錄，之後不再自動播放；標題畫面的「過場影片」列出任一存檔看過的。Migration v18 → v19 給空的清單（舊存檔第一次站上各環的第一層時會播一次）。
+- **v20（遺物與魂魄）**：`lore`（讀過的遺物 ID，`data/lore.json`）、`souls`（聽過的魔王魂魄 ID，`data/souls.json`；每個魂魄只飄出一次）。遺物的位置由世界種子 + 樓層決定，不存。Migration v19 → v20 給空的清單。
+- **v21（挑戰者的筆記）**：`notebook`（找到的筆記頁 ID，`data/notebook.json`）。《井誌》的獎勵在跨過 1/4、2/4、3/4、4/4 的當下發放，不另外存；SaveRepair 把全部收集的額外屬性點算進總數。第 35 層寶箱旁的紙條改成夾在各層寶箱的筆記頁，Migration v20 → v21 移除舊紙條的閱讀紀錄。
 - 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---
@@ -105,6 +107,9 @@ interface SaveDataV1 {
 
   bestiary: Record<string, number>;   // v4 新增：怪物圖鑑（EnemyDef ID → 擊敗次數）
   cutscenes: string[];                // v19 新增：看過的過場影片 ID
+  lore: string[];                     // v20 新增：讀過的遺物 ID
+  souls: string[];                    // v20 新增：聽過的魔王魂魄 ID
+  notebook: string[];                 // v21 新增：找到的筆記頁 ID
   counters: {
     itemUidCounter: number;     // ItemGenerator 最後使用的流水號，避免讀檔後 uid 重複
   };

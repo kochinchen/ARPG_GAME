@@ -106,7 +106,7 @@ const actions: { label: string; run: () => void }[] = [
   { label: '受傷', run: () => boss.hit() },
 ];
 
-/** 檢查手臂的網格與骨架：待機姿勢、鎖骨不轉，雙臂往兩側水平伸直、手掌微開；bend = 前臂往前彎 90°（看手肘的位置） */
+/** 檢查手臂的網格與骨架：待機姿勢、鎖骨不轉，雙臂往兩側水平伸直（握著的武器與手臂垂直、水平朝前）；bend = 前臂往前彎 90°（看手肘的位置） */
 function tPose(bend: boolean) {
   const p = model.poses.ready(0);
   const side = (s: 'L' | 'R', k: 1 | -1) => ({

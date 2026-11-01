@@ -89,9 +89,9 @@ const CLAW_OPEN: Angles = { ex_fingersL: [0.35, 0, 0.15], ex_fingersR: [0.35, 0,
 /** 依武器的待機手勢（站姿用；會被加在身體姿勢上） */
 function idleArms(weapon: BossWeapon): ArmFn {
   switch (weapon) {
-    // 右手垂握巨錘（錘頭朝前下）、左手塔盾擋在身前
+    // 右手握巨錘（手臂垂下、巨錘水平朝前）、左手塔盾擋在身前
     case 'mace':
-      return both(armTo('R', 0.05, -0.35, 1.25, 0.32), armTo('L', -0.55, -1, 0.1, 0.2));
+      return both(armTo('R', 0.05, -0.35, -0.03, 0.32), armTo('L', -0.55, -1, 0.1, 0.2));
     // 巨劍扛在右肩（劍身往後上）、左拳垂在身側
     case 'greatsword':
       return both(armTo('R', -0.45, -2.1, -2.2, 0.3), armTo('L', 0.08, -0.25, 1.3, 0.3));
@@ -303,6 +303,33 @@ function attackArms(weapon: BossWeapon, variant: BossVariant): ArmFn[] {
         two((s) => armTo(s, -1.4, -0.2, 0.3, 0.1, s === 'R' ? 0.2 : -0.2)),
       ];
   }
+}
+
+type PoseKind = 'stand' | 'action' | 'hit' | 'dead';
+
+/** 把一套動作的每個姿勢改過：stand = 待機 / 走路 / 跑步，action = 攻擊與施法，hit = 受傷，dead = 倒地 */
+export function mapPoses(set: PoseSet, edit: (p: Pose, kind: PoseKind) => Pose): PoseSet {
+  const each = (keys: readonly Pose[] | undefined, kind: PoseKind) => keys?.map((k) => edit(k, kind));
+  const chain = (c: { windup: Pose[]; strike: Pose[] } | undefined) => c && { windup: each(c.windup, 'action')!, strike: each(c.strike, 'action')! };
+  const variants = set.attackVariants && (Object.fromEntries(Object.entries(set.attackVariants).map(([k, v]) => [k, chain(v)])) as PoseSet['attackVariants']);
+  const hitKeys = each(set.hitKeys, 'hit');
+  const deathKeys = each(set.deathKeys, 'dead');
+  const attackChain = chain(set.attackChain);
+  return {
+    ready: (t) => edit(set.ready(t), 'stand'),
+    run: (p) => edit(set.run(p), 'stand'),
+    ...(set.walk ? { walk: (p: number) => edit(set.walk!(p), 'stand') } : {}),
+    attackWindup: edit(set.attackWindup, 'action'),
+    attackStrike: edit(set.attackStrike, 'action'),
+    castWindup: edit(set.castWindup, 'action'),
+    castRelease: edit(set.castRelease, 'action'),
+    hit: edit(set.hit, 'hit'),
+    dead: edit(set.dead, 'dead'),
+    ...(variants ? { attackVariants: variants } : {}),
+    ...(hitKeys ? { hitKeys } : {}),
+    ...(deathKeys ? { deathKeys } : {}),
+    ...(attackChain ? { attackChain } : {}),
+  };
 }
 
 export function bossPoses(parts: readonly PartDef[], style: BossStyle): PoseSet {

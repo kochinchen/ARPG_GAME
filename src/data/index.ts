@@ -11,6 +11,9 @@ import { lootTables } from './lootTables';
 import { eliteAffixes } from './eliteAffixes';
 import { legendaries } from './legendaries';
 import { cores } from './cores';
+import lore from './lore.json';
+import notebook from './notebook.json';
+import souls from './souls.json';
 
 /**
  * 所有遊戲資料的集合，交給 DataRegistry.load() 驗證。
@@ -29,4 +32,7 @@ export const gameData: RawGameData = {
   eliteAffixes,
   legendaries,
   cores,
+  lore,
+  notebook,
+  souls,
 };
