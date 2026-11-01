@@ -1,0 +1,49 @@
+[
+  { "id": "soul.f5", "floor": 5, "name": "墓穴守衛", "smoke": "clear", "lines": [
+    { "en": "Thou art from above?", "zh": "你是從上面來的？" },
+    { "en": "We were bidden let none pass below. Three hundred winters, and the order never lifted.", "zh": "我們奉命，不讓任何人往下走。三百年了，命令一直沒有撤。" },
+    { "en": "The gate is open now. Turn not back. See for me what lieth beneath.", "zh": "門既然開了，就別回頭。替我看看，底下到底是什麼。" }
+  ] },
+  { "id": "soul.f10", "floor": 10, "name": "墮落神官", "smoke": "clear", "lines": [
+    { "en": "It promised me a heaven without walls.", "zh": "祂答應我，底下有一座沒有牆的天國。" },
+    { "en": "That was no god's voice. It was hunger.", "zh": "原來那不是祂的聲音，是祂的飢餓。" },
+    { "en": "Child, no guardian was ever a hero. We were offerings, every one.", "zh": "孩子，守門人從來不是英雄，是祭品。我們每一個都是。" }
+  ] },
+  { "id": "soul.f15", "floor": 15, "name": "熔岩巨獸", "smoke": "clear", "lines": [
+    { "en": "They would have more cores, more depth. I could but melt into the mountain and hold the ring.", "zh": "他們要熔核，要更多、更深。我只能把自己熔進山裡，撐住這一環。" },
+    { "en": "Thou bearest that heat as well. Beware: it is the same fire as the thing below.", "zh": "你身上也有熔核的熱。小心，那和底下的東西是同一團火。" }
+  ] },
+  { "id": "soul.f20", "floor": 20, "name": "墮落騎士", "smoke": "clear", "lines": [
+    { "en": "Thou hast grown. Thy grip is still too tight.", "zh": "長大了。劍還是握得太緊。" },
+    { "en": "I thought I could bear it alone. Every guardian thought so.", "zh": "我以為自己扛得住，一個人就夠了。每個守門人都這麼以為。" },
+    { "en": "Become not the next of me. Seal it no more. End it.", "zh": "不要成為下一個我。不要再封了，把它結束。" }
+  ] },
+  { "id": "soul.f25", "floor": 25, "name": "蜘蛛女王", "smoke": "clear", "lines": [
+    { "en": "It was I who sent her down. I swore I would stay beside her.", "zh": "是我送她下去的。我答應過，會一直陪著她。" },
+    { "en": "To keep that oath, I made myself this.", "zh": "為了守在這裡，我把自己變成這副模樣。" },
+    { "en": "Her name is Aislinn. When thou findest her, tell her I never left.", "zh": "她叫艾希琳。見到她的時候，告訴她，我一直沒有走。" }
+  ] },
+  { "id": "soul.f30", "floor": 30, "name": "深淵魔王", "smoke": "black", "lines": [
+    { "en": "Thou thoughtest me master?", "zh": "你以為我是主宰？" },
+    { "en": "I am but a hand it reached forth. Cut a hand, and it groweth anew.", "zh": "我只是牠伸出來的一隻手。手斷了，還會再長。" },
+    { "en": "It lieth below. It hath watched thee all this while.", "zh": "牠在下面，一直看著你。" }
+  ] },
+  { "id": "soul.f31", "floor": 31, "name": "回聲：熔岩巨獸", "smoke": "grey", "lines": [
+    { "en": "This fire again… I have died once already.", "zh": "又是這團火……我已經死過一次了。" }
+  ] },
+  { "id": "soul.f32", "floor": 32, "name": "回聲：墮落騎士", "smoke": "grey", "lines": [
+    { "en": "This is not I. It learned my sword, but not my regret.", "zh": "這不是我。牠只學會了我的劍，沒學會我的後悔。" }
+  ] },
+  { "id": "soul.f33", "floor": 33, "name": "回聲：蜘蛛女王", "smoke": "grey", "lines": [
+    { "en": "It swallowed even my longing. Make haste; she lieth at the very bottom.", "zh": "牠連我的思念也吞了。快一點，她就在最底下。" }
+  ] },
+  { "id": "soul.f34", "floor": 34, "name": "回聲：深淵魔王", "smoke": "grey", "lines": [
+    { "en": "A hand grown anew is still but a hand.", "zh": "再長出來的手，也還只是一隻手。" }
+  ] },
+  { "id": "soul.f35", "floor": 35, "name": "艾希琳", "smoke": "gold", "lines": [
+    { "en": "So long. I held it a thousand years. Thou needst not.", "zh": "好久了。我撐了一千年，你不必了。" },
+    { "en": "Thou didst not take my place. Thou didst end it.", "zh": "你沒有接替我。你把它結束了。" },
+    { "en": "She waiteth here for me. We shall go together.", "zh": "她也在這裡等我，我們一起走。" },
+    { "en": "Go home. The way above is given back to you.", "zh": "回去吧。上面的路，已經還給你們了。" }
+  ] }
+]

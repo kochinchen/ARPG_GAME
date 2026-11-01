@@ -1,3 +1,4 @@
+import { buildBook } from '../../data/book';
 import { COMBO_KEY_LABELS, type ComboKey } from '../../game/player/PlayerLoadout';
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { GameWorld } from '../../game/GameWorld';
@@ -10,6 +11,8 @@ import { buildShopView, shopSignature } from './ShopView';
 
 const BANNER_SECONDS = 2.5;
 const DISCOVERY_SECONDS = 4.5;
+/** 魂魄每句話停留的時間 */
+const SOUL_LINE_SECONDS = 5.5;
 
 /**
  * 每幀（Tick 結束後）把 GameWorld 的狀態複製到 gameView。只讀取 GameWorld，不做任何寫入。
@@ -23,6 +26,7 @@ export class ViewSync {
   private bestiaryVersion = -1;
   private bannerTimer = 0;
   private discoveryTimer = 0;
+  private soulTimer = 0;
   private milestoneTimer = 0;
 
   constructor(
@@ -41,14 +45,34 @@ export class ViewSync {
       this.discoveryTimer = window.setTimeout(() => (gameView.discovery = null), DISCOVERY_SECONDS * 1000);
     });
     events.on('ShopOpened', () => gameView.shopRequest++);
+    // 遺物、筆記頁：翻開井誌，停在那一頁
+    const bookPages = buildBook(this.data);
+    const openBook = (id: string) => (gameView.notebookPage = bookPages.find((p) => p.sourceId === id)?.number ?? 1);
+    events.on('RelicRead', (e) => openBook(e.loreId));
+    events.on('NotePageFound', (e) => openBook(e.noteId));
+    events.on('BookMilestone', (e) => {
+      gameView.milestone = { badge: `BOOK ${e.quarter} / 4`, title: `井誌收集了 ${e.quarter} / 4`, text: `獲得${e.reward}。` };
+      window.clearTimeout(this.milestoneTimer);
+      this.milestoneTimer = window.setTimeout(() => (gameView.milestone = null), 12_000);
+    });
+    events.on('SoulReleased', (e) => {
+      const soul = this.data.souls.get(e.soulId);
+      window.clearTimeout(this.soulTimer);
+      const say = (i: number) => {
+        const line = soul.lines[i];
+        gameView.soul = line ? { ...line, smoke: soul.smoke } : null;
+        if (line) this.soulTimer = window.setTimeout(() => say(i + 1), SOUL_LINE_SECONDS * 1000);
+      };
+      say(0);
+    });
     events.on('ChallengeConfirm', (e) => {
       gameView.challengePrompt = { toFloor: e.toFloor, valuableItems: e.valuableItems };
     });
     events.on('GameCleared', (e) => {
       gameView.milestone =
         e.stage === 'normal'
-          ? { title: '已通關', text: '擊敗了第 30 層的深淵魔王。出口通往第 31 層的極限挑戰；讀檔時也可以選擇回到 1～30 層。' }
-          : { title: '已完成隱藏難關', text: '深淵統御者倒下了。之後讀檔可以選擇前往第 1～35 層的任何一層。' };
+          ? { badge: 'GAME CLEAR', title: '已通關', text: '擊敗了第 30 層的深淵魔王。出口通往第 31 層的極限挑戰；讀檔時也可以選擇回到 1～30 層。' }
+          : { badge: 'HIDDEN CHALLENGE COMPLETE', title: '已完成隱藏難關', text: '深淵統御者倒下了。之後讀檔可以選擇前往第 1～35 層的任何一層。' };
       window.clearTimeout(this.milestoneTimer);
       this.milestoneTimer = window.setTimeout(() => (gameView.milestone = null), 10_000);
     });
@@ -82,6 +106,9 @@ export class ViewSync {
         gameView.bestiary = Object.fromEntries(world.progress.bestiary);
       }
       if (gameView.collection.length !== world.progress.collection.size) gameView.collection = [...world.progress.collection];
+      if (gameView.lore.length !== world.progress.lore.size) gameView.lore = [...world.progress.lore];
+      if (gameView.notebook.length !== world.progress.notebook.size) gameView.notebook = [...world.progress.notebook];
+      if (gameView.souls.length !== world.progress.souls.size) gameView.souls = [...world.progress.souls];
     }
     hud.attributePoints = world.progress.attributePoints;
     hud.potions = world.potions.count;

@@ -1,0 +1,173 @@
+<title>封淵之井世界觀</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Noto+Serif+TC:wght@400;700&display=swap">
+<style>
+/* 版面：一欄手抄本，像點著燭光讀井底找到的卷宗；只有一種深色外觀 */
+:root {
+  color-scheme: dark;
+  --bg: #120d09;
+  --panel: #1c150f;
+  --line: #3d2f22;
+  --ink: #e6d9c0;
+  --muted: #a3927a;
+  --gold: #d3ac68;
+  --ember: #cf6a44;
+  --display: 'IM Fell English', Georgia, serif;
+  --body: 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;
+}
+body { background: var(--bg); color: var(--ink); font: 16px/1.85 var(--body); }
+main { max-width: 860px; margin: 0 auto; padding-block: 48px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 56px; }
+main > * { min-width: 0; }
+header h1 { margin: 0; font: 400 clamp(38px, 7vw, 64px)/1.1 var(--display); color: var(--gold); text-wrap: balance; }
+header p { margin: 14px 0 0; max-width: 62ch; font-size: 18px; }
+h2 { margin: 0 0 14px; font: 700 24px/1.4 var(--body); color: var(--gold); text-wrap: balance; }
+h2 span { display: block; font: italic 400 16px/1.3 var(--display); color: var(--muted); }
+h3 { margin: 26px 0 8px; font: 700 17px/1.5 var(--body); color: var(--ink); }
+p { margin: 0 0 12px; max-width: 65ch; }
+b { color: var(--gold); font-weight: 700; }
+figure { margin: 22px 0; }
+/* 生成的圖在紙張外圍是白底：稍微放大裁掉 */
+figure .frame { overflow: hidden; }
+figure img { display: block; width: 100%; height: auto; transform: scale(1.06); }
+figcaption { margin-top: 8px; font-size: 13px; color: var(--muted); }
+.scroll { overflow-x: auto; }
+table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 15px; line-height: 1.65; }
+th { padding: 8px 12px 8px 0; text-align: left; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--ember); white-space: nowrap; }
+td { padding: 10px 12px 10px 0; vertical-align: top; border-bottom: 1px solid var(--line); }
+td.num { color: var(--gold); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tree { margin: 0; padding: 16px; overflow-x: auto; background: var(--panel); font: 14px/1.75 ui-monospace, Menlo, 'Noto Sans Mono CJK TC', monospace; white-space: pre; }
+.en { display: block; font: 17px/1.45 var(--display); color: var(--ink); }
+.zh { display: block; margin-top: 2px; font-size: 14px; color: var(--muted); }
+details { border-bottom: 1px solid var(--line); }
+details:first-of-type { border-top: 1px solid var(--line); }
+summary { padding: 11px 0; cursor: pointer; font-weight: 700; }
+summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+summary small { margin-left: 8px; font-weight: 400; font-size: 13px; color: var(--muted); }
+.relic { padding: 8px 0 12px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 2px 12px; }
+.relic .where { color: var(--gold); font-size: 14px; font-variant-numeric: tabular-nums; }
+.relic .name { font-size: 14px; font-weight: 700; }
+.relic .text { grid-column: 2; }
+ul { margin: 0; padding-left: 20px; max-width: 65ch; }
+li { margin-bottom: 6px; }
+</style>
+
+<main>
+  <header>
+    <h1>The Well</h1>
+    <p>凡是存在的東西，都有邊界。井底那個東西，只希望世上不再有任何邊界。這份文件記錄地牢背後的完整故事：世界怎麼開始、魔王們是誰，以及打倒最後一位魔王的意義。</p>
+  </header>
+
+  <section>
+    <h2>世界的起源<span>The Makers and the Unbounded</span></h2>
+    <p>世界出現之前只有<b>無垠</b>，沒有上下遠近，也沒有「這裡」和「那裡」。後來一群被稱為<b>界匠</b>的古老存在畫下第一道邊界：地面與天空分開，才有大地；有了牆，才有家；有了名字，才有你和我。</p>
+    <p>畫下最後一道線時，有一小塊無垠被圍在世界裡面。它沒有形體，只有一個本能：抹掉所有邊界，讓一切回到無垠。這就是<b>深淵統御者</b>。它不是惡魔，比較像世界誕生時留下的傷口。它吞下的地方會失去邊界，變成它的一部分，所以地牢越往下越大。</p>
+  </section>
+
+  <section>
+    <h2>統御者的三相<span>The Hand, the Eye, the Maw</span></h2>
+    <p>統御者只有一個，它用三種面貌伸進世界。這三相不是三個獨立的魔王，所以打倒一隻手，它還會再長出來。</p>
+    <div class="scroll"><table>
+      <tr><th>相</th><th>意志</th><th>在遊戲裡的樣子</th></tr>
+      <tr><td class="num">手 Hand</td><td>奪取</td><td>深淵魔王與它的分身；熔核的力量也是手遞出來的誘惑。</td></tr>
+      <tr><td class="num">眼 Eye</td><td>窺看、學習</td><td>沒有身體，只有低語。神官聽到的聲音、怪物學會主角的技能、31～34 層的回聲，都來自眼。</td></tr>
+      <tr><td class="num">口 Maw</td><td>吞噬空間</td><td>井本身。越深越大的地圖、會改變的通道、沒有出口的王座廳都屬於口；王座廳是它的胃。</td></tr>
+    </table></div>
+    {{IMAGE_F31}}
+  </section>
+
+  <section>
+    <h2>艾希琳與梅芙<span>Aislinn and Maeve</span></h2>
+    <p><b>梅芙</b>是最古老王國的女王，<b>艾希琳</b>是她的誓劍，也就是發誓以劍守護君主一生的騎士。兩人從小一起長大。王國需要有人走進井裡，戴王冠的人不能去，女王問誰願意，話還沒說完，艾希琳就開口了。女王答應會一直等她。</p>
+    <h3>艾希琳的裝備為什麼在魔王身上</h3>
+    <p>無垠就是「沒有邊界」本身，只有邊界擋得住它。艾希琳走進口的深處，把自己變成邊界：盾是一道牆，擋住它往外吞；劍是一條線，把它切開，讓它無法連成一體。她不是在外面看守封印，而是站在怪物的肚子裡撐著。</p>
+    <p>一千年來它消化不了她，只好圍著這個吞不下去的東西生長，長成她的形狀，也拿著她的盾與劍。所以統御者的三個階段，就是她被一層層剝掉的過程：</p>
+    <div class="scroll"><table>
+      <tr><th>階段</th><th>外觀</th><th>意義</th></tr>
+      <tr><td class="num">一 重裝統御者</td><td>盾＋劍</td><td>她還在撐，封印完整。</td></tr>
+      <tr><td class="num">二 破盾狂獸</td><td>盾碎</td><td>她的牆倒了，它開始暴走。</td></tr>
+      <tr><td class="num">三 深淵魔化</td><td>劍落、展翼</td><td>最後那條線也沒了，只剩純粹的無垠。</td></tr>
+    </table></div>
+    <h3>她去了哪裡</h3>
+    <p>她的身體早就不在了，魂魄還留在統御者體內撐著。封印會變弱，是因為眼一直在學她：每過一個世紀，它就多理解她一點。地面上的人察覺封印鬆了，就在上面再蓋一環、再派一位守門人。統御者死去時，她才終於不必再撐。</p>
+    <h3>梅芙怎麼變成蜘蛛女王</h3>
+    <p>梅芙活到快要死去還在等。她害怕自己死了，就沒有人記得艾希琳，於是對口立約：「讓我不必結束。」她變成半人半蛛。蛛網是她想像艾希琳那樣築牆，但她用的是口的力量，所以織出來的通道會扭曲改變；她產下的子嗣，就是 10 層以後那些異種怪物。</p>
+    <p>兩人是一體的兩面：艾希琳犧牲自己成為邊界，被吞下卻沒有被消化；梅芙抓住一切不肯結束，沒有被吞下卻變成怪物。</p>
+    {{IMAGE_F35}}
+  </section>
+
+  <section>
+    <h2>七環編年史<span>From the oldest ring to the newest</span></h2>
+    <p>封印一鬆，人們就在上面再加一環。一個人的魂最多撐得住五層，所以每五層一環，入口站著一位守門人。玩家往下走，等於倒著走過這片土地的歷史。下表由最古老排到最新。</p>
+    <div class="scroll"><table>
+      <tr><th>封印</th><th>樓層</th><th>由誰建立</th><th>守門人</th><th>被哪一相抓住</th></tr>
+      <tr><td class="num">第七道（核心）</td><td>35</td><td>艾希琳本人</td><td>統御者體內的艾希琳</td><td>撐到最後，沒有墮落</td></tr>
+      <tr><td class="num">第一環</td><td>30～34</td><td>最古老的王國：蓋在傷口上的神殿</td><td>原本的守門人早已不在，由深淵魔王取代</td><td>手本身</td></tr>
+      <tr><td class="num">第二環</td><td>25～29</td><td>梅芙的王國：深淵通道</td><td>蜘蛛女王梅芙</td><td>口：不想讓任何東西結束</td></tr>
+      <tr><td class="num">第三環</td><td>20～24</td><td>封井騎士團：破碎要塞</td><td>主角的師父，十年前接下空著的位置</td><td>手：想一個人扛下一切</td></tr>
+      <tr><td class="num">第四環</td><td>15～19</td><td>礦坑王國：熔岩礦坑</td><td>鍛造師，熔進山裡成為熔岩巨獸</td><td>手：想要更強的火</td></tr>
+      <tr><td class="num">第五環</td><td>10～14</td><td>守井教團：地下聖堂</td><td>墮落神官</td><td>眼：想知道更多</td></tr>
+      <tr><td class="num">第六環</td><td>5～9</td><td>守衛隊：古老墓穴</td><td>墓穴隊長，守著三百年前的命令</td><td>口：永遠不離開</td></tr>
+    </table></div>
+    <p></p>
+    <pre class="tree">界匠（畫下世界的存在，早已不在）
+  │
+無垠 ── 深淵統御者（困在世界裡的最後一塊）
+  ├─ 手：深淵魔王（30 層，神殿裡會一再長出來）
+  ├─ 眼：低語、偷學、回聲（31～34 層）
+  └─ 口：井本身（越深越大，王座廳是胃）
+
+最古老的王國
+  ├─ 女王梅芙 ── 口 ──→ 蜘蛛女王（25 層）→ 異種怪物
+  └─ 誓劍艾希琳 ──→ 第七道封印，困在統御者體內</pre>
+  </section>
+
+  <section>
+    <h2>魔王倒下時的魂魄<span>Words of the fallen</span></h2>
+    <p>第一次打倒魔王時，一縷煙飄出來，說出那個人的真相。清白的煙是獲得解脫的守門人，黑煙是深淵魔王，灰煙是回聲，淡金色是艾希琳。</p>
+    <div class="scroll"><table>
+      <tr><th>樓層</th><th>魔王</th><th>魂魄的話</th></tr>
+      {{SOULS}}
+    </table></div>
+  </section>
+
+  <section>
+    <h2>主角與結局<span>The Keeper</span></h2>
+    <p>前面所有人只走過兩條路：犧牲自己成為邊界，或抓住不放。主角走了第三條路：打倒無垠，活著回到地面，再自己選擇當一道邊界。她守在井口，擋的是想往下挖熔核的人。</p>
+    <p>統御者死了，但「想要更多」本來就在人身上，所以王國聽說井底安全後，第一件事是派礦工下去。這是結局的黑暗面。光明的部分是：從今以後不必再有人被送下去當祭品。玩家一路看到的舊紙畫，就是她留下的紀錄。</p>
+  </section>
+
+  <section>
+    <h2>散落的遺物<span>Relics of the Well</span></h2>
+    <p>1～34 層每層一件，共 {{LORE_COUNT}} 件。內容固定、位置隨機，越往下越接近起源。界匠、三相和誓劍的真相都藏在這裡，主線過場不多講。</p>
+    {{LORE}}
+  </section>
+
+  <section>
+    <h2>挑戰者的筆記<span>The Challengers' Notes</span></h2>
+    <p>歷代走到井底的挑戰者留下的十頁筆記，夾在各層的寶箱裡。每一頁屬於某一層，那一層只有一個寶箱夾著它；錯過了，之後更深樓層開的下一個寶箱會補上。</p>
+    <div class="scroll"><table>
+      <tr><th>所在樓層</th><th>內容</th></tr>
+      {{NOTES}}
+    </table></div>
+  </section>
+
+  <section>
+    <h2>井誌<span>The Book of the Well</span></h2>
+    <p>整個遊戲收集到的內容合成一本小書，共 {{BOOK_TOTAL}} 頁：魔王的魂魄（一句一頁，下方署名是哪一隻怪）、地圖上的遺物、寶箱裡的筆記。頁碼 P.XX 依樓層排列，翻開時一次一頁、左右翻，還沒收集到的頁是「？？？」。這本書就是主角留給後人的紀錄。</p>
+    <p>獎勵事先不告訴玩家，收集滿時才跳通知。</p>
+    <div class="scroll"><table>
+      <tr><th>進度</th><th>獎勵</th></tr>
+      <tr><td class="num">1 / 4</td><td>隨機橘核（核階跟著當前樓層）</td></tr>
+      <tr><td class="num">2 / 4</td><td>橘裝武器：技能點最多的路線對應的武器（近戰：劍或斧；遠程：弓；魔法：法杖）</td></tr>
+      <tr><td class="num">3 / 4</td><td>橘裝鎧甲：技能點最多的路線對應的鎧甲</td></tr>
+      <tr><td class="num">4 / 4</td><td>額外 20 點屬性點，可以點生命、法力等</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>遊戲裡做到哪裡<span>Status</span></h2>
+    <ul>
+      <li><b>已在遊戲裡：</b>七段前導與四頁終章；魔王第一次倒下時飄出的魂魄與台詞；地圖上的遺物（點擊翻開舊紙頁）；夾在寶箱裡的挑戰者筆記；《井誌》小書（按 Y）與四個收集獎勵。</li>
+    </ul>
+  </section>
+</main>

@@ -14,7 +14,7 @@ defineProps<{ view: GameView }>();
   </div>
 
   <div v-if="view.milestone" class="discovery milestone" role="status">
-    <div class="discovery-title">{{ view.milestone.title === '已通關' ? 'GAME CLEAR' : 'HIDDEN CHALLENGE COMPLETE' }}</div>
+    <div class="discovery-title">{{ view.milestone.badge }}</div>
     <div class="discovery-name">{{ view.milestone.title }}</div>
     <div class="discovery-line">{{ view.milestone.text }}</div>
   </div>

@@ -50,8 +50,8 @@ import { cutscenes, type CutsceneDef } from './data/cutscenes';
 import { playCutscene } from './ui/cutscene/CutscenePlayer';
 import { dueCutscene, watchedCutscenes } from './ui/cutscene/dueCutscene';
 
-/** 擊敗深淵統御者之後，等倒地動作與魂魄飄出再播終章（秒） */
-const EPILOGUE_DELAY = 4;
+/** 擊敗深淵統御者之後，等魂魄說完話、再過這麼久才播終章（秒） */
+const EPILOGUE_DELAY = 3;
 
 async function bootstrap(): Promise<void> {
   // 1. 資料驗證失敗就停止
@@ -229,6 +229,7 @@ async function bootstrap(): Promise<void> {
     const def = dueCutscene(cutscenes, { floor: world.floors.floor, completedHidden: p.completedHidden, seen });
     if (!def) return;
     if (def.trigger.type === 'hiddenComplete') {
+      if (gameView.soul) epilogueAt = null;
       epilogueAt ??= t + EPILOGUE_DELAY;
       if (t < epilogueAt) return;
     }

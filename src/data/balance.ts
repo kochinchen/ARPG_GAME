@@ -145,6 +145,16 @@ export const balance: z.input<typeof BalanceSchema> = {
     floorResist: { minFloor: 10, perFloor: { elite: 0.015, boss: 0.02 }, max: 0.4 },
   },
   // 每層的首領：比精英（HP ×3、傷害 ×1.8）強一截、體型 ×1.5；出口的安全範圍是 12 格，首領站在 16 格外
+  // 《井誌》每收集滿 1/4 的獎勵（設計者 2026-11-01）：1/4 隨機橘核、2/4 橘裝武器、3/4 橘裝鎧甲、4/4 額外屬性點
+  book: {
+    weaponKinds: { melee: ['sword', 'axe'], ranged: ['bow'], magic: ['staff'] },
+    armors: {
+      melee: ['legendary.armor_acid_beetle', 'legendary.armor_bone_spike', 'legendary.armor_blood_scale', 'legendary.armor_horned_beast', 'legendary.armor_magma_jaw', 'legendary.armor_quake'],
+      ranged: ['legendary.armor_gale'],
+      magic: ['legendary.armor_void_spore', 'legendary.armor_thunder_robe'],
+    },
+    attributePoints: 20,
+  },
   champion: {
     hpMultiplier: 6,
     damageMultiplier: 2,

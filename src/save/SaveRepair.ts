@@ -1,3 +1,4 @@
+import { buildBook } from '../data/book';
 import type { DataRegistry } from '../data/DataRegistry';
 import { shieldAllowed, slotsForBase } from '../game/items/Equipment';
 import { xpToNext } from '../game/progression/ExperienceSystem';
@@ -60,7 +61,7 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   save.skills.ranks = Object.fromEntries(ranks);
   save.skills.t4Unlocked = [...new Set(save.skills.t4Unlocked)];
 
-  // ---- 屬性點：總數 = 每級點數 × (等級 − 1) ----
+  // ---- 屬性點：總數 = 每級點數 × (等級 − 1)＋《井誌》全部收集的額外點數 ----
   const attributeDefs = balance.attributes.list;
   const allocated = new Map<string, number>();
   for (const [id, points] of Object.entries(save.attributes.allocated)) {
@@ -73,7 +74,9 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
     if (capped !== points) notes.push(`「${def.name}」超過上限，退回多出的屬性點`);
     allocated.set(id, capped);
   }
-  const totalAttributes = balance.attributes.pointsPerLevel * (level - 1);
+  const collected = new Set([...save.lore, ...save.notebook, ...save.souls]);
+  const bookComplete = buildBook(data).every((page) => collected.has(page.sourceId));
+  const totalAttributes = balance.attributes.pointsPerLevel * (level - 1) + (bookComplete ? balance.book.attributePoints : 0);
   const spentAttributes = [...allocated.values()].reduce((sum, p) => sum + p, 0);
   if (spentAttributes > totalAttributes) {
     notes.push('屬性點與等級不符，已重置並退回全部屬性點');

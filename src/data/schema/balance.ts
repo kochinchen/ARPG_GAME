@@ -203,6 +203,12 @@ export const BalanceSchema = z.strictObject({
    * 每層的首領（沒有魔王的樓層）：從該層的怪物池抽一隻，精英強化改用這些倍率、詞綴 affixCount 個；
    * 守在出口前 guardDistance 格，擊敗後出口才會開（清怪比例照舊），原地出現首領寶箱（chestLootTable）
    */
+  /** 《井誌》獎勵：每條路線的橘裝武器種類與鎧甲（3/4）、全部收集的額外屬性點（4/4） */
+  book: z.strictObject({
+    weaponKinds: z.strictObject({ melee: z.array(z.enum(['sword', 'axe', 'bow', 'staff'])), ranged: z.array(z.enum(['sword', 'axe', 'bow', 'staff'])), magic: z.array(z.enum(['sword', 'axe', 'bow', 'staff'])) }),
+    armors: z.strictObject({ melee: z.array(z.string()), ranged: z.array(z.string()), magic: z.array(z.string()) }),
+    attributePoints: z.int().nonnegative(),
+  }),
   champion: z.strictObject({
     hpMultiplier: z.number().positive(),
     damageMultiplier: z.number().positive(),

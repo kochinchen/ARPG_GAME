@@ -22,10 +22,12 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v17：傳奇 / 神話效果行的擲骰（毒蛛生命）接在 legendaryRolls 的固定屬性之後。
  * v18：本層的屍體（floor.corpses：生成索引、位置、面向）。
  * v19：看過的過場影片（cutscenes）。
+ * v20：讀過的遺物（lore）、聽過的魔王魂魄（souls）。
+ * v21：找到的筆記頁（notebook）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 21;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -169,6 +171,12 @@ export const SaveDataSchema = z.object({
   endgame: z.object({ cleared: z.boolean(), completedHidden: z.boolean() }),
   /** 看過的過場影片 ID（v19；每個存檔只自動播一次） */
   cutscenes: z.array(z.string()),
+  /** 讀過的遺物 ID（v20；井誌） */
+  lore: z.array(z.string()),
+  /** 找到的筆記頁 ID（v21；挑戰者的筆記） */
+  notebook: z.array(z.string()),
+  /** 聽過的魔王魂魄 ID（v20；每個魂魄只飄出一次） */
+  souls: z.array(z.string()),
   /** 持續推進的亂數序列狀態：序列名稱 → Rng 狀態（v9；缺少的序列讀檔時重新混合種子） */
   rng: z.record(z.string(), z.number().int().min(0).max(0xffffffff)),
 });

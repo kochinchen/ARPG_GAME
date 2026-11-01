@@ -28,6 +28,12 @@ export class PlayerProgress {
   completedHidden = false;
   /** 看過的過場影片 ID（每個存檔只自動播一次） */
   readonly cutscenes = new Set<string>();
+  /** 讀過的遺物 ID（井誌） */
+  readonly lore = new Set<string>();
+  /** 找到的筆記頁 ID（挑戰者的筆記） */
+  readonly notebook = new Set<string>();
+  /** 聽過的魔王魂魄 ID（每個魂魄只飄出一次） */
+  readonly souls = new Set<string>();
   private _version = 0;
 
   get version(): number {

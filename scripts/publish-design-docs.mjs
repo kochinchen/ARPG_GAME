@@ -17,6 +17,7 @@ const PAGES = [
   { from: '角色成長模擬.html', to: 'growth.html', title: '角色成長模擬', text: '成長表、屬性點與技能點模擬器、三段 Combo 測試。' },
   { from: '組合技圖鑑.html', to: 'combos.html', title: '組合技圖鑑', text: 'Q / W / E 連段的組合技規則、所有會觸發的排列與連段試算。' },
   { from: '開發歷程.html', to: 'history.html', title: '開發歷程', text: '開發方法與時間軸。' },
+  { from: '故事與世界觀.html', to: 'story.html', title: '故事與世界觀', text: '世界起源、統御者三相、七環編年史、魔王的魂魄與散落的遺物。' },
 ];
 const ASSETS = ['sim.js', 'item-icons.js', 'models'];
 

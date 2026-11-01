@@ -24,6 +24,7 @@ import { FloatingTextLayer } from './views/FloatingTextLayer';
 import { CorpseLayer } from './views/CorpseLayer';
 import { DeviceLayer } from './views/DeviceLayer';
 import { InteractableLayer } from './views/InteractableLayer';
+import { SoulWispLayer } from './views/SoulWispLayer';
 import { FloorMarkersView } from './views/FloorMarkersView';
 import { TileMapView } from './views/TileMapView';
 import type { ArenaView } from './views/ArenaDecor';
@@ -57,6 +58,8 @@ export class Renderer {
   private readonly actorOverlay = new Container({ sortableChildren: true });
   private readonly marker = new Graphics();
   private readonly floatingText = new FloatingTextLayer();
+  /** 魔王倒下時飄出的魂魄 */
+  private readonly soulWisps = new SoulWispLayer();
   private tileMap: TileMapView;
   private minimap: MinimapView;
   private readonly markers: FloorMarkersView;
@@ -83,7 +86,7 @@ export class Renderer {
     private readonly projection: IsoProjection,
     private readonly world: GameWorld,
     private readonly camera: Camera,
-    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'skills' | 'balance' | 'cores'>,
+    private readonly data: Pick<DataRegistry, 'items' | 'affixes' | 'legendaries' | 'potions' | 'lore' | 'skills' | 'balance' | 'cores'>,
     /** Three.js 畫法：有傳入時由 present() 自己畫每一幀（main.ts 已停掉 Pixi 的自動繪製） */
     private readonly three: ThreeWorld | null = null,
   ) {
@@ -107,6 +110,7 @@ export class Renderer {
       this.objectLayer,
       this.actorOverlay,
       this.playerLight.container,
+      this.soulWisps.container,
       this.interactables.labels,
       this.floatingText.container,
     );
@@ -268,6 +272,8 @@ export class Renderer {
         this.drops.push(container);
       }
     });
+    world.events.on('SoulReleased', (e) => this.soulWisps.spawn(projection.toScreen(e.position), e.smoke));
+    world.events.on('FloorEntered', () => this.soulWisps.clear());
     world.events.on('MasteryAchieved', () => say(world.player.position, '精通！其他類別開放', PALETTE.manaText));
     world.events.on('ComboCompleted', (e) => {
       this.floatingText.spawnText(projection.toScreen(world.player.position), e.name, PALETTE.critText, 18);
@@ -333,7 +339,7 @@ export class Renderer {
     const local = this.camera.toLayer(screen);
     const exit = this.world.exit ? [this.world.exit] : [];
     const stairs = this.world.stairsUp ? [this.world.stairsUp] : [];
-    return this.interactables.pickAt(local, [...stairs, ...this.world.merchants, ...this.world.waypoints, ...exit, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
+    return this.interactables.pickAt(local, [...stairs, ...this.world.merchants, ...this.world.waypoints, ...exit, ...this.world.relics, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
   }
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
@@ -397,10 +403,11 @@ export class Renderer {
     this.tileMap.update(playerPos, dt);
     this.minimap.update(playerPos, this.minimapMarkers());
     this.interactables.setHovered(this.hoveredInteractable);
-    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000, this.world.waypoints);
+    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000, this.world.waypoints, this.world.relics);
     this.markers.update(this.app.ticker.lastTime);
     this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
     this.floatingText.update(dt);
+    this.soulWisps.update(dt);
     this.heroPreview.update(dt);
     this.updateMarker(player.intent === null ? player.path[player.path.length - 1] : undefined);
     if (this.three) this.present(playerPos, dt);

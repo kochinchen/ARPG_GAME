@@ -1,3 +1,4 @@
+import type { SoulSmoke } from '../../data/schema/story';
 import type { ComboKey, ComboKeyLabel } from '../../game/player/PlayerLoadout';
 import { reactive } from 'vue';
 import { emptyCharacterView } from './CharacterView';
@@ -36,6 +37,13 @@ export interface LeaveFloorPrompt {
   direction: 'down' | 'up';
   toFloor: number;
   valuableItems: number;
+}
+
+/** 魂魄說的一句話 */
+export interface SoulLine {
+  en: string;
+  zh: string;
+  smoke: SoulSmoke;
 }
 
 /**
@@ -81,8 +89,16 @@ export const gameView = reactive({
   leavePrompt: null as LeaveFloorPrompt | null,
   /** 第 30 層出口：確認是否進入極限挑戰（進入後回不到 1～30 層） */
   challengePrompt: null as { toFloor: number; valuableItems: number } | null,
+  /** 翻開《井誌》時停在第幾頁（遊戲暫停）；null = 闔上 */
+  notebookPage: null as number | null,
+  /** 魔王魂魄正在說的話（逐句顯示，不暫停遊戲） */
+  soul: null as SoulLine | null,
+  /** 井誌：讀過的遺物、找到的筆記頁、聽過的魂魄 */
+  lore: [] as string[],
+  notebook: [] as string[],
+  souls: [] as string[],
   /** 通關橫幅（已通關 / 已完成隱藏難關），顯示幾秒 */
-  milestone: null as { title: string; text: string } | null,
+  milestone: null as { badge: string; title: string; text: string } | null,
   inventory: emptyInventoryView(),
   skillTree: emptySkillTreeView(),
   character: emptyCharacterView(),

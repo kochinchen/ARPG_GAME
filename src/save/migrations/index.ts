@@ -255,8 +255,18 @@ const v17ToV18: Migration = (v17) => {
  */
 const v18ToV19: Migration = (v18) => (Array.isArray(v18.cutscenes) ? v18 : { ...v18, cutscenes: [] });
 
+/** v19 → v20：讀過的遺物、聽過的魔王魂魄。舊存檔都是空的（已打過的魔王，下次打倒時魂魄會飄出一次） */
+const v19ToV20: Migration = (v19) => (Array.isArray(v19.lore) && Array.isArray(v19.souls) ? v19 : { lore: [], souls: [], ...v19 });
+
+/** v20 → v21：挑戰者的筆記。第 35 層寶箱旁的紙條改成夾在各層寶箱的筆記頁，舊紙條的閱讀紀錄移除 */
+const v20ToV21: Migration = (v20) => {
+  if (Array.isArray(v20.notebook)) return v20;
+  const lore = Array.isArray(v20.lore) ? (v20.lore as string[]).filter((id) => !id.startsWith('lore.f35.')) : [];
+  return { ...v20, lore, notebook: [] };
+};
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21];
 
 export class MigrationError extends Error {}
 

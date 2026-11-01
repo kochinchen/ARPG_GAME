@@ -34,6 +34,9 @@ function sample(gold: number): SaveData {
     floor: { current: 1, highest: 1, mapId: 'map.crypt_a', midwayActive: false, bossGateActive: false, midwayFloors: [], exitOpen: false, killed: [], corpses: [], openedChests: {}, groundItems: [], shopBought: [] },
     endgame: { cleared: false, completedHidden: false },
     cutscenes: [],
+    lore: [],
+    notebook: [],
+    souls: [],
     bestiary: {},
     collection: [],
     materials: {},
@@ -204,6 +207,28 @@ describe('Migration v18 → v19（看過的過場影片）', () => {
     expect(SaveDataSchema.parse(migrate(v18, 18)).cutscenes).toEqual([]);
     const seen = { ...sample(3), cutscenes: ['prelude.f1'] };
     expect((migrate(seen, 18) as SaveData).cutscenes).toEqual(['prelude.f1']);
+  });
+});
+
+describe('Migration v19 → v20（遺物與魂魄）', () => {
+  it('舊存檔都是空的；已有紀錄的不被覆蓋', () => {
+    const v19 = structuredClone(sample(3)) as unknown as Record<string, unknown>;
+    delete v19.lore;
+    delete v19.souls;
+    const v20 = SaveDataSchema.parse(migrate(v19, 19));
+    expect(v20.lore).toEqual([]);
+    expect(v20.souls).toEqual([]);
+    expect((migrate({ ...sample(3), lore: ['lore.f1'] }, 19) as SaveData).lore).toEqual(['lore.f1']);
+  });
+});
+
+describe('Migration v20 → v21（挑戰者的筆記）', () => {
+  it('補上空的筆記；舊紙條的閱讀紀錄移除，其他遺物保留', () => {
+    const v20 = { ...structuredClone(sample(3)), lore: ['lore.f6', 'lore.f35.4'] } as unknown as Record<string, unknown>;
+    delete v20.notebook;
+    const v21 = SaveDataSchema.parse(migrate(v20, 20));
+    expect(v21.notebook).toEqual([]);
+    expect(v21.lore).toEqual(['lore.f6']);
   });
 });
 

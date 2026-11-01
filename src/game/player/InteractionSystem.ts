@@ -1,7 +1,7 @@
 import { distance, type Vec2 } from '../../core/math/Vec2';
 import { RARITIES } from '../../data/schema/item';
 import type { Actor } from '../entities/Actor';
-import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, StairsUp, Waypoint } from '../entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, Relic, StairsUp, Waypoint } from '../entities/Interactable';
 import type { GameEventBus } from '../GameEvents';
 import type { ChestSystem } from '../items/ChestSystem';
 import type { Inventory } from '../items/Inventory';
@@ -21,6 +21,9 @@ export interface InteractionWorld {
   stairsUp: StairsUp | null;
   merchants: readonly Merchant[];
   waypoints: readonly Waypoint[];
+  relics: readonly Relic[];
+  /** 點擊遺物 */
+  readRelic(relic: Relic): void;
   /** 點擊出口 */
   useExit(): void;
   /** 點擊往上的樓梯 */
@@ -53,14 +56,15 @@ export class InteractionSystem {
   }
 
   find(id: number): Interactable | undefined {
-    const { exit, stairsUp, merchants, waypoints } = this.world;
+    const { exit, stairsUp, merchants, waypoints, relics } = this.world;
     return (
       this.world.groundItems.find((g) => g.id === id) ??
       this.world.chests.find((c) => c.id === id && !c.opened) ??
       (exit?.id === id ? exit : undefined) ??
       (stairsUp?.id === id ? stairsUp : undefined) ??
       merchants.find((m) => m.id === id) ??
-      waypoints.find((w) => w.id === id)
+      waypoints.find((w) => w.id === id) ??
+      relics.find((r) => r.id === id)
     );
   }
 
@@ -79,13 +83,14 @@ export class InteractionSystem {
 
   /**
    * 觸控「拿取」鈕：range 內最該撿的東西。順序：藥水（帶滿了跳過）→ 裝備與熔核（紅 → 橘 → 紫 → 黃 → 藍 → 白，
-   * 背包滿了跳過）→ 金幣、材料 → 寶箱 → 商人；同一級取最近的。玩家自己丟下的不撿。
+   * 背包滿了跳過）→ 金幣、材料 → 寶箱 → 沒讀過的遺物 → 商人；同一級取最近的。玩家自己丟下的不撿。
    * 附近有東西但全都放不下時回傳放不下的原因。
    */
   pickNearby(range: number): { id: number } | { failed: 'inventoryFull' | 'potionCap' } | null {
     const near = (p: Vec2) => distance(this.player.position, p) <= range;
     const rank = (target: Interactable): number | null => {
       if (target.kind === 'chest') return 20;
+      if (target.kind === 'relic') return 25;
       if (target.kind === 'merchant') return 30;
       if (target.kind !== 'ground' || target.droppedByPlayer) return null;
       const c = target.content;
@@ -100,7 +105,7 @@ export class InteractionSystem {
     };
     let best: { id: number; rank: number; d: number } | null = null;
     let blocked: 'inventoryFull' | 'potionCap' | null = null;
-    const candidates: Interactable[] = [...this.world.groundItems, ...this.world.chests.filter((c) => !c.opened), ...this.world.merchants];
+    const candidates: Interactable[] = [...this.world.groundItems, ...this.world.chests.filter((c) => !c.opened), ...this.world.relics.filter((r) => !r.read), ...this.world.merchants];
     for (const target of candidates) {
       if (!near(target.position)) continue;
       const r = rank(target);
@@ -153,6 +158,7 @@ export class InteractionSystem {
     else if (target.kind === 'stairsUp') this.world.useStairsUp();
     else if (target.kind === 'merchant') this.world.openShop();
     else if (target.kind === 'waypoint') this.world.useWaypoint(target.to);
+    else if (target.kind === 'relic') this.world.readRelic(target);
     else this.pickUp(target, true);
   }
 

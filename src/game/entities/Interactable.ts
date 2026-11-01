@@ -66,5 +66,14 @@ export interface Waypoint {
   to: 'stairs' | 'midway';
 }
 
+/** 散落的遺物（data/lore.json）：點擊翻開一頁舊紙；讀過之後還留在原地，可以再讀 */
+export interface Relic {
+  kind: 'relic';
+  id: number;
+  position: Vec2;
+  loreId: string;
+  read: boolean;
+}
+
 /** 玩家可以點擊互動的物件 */
-export type Interactable = GroundItem | Chest | ExitPortal | StairsUp | Merchant | Waypoint;
+export type Interactable = GroundItem | Chest | ExitPortal | StairsUp | Merchant | Waypoint | Relic;

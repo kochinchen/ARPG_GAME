@@ -10,6 +10,8 @@ import { askState } from './askState';
 import BestiaryPanel from './components/BestiaryPanel.vue';
 import BossBar from './components/BossBar.vue';
 import ItemCodexPanel from './components/ItemCodexPanel.vue';
+import NotebookBook from './components/NotebookBook.vue';
+import SoulWords from './components/SoulWords.vue';
 import CharacterPanel from './components/CharacterPanel.vue';
 import DevOverlay from './components/DevOverlay.vue';
 import FloorHud from './components/FloorHud.vue';
@@ -30,7 +32,7 @@ import { isTouchDevice, touchOverride } from './bridge/TouchBridge';
 const props = defineProps<{ devAvailable: boolean }>();
 
 // 以下都是 UI 自己的狀態（面板開關、游標位置、hover），不經過遊戲
-const open = reactive<Record<PanelName, boolean>>({ character: false, skills: false, inventory: false, bestiary: false, menu: false });
+const open = reactive<Record<PanelName, boolean>>({ character: false, skills: false, inventory: false, bestiary: false, journal: false, menu: false });
 const pointer = ref({ x: 0, y: 0 });
 const hoverTarget = ref<HoverTarget | null>(null);
 /** 商店：點商人時開啟（同時打開背包），離開商人附近自動關閉 */
@@ -114,8 +116,22 @@ function openCodex(which: 'monsters' | 'items') {
   itemCodexOpen.value = which === 'items';
 }
 
+/** 井誌：再次打開時停在上次看的那一頁 */
+let lastBookPage = 1;
+watch(
+  () => gameView.notebookPage,
+  (page) => {
+    open.journal = page !== null;
+    if (page !== null) lastBookPage = page;
+  },
+);
+
 /** 開關面板。角色與技能樹都在左側，一次只開一個；選單與圖鑑開啟時遊戲暫停 */
 function toggle(panel: PanelName, value = !open[panel]) {
+  if (panel === 'journal') {
+    gameView.notebookPage = value ? lastBookPage : null;
+    return;
+  }
   if (panel === 'bestiary') {
     // 圖鑑可以從選單打開（蓋在選單上，關閉後回到選單）
     open.bestiary = value;
@@ -129,7 +145,7 @@ function toggle(panel: PanelName, value = !open[panel]) {
 }
 // 問答框開著時也暫停（像以前瀏覽器的確認框一樣，回答前遊戲不會動）
 watch(
-  () => open.menu || open.bestiary || itemCodexOpen.value || askState.current !== null,
+  () => open.menu || open.bestiary || gameView.notebookPage !== null || itemCodexOpen.value || askState.current !== null,
   (paused) => systemBridge.setPaused(paused),
 );
 
@@ -155,6 +171,9 @@ function onKeyDown(e: KeyboardEvent) {
       toggle('bestiary');
       itemCodexOpen.value = false;
       break;
+    case 'KeyY':
+      toggle('journal');
+      break;
     case 'KeyO':
       itemCodexOpen.value = !itemCodexOpen.value;
       open.bestiary = false;
@@ -165,7 +184,8 @@ function onKeyDown(e: KeyboardEvent) {
       break;
     case 'Escape':
       // 依序：確認對話框 → 選單 → 面板 → 開啟選單
-      if (gameView.leavePrompt) gameView.leavePrompt = null;
+      if (gameView.notebookPage !== null) gameView.notebookPage = null;
+      else if (gameView.leavePrompt) gameView.leavePrompt = null;
       else if (gameView.challengePrompt) gameView.challengePrompt = null;
       else if (open.bestiary) open.bestiary = false;
       else if (itemCodexOpen.value) itemCodexOpen.value = false;
@@ -318,6 +338,7 @@ onBeforeUnmount(() => {
   <BossBar v-if="gameView.boss" :boss="gameView.boss" />
   <DevOverlay v-if="gameView.dev.enabled" :dev="gameView.dev" />
   <Notices :view="gameView" />
+  <SoulWords :line="gameView.soul" />
 
   <Hud :hud="gameView.hud" :skill-bar="gameView.skillBar" :touch="touchMode" />
   <MenuBar
@@ -399,6 +420,7 @@ onBeforeUnmount(() => {
     @bestiary="openCodex('monsters')"
     @items="openCodex('items')"
   />
+  <NotebookBook v-if="gameView.notebookPage !== null" :page="gameView.notebookPage" :owned="[...gameView.lore, ...gameView.notebook, ...gameView.souls]" @close="gameView.notebookPage = null" @turned="(page) => (lastBookPage = page)" />
   <BestiaryPanel v-if="open.bestiary" :kills="gameView.bestiary" :dev-available="devAvailable" @close="open.bestiary = false" @items="openCodex('items')" />
   <ItemCodexPanel
     v-if="itemCodexOpen"

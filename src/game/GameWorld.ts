@@ -20,7 +20,7 @@ import { SalvageSystem } from './items/SalvageSystem';
 import { Materials } from './player/Materials';
 import { EQUIPMENT_SLOTS, type ItemInstance } from './items/ItemInstance';
 import { Actor } from './entities/Actor';
-import type { Chest, ExitPortal, GroundContent, GroundItem, Merchant, StairsUp, Waypoint } from './entities/Interactable';
+import type { Chest, ExitPortal, GroundContent, GroundItem, Merchant, Relic, StairsUp, Waypoint } from './entities/Interactable';
 import { ShopSystem } from './items/ShopSystem';
 import { sortInventory } from './items/InventorySort';
 import type { Projectile } from './entities/Projectile';
@@ -65,6 +65,11 @@ import { floorResistFor, scaleForFloor, type FloorScaling } from './world/Diffic
 import { FloorManager, mapIdForFloor } from './world/FloorManager';
 import { canAscend, descendKind, selectableFloors } from './world/Endgame';
 import { generateMap, generatedMapId, generateThroneMap } from './world/MapGenerator';
+import { bookQuarter, buildBook, type BookPage } from '../data/book';
+import { notePageInChest } from './world/Notebook';
+import { fuse } from './items/FusionResolver';
+import { coreName } from './items/CoreDescriber';
+import type { CoreInstance } from './items/CoreInstance';
 import { rollElite, SpawnSystem } from './world/SpawnSystem';
 import { findMarker, reachableTiles } from '../data/mapAnalysis';
 import { TargetingService } from './targeting/TargetingService';
@@ -139,6 +144,8 @@ export class GameWorld {
   stairsUp: StairsUp | null = null;
   /** 本層的商人（樓梯口、中途存檔點、出口旁），共用 shop 的同一個貨架；固定地圖模式沒有 */
   merchants: Merchant[] = [];
+  /** 本層散落的遺物 */
+  relics: Relic[] = [];
   /** 傳送口（中途存檔點啟動後：樓梯口 ⇄ 中途） */
   waypoints: Waypoint[] = [];
   readonly checkpoints: CheckpointSystem;
@@ -171,6 +178,10 @@ export class GameWorld {
   readonly attributes: AttributeSystem;
   /** 掉落物品等級：等於樓層 */
   itemLevel = 1;
+  /** 《井誌》的所有頁 */
+  private readonly bookPages: readonly BookPage[];
+  /** 本層一般寶箱的數量（筆記頁選寶箱用） */
+  private floorChestCount = 0;
   /** 樓層的掉寶階級（FloorDef.lootTier） */
   lootTier = 1;
   readonly events: GameEventBus;
@@ -221,6 +232,7 @@ export class GameWorld {
   constructor(options: GameWorldOptions) {
     const { data } = options;
     this.data = data;
+    this.bookPages = buildBook(data);
     this.seed = options.seed;
     this.commands = options.commands;
     this.events = options.events;
@@ -424,6 +436,17 @@ export class GameWorld {
         this.events.emit('GameCleared', { stage: 'hidden' });
       }
     });
+    // 魔王第一次倒下：魂魄飄出，說出那個人的真相（每個存檔一次；中途小王與召喚物沒有）
+    this.events.on('ActorDied', (e) => {
+      if (e.faction !== 'enemy' || !e.boss || e.miniBoss || e.summoned) return;
+      const soul = this.data.souls.all.find((s) => s.floor === this.floors.floor);
+      if (!soul || this.progress.souls.has(soul.id)) return;
+      const found = this.bookFound();
+      this.progress.souls.add(soul.id);
+      this.progress.changed();
+      this.events.emit('SoulReleased', { soulId: soul.id, smoke: soul.smoke, position: e.position });
+      this.grantBookReward(found);
+    });
     // 怪物死後留下屍體（召喚物、機關不留）
     this.events.on('ActorDied', (e) => {
       if (e.faction !== 'enemy' || e.summoned || e.defId === null) return;
@@ -444,7 +467,9 @@ export class GameWorld {
     });
     this.events.on('ChestOpened', (e) => {
       const chest = this.chests.find((c) => c.id === e.chestId);
-      if (chest?.spawnIndex !== undefined) this.floors.markChestOpened(this.floors.floor, chest.spawnIndex);
+      if (chest?.spawnIndex === undefined) return;
+      this.floors.markChestOpened(this.floors.floor, chest.spawnIndex);
+      this.findNotePage(chest.spawnIndex, e.position);
     });
     // 到過中途存檔點：記在這一層（以後重新進入也維持啟動），並出現傳送口
     this.events.on('CheckpointActivated', (e) => {
@@ -613,6 +638,19 @@ export class GameWorld {
       const opened = this.floors.isChestOpened(floor, index);
       this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position, lootTable: def.chestLootTable, opened, spawnIndex: index });
     });
+    this.floorChestCount = chestCount;
+    // 遺物：內容固定、位置由世界種子 + 樓層決定（獨立亂數，不影響怪物與寶箱）
+    const relicDefs = this.data.lore.all.filter((l) => l.floor === floor);
+    const relicSpots = relicDefs.length === 0
+      ? []
+      : new SpawnSystem(this.nav, new Rng(this.seed).fork(`relic-${floor}`)).planChests(relicDefs.length, [...safe, ...chestSpots], [
+          ...arenaZone,
+          ...this.map.subArenas.map((a) => ({ center: vec2(a.x, a.y), radius: a.radius + 2 })),
+        ]);
+    this.relics = relicDefs.flatMap((l, i) => {
+      const position = relicSpots[i];
+      return position ? [{ kind: 'relic' as const, id: this.nextInteractableId++, position, loreId: l.id, read: this.progress.lore.has(l.id) }] : [];
+    });
     this.floors.begin(floor, monsterCount, {
       killed: [...killed].filter((i) => i < monsterCount),
       exitOpen: restore?.exitOpen ?? false,
@@ -747,6 +785,86 @@ export class GameWorld {
   }
 
   /** 王座廳的寶箱：外圈 85% 半徑上等距擺放，避開樓梯口那一側 */
+  /** 開寶箱：這個寶箱夾著一頁筆記嗎？湊齊時給獎勵 */
+  private findNotePage(spawnIndex: number, position: Vec2): void {
+    const owned = this.progress.notebook;
+    const found = this.bookFound();
+    const note = notePageInChest(this.data.notebook.all, { floor: this.floors.floor, spawnIndex, floorChests: this.floorChestCount }, this.seed, owned);
+    if (!note) return;
+    owned.add(note.id);
+    this.progress.changed();
+    this.events.emit('NotePageFound', { noteId: note.id });
+    this.grantBookReward(found);
+  }
+
+  /** 《井誌》收集到的頁數 */
+  private bookFound(): number {
+    const p = this.progress;
+    return this.bookPages.filter((page) => (page.kind === 'soul' ? p.souls : page.kind === 'lore' ? p.lore : p.notebook).has(page.sourceId)).length;
+  }
+
+  /** 剛多收集一頁：跨過 1/4、2/4、3/4、4/4 時給獎勵（只在跨過的當下，不另外存檔） */
+  private grantBookReward(foundBefore: number): void {
+    const total = this.bookPages.length;
+    const quarter = bookQuarter(this.bookFound(), total);
+    if (quarter === bookQuarter(foundBefore, total)) return;
+    const level = Math.max(1, this.itemLevel);
+    const rng = new Rng(this.seed).fork(`book-${quarter}`);
+    const at = this.player.position;
+    const school = this.topSkillSchool();
+    const { weaponKinds, armors, attributePoints } = this.data.balance.book;
+    let reward: string;
+    if (quarter === 1) {
+      const core = this.rollOrangeCore(level, rng);
+      this.spawnGroundItem(at, { kind: 'core', core });
+      reward = `一顆橘色的${coreName(core, this.data)}`;
+    } else if (quarter === 2) {
+      const pool = this.data.legendaries.all.filter((d) => d.rarity === 'legendary' && (weaponKinds[school] as readonly string[]).includes(d.kind));
+      const def = rng.pick(pool);
+      this.spawnGroundItem(at, { kind: 'item', item: this.itemGenerator.createLegendary(def, level) });
+      reward = `橘裝武器「${def.name}」`;
+    } else if (quarter === 3) {
+      const def = this.data.legendaries.get(rng.pick(armors[school]));
+      this.spawnGroundItem(at, { kind: 'item', item: this.itemGenerator.createLegendary(def, level) });
+      reward = `橘裝鎧甲「${def.name}」`;
+    } else {
+      this.progress.attributePoints += attributePoints;
+      this.progress.changed();
+      reward = `額外 ${attributePoints} 點屬性點（到角色面板分配）`;
+    }
+    this.events.emit('BookMilestone', { quarter, reward });
+  }
+
+  /** 技能點最多的路線（近戰 / 遠程 / 魔法）；戰術與輔助不對應武器，不算；都沒點算近戰 */
+  private topSkillSchool(): 'melee' | 'ranged' | 'magic' {
+    const points = { melee: 0, ranged: 0, magic: 0 };
+    for (const [id, rank] of this.player.skillRanks) {
+      const category = this.data.skills.get(id).tree?.category;
+      if (category === 'melee' || category === 'ranged' || category === 'magic') points[category] += rank;
+    }
+    return (['melee', 'ranged', 'magic'] as const).reduce((best, s) => (points[s] > points[best] ? s : best));
+  }
+
+  /** 隨機橘核：用四件同種類的橘裝走正常的融合，核階、屬性與玩家融出來的相同 */
+  private rollOrangeCore(level: number, rng: Rng): CoreInstance {
+    const pool = this.data.legendaries.all.filter((d) => d.rarity === 'legendary' && d.kind !== 'ring' && d.kind !== 'amulet');
+    const kind = rng.pick(pool).kind;
+    const same = pool.filter((d) => d.kind === kind);
+    const inputs = Array.from({ length: this.data.balance.fusion.inputs.max }, () => this.itemGenerator.createLegendary(rng.pick(same), level));
+    return fuse(inputs, [], this.data, rng, this.itemGenerator.newUid());
+  }
+
+  /** 翻開遺物：記進井誌，UI 顯示舊紙頁 */
+  readRelic(relic: Relic): void {
+    relic.read = true;
+    this.events.emit('RelicRead', { loreId: relic.loreId });
+    if (this.progress.lore.has(relic.loreId)) return;
+    const found = this.bookFound();
+    this.progress.lore.add(relic.loreId);
+    this.progress.changed();
+    this.grantBookReward(found);
+  }
+
   private throneChestSpots(count: number): Vec2[] {
     const arena = this.map.arena!;
     const start = Math.atan2(this.spawnPoint.y - arena.y, this.spawnPoint.x - arena.x);
@@ -838,6 +956,7 @@ export class GameWorld {
     this.chests.length = 0;
     this.stairsUp = null;
     this.merchants = [];
+    this.relics = [];
     this.waypoints = [];
     this.scheduler.clear();
     this.bosses.clear();

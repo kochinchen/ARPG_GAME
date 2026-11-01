@@ -158,6 +158,9 @@ def export_game_media() -> None:
     os.makedirs(GAME_MEDIA, exist_ok=True)
     for name in sorted(os.listdir(OUT)):
         src, dst = os.path.join(OUT, name), os.path.join(GAME_MEDIA, name)
+        # 沒變動的不重做（AAC 每次編碼的結果都不一樣，會讓 git 多出一堆差異）
+        if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
+            continue
         if name.endswith('.jpg'):
             subprocess.run(['sips', '-Z', str(GAME_IMAGE_WIDTH), '-s', 'format', 'jpeg', '-s', 'formatOptions', '60', src, '--out', dst],
                            check=True, capture_output=True)
