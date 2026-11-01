@@ -11,7 +11,7 @@ import { F, glowTones, horn, rand } from './StyledArmors';
  * neck 關節在 head 下方 2.75、後方 0.4；脖子從 neck 往上到下巴。
  */
 
-export type HelmetLook = 'fallenKnight' | 'stormCrown' | 'plumed' | 'visor' | 'crypt' | 'circlet' | 'skull' | 'agesCrown' | 'priestCrown' | 'demonCrown';
+export type HelmetLook = 'fallenKnight' | 'stormCrown' | 'plumed' | 'visor' | 'crypt' | 'circlet' | 'skull' | 'agesCrown' | 'priestCrown' | 'demonCrown' | 'plainCap' | 'plainNasal' | 'plainOpen' | 'plainSilver' | 'plainClosed' | 'plainHalf' | 'plainCrest';
 
 export interface StyledHelmetSpec {
   look: HelmetLook;
@@ -21,6 +21,10 @@ export interface StyledHelmetSpec {
   glow: number;
   /** 盔纓、羽飾等布料的顏色 */
   cloth?: Tones;
+  /** 一般頭盔的詞條小裝飾：一側的小羽飾（速度） */
+  feather?: Tones;
+  /** 一般頭盔的詞條小裝飾：頭頂兩根小尖刺（荊棘） */
+  spikes?: Tones;
 }
 
 /** 關節 → 網格；hide = 被蓋住、不畫的身體部位 */
@@ -521,7 +525,68 @@ function demonCrown(s: StyledHelmetSpec): StyledHelmet {
   return { parts: new Map<Joint, Mesh[]>([['head', fitHead(head)]]), hide: ['head', 'hair'] };
 }
 
-const LOOKS: Record<HelmetLook, (s: StyledHelmetSpec) => StyledHelmet> = { fallenKnight, stormCrown, plumed, visor, crypt, circlet, skull, agesCrown, priestCrown, demonCrown };
+// ─────────────────────────── 一般 樸實的頭盔 ───────────────────────────
+
+interface PlainHelm {
+  /** 全罩（細眼縫）；否則露臉 */
+  closed?: boolean;
+  /** 額前的飾邊：v = V 形、band = 一圈環帶 */
+  brow?: 'v' | 'band';
+  /** 頭頂中央的脊：ridge = 細脊、crest = 低矮的冠脊 */
+  top?: 'ridge' | 'crest';
+  nasal?: boolean;
+  /** 頰甲的長度（0 = 沒有） */
+  cheeks?: number;
+  /** 布巾式的交叉纏帶（軟帽） */
+  wrap?: boolean;
+}
+
+/**
+ * 一般頭盔（設計稿：art/gear/plain_sets/concept/八階整套.png）：貼頭形的盔殼，沒有大角、大尖刺與發光；
+ * 有詞條時額前多一顆小寶石（glow 不是白色）、一側小羽飾或頭頂兩根小尖刺。
+ */
+function plainHelm(s: StyledHelmetSpec, o: PlainHelm): StyledHelmet {
+  const { mat, trim, glow } = s;
+  const shade: Tones = [lighten(mat[0]!, 0.08), mat[0]!, mat[2]!, mat[1]!];
+  const head: Mesh[] = [o.closed ? F(loft(KNIGHT_SHELL, 16, mat, 8), 8, 0.14) : openShell(mat, 8)];
+  if (o.brow === 'v') {
+    for (const x of [-1, 1]) head.push(tone(taper([0, 7.1, shellZ(0, 7.6) + 0.25], [x * 4.9, 8, shellZ(x * 4.6, 8) - 2.4], [0.3, 0.3], [0.24, 0.24], trim, 4, 14, Math.PI / 4), trim, 14));
+    head.push(tone(taper([0, 9.6, shellZ(0, 9.6) + 0.1], [0, 7.2, shellZ(0, 7.6) + 0.3], [0.3, 0.3], [0.26, 0.26], trim, 4, 16, Math.PI / 4), trim, 16));
+  }
+  if (o.brow === 'band') head.push(tone(prism(16, 7, 7.5, [5.1, 5.8], [4.85, 5.5], trim[1]!, [0, 0, -0.6]), trim, 14));
+  if (o.top === 'ridge') head.push(F(taper([0, 10.5, 2.2], [0, 10.3, -4.2], [0.5, 0.55], [0.4, 0.45], shade, 4, 6, 0), 6, 0.06));
+  if (o.top === 'crest') head.push(F(taper([0, 10.2, 3], [0, 11.4, -3.6], [0.42, 0.42], [0.3, 1.1], trim, 4, 6, 0), 6, 0.06));
+  if (o.nasal) head.push(F(taper([0, 7.8, shellZ(0, 7.8) + 0.2], [0, 3.6, shellZ(0, 7.6) + 1], [1.15, 0.42], [0.42, 0.26], shade, 4, 17, 0), 17, 0.06));
+  if (o.cheeks) {
+    for (const x of [-1, 1]) head.push(F(taper([x * 4.75, 4.4, 0], [x * 4.15, 4.4 - o.cheeks, 1.1], [1.5, 0.45], [0.45, 0.28], mat, 4, 7, 0), 7, 0.1));
+  }
+  if (o.wrap) for (const x of [-1, 1]) head.push(tone(taper([x * 4.7, 7.2, shellZ(x * 3.9, 7.2) - 0.5], [-x * 2.6, 9.6, shellZ(2.6, 9.4) - 1.1], [0.5, 0.22], [0.42, 0.2], trim, 4, 18, 0), trim, 18));
+  if (o.closed) {
+    const z = shellZ;
+    const slit = 0x14110f;
+    // 眉甲、細眼縫、往下收的面甲與中央的稜
+    for (const x of [-1, 1]) {
+      head.push(F(taper([x * 0.2, 7.3, z(0.2, 7.3) + 0.1], [x * 3.9, 5, z(3.9, 5) + 0.25], [1.2, 0.5], [0.45, 0.35], shade, 4, 1, 0), 4, 0.1));
+      head.push(tone(taper([x * 0.2, 4.6, z(0.2, 4.6) + 0.42], [x * 3.8, 4.3, z(3.8, 4.3) + 0.3], [0.3, 0.2], [0.24, 0.16], [slit, slit, slit, slit], 4, 4, Math.PI / 2), [slit, 0x241e1a], 4));
+    }
+    head.push(F(taper([0, 3.7, z(0, 3.7) + 0.3], [0, -3.2, 3.3], [3.1, 0.9], [0.5, 0.2], shade, 4, 2, 0), 5, 0.1));
+    head.push(tone(taper([0, 9, z(0, 9) + 0.15], [0, 4.9, z(0, 4.9) + 0.72], [0.3, 0.26], [0.24, 0.2], trim, 4, 3, 0), trim, 3));
+  }
+  if (glow !== 0xffffff) head.push(gem(0.5, [0, 7.75, shellZ(0, 7.75) + 0.3], glow, [0.85, 1.1, 0.5], 6, 3));
+  if (s.feather) head.push(F(taper([4.6, 7.4, -1.2], [6, 10.6, -3.4], [0.2, 0.7], [0.05, 0.12], s.feather, 4, 40, 0), 40, 0.06));
+  if (s.spikes) for (const x of [-1, 1]) head.push(F(taper([x * 1.8, 9.6, -0.8], [x * 2.3, 11.6, -1], [0.42, 0.42], [0.04, 0.04], s.spikes, 5, 42, 0.3), 42, 0.06));
+  return { parts: new Map<Joint, Mesh[]>([['head', fitHead(head)]]), hide: o.closed ? ['head', 'hair', 'face'] : ['head', 'hair'] };
+}
+
+const plainCap = (s: StyledHelmetSpec) => plainHelm(s, { brow: 'band', wrap: true });
+const plainNasal = (s: StyledHelmetSpec) => plainHelm(s, { brow: 'band', top: 'ridge', nasal: true });
+const plainOpen = (s: StyledHelmetSpec) => plainHelm(s, { brow: 'v', top: 'ridge', cheeks: 4.8 });
+const plainSilver = (s: StyledHelmetSpec) => plainHelm(s, { brow: 'band', top: 'ridge', nasal: true, cheeks: 5.6 });
+const plainClosed = (s: StyledHelmetSpec) => plainHelm(s, { closed: true, top: 'ridge', cheeks: 4.4 });
+const plainHalf = (s: StyledHelmetSpec) => plainHelm(s, { brow: 'v', cheeks: 3 });
+const plainCrest = (s: StyledHelmetSpec) => plainHelm(s, { brow: 'band', top: 'crest', cheeks: 5 });
+
+const LOOKS: Record<HelmetLook, (s: StyledHelmetSpec) => StyledHelmet> = { fallenKnight, stormCrown, plumed, visor, crypt, circlet, skull, agesCrown, priestCrown, demonCrown, plainCap, plainNasal, plainOpen, plainSilver, plainClosed, plainHalf, plainCrest };
 
 /** 專屬造型的頭盔 */
 export const styledHelmet = (s: StyledHelmetSpec): StyledHelmet => LOOKS[s.look](s);

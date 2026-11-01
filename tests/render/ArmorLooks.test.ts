@@ -26,7 +26,8 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
     expect([...parts.keys()].sort()).toEqual(['head', 'shinL', 'shinR']);
     expect(parts.skinColors!.size).toBeGreaterThan(200);
     const withArmor = outfitFor(equip({ armor: item('armor.plate', 'normal') }), data);
-    expect(withArmor.has('chest') && withArmor.has('torso') && withArmor.has('upperArmL') && withArmor.has('upperArmR')).toBe(true);
+    // 一般盔甲貼身、腰露出來
+    expect(withArmor.has('chest') && withArmor.has('upperArmL') && withArmor.has('upperArmR')).toBe(true);
   });
 
   it('靴子：AI 版身上的皮靴拆成 bootL / bootR，穿上時換色且不藏起來；裝飾貼在靴子表面外', () => {
@@ -100,12 +101,14 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
   it('全罩頭盔蓋住臉；帽子與開放式頭盔露出臉', () => {
     // AI 版身體：頭盔都會收起頭髮；只有全罩頭盔把臉也藏起來
     const open = heroineOutfit({ helmet: armorSpec('helmet', 1, 'normal', []) });
-    const closed = heroineOutfit({ helmet: { ...armorSpec('helmet', 1, 'normal', []), style: 'closed' } });
+    const closed = heroineOutfit({ helmet: armorSpec('helmet', 5, 'normal', []) });
     expect(open.get('head')!.length).toBeGreaterThan(0);
     expect(open.hideSkin?.has('hair')).toBe(true);
-    expect(open.hideSkin?.has('head')).toBe(false);
-    expect(closed.hideSkin?.has('head')).toBe(true);
-    expect(armorSpec('helmet', 3, 'normal', []).style).toBe('closed');
+    expect(open.hideSkin?.has('face')).toBe(false);
+    expect(closed.hideSkin?.has('face')).toBe(true);
+    expect(armorSpec('helmet', 5, 'normal', []).style).toBe('closed');
+    // T3 是露臉的鋼盔
+    expect(armorSpec('helmet', 3, 'normal', []).style).toBe('open');
   });
 
   it('詞綴主題：強屬性優先；抗火 → 火焰色的寶石與符文；普通裝備不變色', () => {
@@ -113,7 +116,8 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
     expect(itemThemes(helm, data)).toEqual(['fire', 'guard']);
     const spec = specForItem('helmet', helm, data);
     expect(spec.gem).toBe(THEMES.fire.color);
-    expect(spec.runes).toBe(THEMES.fire.color);
+    // 一般裝備不再有符文，只有小寶石
+    expect(spec.runes).toBeUndefined();
     expect(spec.mat).not.toEqual(armorSpec('helmet', 4, 'normal', []).mat);
     expect(specForItem('helmet', item('helmet.rune_helm', 'normal', ['affix.fireproof']), data)).toEqual(armorSpec('helmet', 4, 'normal', []));
     // 魔法（藍）沒有發光符文
@@ -124,19 +128,47 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
     expect(specForItem('helmet', item('helmet.cap', 'rare', ['affix.sturdy']), data).style).toBe('closed');
     expect(specForItem('armor', item('armor.quilted', 'rare', ['affix.sturdy']), data).pauldron).toBeGreaterThanOrEqual(1);
     expect(specForItem('boots', item('boots.leather', 'rare', ['affix.swift']), data).wings).toBeDefined();
-    expect(specForItem('boots', item('boots.leather', 'rare', ['affix.thorned']), data).spikes).toBeGreaterThanOrEqual(4);
+    // 一般靴子的荊棘只有兩根小尖刺
+    expect(specForItem('boots', item('boots.leather', 'rare', ['affix.thorned']), data).spikes).toBe(2);
   });
 
-  it('手套：換掉前臂與手；指節甲、爪、尖刺只在放大時畫（LOD 2）', () => {
+  it('手套：換掉前臂與手，藏起被蓋住的手與護腕', () => {
     const parts = outfitFor(equip({ gloves: item('gloves.blacksteel', 'normal') }), data);
     expect([...parts.keys()].sort()).toEqual(['forearmL', 'forearmR', 'handL', 'handR']);
-    const hand = parts.get('handR')!;
-    const details = hand.filter((m) => m.lod === 2);
-    expect(details.length).toBeGreaterThan(0);
+    expect([...parts.hideSkin!].sort()).toEqual(['bracerL', 'bracerR', 'handL', 'handR']);
     // 手掌與手指本身一定畫
-    expect(hand.some((m) => m.lod === undefined)).toBe(true);
+    expect(parts.get('handR')!.some((m) => m.lod === undefined)).toBe(true);
     // 換手套會重建外觀
     expect(outfitFor(equip({ gloves: item('gloves.abyss', 'normal') }), data)).not.toBe(parts);
+  });
+
+  it('紅手套：藏起被蓋住的手與護腕，手肘的皮膚還在；前臂的外殼依手臂形狀放樣，左右不同', () => {
+    for (const id of ['mythic.gloves_abyss_lord', 'mythic.gloves_crypt_guardian', 'mythic.gloves_lava_behemoth', 'mythic.gloves_spider_queen', 'mythic.god_hunter_hands', 'mythic.titan_grip']) {
+      const parts = heroineOutfit({ gloves: uniqueArmorSpec('gloves', id)! });
+      expect([...parts.hideSkin!].sort()).toEqual(['bracerL', 'bracerR', 'handL', 'handR']);
+      expect([...parts.keys()].sort()).toEqual(['forearmL', 'forearmR', 'handL', 'handR']);
+      expect(parts.get('forearmL')![0]!.verts[0]).not.toEqual(parts.get('forearmR')![0]!.verts[0]);
+    }
+  });
+
+  it('每一件橘 / 紅手套都有專屬造型（包住手與護腕）', () => {
+    const ids = data.legendaries.all.filter((d) => d.kind === 'gloves').map((d) => d.id);
+    expect(ids).toHaveLength(18);
+    for (const id of ids) {
+      expect(uniqueArmorSpec('gloves', id)!.look, id).toBeDefined();
+      expect([...heroineOutfit({ gloves: uniqueArmorSpec('gloves', id)! }).hideSkin!].sort(), id).toEqual(['bracerL', 'bracerR', 'handL', 'handR']);
+    }
+  });
+
+  it('一般裝備：頭盔、盔甲、手套都貼合女主角；詞條只淡淡染色，多一顆小寶石，不長翅膀', () => {
+    const plain = heroineOutfit({ helmet: armorSpec('helmet', 3, 'normal', []), armor: armorSpec('armor', 3, 'normal', []), gloves: armorSpec('gloves', 3, 'normal', []) });
+    expect([...plain.hideSkin!].sort()).toEqual(['bracerL', 'bracerR', 'chest', 'hair', 'handL', 'handR', 'head', 'pauldronL', 'pauldronR']);
+    const fire = armorSpec('armor', 3, 'epic', ['fire']);
+    const steel = armorSpec('armor', 3, 'normal', []);
+    const channel = (c: number) => (c >> 16) & 0xff;
+    expect(Math.abs(channel(fire.mat[0]!) - channel(steel.mat[0]!))).toBeLessThan(40);
+    expect(fire.emblem).toBeDefined();
+    expect(heroineOutfit({ helmet: armorSpec('helmet', 3, 'epic', ['fire']) }).get('head')!.length).toBe(heroineOutfit({ helmet: armorSpec('helmet', 3, 'normal', []) }).get('head')!.length + 1);
   });
 
   it('盾牌拿在左手；每一件橘 / 紅頭盔、盔甲、手套、靴子、盾牌都有專屬外觀', () => {

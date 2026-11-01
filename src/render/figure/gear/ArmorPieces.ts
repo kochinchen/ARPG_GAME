@@ -1,5 +1,6 @@
 import type { ArmorModel } from './ArmorAI';
 import type { ArmorLook } from './StyledArmors';
+import type { GloveLook, GloveVariant } from './StyledGloves';
 import type { HelmetLook } from './StyledHelmets';
 import { styledShieldMeshes, type ShieldStyle } from './StyledShields';
 import { detail, facetize, loft, refine, tone, type Ring } from '../Facets';
@@ -418,6 +419,14 @@ export interface GloveSpec {
   spikeColors?: Tones;
   gem?: number | null;
   runes?: number;
+  /** 橘 / 紅專用的造型（StyledGloves）：藏起被蓋住的手與護腕，依手臂的形狀貼上去 */
+  look?: GloveLook;
+  /** 發光的顏色（火眼、裂紋；gem 會被主題色蓋掉） */
+  glow?: number;
+  /** 第二種材質（大刃、古銅底色、倒刺） */
+  accent?: Tones;
+  /** 同一款裡的差異零件 */
+  variant?: GloveVariant;
 }
 
 /** 護手（forearm 關節）：手腕到前臂的護甲（取代原本的皮護腕）；小零件只在放大時畫 */

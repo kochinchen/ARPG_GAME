@@ -330,6 +330,72 @@ function closeUp(app: Application): void {
 }
 
 /**
+ * ?model=heroine&gloveGrid=名稱=部件+部件;名稱=部件…：手套對照表（放大到手與前臂），每個格子一種穿法，每一列一個方向（dirs=front,back,left,right）。
+ * 部件：gloves:<橘紅 ID>、tier:<一般手套的階>、set:<階>（頭盔、盔甲、手套、靴子都穿這階的一般裝備，可加 rarity:epic、theme:fire,guard）、armor: / helmet: / boots:<橘紅 ID>、shield:<階>、weapon:<bow:5 等>、pose:<shoot3 等>；
+ * hide:forearm（再藏起這些部位，部位名不含 L / R）、only:hand,forearm,bracer（蒙皮只畫這些部位；only:none = 只看裝備）。s = 放大倍率、ay = 畫面中心的模型高度；swap=1 改成每一欄一個方向；ox = 水平移動（7.2 = 把一隻手臂移到格子中間）。
+ */
+function gloveGrid(app: Application): void {
+  const DIRS: Record<string, { label: string; facing: Vec2 }> = {
+    front: { label: '正面', facing: vec2(1, 1) },
+    back: { label: '背面', facing: vec2(-1, -1) },
+    left: { label: '左', facing: vec2(-1, 1) },
+    right: { label: '右', facing: vec2(1, -1) },
+  };
+  const specs = params.get('gloveGrid')!.split(';').map((entry) => {
+    const [label, body = ''] = entry.split('=');
+    return { label: label!, opts: new Map(body.split('+').filter(Boolean).map((kv) => [kv.slice(0, kv.indexOf(':')), kv.slice(kv.indexOf(':') + 1)] as const)) };
+  });
+  const dirs = (params.get('dirs') ?? 'front,back').split(',').map((d) => DIRS[d]!);
+  const swap = !!params.get('swap');
+  const w = (window.innerWidth - 16) / (swap ? dirs.length : specs.length);
+  const h = (window.innerHeight - 16) / (swap ? specs.length : dirs.length);
+  const scale = Number(params.get('s')) || 14;
+  const ay = Number(params.get('ay')) || 28;
+  const ox = Number(params.get('ox')) || 0;
+  const regions = new Set(selected.model.skin!.faces.map((f) => f.region));
+  const sided = (names: string) => names.split(',').flatMap((n) => [n, `${n}L`, `${n}R`]);
+  const cells: { figure: PolyFigure; pose: Pose; facing: Vec2 }[] = [];
+  specs.forEach(({ label, opts }, a) => {
+    const unique = (slot: 'armor' | 'helmet' | 'boots') => (opts.get(slot) ? { [slot]: uniqueArmorSpec(slot, opts.get(slot)!) } : {});
+    const gloves = opts.get('gloves') ? uniqueArmorSpec('gloves', opts.get('gloves')!) : opts.get('tier') ? armorSpec('gloves', Number(opts.get('tier')), 'normal', []) : undefined;
+    const tierSet = Number(opts.get('set')) || 0;
+    const setRarity = (opts.get('rarity') ?? 'normal') as Rarity;
+    const setThemes = (opts.get('theme') ?? '').split(',').filter(Boolean) as GearTheme[];
+    const set = tierSet ? { helmet: armorSpec('helmet', tierSet, setRarity, setThemes), armor: armorSpec('armor', tierSet, setRarity, setThemes), gloves: armorSpec('gloves', tierSet, setRarity, setThemes), boots: armorSpec('boots', tierSet, setRarity, setThemes) } : {};
+    const base = heroineOutfit({ ...set, ...unique('armor'), ...unique('helmet'), ...unique('boots'), ...(gloves ? { gloves } : {}), ...(opts.get('shield') ? { shield: armorSpec('shield', Number(opts.get('shield')), 'normal', []) } : {}) });
+    const hide = new Set(base.hideSkin);
+    if (opts.get('hide')) for (const r of sided(opts.get('hide')!)) hide.add(r);
+    if (opts.get('only')) {
+      const keep = new Set(sided(opts.get('only')!));
+      for (const r of regions) if (!keep.has(r)) hide.add(r);
+    }
+    const outfit = Object.assign(new Map(base), { hideSkin: hide, skinColors: base.skinColors ?? new Map<number, number>() });
+    const weapon = opts.get('weapon') ? lookByKey(opts.get('weapon')!) : null;
+    const anim = /^(slash|thrust|overhead|shoot|staff)(\d)$/.exec(opts.get('pose') ?? '');
+    const variant = anim && selected.model.poses.attackVariants?.[anim[1] as AttackVariant];
+    const pose = variant ? [...variant.windup, ...variant.strike][Number(anim![2]) - 1]! : selected.model.poses.ready(0);
+    dirs.forEach((d, b) => {
+      const [col, row] = swap ? [b, a] : [a, b];
+      const cell = new Container();
+      cell.position.set(8 + col * w + w / 2 - ox * scale, 8 + row * h + h / 2 + ay * scale);
+      cell.mask = new Graphics().rect(8 + col * w + 1, 8 + row * h + 1, w - 2, h - 2).fill(0xffffff);
+      const figure = new PolyFigure(selected.model, 1);
+      figure.setWeapon(weapon ? mountFor(weapon) : null);
+      figure.setOutfit(outfit);
+      figure.graphics.scale.set(scale);
+      cell.addChild(figure.graphics);
+      const text = new Text({ text: `${label}・${d.label}`, style: { fontFamily: 'sans-serif', fontSize: 15, fill: 0xe8c47a } });
+      text.position.set(8 + col * w + 6, 8 + row * h + 4);
+      app.stage.addChild(cell, text);
+      cells.push({ figure, pose, facing: d.facing });
+    });
+  });
+  app.ticker.add(() => {
+    for (const c of cells) c.figure.showPose(c.pose, c.facing);
+  });
+}
+
+/**
  * ?model=weapons：主角拿著每一種武器（8 階基底 × 4 種 + 橘 / 紅專屬造型），含武器微光。
  * set=sword / axe / bow / staff / uniques 只看一組（較大）；rarity=magic… 指定基底的光芒；fx、fy 改面向。
  */
@@ -510,6 +576,10 @@ async function main(): Promise<void> {
   const app = new Application();
   await app.init({ resizeTo: host, background: 0x16130f, antialias: true, resolution: window.devicePixelRatio, autoDensity: true });
   host.appendChild(app.canvas);
+  if (params.get('gloveGrid')) {
+    gloveGrid(app);
+    return;
+  }
   if (params.get('close')) {
     closeUp(app);
     return;

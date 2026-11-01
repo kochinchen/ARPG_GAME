@@ -1,7 +1,7 @@
 import { IsoProjection } from '../core/math/IsoProjection';
 import { vec2, type Vec2 } from '../core/math/Vec2';
 import type { FigureModel, Pose } from '../render/figure/FigureModel';
-import { armorSpec, heroineOutfit } from '../render/figure/gear/ArmorLooks';
+import { armorSpec, heroineOutfit, uniqueArmorSpec } from '../render/figure/gear/ArmorLooks';
 import { HEROINE } from '../render/figure/Heroine';
 import { MONSTER_MODELS } from '../render/figure/Monsters';
 import { PolyFigure } from '../render/figure/PolyFigure';
@@ -59,6 +59,12 @@ const outfit = heroineOutfit({
   gloves: armorSpec('gloves', 3, 'rare', []),
   boots: armorSpec('boots', 3, 'rare', []),
 });
+const f35 = heroineOutfit({
+  helmet: uniqueArmorSpec('helmet', 'mythic.helmet_abyss_lord')!,
+  armor: uniqueArmorSpec('armor', 'mythic.armor_abyss_sovereign')!,
+  gloves: uniqueArmorSpec('gloves', 'mythic.gloves_abyss_lord')!,
+  boots: uniqueArmorSpec('boots', 'mythic.boots_abyss_sovereign')!,
+});
 interface Subject {
   name: string;
   model: FigureModel;
@@ -69,6 +75,7 @@ interface Subject {
 const subjects: Subject[] = [
   { name: '女主角', model: HEROINE, outfit: null, weapon: null },
   { name: '女主角（全套裝備＋劍）', model: HEROINE, outfit, weapon: mountFor(tierLook('sword', 3)) },
+  { name: '女主角（F35 全套＋魔王之爪）', model: HEROINE, outfit: f35, weapon: mountFor(tierLook('sword', 8)) },
   { name: '女主角（斧）', model: HEROINE, outfit: null, weapon: mountFor(tierLook('axe', 4)) },
   ...Object.entries(MONSTER_MODELS).flatMap(([id, model]) =>
     (model.phaseHidden ?? [[]]).map((_, phase) => ({ name: (model.phaseHidden ? `${id}（階段 ${phase + 1}）` : id).replace('enemy.', ''), model, phase })),
