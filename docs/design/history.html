@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>地牢冒險 開發歷程</title>
+<title>Aisling - Wellkeeper 開發歷程</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -125,11 +125,11 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">專案回顧 · 地牢冒險 Dungeon Adventure · 2026 年 9 月</div>
+    <div class="eyebrow">專案回顧 · Aisling - Wellkeeper · 2026 年 9～11 月</div>
     <h1>先拆解，做出 <em>MVP</em>，<br>再一層一層補強</h1>
     <p class="lede">一款 Diablo 式 2D 等角 ARPG，用 TypeScript + PixiJS + Vue 從零開始寫。這頁整理這次開發的方法論，以及從架構文件到可攜版遊戲包的實際過程。</p>
     <div class="facts">
-      <span><b class="mono">20</b> 個 commit</span>
+      <span><b class="mono">120</b> 多個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
       <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1036</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
@@ -544,6 +544,15 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <div class="item-head"><span class="ms">《井誌》與收集獎勵</span><span class="hash mono">878daff · 11/1</span></div>
             <p>魂魄、遺物、筆記合成一本 69 頁的小書（按 Y），一次一頁、左右翻頁，沒收集到的頁是「？？？」，魂魄一句一頁並署名。每收集 1/4 給一次獎勵：隨機橘核、橘裝武器、橘裝鎧甲（後兩項依技能點最多的路線）、額外 20 屬性點。</p>
             <p class="why">獎勵事先不告訴玩家，收集滿才跳通知。獎勵在跨過門檻的當下發放，不另外存檔；額外屬性點由收集紀錄推導，存檔修復不會把它判定成異常。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">遊戲更名 Aisling - Wellkeeper</span><span class="hash mono">11/1</span></div>
+            <p>遊戲標題改為 Aisling - Wellkeeper，不再有中文名稱。Aisling 是愛爾蘭語的「異象」，呼應初代封印者艾希琳（Aislinn）；Wellkeeper 是主角最後成為的井口守望者。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">詞綴 T5 改到拿得到</span><span class="hash mono">11/1</span></div>
+            <p>比對設計文件時發現：詞綴每 10 級一階，T5 要物品等級 40，但物品等級等於樓層、最高 35，所以 T5 永遠拿不到。改成每 8 級一階（T5 在 32 層起），和熔核的核階相同。</p>
+            <p class="why">既有裝備的詞綴數值由物品等級推導，所以舊裝備也會跟著變強。自動難度測試的預設角色也從物品等級 50 改成 35。</p>
           </div>
         </div>
       </div>

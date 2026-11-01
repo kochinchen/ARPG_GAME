@@ -200,7 +200,7 @@ export const bossEnemies: EnemyInput[] = [
     ...BOSS,
     id: 'enemy.abyss_lord',
     name: '深淵魔王',
-    lore: '深淵的主宰，有翼的惡魔。多段重擊、天降火雨、召喚分身；受傷後展開暗黑領域，最後深淵覺醒。30 層起每 5 層出現一次。',
+    lore: '深淵的主宰，有翼的惡魔。多段重擊、天降火雨、召喚分身；受傷後展開暗黑領域，最後深淵覺醒。出現在第 30 與第 34 層。',
     hp: 1100,
     damage: [10, 16],
     defense: 40,

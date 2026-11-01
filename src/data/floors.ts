@@ -80,7 +80,7 @@ const CORRIDOR_DENSITY = 1 / 1.26;
 /** 10 層起的怪物數量（密度）倍率：減少 10%（設計者 2026-10-31，改善效能） */
 const LATE_DENSITY = 0.9;
 
-/** 樓層魔王：每個區間的第一層（5、10、15…）；深淵神殿（30 層起）每 5 層都是深淵魔王 */
+/** 樓層魔王：每個區間的第一層（5、10、15…30）；31～34 層在 CHALLENGE_BOSSES 另外指定 */
 const boss = (enemyId: string) => ({ enemyId, every: 5 });
 
 const tier = (id: string, from: number, to: number, theme: FloorInput['theme'], extra: Partial<FloorInput>): FloorInput => ({

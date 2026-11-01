@@ -165,7 +165,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     chestLootTable: 'loot.champion_chest',
   },
   affixPower: {
-    levelsPerTier: 10,
+    // 詞綴階級：每 8 級一階，和熔核的核階相同（T5 在物品等級 32，35 層以內拿得到；設計者 2026-11-01，原本每 10 級、T5 要 40）
+    levelsPerTier: 8,
     maxTier: 5,
     // 紫比黃高 20%～50%，紅最高 300%
     rarity: { normal: [1, 1], magic: [1, 1], rare: [1, 1], epic: [1.2, 1.5], legendary: [1.5, 2], mythic: [2, 3] },

@@ -87,7 +87,7 @@ export interface Preset {
   rarity: 'epic' | 'legendary';
 }
 
-export const PRESET: Preset = { level: 50, itemLevel: 50, rarity: 'epic' };
+export const PRESET: Preset = { level: 50, itemLevel: 35, rarity: 'epic' };
 
 /** 部位 → 鑲的核種要用哪種裝備融合（四件同種類 = 純核） */
 const CORE_SOURCE: Partial<Record<EquipmentSlot, (build: Build) => string>> = {
