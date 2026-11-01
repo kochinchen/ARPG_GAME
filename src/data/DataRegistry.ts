@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BalanceSchema, type Balance } from './schema/balance';
 import { LoreDefSchema, NoteDefSchema, SoulDefSchema, type LoreDef, type NoteDef, type SoulDef } from './schema/story';
+import { SetPieceDefSchema, type SetPieceDef } from './schema/setPiece';
 import { SkillDefSchema, type SkillDef } from './schema/skill';
 import { EnemyDefSchema, type EnemyDef } from './schema/enemy';
 import {
@@ -41,6 +42,7 @@ export interface RawGameData {
   cores: unknown;
   lore: readonly unknown[];
   notebook: readonly unknown[];
+  setPieces: readonly unknown[];
   souls: readonly unknown[];
 }
 
@@ -105,6 +107,7 @@ export class DataRegistry {
     readonly lore: DataTable<LoreDef>,
     readonly notebook: DataTable<NoteDef>,
     readonly souls: DataTable<SoulDef>,
+    readonly setPieces: DataTable<SetPieceDef>,
   ) {}
 
   static load(raw: RawGameData): DataRegistry {
@@ -125,6 +128,7 @@ export class DataRegistry {
     const cores = parseCores(raw.cores, problems);
     const lore = parseTable('lore', LoreDefSchema, raw.lore, problems);
     const notebook = parseTable('note', NoteDefSchema, raw.notebook, problems);
+    const setPieces = parseTable('setPiece', SetPieceDefSchema, raw.setPieces, problems);
     const souls = parseTable('soul', SoulDefSchema, raw.souls, problems);
     for (const line of cores.lines.all) {
       if (line.type === 'mods') for (const id of line.when.skills ?? []) if (!skills.has(id)) problems.push(`core line '${line.id}' 引用不存在的 skill '${id}'`);
@@ -301,8 +305,13 @@ export class DataRegistry {
       }
     }
 
+    for (const piece of setPieces.all) {
+      if (piece.relic && !lore.has(piece.relic.loreId)) problems.push(`setPiece '${piece.id}' 引用不存在的 lore '${piece.relic.loreId}'`);
+      if (piece.relic && lore.has(piece.relic.loreId) && lore.get(piece.relic.loreId).floor !== piece.floor) problems.push(`setPiece '${piece.id}' 的遺物不在第 ${piece.floor} 層`);
+    }
+
     if (problems.length > 0 || !balance) throw new DataValidationError(problems);
-    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules, eliteAffixes, legendaries, cores, lore, notebook, souls);
+    return new DataRegistry(balance, skills, enemies, items, potions, affixes, lootTables, floors, maps, comboRules, eliteAffixes, legendaries, cores, lore, notebook, souls, setPieces);
   }
 }
 

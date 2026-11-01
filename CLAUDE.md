@@ -30,6 +30,7 @@
 - AI 版女主角：設計圖四視圖（`art/heroine/multiview/`）用微軟 TRELLIS 生成的模型放在 `art/heroine/ai/`，接上同一副骨架：`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/heroine_ai.py -- art/heroine/ai/trellis-1.glb art/heroine` → `art/heroine/heroine-ai.blend` 與 `.glb`（heroine-3d.html 的「AI 版」）。不使用中國公司的服務（Hunyuan、Tripo、Rodin 等）
 - 遊戲裡的女主角就是 AI 版（`src/render/figure/HeroineAI.ts`，舊版保留為 `HEROINE_CLASSIC`）：改過 `heroine-ai.blend` 後執行 `/Applications/Blender.app/Contents/MacOS/Blender --background art/heroine/heroine-ai.blend --python scripts/heroine_ai_game.py -- src/render/figure/heroine/heroineAI.json` 更新遊戲資料，再 `npm run docs:models`、`npm run package`
 - AI 版怪物（目前：蜘蛛女王 `art/monsters/spider_queen/`、深淵魔王 `art/monsters/abyss_lord/`、深淵統御者 `art/monsters/abyss_sovereign/`，巨劍與盾牌另外生成成 `ai/sword.glb`、`ai/shield.glb`；墓穴守衛 `crypt_guardian`、墮落神官 `fallen_priest`、熔岩巨獸 `lava_behemoth`、墮落騎士 `fallen_knight`，武器暫時用舊版程式畫的）：遊戲截圖或設計者的造型圖 → ChatGPT 白底四視圖（提示詞在各資料夾）→ Hugging Face TRELLIS（`trellis-community/TRELLIS` 多圖模式；未登入的免費額度一天只夠一次，要在 huggingface.co 的頁面登入後操作）→ `ai/trellis-1.glb`，再執行 `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/monster_ai.py -- art/monsters/<怪物> src/render/figure/bosses/<spiderQueenAI|abyssLordAI|abyssSovereignAI|cryptGuardianAI|fallenPriestAI|lavaBehemothAI|fallenKnightAI>.json`（減面、骨架與權重，骨架定義在腳本的 `SKELETONS`、要切掉的多餘部分在 `CLEANUP`、獨立物件在 `PROPS`；每骨頭一色的檢查圖 `ai/preview/bones-*.png`、可編輯的 `<怪物>-ai.blend`）；遊戲端 `SpiderQueenAI.ts`、`AbyssLordAI.ts`、`AbyssSovereignAI.ts`、`HumanoidAI.ts`（共用 `AiRig.ts`；舊版保留為 `*_CLASSIC`，動作共用）。改完執行 `npm run docs:models`
+- 小說的固定場景（隨機地圖裡的特殊房間與牆面）：資料在 `src/data/setPieces.ts`，放置在 `src/game/world/SetPieces.ts`，擺設模型在 `src/render/figure/SetPieceProps.ts`，規劃與測試結果在 `docs/地圖設計V6_小說樓層場景.md`；`SET_PIECE_SEEDS=5000 npx vitest run tests/game/world/SetPieces.test.ts` 可加大壓力測試
 - `npm test`：單元測試
 - `npm run lint`：型別檢查（含無 DOM 的 `tsconfig.logic.json`）+ 依賴方向檢查
 - `npm run build`：正式版建置
@@ -40,6 +41,7 @@
 - `npm run docs:cores`：重新產生裝備圖鑑的「熔核」頁（核種表、孔數、核階核色、費用、融合範例）並同步飛昇費用與光芒門檻 → `release/設計文件/裝備圖鑑.html`；改到熔核資料或 `balance.sockets` / `fusion` / `shop.ascend` / `gearAura` 時執行（圖示在 `npm run docs:icons`）
 - `npm run docs:sim`：重新產生角色成長模擬用的遊戲邏輯（資料、Combo 判定、技能樹規則、武器允許矩陣）→ `release/設計文件/sim.js`；改到技能、平衡數值或規則時執行
 - `node scripts/render-story-doc.mjs`：用 `scripts/story-doc.template.html` 與 `src/data/lore.json`、`souls.json`（遺物與魂魄文字）重新產生「故事與世界觀」→ `release/設計文件/故事與世界觀.html`；線上版加 `--fragment <檔案>` 產生後重新發布
+- `node scripts/render-novel-doc.mjs`：用 `scripts/novel/`（中文）、`scripts/novel/en/`（英文）與 `scripts/novel-doc.template.html` 重新產生小說《井誌》→ `release/設計文件/井誌小說.html`（遺物、筆記、魂魄、過場文字由 `src/data` 填入，少了或中英文對不上會報錯）；線上版加 `--fragment <檔案>` 產生後重新發布
 - `npm run docs:pages`：把 `release/設計文件/` 複製到 `docs/design/`（GitHub Pages：https://kochinchen.github.io/ARPG_GAME/design/）
 
 ## 開發用快捷鍵（只在 `npm run dev` 有效）

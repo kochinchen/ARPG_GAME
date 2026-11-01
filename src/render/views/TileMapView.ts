@@ -1,3 +1,4 @@
+import type { PlacedSetPiece } from '../../data/schema/map';
 import { Container, Graphics } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import { vec2, type Vec2 } from '../../core/math/Vec2';
@@ -9,6 +10,10 @@ import { arenaBlend, buildArena, type ArenaView } from './ArenaDecor';
 /** 牆高（px）：每一格隨機加上 0～WALL_JITTER，牆頂參差不齊 */
 const WALL_HEIGHT = 24;
 const WALL_JITTER = 10;
+/** 固定場景的後牆高度倍率、拉高的厚度與兩端的斜坡（Tile） */
+const SET_PIECE_WALL_SCALE = 2.5;
+const SET_PIECE_WALL_DEPTH = 1.5;
+const SET_PIECE_WALL_TAPER = 1;
 /** 擋住玩家的牆改為半透明 */
 const FADE_ALPHA = 0.35;
 /** 玩家身體在畫面上的範圍（相對腳底，px），用來判斷是否被牆遮住 */
@@ -111,6 +116,7 @@ export class TileMapView {
     private readonly objectLayer: Container,
     theme: DungeonTheme = 'crypt',
     private readonly arena?: ArenaView,
+    private readonly setPieces: readonly PlacedSetPiece[] = [],
   ) {
     // 地板與牆一起往主角的暖色偏（比例依風格），兩者的色調才會一致
     const base = THEMES[theme];
@@ -331,13 +337,32 @@ export class TileMapView {
     }
   }
 
+  /** 固定場景的後牆拉高（兩端 SET_PIECE_WALL_TAPER 格漸變）：只有那一段，不會擋住其他地方的視線 */
+  private setPieceWallScale(x: number, y: number): number {
+    const cell = this.nav.cell;
+    const wx = (x + 0.5) * cell;
+    const wy = (y + 0.5) * cell;
+    let scale = 1;
+    for (const p of this.setPieces) {
+      const northWall = p.front === 'S';
+      if (!northWall && p.front !== 'E') continue;
+      const behind = northWall ? p.y - wy : p.x - wx;
+      if (behind <= 0 || behind > SET_PIECE_WALL_DEPTH) continue;
+      const [along, from, to] = northWall ? [wx, p.x, p.x + p.w] : [wy, p.y, p.y + p.h];
+      const outside = Math.max(from - along, along - to, 0);
+      const k = Math.max(0, 1 - outside / SET_PIECE_WALL_TAPER);
+      scale = Math.max(scale, 1 + (SET_PIECE_WALL_SCALE - 1) * k);
+    }
+    return scale;
+  }
+
   /** 一格牆：左、右兩個面與頂面，高度與明暗依格子座標隨機 */
   private drawWall(g: Graphics, x: number, y: number, arenaK = 0): void {
     const base = this.theme;
     const a = this.arena?.style;
     const t = a && arenaK > 0 ? { wallLeft: mix(base.wallLeft, a.wallLeft, arenaK), wallRight: mix(base.wallRight, a.wallRight, arenaK), wallTop: mix(base.wallTop, a.wallTop, arenaK) } : base;
     const [top, right, bottom, left] = this.cornerPoints(x, y);
-    const h = WALL_HEIGHT + Math.floor(hash(x, y, 5) * WALL_JITTER);
+    const h = Math.round((WALL_HEIGHT + Math.floor(hash(x, y, 5) * WALL_JITTER)) * this.setPieceWallScale(x, y));
     const up = (p: Vec2) => vec2(p.x, p.y - h);
     const flat = (...ps: Vec2[]) => ps.flatMap((p) => [p.x, p.y]);
     const shade = hash(x, y, 9) * 0.24 - 0.12;

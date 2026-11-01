@@ -13,6 +13,7 @@ import { legendaries } from './legendaries';
 import { cores } from './cores';
 import lore from './lore.json';
 import notebook from './notebook.json';
+import { setPieces } from './setPieces';
 import souls from './souls.json';
 
 /**
@@ -34,5 +35,6 @@ export const gameData: RawGameData = {
   cores,
   lore,
   notebook,
+  setPieces,
   souls,
 };

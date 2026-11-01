@@ -65,6 +65,7 @@ import { floorResistFor, scaleForFloor, type FloorScaling } from './world/Diffic
 import { FloorManager, mapIdForFloor } from './world/FloorManager';
 import { canAscend, descendKind, selectableFloors } from './world/Endgame';
 import { generateMap, generatedMapId, generateThroneMap } from './world/MapGenerator';
+import { placeSetPieces, setPieceSpot } from './world/SetPieces';
 import { bookQuarter, buildBook, type BookPage } from '../data/book';
 import { notePageInChest } from './world/Notebook';
 import { fuse } from './items/FusionResolver';
@@ -511,9 +512,21 @@ export class GameWorld {
         ? Array.from({ length: mini.maxPerFloor }, (_, i) => mini.arenaBodies * bodyWidth(def.miniBosses![i % def.miniBosses!.length]!))
         : [];
       const arena = bossDef ? { diameter: ARENA_BODIES * 2 * bossDef.radius * bossDef.size, subArenas } : undefined;
-      this.generated = { floor, map: generateMap(generatedMapId(floor), new Rng(this.seed).fork(`map-${floor}`), def.layout, arena) };
+      const generated = generateMap(generatedMapId(floor), new Rng(this.seed).fork(`map-${floor}`), def.layout, arena);
+      // 小說的固定場景：獨立亂數，放不下就跳過，不影響地圖產生
+      const pieces = this.data.setPieces.all.filter((p) => p.floor === floor);
+      this.generated = { floor, map: placeSetPieces(generated, pieces, new Rng(this.seed).fork(`set-piece-${floor}`)) };
     }
     return this.generated.map;
+  }
+
+  /** 這件遺物在固定場景裡的位置（沒有對應的場景：null） */
+  private setPieceRelicSpot(loreId: string): Vec2 | null {
+    const def = this.data.setPieces.all.find((p) => p.relic?.loreId === loreId);
+    const placed = def && this.map.setPieces.find((p) => p.id === def.id);
+    if (!def?.relic || !placed) return null;
+    const spot = setPieceSpot(placed, def.relic.u, def.relic.v);
+    return this.nav.isClearAt(spot, 0.5) ? spot : null;
   }
 
   /** 樓梯口位置 */
@@ -548,6 +561,8 @@ export class GameWorld {
     const scaling = scaleForFloor(floor, this.data.balance.difficulty);
     // 樓梯口與出口（上下樓的地方）的安全範圍大於怪物的偵測距離，換層時不會馬上被圍
     const { safeRadius, stairsSafeRadius } = this.data.balance.floor;
+    // 固定場景的房間裡不放怪物與寶箱；牆面場景前也一樣，讓玩家看得清楚
+    const setPieceZones = this.map.setPieces.map((p) => ({ center: vec2(p.x + p.w / 2, p.y + p.h / 2), radius: Math.hypot(p.w, p.h) / 2 + 1 }));
     const zones = [
       { center: this.spawnPoint, radius: stairsSafeRadius },
       ...this.checkpoints.checkpoints.slice(1).map((c) => ({ center: c.position, radius: safeRadius })),
@@ -555,6 +570,7 @@ export class GameWorld {
       // 魔王競技場、小王空地裡只有魔王 / 小王
       ...(this.map.arena ? [{ center: vec2(this.map.arena.x, this.map.arena.y), radius: this.map.arena.radius + 2 }] : []),
       ...this.map.subArenas.map((a) => ({ center: vec2(a.x, a.y), radius: a.radius + 2 })),
+      ...setPieceZones,
     ];
     const safe = zones.map((z) => z.center);
     const killed = new Set(restore?.killed ?? []);
@@ -639,7 +655,7 @@ export class GameWorld {
     const arenaZone = this.map.arena ? [{ center: vec2(this.map.arena.x, this.map.arena.y), radius: this.map.arena.radius + 2 }] : [];
     const chestCount = rng.int(def.chests[0], def.chests[1]);
     // 王座廳的寶箱沿外圈等距擺放（整層都是競技場，一般的擺放規則放不下）
-    const chestSpots = def.throne ? this.throneChestSpots(chestCount) : spawner.planChests(chestCount, safe, [...arenaZone, ...this.map.subArenas.map((a) => ({ center: vec2(a.x, a.y), radius: a.radius + 2 }))]);
+    const chestSpots = def.throne ? this.throneChestSpots(chestCount) : spawner.planChests(chestCount, safe, [...arenaZone, ...setPieceZones, ...this.map.subArenas.map((a) => ({ center: vec2(a.x, a.y), radius: a.radius + 2 }))]);
     chestSpots.forEach((position, index) => {
       const opened = this.floors.isChestOpened(floor, index);
       this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position, lootTable: def.chestLootTable, opened, spawnIndex: index });
@@ -654,7 +670,8 @@ export class GameWorld {
           ...this.map.subArenas.map((a) => ({ center: vec2(a.x, a.y), radius: a.radius + 2 })),
         ]);
     this.relics = relicDefs.flatMap((l, i) => {
-      const position = relicSpots[i];
+      // 場景裡的遺物固定放在場景內；場景放不下時維持隨機位置
+      const position = this.setPieceRelicSpot(l.id) ?? relicSpots[i];
       return position ? [{ kind: 'relic' as const, id: this.nextInteractableId++, position, loreId: l.id, read: this.progress.lore.has(l.id) }] : [];
     });
     this.floors.begin(floor, monsterCount, {

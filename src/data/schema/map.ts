@@ -23,6 +23,10 @@ export const MapDefSchema = z
     arena: z.strictObject({ x: z.number(), y: z.number(), radius: z.number().positive() }).optional(),
     /** 中途小王的圓形空地（挑戰樓層）：小王在圓心，一般怪物與寶箱不會生成在裡面 */
     subArenas: z.array(z.strictObject({ x: z.number(), y: z.number(), radius: z.number().positive() })).default([]),
+    /** 放進隨機地圖的固定場景（World 單位）；front 是從後牆往前的方向。放不下的場景不會出現在這裡 */
+    setPieces: z
+      .array(z.strictObject({ id: IdSchema, x: z.number(), y: z.number(), w: z.number().positive(), h: z.number().positive(), front: z.enum(['N', 'S', 'E', 'W']) }))
+      .default([]),
   })
   .superRefine((map, ctx) => {
     const width = map.rows[0]?.length ?? 0;
@@ -56,3 +60,4 @@ export const MapDefSchema = z
   });
 
 export type MapDef = z.infer<typeof MapDefSchema>;
+export type PlacedSetPiece = MapDef['setPieces'][number];

@@ -28,6 +28,7 @@ import { SoulWispLayer } from './views/SoulWispLayer';
 import { FloorMarkersView } from './views/FloorMarkersView';
 import { TileMapView } from './views/TileMapView';
 import type { ArenaView } from './views/ArenaDecor';
+import { SetPieceLayer } from './views/SetPieceLayer';
 import { BOSS_ARENAS } from './themes';
 import { MONSTER_MODELS } from './figure/Monsters';
 import { PolyFigure } from './figure/PolyFigure';
@@ -65,6 +66,7 @@ export class Renderer {
   private readonly markers: FloorMarkersView;
   private readonly effects: EffectLayer;
   private readonly interactables: InteractableLayer;
+  private readonly setPieces: SetPieceLayer;
   private readonly devices: DeviceLayer;
   /** 怪物的屍體（地面層，換樓層才消失） */
   private readonly corpses: CorpseLayer;
@@ -90,9 +92,11 @@ export class Renderer {
     /** Three.js 畫法：有傳入時由 present() 自己畫每一幀（main.ts 已停掉 Pixi 的自動繪製） */
     private readonly three: ThreeWorld | null = null,
   ) {
-    this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
+    this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world), world.map.setPieces);
     this.effects = new EffectLayer(projection, this.objectLayer);
     this.interactables = new InteractableLayer(projection, this.objectLayer, data);
+    this.setPieces = new SetPieceLayer(projection, this.objectLayer);
+    this.setPieces.rebuild(world.map.setPieces);
     this.devices = new DeviceLayer(projection, this.objectLayer);
     this.corpses = new CorpseLayer(projection);
     this.markers = new FloorMarkersView(projection);
@@ -133,9 +137,10 @@ export class Renderer {
     world.events.on('FloorEntered', () => {
       for (const drop of this.drops.splice(0)) drop.destroy({ children: true });
       this.tileMap.destroy();
-      this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world));
+      this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world), world.map.setPieces);
       this.worldLayer.addChildAt(this.tileMap.floor, 0);
       this.syncThreeMap();
+      this.setPieces.rebuild(world.map.setPieces);
       this.markers.rebuild(world.checkpoints.checkpoints);
       this.minimap.destroy();
       this.minimap = this.createMinimap();
@@ -322,6 +327,7 @@ export class Renderer {
     this.syncThreeMap();
     for (const view of this.actorViews.values()) view.setThree(this.threeOn ? this.three : null);
     this.interactables.setThree(this.threeOn ? this.three : null);
+    this.setPieces.setThree(this.threeOn ? this.three : null);
     this.corpses.setThree(this.threeOn ? this.three : null);
     this.effects.listener = this.threeOn ? this.three.skillFx : null;
   }
@@ -464,7 +470,7 @@ export class Renderer {
   private depthProxies(): DepthProxy[] {
     const proxies: DepthProxy[] = [];
     for (const c of this.objectLayer.children) {
-      if (!c.visible || this.interactables.hasModel(c)) continue;
+      if (!c.visible || this.interactables.hasModel(c) || this.setPieces.hasModel(c)) continue;
       const b = c.getLocalBounds();
       // 只擋腳底以上、左右 PROXY_HALF_WIDTH 以內（絆索網這種橫躺很長的，兩端不擋，免得遮到後面的角色）
       const left = Math.max(b.minX, -PROXY_HALF_WIDTH);

@@ -16,7 +16,7 @@ import type { LayoutDef } from '../../data/schema/floor';
  */
 
 /** 產生器版本：演算法改變時 + 1，讓舊存檔的樓層判定為佈局不符而重新生成 */
-export const GENERATOR_VERSION = 5;
+export const GENERATOR_VERSION = 6;
 
 export function generatedMapId(floor: number): string {
   return `map.generated.v${GENERATOR_VERSION}.f${floor}`;
@@ -284,6 +284,7 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaS
     chests: [],
     ...(arena ? { arena: { x: (arena.cx + 0.5) * c, y: (arena.cy + 0.5) * c, radius: (arena.w / 2) * c } } : {}),
     subArenas: subs.filter((r) => rooms.includes(r)).map((r) => ({ x: (r.cx + 0.5) * c, y: (r.cy + 0.5) * c, radius: (r.w / 2) * c })),
+    setPieces: [],
   };
 }
 
@@ -309,7 +310,7 @@ export function generateThroneMap(id: string, diameter: number, cellSize: number
     }
     rows.push(row);
   }
-  return { id, rows, cellSize, spawns: [], chests: [], arena: { x: (c + 0.5) * cellSize, y: (c + 0.5) * cellSize, radius: (R + 0.5) * cellSize }, subArenas: [] };
+  return { id, rows, cellSize, spawns: [], chests: [], arena: { x: (c + 0.5) * cellSize, y: (c + 0.5) * cellSize, radius: (R + 0.5) * cellSize }, subArenas: [], setPieces: [] };
 }
 
 /** 房間形狀：矩形大廳、圓形洞窟、十字形 */
