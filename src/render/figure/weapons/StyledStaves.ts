@@ -262,9 +262,9 @@ function sovereignStaff(c: Ctx): V3 {
   c.meshes.push(slab([0, end - 0.4, -2.2], [0, end - 0.4, 2.2], 0.55, 0.5, trim));
   for (const sd of [1, -1]) c.meshes.push(edge([0, end - 0.4, sd * 2.2], [0, end - 1.6, sd * 2.8], [0.45, 0.5], [0.03, 0.04], trim), edge([0, end - 0.2, sd * 1.4], [0, end + 0.9, sd * 1.9], [0.3, 0.35], [0.03, 0.03], trim));
   c.meshes.push(gem(0.6, [0, end - 0.4, 0], glow, [1.4, 1.2, 1.2], 6, 4));
-  const blade: Tones = [lighten(o.metal[0]!, 0.2), o.metal[0]!, darken(o.metal[0]!, 0.3), o.metal[1] ?? o.metal[0]!];
-  c.meshes.push(edge([0, end - 0.8, 0], [0, end - 3.2, 0.2], [0.35, 1], [0.32, 0.85], blade));
-  c.meshes.push(edge([0, end - 3.2, 0.2], [0, end - 4.4, -0.3], [0.32, 0.5], [0.03, 0.05], blade), edge([0, end - 3.2, 0.2], [0, end - 3.9, 0.85], [0.3, 0.35], [0.03, 0.04], blade));
+  // 斷刃用尖刺色（紅），護手用金色：杖頭紅金相間
+  c.meshes.push(edge([0, end - 0.8, 0], [0, end - 3.2, 0.2], [0.35, 1], [0.32, 0.85], spikes));
+  c.meshes.push(edge([0, end - 3.2, 0.2], [0, end - 4.4, -0.3], [0.32, 0.5], [0.03, 0.05], spikes), edge([0, end - 3.2, 0.2], [0, end - 3.9, 0.85], [0.3, 0.35], [0.03, 0.04], spikes));
   c.meshes.push(...chain([[0, end - 1, 0], [0, end - 2, 0.25], [0, end - 3, -0.1], [0, end - 3.8, 0.1]], [0.42, 0.2], [0.42, 0.1], glowTones(glow)));
   for (const [y, z] of [[end - 4.8, 0.6], [end - 5.4, -0.4], [end - 4.2, -1.2]] as const) c.meshes.push(gem(0.28, [0, y, z], glow, [0.8, 1.6, 0.8], 4, 3));
   return [0, end - 2.4, 0];

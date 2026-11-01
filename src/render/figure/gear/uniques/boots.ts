@@ -19,8 +19,8 @@ const LAVA_ROCK: Tones = [0x6a5446, 0x564439, 0x2e2320, 0x4a3a33];
 const LAVA: Tones = [0xffb838, 0xff7a1a, 0xc04a10, 0xff9a2a];
 const CHITIN: Tones = [0x5a3a6e, 0x3a2446, 0x2c1a34, 0x4a2e5a];
 const VENOM: Tones = [0xc0ff90, 0x7aff4a, 0x4ab82a, 0x9cf06a];
-const SOV_FLESH: Tones = [0x82140f, 0x6e0e0c, 0x3e0707, 0x781210];
-const SOV_SHELL: Tones = [0x2a1e24, 0x1c1418, 0x100a0c, 0x241a1e];
+// 統御者戰靴：F35 全套以魔王炎弓的紅為準，靴身前後與鞋面同色
+const SOV_RED: Tones = [0xa51e16, 0x8a1410, 0x5a0c0a, 0x951610];
 const SOV_BONE: Tones = [0xcdb07a, 0xb2955f, 0x86703f, 0xc0a26c];
 
 // 專屬裝飾
@@ -66,6 +66,6 @@ export const bootsUniques: Record<string, UniqueArmor> = {
   'mythic.boots_abyss_sovereign': {
     tier: 8,
     themes: ['fire', 'guard'],
-    extra: { mat: SOV_SHELL, toe: SOV_BONE, shin: SOV_FLESH, knee: SOV_BONE, cuff: SOV_FLESH, spikes: 3, spikeColors: SOV_BONE, gem: 0xff5a14, hoof: SOV_BONE, cracks: 0xff5a14 },
+    extra: { mat: SOV_RED, toe: SOV_BONE, shin: SOV_RED, knee: SOV_BONE, cuff: SOV_RED, spikes: 3, spikeColors: SOV_BONE, gem: 0xff6a1a, hoof: SOV_BONE, cracks: 0xff6a1a },
   },
 };

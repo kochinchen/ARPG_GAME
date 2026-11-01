@@ -353,6 +353,7 @@ async function bootstrap(): Promise<void> {
       });
     },
     onDebugToggleThree: () => renderer.toggleThree(),
+    debugLoot: new URLSearchParams(location.search).get('loot')?.split(',').filter(Boolean) ?? [],
   });
 
   loop.start({ now }, (cb) => requestAnimationFrame(cb));

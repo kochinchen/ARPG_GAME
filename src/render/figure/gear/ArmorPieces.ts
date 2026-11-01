@@ -1,5 +1,6 @@
 import type { ArmorModel } from './ArmorAI';
 import type { ArmorLook } from './StyledArmors';
+import type { HelmetLook } from './StyledHelmets';
 import { styledShieldMeshes, type ShieldStyle } from './StyledShields';
 import { detail, facetize, loft, refine, tone, type Ring } from '../Facets';
 import { box, lowSphere, mapVerts, orient, placeMesh, prism, type Mesh, type V3 } from '../Poly3D';
@@ -45,6 +46,12 @@ export interface HelmetSpec {
   eyes?: number;
   spikes?: number;
   spikeColors?: Tones;
+  /** 橘 / 紅專用的造型（StyledHelmets）：連同頭與脖子一起換掉 */
+  look?: HelmetLook;
+  /** 專屬造型的發光色（不受詞綴主題染色） */
+  glow?: number;
+  /** 專屬造型的盔纓、羽飾顏色 */
+  cloth?: Tones;
 }
 
 /** 整頂頭盔（原點 = 頭帶中心，半徑約 5.5） */

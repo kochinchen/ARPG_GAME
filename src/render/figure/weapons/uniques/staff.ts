@@ -16,14 +16,14 @@ const VINE: Tones = [0x6a9a4a, 0x4e7a36, 0x2e5220, 0x5e8a40];
 const PRIEST_WOOD: Tones = [0x3a2219, 0x2a1a14, 0x1a0e0c, 0x352219];
 const LAVA_GOLD: Tones = [0xf2c230, 0xdcaa22, 0xa8801a, 0xe6b82a];
 const SPIDER_CHITIN: Tones = [0x5a3a6e, 0x3a2446, 0x2c1a34, 0x4a2e5a];
-const SOVEREIGN_FLESH: Tones = [0x82140f, 0x6e0e0c, 0x3e0707, 0x7a120e];
-const SOVEREIGN_SHELL: Tones = [0x2a1e24, 0x1c1418, 0x100a0c, 0x241a1e];
+// 統御魔杖：F35 全套以魔王炎弓的紅為準；杖頭紅與金、杖身深紅
+const ABYSS_WING: Tones = [0xa51e16, 0x8a1410, 0x5a0c0a, 0x951610];
+const SOVEREIGN_SHAFT: Tones = [0x5a0c0a, 0x4a0a08, 0x2a0505, 0x520b09];
 // 基本款的骨刺、尖刃配色
 const SPORE_TIP: Tones = [0xd8b0ff, 0xb08ae0, 0x7a5aa8, 0xc8a0f0];
 const THORN: Tones = [0x5a7a30, 0x44602a, 0x2a3c18, 0x506e2c];
 const QUAKE_STONE: Tones = [0x8a8478, 0x6c675d, 0x48443c, 0x7a756a];
 const PRIEST_DARK: Tones = [0x5a1018, 0x420a12, 0x24060a, 0x4e0e16];
-const SOV_BONE: Tones = [0xcdb07a, 0xb2955f, 0x86703f, 0xc0a26c];
 
 export const staffUniques: Record<string, UniqueWeapon> = {
   // ── 橘 ──
@@ -89,8 +89,8 @@ export const staffUniques: Record<string, UniqueWeapon> = {
     emblem: { kind: 'web', color: 0x9aff6a, accent: 0xb8a8c8 },
   },
   'mythic.staff_abyss_sovereign': {
-    look: staffSpec({ style: 'sovereign', head: 'orb', length: 39, butt: 6, shaft: SOVEREIGN_SHELL, metal: SOV_BONE, focus: 0xff5a14, spikes: SOVEREIGN_FLESH }),
-    glow: { color: 0xff5a14, core: 0xffa53a, particle: 'ember', orbit: 'runes' },
-    emblem: { kind: 'rift', color: 0xff5a14, accent: 0xcdb07a },
+    look: staffSpec({ style: 'sovereign', head: 'orb', length: 39, butt: 6, shaft: SOVEREIGN_SHAFT, metal: GOLD, focus: 0xff6a1a, spikes: ABYSS_WING }),
+    glow: { color: 0xff6a1a, core: 0xffd080, particle: 'ember', orbit: 'runes' },
+    emblem: { kind: 'rift', color: 0xff6a1a, accent: 0xcdb07a },
   },
 };

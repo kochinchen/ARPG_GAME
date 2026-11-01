@@ -957,7 +957,7 @@ export class GameWorld {
         }
         return true;
       case 'DebugSpawnLoot':
-        if (command.uniques) this.spawnUniqueSamples();
+        if (command.uniques) this.spawnUniqueSamples(command.ids);
         else this.spawnLootSamples();
         return true;
       case 'DebugFusionKit':
@@ -1137,10 +1137,11 @@ export class GameWorld {
   }
 
   /** 開發用：隨機 5 件傳奇 + 5 件神話（不受出現樓層限制） */
-  private spawnUniqueSamples(): void {
+  private spawnUniqueSamples(ids?: string[]): void {
     const level = Math.max(1, this.itemLevel);
     const rng = new Rng(Date.now() % 100000);
-    const picks = (['legendary', 'mythic'] as const).flatMap((rarity) => {
+    const chosen = ids?.filter((id) => this.data.legendaries.has(id)).map((id) => this.data.legendaries.get(id));
+    const picks = chosen?.length ? chosen : (['legendary', 'mythic'] as const).flatMap((rarity) => {
       const pool = [...this.data.legendaries.all.filter((d) => d.rarity === rarity)];
       return Array.from({ length: Math.min(5, pool.length) }, () => pool.splice(rng.int(0, pool.length - 1), 1)[0]!);
     });

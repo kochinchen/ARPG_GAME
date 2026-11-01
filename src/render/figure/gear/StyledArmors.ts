@@ -22,9 +22,9 @@ export interface StyledArmorSpec {
 }
 
 const FACETS = { size: 1.2, bump: 0.18, vary: 0.06 };
-const F = (m: Mesh, seed = 0, bump = 0.1) => refine(m, { ...FACETS, seed, coarse: facetize(m, bump, seed) });
-const dense = (m: Mesh, seed = 0): Mesh => refine(m, { ...FACETS, seed });
-const glowTones = (c: number): Tones => [lighten(c, 0.55), lighten(c, 0.2), c, lighten(c, 0.35)];
+export const F = (m: Mesh, seed = 0, bump = 0.1) => refine(m, { ...FACETS, seed, coarse: facetize(m, bump, seed) });
+export const dense = (m: Mesh, seed = 0): Mesh => refine(m, { ...FACETS, seed });
+export const glowTones = (c: number): Tones => [lighten(c, 0.55), lighten(c, 0.2), c, lighten(c, 0.35)];
 
 /** 放樣體在高度 y、橫向 x 處的正面 z（貼在表面上的零件用） */
 function frontZ(rings: readonly Ring[], x: number, y: number, dir = 1): number {
@@ -54,7 +54,7 @@ const crystal = (a: V3, dir: V3, len: number, r: number, colors: Tones, seed = 0
   dense(taper(a, [a[0] + dir[0] * len, a[1] + dir[1] * len, a[2] + dir[2] * len], [r, r * 0.85], [0.03, 0.03], colors, 6, seed, seed * 0.7), seed);
 
 /** 固定的擬亂數（同一件裝備每次長得一樣） */
-const rand = (i: number) => {
+export const rand = (i: number) => {
   const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
 };
@@ -290,7 +290,7 @@ function star(c: V3, r: number, colors: Tones, normal: 'z' | 'x' = 'z'): Mesh[] 
   return out;
 }
 /** 彎角 / 爪：二次貝茲曲線 p0 → p1（控制點）→ p2，從粗到尖 */
-function horn(p0: V3, p1: V3, p2: V3, r: number, colors: Tones, segs = 6): Mesh[] {
+export function horn(p0: V3, p1: V3, p2: V3, r: number, colors: Tones, segs = 6): Mesh[] {
   const pts: V3[] = Array.from({ length: segs + 1 }, (_, k) => {
     const t = k / segs;
     const u = 1 - t;

@@ -2,7 +2,7 @@ import type { DataRegistry } from '../../data/DataRegistry';
 import type { Rarity } from '../../data/schema/item';
 import type { ItemInstance } from '../../game/items/ItemInstance';
 import { facetize, loft, tone } from '../figure/Facets';
-import { bootColor, specForItem, styledArmorFor } from '../figure/gear/ArmorLooks';
+import { bootColor, specForItem, styledArmorFor, styledHelmetFor } from '../figure/gear/ArmorLooks';
 import { AI_BOOT_FOOT, AI_LIMB, aiBootMesh, aiBootShape, jointToRest } from '../figure/HeroineAI';
 import { bootExtras, HIDE_DARK, helmetMeshes, scaleMeshes, shieldMeshes, type ArmorSpec, type BootSpec, type GloveSpec } from '../figure/gear/ArmorPieces';
 import { itemThemes, THEMES, themeColors } from '../figure/gear/GearTheme';
@@ -442,9 +442,12 @@ function buildIcon(item: ItemInstance, slot: string, themes: ReturnType<typeof i
   }
   let meshes: Mesh[];
   switch (slot) {
-    case 'helmet':
-      meshes = coarse(helmetMeshes(specForItem('helmet', item, data)));
+    case 'helmet': {
+      const spec = specForItem('helmet', item, data);
+      const styled = styledHelmetFor(spec);
+      meshes = styled ? restPose(styled.parts) : coarse(helmetMeshes(spec));
       break;
+    }
     case 'armor': {
       const spec = specForItem('armor', item, data);
       const styled = styledArmorFor(spec);

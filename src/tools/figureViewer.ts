@@ -119,11 +119,20 @@ const OUTFIT = OUTFIT_TIER
       });
     })()
   : null;
-/** ?armor=mythic.armor_lava_behemoth / ?boots=mythic.boots_spider_queen：主角只穿這件橘 / 紅盔甲或靴子（檢查專屬外觀） */
+/** ?armor=mythic.armor_lava_behemoth / ?boots=mythic.boots_spider_queen / ?helmet=mythic.helmet_fallen_knight / ?gloves=mythic.gloves_abyss_lord：主角只穿這幾件橘 / 紅裝備（檢查專屬外觀） */
 const UNIQUE_ARMOR = selected.key === 'heroine' && params.get('armor') ? uniqueArmorSpec('armor', params.get('armor')!) : undefined;
 const UNIQUE_BOOTS = selected.key === 'heroine' && params.get('boots') ? uniqueArmorSpec('boots', params.get('boots')!) : undefined;
+const UNIQUE_HELMET = selected.key === 'heroine' && params.get('helmet') ? uniqueArmorSpec('helmet', params.get('helmet')!) : undefined;
+const UNIQUE_GLOVES = selected.key === 'heroine' && params.get('gloves') ? uniqueArmorSpec('gloves', params.get('gloves')!) : undefined;
 const OUTFIT_ARMOR =
-  UNIQUE_ARMOR || UNIQUE_BOOTS ? heroineOutfit({ ...(UNIQUE_ARMOR ? { armor: UNIQUE_ARMOR } : {}), ...(UNIQUE_BOOTS ? { boots: UNIQUE_BOOTS } : {}) }) : null;
+  UNIQUE_ARMOR || UNIQUE_BOOTS || UNIQUE_HELMET || UNIQUE_GLOVES
+    ? heroineOutfit({
+        ...(UNIQUE_ARMOR ? { armor: UNIQUE_ARMOR } : {}),
+        ...(UNIQUE_BOOTS ? { boots: UNIQUE_BOOTS } : {}),
+        ...(UNIQUE_HELMET ? { helmet: UNIQUE_HELMET } : {}),
+        ...(UNIQUE_GLOVES ? { gloves: UNIQUE_GLOVES } : {}),
+      })
+    : null;
 const armed = (figure: PolyFigure): PolyFigure => {
   // ?rest=x,y,z：試調平常拿武器的角度
   const restParam = params.get('rest')?.split(',').map(Number) as [number, number, number] | undefined;

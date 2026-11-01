@@ -1,5 +1,5 @@
 import type { UniqueArmor } from './types';
-import { BONE, BRONZE, GOLD, JADE, SILVER, STORM, type Tones } from '../../weapons/WeaponParts';
+import { BONE, BRONZE, JADE, SILVER, STORM, type Tones } from '../../weapons/WeaponParts';
 import { HIDE, HIDE_DARK } from '../ArmorPieces';
 
 /** 擴充的傳奇 / 神話（armor）專屬外觀：ID 對應 src/data/uniqueItems/armor.ts */
@@ -16,8 +16,9 @@ const LAVA_ROCK: Tones = [0x4a3a33, 0x3c2e28, 0x2e2320, 0x564439];
 const LAVA: Tones = [0xffb838, 0xff7a1a, 0xc04a10, 0xff9a2a];
 const KNIGHT_BLACK: Tones = [0x34323c, 0x26242c, 0x121116, 0x2c2a32];
 const CHITIN: Tones = [0x5a3a6e, 0x3a2446, 0x2c1a34, 0x4a2e5a];
-const SOVEREIGN_SHELL: Tones = [0x2a1e24, 0x1c1418, 0x100a0c, 0x241a1e];
-const SOVEREIGN_FLESH: Tones = [0x82140f, 0x6e0e0c, 0x3e0707, 0x7a120e];
+// 統御者魔鎧：F35 全套以魔王炎弓為準（紅甲殼、骨白邊、橘光），布料是弓臂的黑褐
+const SOVEREIGN_SHELL: Tones = [0xa51e16, 0x8a1410, 0x5a0c0a, 0x951610];
+const SOVEREIGN_FLESH: Tones = [0x3c2c2a, 0x2c2020, 0x1a1212, 0x342624];
 
 export const armorUniques: Record<string, UniqueArmor> = {
   // ── 橘 ──
@@ -35,5 +36,5 @@ export const armorUniques: Record<string, UniqueArmor> = {
   'mythic.armor_lava_behemoth': { tier: 8, themes: ['fire', 'guard'], extra: { mat: LAVA_ROCK, trim: LAVA, pauldronMat: LAVA_ROCK, spikeColors: LAVA, ribs: LAVA, carapace: true, model: 'lava_behemoth' } },
   'mythic.armor_fallen_knight': { tier: 7, themes: ['guard', 'thorns'], extra: { look: 'fallen', mat: KNIGHT_BLACK, trim: [0xb08a5a, 0x8e6c42, 0x664a2c, 0xa07c4e], cloth: [0x9a2a26, 0x7e201e, 0x501212, 0x8c2622], glow: 0xff4a2a } },
   'mythic.armor_spider_queen': { tier: 8, themes: ['poison'], extra: { look: 'spider', mat: CHITIN, trim: BONE, glow: 0x7aff4a } },
-  'mythic.armor_abyss_sovereign': { tier: 8, themes: ['blood', 'fire'], extra: { look: 'sovereign', mat: SOVEREIGN_SHELL, trim: GOLD, cloth: SOVEREIGN_FLESH, glow: 0xff5020 } },
+  'mythic.armor_abyss_sovereign': { tier: 8, themes: ['blood', 'fire'], extra: { look: 'sovereign', mat: SOVEREIGN_SHELL, trim: BONE, cloth: SOVEREIGN_FLESH, glow: 0xff6a1a } },
 };

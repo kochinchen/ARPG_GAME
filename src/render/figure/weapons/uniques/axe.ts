@@ -19,8 +19,9 @@ const RUST: Tones = [0x7a4a2a, 0x6a3e22, 0x45281a, 0x724426];
 const LAVA_ROCK: Tones = [0x6a5446, 0x4a3a33, 0x2e2320, 0x564439];
 const QUEEN_CHITIN: Tones = [0x5a3a6e, 0x3a2446, 0x2c1a34, 0x4a2e5a];
 const QUEEN_HAFT: Tones = [0x2a1830, 0x1e1024, 0x140a18, 0x24142a];
-const SOVEREIGN_SHELL: Tones = [0x2a1e24, 0x1c1418, 0x0e0a0c, 0x241a20];
-const SOVEREIGN_FLESH: Tones = [0x82140f, 0x6e0e0c, 0x3e0707, 0x7a110e];
+// 統御者巨斧：F35 全套以魔王炎弓為準（紅斧刃、黑褐斧柄）
+const ABYSS_WING: Tones = [0xa51e16, 0x8a1410, 0x5a0c0a, 0x951610];
+const ABYSS_HORN: Tones = [0x3c2c2a, 0x2c2020, 0x1a1212, 0x342624];
 // 基本款的骨刺、尖刃、箍的配色
 const ACID_TIP: Tones = [0xc8ff7a, 0x9ae04a, 0x5a9a28, 0xb4f060];
 const QUAKE_DARK: Tones = [0x5c564e, 0x4a453f, 0x302d29, 0x55504a];
@@ -92,8 +93,8 @@ export const axeUniques: Record<string, UniqueWeapon> = {
     emblem: { kind: 'web', color: 0x9aff6a, accent: 0xb8a8c8 },
   },
   'mythic.axe_abyss_sovereign': {
-    look: axeSpec({ style: 'sovereign', head: 'single', haft: 20, size: 5.6, haftColors: SOVEREIGN_SHELL, headColors: SOVEREIGN_FLESH, trim: SOV_BONE, spikes: SOVEREIGN_SHELL, glow: 0xff5a14 }),
-    glow: { color: 0xff5a14, core: 0xffa53a, particle: 'void', orbit: 'stars' },
-    emblem: { kind: 'eclipse', color: 0xff5a14, accent: 0xcdb07a },
+    look: axeSpec({ style: 'sovereign', head: 'single', haft: 20, size: 5.6, haftColors: ABYSS_HORN, headColors: ABYSS_WING, trim: SOV_BONE, spikes: ABYSS_HORN, glow: 0xff6a1a }),
+    glow: { color: 0xff6a1a, core: 0xffd080, particle: 'void', orbit: 'stars' },
+    emblem: { kind: 'eclipse', color: 0xff6a1a, accent: 0xcdb07a },
   },
 };

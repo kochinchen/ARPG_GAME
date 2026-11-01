@@ -23,6 +23,8 @@ export interface InputAdapters {
   onDebugReset?: () => void;
   /** G：切換 Three.js 畫法（試驗） */
   onDebugToggleThree?: () => void;
+  /** Shift + L 改成掉落這幾件傳奇 / 神話（網址 ?loot=id1,id2，檢查指定裝備的外觀） */
+  debugLoot?: string[];
 }
 
 /**
@@ -156,7 +158,7 @@ export class InputManager {
         break;
       case 'KeyL':
         // Shift + L：隨機 5 件傳奇 + 5 件神話
-        this.commands.push({ type: 'DebugSpawnLoot', uniques: shift });
+        this.commands.push({ type: 'DebugSpawnLoot', uniques: shift, ...(shift && this.adapters.debugLoot?.length ? { ids: this.adapters.debugLoot } : {}) });
         break;
       case 'KeyH':
         // Shift + H：物品等級 45 的測試包（平均物品等級 40 以上才融得出 T5）

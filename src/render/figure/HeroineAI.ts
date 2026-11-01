@@ -173,18 +173,25 @@ function bootOf(f: number[]): string | null {
 
 /**
  * 面的部位（穿裝備時藏起被蓋住的部位）：靴子；其餘是多數頂點所屬的遊戲關節；
- * 頭上的面再分成臉（head）與頭髮（hair，偏紅、不像皮膚的顏色）；馬尾另外一區（戴頭盔時仍露在後面）。
+ * 頭上的面再分成臉（face，前面髮際線以下，含眼睛等貼花）、頭髮（hair，偏紅、不像皮膚的顏色）、
+ * 馬尾（ponytail，戴頭盔時仍露在後面）與其餘的頭（head）。
  */
 function regionOf(f: number[], i: number): string {
-  if (i >= DATA.decalStart) return 'head';
+  const h = rig.get('head')!.rest;
+  const [x, y, z] = [0, 1, 2].map((k) => (verts[f[0]!]![k]! + verts[f[1]!]![k]! + verts[f[2]!]![k]!) / 3 - h[k]!);
+  // 只用在頭上的面與貼花（其他部位不看這個）
+  const face = z! > 0.5 && y! < 5.6 && y! > -3 && Math.abs(x!) < 3.4;
+  if (i >= DATA.decalStart) return face ? 'face' : 'head';
   const boot = bootOf(f);
   if (boot) return boot;
   const bones = [f[0]!, f[1]!, f[2]!].map((v) => domBone[v]!);
-  if (bones.filter((b) => b.startsWith('pony')).length >= 2) return 'ponytail';
   const count = new Map<Joint, number>();
   for (const b of bones) count.set(jointOf(b), (count.get(jointOf(b)) ?? 0) + 1);
   const j = [...count].sort((a, b) => b[1] - a[1])[0]![0];
   if (j === 'head') {
+    // 馬尾：後腦下半部、往後凸出的髮髻、垂到脖子後面的頭髮（AI 骨架的馬尾骨頭沒有權重，依位置分；全罩頭盔也不藏）
+    if ((z! < -1.5 && y! < 3.5) || z! < -4.6) return 'ponytail';
+    if (face) return 'face';
     const c = f[3]!;
     const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff;
     if (r > 70 && g < r * 0.55) return 'hair';
@@ -245,15 +252,15 @@ export function aiBootMesh(color: (f: BootFace) => number): Mesh {
 }
 
 /**
- * 靴子腳掌的外形（foot 關節的區域座標，遊戲單位；取左腳）：鞋尖、鞋跟、鞋底的位置，腳掌半寬與中心的 x。
+ * 靴子腳掌的外形（foot 關節的區域座標，遊戲單位）：鞋尖、鞋跟、鞋底的位置，腳掌半寬與中心的 x。
  * offset：foot 關節相對 shin 關節的靜止位置（物品圖示把腳上的裝飾換到小腿的座標）。
  */
-export const AI_BOOT_FOOT = (() => {
-  const rest = rig.get('footL')!.rest;
+function aiBootFoot(side: 'L' | 'R') {
+  const rest = rig.get(`foot${side}`)!.rest;
   let toe = -Infinity, heel = Infinity, sole = Infinity, xmin = Infinity, xmax = -Infinity;
   for (const f of AI_BOOT_FACES) {
     const face = skinFaces[f.index]!;
-    if (face.region !== 'bootL') continue;
+    if (face.region !== `boot${side}`) continue;
     for (const v of face.idx) {
       if (!domBone[v]!.startsWith('ankle')) continue;
       const p = sub(verts[v]!, rest);
@@ -264,8 +271,11 @@ export const AI_BOOT_FOOT = (() => {
       xmax = Math.max(xmax, p[0]);
     }
   }
-  return { toe, heel, sole, half: (xmax - xmin) / 2, cx: (xmin + xmax) / 2, offset: sub(rest, rig.get('shinL')!.rest) };
-})();
+  return { toe, heel, sole, half: (xmax - xmin) / 2, cx: (xmin + xmax) / 2, offset: sub(rest, rig.get(`shin${side}`)!.rest) };
+}
+export const AI_BOOT_FOOT = aiBootFoot('L');
+/** 右腳的腳掌：模型左右不完全對稱，腳掌中心 x 與左腳不同（腳趾等裝飾要各自對齊） */
+export const AI_BOOT_FOOT_R = aiBootFoot('R');
 
 /**
  * 靴筒的外形（shin 關節的區域座標，遊戲單位；左右相同，取左腳）：高度 y 處靴子正面與背面的 z、左右半寬與中心的 x。
