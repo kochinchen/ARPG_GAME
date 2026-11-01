@@ -15,6 +15,7 @@
     "docs:cores": "node scripts/render-core-codex.mjs",
     "docs:pages": "node scripts/publish-design-docs.mjs",
     "test": "vitest run",
+    "balance": "node scripts/balance.mjs",
     "test:watch": "vitest",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.logic.json",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",

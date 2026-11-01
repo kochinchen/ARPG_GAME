@@ -1,0 +1,13 @@
+{
+  "//": "難度目標（設計者 2026-10-30 決定；改數字前先與設計者討論）。死亡率 = 該區段「過關前至少死一次」的比例；burst1s = 一般怪群任一秒內的最大受傷（佔最大生命）；timeToDie = 站樁從第一次受傷到倒下的秒數。null = 不設限。",
+  "tiers": [
+    { "label": "1–4 地穴", "floors": [1, 4], "normalDeath": [0, 0], "rusherDeath": [0, 0.05], "burst1s": 0.2, "timeToDie": 10 },
+    { "label": "5–9 墓室", "floors": [5, 9], "normalDeath": [0, 0.02], "rusherDeath": [0, 0.1], "burst1s": 0.25, "timeToDie": 7 },
+    { "label": "10–14 聖所", "floors": [10, 14], "normalDeath": [0, 0.03], "rusherDeath": [0.1, 0.25], "burst1s": 0.3, "timeToDie": 5 },
+    { "label": "15–19 熔岩", "floors": [15, 19], "normalDeath": [0, 0.05], "rusherDeath": [0.3, 0.5], "burst1s": 0.3, "timeToDie": 4 },
+    { "label": "20–24 要塞", "floors": [20, 24], "normalDeath": [0, 0.05], "rusherDeath": [0.45, 0.65], "burst1s": 0.3, "timeToDie": 4 },
+    { "label": "25–29 深淵", "floors": [25, 29], "normalDeath": [0, 0.07], "rusherDeath": [0.6, 1], "burst1s": 0.3, "timeToDie": 3.5 },
+    { "label": "30–35 神殿 / 挑戰", "floors": [30, 35], "normalDeath": [0, 0.1], "rusherDeath": [0.75, 1], "burst1s": 0.3, "timeToDie": 3.5 }
+  ],
+  "bossFloor": { "normalDeath": [0, 0.15] }
+}
