@@ -171,8 +171,11 @@ function bootOf(f: number[]): string | null {
   return `boot${side}`;
 }
 
+/** 護腕的上緣（前臂關節的區域座標，遊戲單位）：這以上是手肘的皮膚 */
+const BRACER_TOP = -1;
+
 /**
- * 面的部位（穿裝備時藏起被蓋住的部位）：靴子；其餘是多數頂點所屬的遊戲關節；
+ * 面的部位（穿裝備時藏起被蓋住的部位）：靴子；上臂的護肩（pauldronL / pauldronR）；前臂的護腕（bracerL / bracerR）；其餘是多數頂點所屬的遊戲關節；
  * 頭上的面再分成臉（face，前面髮際線以下，含眼睛等貼花）、頭髮（hair，偏紅、不像皮膚的顏色）、
  * 馬尾（ponytail，戴頭盔時仍露在後面）與其餘的頭（head）。
  */
@@ -188,6 +191,13 @@ function regionOf(f: number[], i: number): string {
   const count = new Map<Joint, number>();
   for (const b of bones) count.set(jointOf(b), (count.get(jointOf(b)) ?? 0) + 1);
   const j = [...count].sort((a, b) => b[1] - a[1])[0]![0];
+  // 前臂：手肘下方的皮護腕（bracer）和手肘的皮膚分開，橘 / 紅手套蓋住護腕、手肘露出來
+  // 上臂：不是皮膚的面是設計圖的護肩（pauldron），一般盔甲的肩甲比較小，要藏起來才不會穿出來
+  if ((j === 'upperArmL' || j === 'upperArmR') && !skinLike(f[3]!)) return `pauldron${j.slice(-1)}`;
+  if (j === 'forearmL' || j === 'forearmR') {
+    const y = (verts[f[0]!]![1] + verts[f[1]!]![1] + verts[f[2]!]![1]) / 3 - rig.get(j)!.rest[1];
+    if (y < BRACER_TOP) return `bracer${j.slice(-1)}`;
+  }
   if (j === 'head') {
     // 馬尾：後腦下半部、往後凸出的髮髻、垂到脖子後面的頭髮（AI 骨架的馬尾骨頭沒有權重，依位置分；全罩頭盔也不藏）
     if ((z! < -1.5 && y! < 3.5) || z! < -4.6) return 'ponytail';
@@ -299,6 +309,40 @@ export function aiBootShape(y: number): { front: number; back: number; half: num
   const mid = band.filter((p) => Math.abs(p[0] - cx) < 1);
   const zs = (mid.length ? mid : band).map((p) => p[2]);
   return { front: Math.max(...zs), back: Math.min(...zs), half: (Math.max(...xs) - Math.min(...xs)) / 2, cx };
+}
+
+export type ArmSide = 'L' | 'R';
+
+/** 一群面的頂點（減去關節的靜止位置 = 關節的區域座標） */
+function regionPoints(region: string, j: Joint): V3[] {
+  const rest = rig.get(j)!.rest;
+  const seen = new Set<number>();
+  for (const f of skinFaces) if (f.region === region) for (const v of f.idx) seen.add(v);
+  return [...seen].map((v) => sub(verts[v]!, rest));
+}
+const bounds = (pts: readonly V3[], k: 0 | 2) => {
+  const xs = pts.map((p) => p[k]);
+  const [lo, hi] = [Math.min(...xs), Math.max(...xs)];
+  return { c: (lo + hi) / 2, r: (hi - lo) / 2 };
+};
+const armBracer = { L: regionPoints('bracerL', 'forearmL'), R: regionPoints('bracerR', 'forearmR') };
+
+/**
+ * 前臂護腕的外形（forearm 關節的區域座標，遊戲單位）：高度 y 處的中心與半徑。
+ * 手臂模型不在關節中心、左右也不對稱，橘 / 紅手套依這個形狀貼在手臂上。
+ */
+export function aiArmShape(side: ArmSide, y: number): { cx: number; cz: number; rx: number; rz: number } {
+  const band = armBracer[side].filter((p) => Math.abs(p[1] - y) <= 0.9);
+  const pts = band.length ? band : armBracer[side];
+  const [x, z] = [bounds(pts, 0), bounds(pts, 2)];
+  return { cx: x.c, cz: z.c, rx: x.r, rz: z.r };
+}
+
+/** 手掌的外形（hand 關節的區域座標，遊戲單位）：手腕到指根之間的中心與半徑 */
+export function aiHandShape(side: ArmSide): { cx: number; cz: number; rx: number; rz: number } {
+  const pts = regionPoints(`hand${side}`, `hand${side}`).filter((p) => p[1] <= 0.3 && p[1] > -2);
+  const [x, z] = [bounds(pts, 0), bounds(pts, 2)];
+  return { cx: x.c, cz: z.c, rx: x.r, rz: z.r };
 }
 
 // ── 關節（父關節在前）；每個關節放一組「探測點」（只有頂點、沒有面），讓站姿貼地、倒地的計算照常運作 ──
