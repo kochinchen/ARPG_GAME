@@ -69,6 +69,14 @@ const LATE_TEMPLE: FloorInput['monsterPool'] = [
   { enemyId: 'enemy.fallen_templar', weight: 8, minFloor: 30 },
 ];
 
+/**
+ * 通道寬度（Tile）：加寬約 1.7 倍，讓怪物排得開包圍（設計者 2026-10-31；原本 5.5～7.5）。
+ * 通道變寬、地板變多，密度乘上 CORRIDOR_DENSITY，讓每層怪物數維持加寬前的數量
+ * （實測各區間地板面積增加 24～29%，平均約 26%）。改寬度時要重新量一次面積比。
+ */
+const CORRIDOR_WIDTH: [number, number] = [9.5, 13.5];
+const CORRIDOR_DENSITY = 1 / 1.26;
+
 /** 10 層起的怪物數量（密度）倍率：減少 10%（設計者 2026-10-31，改善效能） */
 const LATE_DENSITY = 0.9;
 
@@ -79,9 +87,9 @@ const tier = (id: string, from: number, to: number, theme: FloorInput['theme'], 
   id,
   floors: [from, to],
   theme,
-  layout: { width: 180, height: 135, rooms: [26, 34], loops: 6 },
+  layout: { width: 180, height: 135, rooms: [26, 34], loops: 6, corridorWidth: CORRIDOR_WIDTH },
   monsterPool: humanoids(),
-  density: 1.5,
+  density: 1.5 * CORRIDOR_DENSITY,
   packSize: [3, 5],
   eliteChance: 0.2,
   affixCount: [1, 1],
@@ -97,8 +105,8 @@ const tier = (id: string, from: number, to: number, theme: FloorInput['theme'], 
 const TEMPLE: Partial<FloorInput> = {
   boss: boss('enemy.abyss_lord'),
   monsterPool: [...humanoids(0.3), ...creatures(0.4), ...LATE_FORTRESS(0.45), ...LATE_ABYSS(0.6), ...LATE_TEMPLE],
-  layout: { width: 225, height: 172, rooms: [42, 52], loops: 15 },
-  density: 2.0 * LATE_DENSITY,
+  layout: { width: 225, height: 172, rooms: [42, 52], loops: 15, corridorWidth: CORRIDOR_WIDTH },
+  density: 2.0 * LATE_DENSITY * CORRIDOR_DENSITY,
   packSize: [4, 7],
   eliteChance: 0.45,
   affixCount: [2, 2],
@@ -115,8 +123,8 @@ export const floors: FloorInput[] = [
   // 古老墓穴：增加遠程怪、分支路徑、開始出現精英怪
   tier('floor.tomb', 5, 9, 'tomb', {
     boss: boss('enemy.crypt_guardian'),
-    layout: { width: 180, height: 135, rooms: [29, 36], loops: 9 },
-    density: 1.6,
+    layout: { width: 180, height: 135, rooms: [29, 36], loops: 9, corridorWidth: CORRIDOR_WIDTH },
+    density: 1.6 * CORRIDOR_DENSITY,
     eliteChance: 0.25,
     lootTier: 2,
   }),
@@ -124,8 +132,8 @@ export const floors: FloorInput[] = [
   tier('floor.sanctum', 10, 14, 'sanctum', {
     boss: boss('enemy.fallen_priest'),
     monsterPool: [...humanoids(), ...CREATURES],
-    layout: { width: 202, height: 150, rooms: [34, 42], loops: 9 },
-    density: 1.7 * LATE_DENSITY,
+    layout: { width: 202, height: 150, rooms: [34, 42], loops: 9, corridorWidth: CORRIDOR_WIDTH },
+    density: 1.7 * LATE_DENSITY * CORRIDOR_DENSITY,
     packSize: [3, 6],
     eliteChance: 0.3,
     affixCount: [1, 2],
@@ -136,8 +144,8 @@ export const floors: FloorInput[] = [
   tier('floor.lava', 15, 19, 'lava', {
     boss: boss('enemy.lava_behemoth'),
     monsterPool: [...humanoids(0.7), ...CREATURES],
-    layout: { width: 202, height: 150, rooms: [34, 42], loops: 10 },
-    density: 1.8 * LATE_DENSITY,
+    layout: { width: 202, height: 150, rooms: [34, 42], loops: 10, corridorWidth: CORRIDOR_WIDTH },
+    density: 1.8 * LATE_DENSITY * CORRIDOR_DENSITY,
     packSize: [3, 6],
     eliteChance: 0.3,
     affixCount: [1, 2],
@@ -148,8 +156,8 @@ export const floors: FloorInput[] = [
   tier('floor.fortress', 20, 24, 'fortress', {
     boss: boss('enemy.fallen_knight'),
     monsterPool: [...humanoids(0.5), ...creatures(0.6), ...LATE_FORTRESS()],
-    layout: { width: 210, height: 158, rooms: [39, 47], loops: 14 },
-    density: 1.8 * LATE_DENSITY,
+    layout: { width: 210, height: 158, rooms: [39, 47], loops: 14, corridorWidth: CORRIDOR_WIDTH },
+    density: 1.8 * LATE_DENSITY * CORRIDOR_DENSITY,
     packSize: [4, 6],
     eliteChance: 0.35,
     affixCount: [1, 2],
@@ -160,8 +168,8 @@ export const floors: FloorInput[] = [
   tier('floor.abyss', 25, 29, 'abyss', {
     boss: boss('enemy.spider_queen'),
     monsterPool: [...humanoids(0.3), ...creatures(0.5), ...LATE_FORTRESS(0.5), ...LATE_ABYSS()],
-    layout: { width: 218, height: 165, rooms: [31, 39], loops: 15 },
-    density: 1.9 * LATE_DENSITY,
+    layout: { width: 218, height: 165, rooms: [31, 39], loops: 15, corridorWidth: CORRIDOR_WIDTH },
+    density: 1.9 * LATE_DENSITY * CORRIDOR_DENSITY,
     packSize: [4, 7],
     eliteChance: 0.4,
     affixCount: [2, 2],
