@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gameData } from '../../src/data';
 import { DataRegistry } from '../../src/data/DataRegistry';
 import type { EquipmentSlot, ItemInstance } from '../../src/game/items/ItemInstance';
-import { armorSpec, heroineOutfit, outfitFor, specForItem, UNIQUE_ARMOR_IDS, uniqueArmorSpec } from '../../src/render/figure/gear/ArmorLooks';
+import { armorSpec, heroineOutfit, outfitFor, specForItem, styledHelmetFor, UNIQUE_ARMOR_IDS, uniqueArmorSpec } from '../../src/render/figure/gear/ArmorLooks';
 import { itemThemes, THEMES } from '../../src/render/figure/gear/GearTheme';
 import { themedLook, tierLook, weaponLookFor } from '../../src/render/figure/weapons/WeaponLooks';
 import { AI_BOOT_FACES, aiBootShape, HEROINE_AI } from '../../src/render/figure/HeroineAI';
@@ -169,6 +169,12 @@ describe('主角身上的頭盔、盔甲、靴子', () => {
     expect(Math.abs(channel(fire.mat[0]!) - channel(steel.mat[0]!))).toBeLessThan(40);
     expect(fire.emblem).toBeDefined();
     expect(heroineOutfit({ helmet: armorSpec('helmet', 3, 'epic', ['fire']) }).get('head')!.length).toBe(heroineOutfit({ helmet: armorSpec('helmet', 3, 'normal', []) }).get('head')!.length + 1);
+  });
+
+  it('物品圖示的露臉頭盔：兩頰與後腦勺做滿（面比戴在身上的多），戴在身上的不變', () => {
+    const faces = (meshes: { faces: unknown[] }[]) => meshes.reduce((n, m) => n + m.faces.length, 0);
+    const spec = armorSpec('helmet', 3, 'normal', []);
+    expect(faces(styledHelmetFor(spec, true)!.parts.get('head')!)).toBeGreaterThan(faces(styledHelmetFor(spec)!.parts.get('head')!));
   });
 
   it('盾牌拿在左手；每一件橘 / 紅頭盔、盔甲、手套、靴子、盾牌都有專屬外觀', () => {

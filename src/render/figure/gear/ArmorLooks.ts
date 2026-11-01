@@ -363,7 +363,7 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
 }
 
 /** 橘 / 紅頭盔的專屬造型（沒有 look 時 = undefined） */
-export function styledHelmetFor(helmet: HelmetSpec): StyledHelmet | undefined {
+export function styledHelmetFor(helmet: HelmetSpec, forIcon = false): StyledHelmet | undefined {
   if (!helmet.look) return undefined;
   return styledHelmet({
     look: helmet.look,
@@ -373,6 +373,7 @@ export function styledHelmetFor(helmet: HelmetSpec): StyledHelmet | undefined {
     ...(helmet.cloth ? { cloth: helmet.cloth } : {}),
     ...(helmet.wings ? { feather: helmet.wings } : {}),
     ...(helmet.spikes ? { spikes: helmet.spikeColors ?? DARK_STEEL } : {}),
+    ...(forIcon ? { solid: true } : {}),
   });
 }
 

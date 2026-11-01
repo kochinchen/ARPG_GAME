@@ -2,7 +2,7 @@ import type { DataRegistry } from '../../data/DataRegistry';
 import type { Rarity } from '../../data/schema/item';
 import type { ItemInstance } from '../../game/items/ItemInstance';
 import { facetize, loft, tone } from '../figure/Facets';
-import { bootColor, specForItem, styledArmorFor, styledHelmetFor } from '../figure/gear/ArmorLooks';
+import { bootColor, specForItem, styledArmorFor, styledGloveFor, styledHelmetFor } from '../figure/gear/ArmorLooks';
 import { AI_BOOT_FOOT, AI_LIMB, aiBootMesh, aiBootShape, jointToRest } from '../figure/HeroineAI';
 import { bootExtras, HIDE_DARK, helmetMeshes, scaleMeshes, shieldMeshes, type ArmorSpec, type BootSpec, type GloveSpec } from '../figure/gear/ArmorPieces';
 import { itemThemes, THEMES, themeColors } from '../figure/gear/GearTheme';
@@ -302,6 +302,15 @@ function restPose(parts: ReadonlyMap<Joint, Mesh[]>): Mesh[] {
   );
 }
 
+/** 身上那雙手套：左手組回站姿、移到原點，再鏡射出右手並排（兩隻手臂在身上離得太遠） */
+function glovePair(parts: ReadonlyMap<Joint, Mesh[]>): Mesh[] {
+  const left = restPose(new Map([...parts].filter(([j]) => j.endsWith('L'))));
+  const xs = left.flatMap((m) => m.verts.map((v) => v[0]));
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const centered = left.map((m) => ({ ...m, verts: m.verts.map((v): V3 => [v[0] - cx, v[1], v[2]]) }));
+  return pair(centered, 0, [-7.6, 0, 0]);
+}
+
 // ─────────────────────────── 光暈與粒子 ───────────────────────────
 
 const RARITY_GLOW: Record<Rarity, { color: number; alpha: number }> = {
@@ -444,7 +453,7 @@ function buildIcon(item: ItemInstance, slot: string, themes: ReturnType<typeof i
   switch (slot) {
     case 'helmet': {
       const spec = specForItem('helmet', item, data);
-      const styled = styledHelmetFor(spec);
+      const styled = styledHelmetFor(spec, true);
       meshes = styled ? restPose(styled.parts) : coarse(helmetMeshes(spec));
       break;
     }
@@ -455,9 +464,12 @@ function buildIcon(item: ItemInstance, slot: string, themes: ReturnType<typeof i
       meshes = styled ? restPose(styled.parts) : spec.model ? restPose(aiArmorParts(spec.model)) : armorIcon(spec);
       break;
     }
-    case 'gloves':
-      meshes = pair(gloveIcon(specForItem('gloves', item, data)), 0, [-5.2, -2.2, -3.4]);
+    case 'gloves': {
+      const spec = specForItem('gloves', item, data);
+      const styled = styledGloveFor(spec);
+      meshes = styled ? glovePair(styled.parts) : pair(gloveIcon(spec), 0, [-5.2, -2.2, -3.4]);
       break;
+    }
     case 'boots':
       meshes = pair(bootIcon(specForItem('boots', item, data)), 2, [-4.2, 0.5, -4]);
       break;

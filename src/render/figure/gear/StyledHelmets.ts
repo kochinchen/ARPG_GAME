@@ -21,6 +21,8 @@ export interface StyledHelmetSpec {
   glow: number;
   /** 盔纓、羽飾等布料的顏色 */
   cloth?: Tones;
+  /** 物品圖示用：沒有戴在頭上，所以兩頰與後腦勺做滿，開口只留臉、裡面用深色填滿 */
+  solid?: boolean;
   /** 一般頭盔的詞條小裝飾：一側的小羽飾（速度） */
   feather?: Tones;
   /** 一般頭盔的詞條小裝飾：頭頂兩根小尖刺（荊棘） */
@@ -192,12 +194,12 @@ function plaque(c: V3, trim: Tones, lit: Tones): Mesh[] {
 // ─────────────────────────── 紅 風暴之冠 ───────────────────────────
 
 /** 拿掉盔殼正面的臉部（開放式頭盔：臉從開口露出來） */
-function openFace(m: Mesh, below: number): Mesh {
+function openFace(m: Mesh, below: number, angle = 1.15): Mesh {
   return {
     ...m,
     faces: m.faces.filter((f) => {
       const c = [0, 1, 2].map((k) => f.idx.reduce((a, i) => a + m.verts[i]![k]!, 0) / f.idx.length);
-      return !(c[1]! < below && Math.atan2(Math.abs(c[0]!), c[2]! + 0.4) < 1.15);
+      return !(c[1]! < below && Math.atan2(Math.abs(c[0]!), c[2]! + 0.4) < angle);
     }),
   };
 }
@@ -589,4 +591,12 @@ const plainCrest = (s: StyledHelmetSpec) => plainHelm(s, { brow: 'band', top: 'c
 const LOOKS: Record<HelmetLook, (s: StyledHelmetSpec) => StyledHelmet> = { fallenKnight, stormCrown, plumed, visor, crypt, circlet, skull, agesCrown, priestCrown, demonCrown, plainCap, plainNasal, plainOpen, plainSilver, plainClosed, plainHalf, plainCrest };
 
 /** 專屬造型的頭盔 */
-export const styledHelmet = (s: StyledHelmetSpec): StyledHelmet => LOOKS[s.look](s);
+export function styledHelmet(s: StyledHelmetSpec): StyledHelmet {
+  const helmet = LOOKS[s.look](s);
+  if (!s.solid || helmet.hide.includes('face')) return helmet;
+  // 物品圖示：沒有戴在頭上，露臉的頭盔底下墊一層完整的盔殼（兩頰與後腦勺做滿），開口只留臉、裡面是深色
+  const scaled = (k: number) => KNIGHT_SHELL.map((r) => ({ ...r, rx: r.rx * k, rz: r.rz * k }));
+  const dark = darken(s.mat[2]!, 0.35);
+  const under = fitHead([F(openFace(loft(scaled(0.97), 16, s.mat, 8), 6.6, 0.62), 8, 0.14), tone(loft(scaled(0.92), 16, [dark, dark, dark, dark], 9), [dark, darken(dark, 0.1)], 9)]);
+  return { ...helmet, parts: new Map([...helmet.parts].map(([j, meshes]) => [j, j === 'head' ? [...under, ...meshes] : meshes])) };
+}
