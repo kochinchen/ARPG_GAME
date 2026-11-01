@@ -23,7 +23,7 @@ const TABARD_ALT = 0x45332a;
 const BONE = 0xcfc4aa;
 
 /** 巨錘（weapon 關節，沿 -Y）：長柄、握把纏帶、方形錘頭（上下兩道環）、四面與底部尖刺 */
-const greatMace = (): Mesh[] => [
+export const greatMace = (): Mesh[] => [
   F(prism(8, 5, -20, [1, 1], [1, 1], RUST), [RUST, 0x6a3e22], 1, 0.08),
   ...[2, -1, -4].map((y, i) => F(prism(8, y + 0.5, y - 0.5, [1.25, 1.25], [1.25, 1.25], IRON.dark), [IRON.dark], 2 + i, 0.05)),
   F(prism(8, -20, -22, [1.4, 1.4], [1.4, 1.4], IRON.edge), [IRON.edge], 5, 0.06),
@@ -39,7 +39,7 @@ const greatMace = (): Mesh[] => [
  * 塔盾（weaponL 關節）：握在左手外側，盾面十字紋、鉚釘、盾緣、中央骷髏徽。
  * 先沿 Y 建出，再轉 90° 讓長邊順著手的 Z（前臂往前平舉時盾牌直立擋在身前）。
  */
-const towerShield = (): Mesh[] => towerShieldMeshes().map((m) => placeMesh(m, [Math.PI / 2, 0, 0], [0, 2, 5]));
+export const towerShield = (): Mesh[] => towerShieldMeshes().map((m) => placeMesh(m, [Math.PI / 2, 0, 0], [0, 2, 5]));
 const towerShieldMeshes = (): Mesh[] => [
   F(box(1.6, 22, 13, IRON.dark, [2.8, -3, 3]), [IRON.dark, IRON.plate], 1, 0.08),
   FF(box(0.6, 20, 11, RUST, [3.8, -3, 3]), [RUST, 0x6a3e22], 2, 0.06),
@@ -126,7 +126,8 @@ const CRYPT_PARTS = bossRig({
   cape: { upper: (col) => capeUpper(col, 0x2a2420, 0x332b26), lower: (col) => capeLower(col, 0x2a2420, 0x332b26) },
 });
 
-const CRYPT_GUARDIAN: FigureModel = {
+/** 舊版（遊戲用 HumanoidAI.ts 的 AI 版） */
+export const CRYPT_GUARDIAN_CLASSIC: FigureModel = {
   hipHeight: BOSS_HIP,
   referenceRadius: REF,
   parts: CRYPT_PARTS,
@@ -144,7 +145,7 @@ const CAPE = 0x221a2e;
 const CAPE_ALT = 0x2a2138;
 
 /** 巨劍（weapon 關節，沿 -Y）：柄頭寶珠、握把、帶尖角的護手、暗色劍身與紫色發光中線、劍尖 */
-const darkGreatsword = (): Mesh[] => [
+export const darkGreatsword = (): Mesh[] => [
   F(prism(8, 3, -3.4, [0.9, 0.9], [0.9, 0.9], 0x2a1a24), [0x2a1a24], 1, 0.08),
   F(lowSphere(1.3, VOID_GLOW, [0, 3.6, 0], 6, 4), [VOID_GLOW], 2, 0.06),
   F(box(11, 1.6, 2.2, BLACK.edge, [0, -4, 0]), [BLACK.edge, BLACK.plate], 3, 0.12),
@@ -217,7 +218,8 @@ const KNIGHT_PARTS = bossRig({
   cape: { upper: (col) => capeUpper(col, CAPE, CAPE_ALT, 3.4), lower: (col) => capeLower(col, CAPE, CAPE_ALT, 3.9) },
 });
 
-const FALLEN_KNIGHT: FigureModel = {
+/** 舊版（遊戲用 HumanoidAI.ts 的 AI 版） */
+export const FALLEN_KNIGHT_CLASSIC: FigureModel = {
   hipHeight: BOSS_HIP,
   referenceRadius: REF,
   parts: KNIGHT_PARTS,
@@ -228,9 +230,3 @@ const FALLEN_KNIGHT: FigureModel = {
   weaponTip: [0, -37, 0],
   dynamicShadow: true,
 };
-
-export const ARMORED_BOSSES: Record<string, FigureModel> = {
-  'enemy.crypt_guardian': CRYPT_GUARDIAN,
-  'enemy.fallen_knight': FALLEN_KNIGHT,
-};
-

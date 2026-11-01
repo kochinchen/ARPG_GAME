@@ -23,7 +23,7 @@ const WOOD = 0x2a1a14;
 // ═══════════════════════════ 10F 墮落神官 ═══════════════════════════
 
 /** 法杖（weaponL 關節，沿 Y）：長柄、金環、頂端尖角框架中懸著發光的紅寶珠 */
-const priestStaff = (): Mesh[] => [
+export const priestStaff = (): Mesh[] => [
   F(prism(8, 22, -24, [0.9, 0.9], [0.9, 0.9], WOOD), [WOOD, 0x352219], 1),
   ...[12, 0, -12].map((y, i) => F(prism(8, y + 0.5, y - 0.5, [1.2, 1.2], [1.2, 1.2], GOLD), [GOLD, GOLD_ALT], 2 + i)),
   F(prism(8, 18, 20, [1.8, 1.8], [2.2, 2.2], GOLD), [GOLD, GOLD_ALT], 5),
@@ -132,7 +132,8 @@ const PRIEST_PARTS = bossRig({
   },
 });
 
-const FALLEN_PRIEST: FigureModel = {
+/** 舊版（遊戲用 HumanoidAI.ts 的 AI 版） */
+export const FALLEN_PRIEST_CLASSIC: FigureModel = {
   hipHeight: BOSS_HIP,
   referenceRadius: 0.5,
   parts: PRIEST_PARTS,
@@ -205,7 +206,7 @@ const CULTIST_PARTS = bossRig({
   },
 });
 
-const CULTIST: FigureModel = {
+export const CULTIST: FigureModel = {
   hipHeight: BOSS_HIP,
   referenceRadius: 0.3,
   parts: CULTIST_PARTS,
@@ -213,9 +214,4 @@ const CULTIST: FigureModel = {
   secondary: bossSecondary(CULTIST_PARTS),
   gaitRate: 0.85,
   dynamicShadow: true,
-};
-
-export const ROBED_BOSSES: Record<string, FigureModel> = {
-  'enemy.fallen_priest': FALLEN_PRIEST,
-  'enemy.cultist': CULTIST,
 };

@@ -175,7 +175,8 @@ const PARTS = bossRig({
   toe: toes,
 });
 
-export const LAVA_BEHEMOTH: FigureModel = {
+/** 舊版（遊戲用 HumanoidAI.ts 的 AI 版） */
+export const LAVA_BEHEMOTH_CLASSIC: FigureModel = {
   hipHeight: BOSS_HIP,
   referenceRadius: 0.5,
   parts: PARTS,
