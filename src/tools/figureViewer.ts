@@ -41,6 +41,11 @@ type Row = { label: string; moving?: boolean; speed?: number; pose?: Pose; play?
 
 /** 非人形怪物（10 樓以上）的名稱 */
 const CREATURE_LABELS: Record<string, string> = {
+  rampart_golem: '要塞魔像',
+  rusted_knight: '鏽蝕重甲',
+  chain_warden: '鎖鏈獄卒',
+  fallen_templar: '墮落聖殿騎士',
+  abyss_priest: '深淵祭司',
   bone_hound: '骨刺獵獸',
   blood_lizard: '血鱗獵蜥',
   shadow_panther: '暗影獵豹',

@@ -8,6 +8,7 @@ import { STONE_WALKERS } from './StoneWalkers';
 import type { FigureModel, Pose } from './FigureModel';
 import { BONE, BONE_DARK, boneLimb, humanoid, monsterPoses, pelvis, ribcage, skull } from './MonsterParts';
 import { box, lowSphere, placeMesh, prism, type Mesh } from './Poly3D';
+import { knightStance, skeletonStance } from './HumanoidStance';
 import { bolt, glowEyes, iceCluster, pustule, recolor, rustSpike, variant } from './Variants';
 
 /**
@@ -53,7 +54,7 @@ const claws = (): Mesh[] => [
   ]),
 ];
 const ghoulEar = (side: 1 | -1): Mesh => placeMesh(prism(4, 0, 4.2, [1.2, 0.5], [0.1, 0.1], GHOUL_SKIN), [-0.3, 0, -1.2 * side], [4.2 * side, 6.2, -0.6]);
-const GHOUL: FigureModel = {
+const GHOUL: FigureModel = skeletonStance({
   hipHeight: 27,
   referenceRadius: 0.28,
   parts: humanoid({
@@ -102,7 +103,7 @@ const GHOUL: FigureModel = {
   }),
   poses: monsterPoses({ attack: 'claw', hunch: 0.65, gait: 'lope' }),
   gaitRate: 1.1,
-};
+}, { upperArmR: [-0.5, 0, -0.2], forearmR: [-0.6, 0, 0], handR: [0, 0, 0], upperArmL: [-0.5, 0, 0.2], forearmL: [-0.6, 0, 0], handL: [0, 0, 0], torso: [0.6, -0.12, 0.05] });
 
 /** 骷髏弓手：深綠色兜帽與破披風、斜背帶、背後紅羽箭筒、左臂皮護腕、反曲長弓 */
 const HOOD = 0x3e4a32;
@@ -126,7 +127,7 @@ const bow = (): Mesh[] => {
     box(0.25, 0.25, 26.8, 0xe8e0c8, [0, 1.4, 0]),
   ];
 };
-const ARCHER: FigureModel = {
+const ARCHER: FigureModel = skeletonStance({
   hipHeight: 29,
   referenceRadius: 0.3,
   parts: humanoid({
@@ -155,7 +156,7 @@ const ARCHER: FigureModel = {
   }),
   poses: monsterPoses({ attack: 'bow', gait: 'stalk' }),
   gaitRate: 0.85,
-};
+});
 
 /**
  * 重甲骷髏：全身板甲（多片構面）。
@@ -196,7 +197,7 @@ const greatAxe = (): Mesh[] => [
   box(2.4, 5, 2.4, STEEL_DARK, [0, -23, 0]),
   prism(4, -26, -30, [1, 1], [0.1, 0.1], STEEL),
 ];
-const ARMORED: FigureModel = {
+const ARMORED: FigureModel = knightStance({
   hipHeight: 29,
   referenceRadius: 0.3,
   parts: humanoid({
@@ -256,7 +257,7 @@ const ARMORED: FigureModel = {
   }),
   poses: monsterPoses({ attack: 'slam', twoHanded: true, gait: 'swagger' }),
   gaitRate: 0.7,
-};
+});
 
 
 /** 骷髏法師：紫色長袍（金色滾邊）、尖兜帽、腰帶與小袋、喇叭袖、左手法杖（頂端紫色水晶 + 金色爪座） */
@@ -273,7 +274,7 @@ const staff = (): Mesh[] => [
   prism(4, 17.6, 22.6, [2, 2], [0.1, 0.1], CRYSTAL, [0, 0, 0], 0),
   ...[0, 1, 2].map((i) => placeMesh(box(0.5, 4.4, 0.5, GOLD, [0, 2, 0]), [0.35, (i * Math.PI * 2) / 3, 0], [0, 15, 0])),
 ];
-const MAGE: FigureModel = {
+const MAGE: FigureModel = skeletonStance({
   hipHeight: 29,
   referenceRadius: 0.3,
   parts: humanoid({
@@ -310,7 +311,7 @@ const MAGE: FigureModel = {
   }),
   poses: monsterPoses({ attack: 'chop', cast: 'staff', gait: 'glide' }),
   gaitRate: 0.8,
-};
+}, { handL: [1.45, 0, 0] });
 
 // ─────────────────────────── 變種（同一個模型換色、加零件）───────────────────────────
 

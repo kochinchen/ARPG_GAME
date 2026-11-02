@@ -1,3 +1,4 @@
+import { behemothStance, skeletonStance } from './HumanoidStance';
 import { mass, organic, plate, shell, spineRow, teeth } from './Beasts';
 import { along, arthropod, bugPoses, seg, spike, wormPoses } from './Creatures';
 import type { FigureModel, PartDef, PoseSet } from './FigureModel';
@@ -747,13 +748,13 @@ const IMP = withParts(
 
 /** EnemyDef ID → 23～35 樓的新怪物 */
 export const LATE_MODELS: Record<string, FigureModel> = {
-  'enemy.rampart_golem': RAMPART_GOLEM,
-  'enemy.chain_warden': CHAIN_WARDEN,
-  'enemy.fallen_templar': FALLEN_TEMPLAR,
+  'enemy.rampart_golem': behemothStance(RAMPART_GOLEM),
+  'enemy.chain_warden': skeletonStance(CHAIN_WARDEN, {}, ['handL']),
+  'enemy.fallen_templar': skeletonStance(FALLEN_TEMPLAR),
   'enemy.crystal_weaver': CRYSTAL_WEAVER,
   'enemy.shade_stalker': SHADE_STALKER,
   'enemy.void_maw': VOID_MAW,
-  'enemy.abyss_priest': ABYSS_PRIEST,
+  'enemy.abyss_priest': skeletonStance(ABYSS_PRIEST, { handL: [1.45, 0, 0] }),
   'enemy.imp': IMP,
 };
 
