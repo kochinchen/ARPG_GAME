@@ -10,6 +10,8 @@
 
 📘 設計文件（怪物、裝備、成長模擬、組合技、開發歷程、故事與世界觀；含劇透）：https://kochinchen.github.io/ARPG_GAME/design/
 
+📖 小說《井誌》（中英文切換；含劇透）：https://kochinchen.github.io/ARPG_GAME/design/novel.html
+
 <table>
 <tr>
 <td width="72%"><img src="docs/images/cutscene-f1.jpg" alt="第一層的過場影片：紅髮女劍士站在被鐵鍊封住的井邊，下方是英文字幕與中文"><br><sub>進入新的一環前的過場影片：舊紙畫、英文旁白與字幕。</sub></td>
