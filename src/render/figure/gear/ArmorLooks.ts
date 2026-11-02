@@ -6,6 +6,7 @@ import { stretchMeshes, type Mesh } from '../Poly3D';
 import { AI_BOOT_FACES, AI_BOOT_FOOT, AI_BOOT_FOOT_R, AI_LIMB, AI_TORSO, aiBootShape, type BootFace } from '../HeroineAI';
 import { aiArmorParts } from './ArmorAI';
 import { styledArmor, type StyledArmor } from './StyledArmors';
+import { styledGlove, type StyledGlove } from './StyledGloves';
 import { styledHelmet, type StyledHelmet } from './StyledHelmets';
 import { FOREARM_LENGTH, heroineHand, scaleHead } from '../heroine/HeroineBody';
 import type { UniqueArmor } from './uniques/types';
@@ -68,36 +69,45 @@ import { hasRunes, itemThemes, RARITY_TINT, themeColors, THEMES, tintTones, type
 export type ArmorSlot = 'helmet' | 'armor' | 'gloves' | 'boots' | 'shield';
 type Spec = { helmet: HelmetSpec; armor: ArmorSpec; gloves: GloveSpec; boots: BootSpec; shield: ShieldSpec };
 
+// 一般裝備的鋼：比武器的鋼暗（STEEL 在光照下會洗成全白，看不出面的明暗）
+const PLAIN_STEEL: Tones = [0xa2a8b0, 0x6c7279, 0x4a4f56, 0x8e949b];
+const PLAIN_STEEL_DARK: Tones = [0x6a7078, 0x565b62, 0x3a3e44, 0x60666e];
+const PLAIN_SILVER: Tones = [0xaeb4be, 0x7c828c, 0x565b64, 0x9aa0aa];
+const PLAIN_BLOOD: Tones = [0x8e2f34, 0x6e2228, 0x44141a, 0x7e2a30];
+const PLAIN_ANCIENT: Tones = [0xb4a272, 0x8e7c52, 0x645636, 0xa29060];
+const PLAIN_SILVER_TRIM: Tones = [0xd8dce4, 0xaeb4be, 0x82888f, 0xc6cad2];
+const PLAIN_IRON: Tones = [0x7c8088, 0x5c6068, 0x3e4148, 0x6e7278];
+
 const HELMETS: HelmetSpec[] = [
-  { mat: HIDE, trim: HIDE_DARK, style: 'cap', height: 0.85 },
-  { mat: IRON, trim: DARK_STEEL, style: 'open', nasal: true },
-  { mat: STEEL, trim: GOLD, style: 'closed', plume: RED_LEATHER },
-  { mat: SILVER, trim: SILVER, style: 'closed', crest: SILVER, gem: 0x4aa8ff, runes: 0x6fc8ff },
-  { mat: BLACK_STEEL, trim: DARK_STEEL, style: 'closed', horns: { kind: 'up', size: 0.8, colors: BLACK_STEEL }, spikes: 3 },
-  { mat: BLOOD_STEEL, trim: DARK_STEEL, style: 'open', nasal: true, cheeks: true, horns: { kind: 'ram', size: 1, colors: BONE }, gem: 0xd02030 },
-  { mat: ANCIENT, trim: GOLD, style: 'closed', crown: GOLD, gem: 0xffb040 },
-  { mat: ABYSS, trim: VOID, style: 'closed', horns: { kind: 'up', size: 1.15, colors: VOID }, eyes: 0xc070ff, spikes: 3, spikeColors: VOID },
+  { mat: HIDE, trim: HIDE_DARK, style: 'cap', look: 'plainCap' },
+  { mat: PLAIN_IRON, trim: HIDE, style: 'open', look: 'plainNasal' },
+  { mat: PLAIN_STEEL, trim: GOLD, style: 'open', look: 'plainOpen' },
+  { mat: PLAIN_SILVER, trim: PLAIN_SILVER_TRIM, style: 'open', look: 'plainSilver', gem: 0x4aa8ff },
+  { mat: BLACK_STEEL, trim: DARK_STEEL, style: 'closed', look: 'plainClosed' },
+  { mat: PLAIN_BLOOD, trim: BONE, style: 'open', look: 'plainHalf' },
+  { mat: PLAIN_ANCIENT, trim: GOLD, style: 'open', look: 'plainCrest' },
+  { mat: ABYSS, trim: VOID, style: 'closed', look: 'plainClosed' },
 ];
 
 const ARMORS: ArmorSpec[] = [
-  { mat: CLOTH, trim: HIDE, style: 'cloth', pauldron: 0 },
-  { mat: IRON, trim: HIDE, style: 'chain', pauldron: 0.75, pauldronMat: HIDE },
-  { mat: STEEL, trim: GOLD, style: 'plate', pauldron: 1, trimPauldron: GOLD },
-  { mat: SILVER, trim: SILVER, style: 'plate', pauldron: 1.1, emblem: 0x4aa8ff, runes: 0x6fc8ff },
-  { mat: BLACK_STEEL, trim: DARK_STEEL, style: 'plate', pauldron: 1.4, spikes: true, tassets: true },
-  { mat: RED_LEATHER, trim: BONE, style: 'plate', ribs: BONE, pauldron: 1.1, pauldronMat: BONE, emblem: 0xd02030 },
-  { mat: ANCIENT, trim: GOLD, style: 'plate', pauldron: 1.4, trimPauldron: GOLD, emblem: 0xffb040, tassets: true },
-  { mat: ABYSS, trim: VOID, style: 'plate', carapace: true, pauldron: 1.5, pauldronMat: VOID, spikes: true, spikeColors: VOID, emblem: 0xc070ff },
+  { mat: CLOTH, trim: HIDE_DARK, style: 'cloth', pauldron: 0.2, pauldronMat: HIDE, look: 'plain' },
+  { mat: PLAIN_IRON, trim: HIDE_DARK, style: 'chain', pauldron: 0.5, pauldronMat: HIDE, look: 'plain' },
+  { mat: PLAIN_STEEL, trim: GOLD, style: 'plate', pauldron: 1, look: 'plain' },
+  { mat: PLAIN_SILVER, trim: PLAIN_SILVER_TRIM, style: 'plate', pauldron: 1.1, emblem: 0x4aa8ff, look: 'plain' },
+  { mat: BLACK_STEEL, trim: DARK_STEEL, style: 'plate', pauldron: 1.45, look: 'plain' },
+  { mat: PLAIN_BLOOD, trim: BONE, style: 'plate', pauldron: 1.1, look: 'plain' },
+  { mat: PLAIN_ANCIENT, trim: GOLD, style: 'plate', pauldron: 1.3, look: 'plain' },
+  { mat: ABYSS, trim: VOID, style: 'plate', pauldron: 1.5, look: 'plain' },
 ];
 
 const BOOTS: BootSpec[] = [
   { mat: HIDE, straps: true },
   { mat: HIDE, toe: IRON, shin: IRON, straps: true },
-  { mat: STEEL, toe: STEEL, shin: STEEL, knee: STEEL, cuff: GOLD },
-  { mat: SILVER, toe: SILVER, shin: SILVER, knee: SILVER, cuff: SILVER, gem: 0x4aa8ff, runes: 0x6fc8ff },
+  { mat: PLAIN_STEEL, toe: PLAIN_STEEL, shin: PLAIN_STEEL, knee: PLAIN_STEEL, cuff: GOLD },
+  { mat: PLAIN_SILVER, toe: PLAIN_SILVER, shin: PLAIN_SILVER, knee: PLAIN_SILVER, cuff: PLAIN_SILVER_TRIM, gem: 0x4aa8ff, runes: 0x6fc8ff },
   { mat: BLACK_STEEL, toe: DARK_STEEL, shin: BLACK_STEEL, knee: BLACK_STEEL, spikes: 3 },
-  { mat: RED_LEATHER, toe: BLOOD_STEEL, straps: true, spikes: 2, spikeColors: BONE, gem: 0xd02030 },
-  { mat: ANCIENT, toe: GOLD, shin: ANCIENT, knee: GOLD, cuff: GOLD, gem: 0xffb040 },
+  { mat: PLAIN_BLOOD, toe: PLAIN_BLOOD, straps: true, spikes: 2, spikeColors: BONE, gem: 0xd02030 },
+  { mat: PLAIN_ANCIENT, toe: GOLD, shin: PLAIN_ANCIENT, knee: GOLD, cuff: GOLD, gem: 0xffb040 },
   { mat: ABYSS, toe: VOID, shin: ABYSS, knee: VOID, spikes: 3, spikeColors: VOID, gem: 0xc070ff },
 ];
 
@@ -113,15 +123,24 @@ const SHIELDS: ShieldSpec[] = [
 ];
 
 const GLOVES: GloveSpec[] = [
-  { cuff: HIDE, hand: HIDE, fingers: HIDE },
-  { cuff: IRON, hand: HIDE, fingers: IRON, knuckle: IRON },
-  { cuff: STEEL, hand: STEEL, fingers: STEEL, knuckle: STEEL, plate: STEEL, flare: 0.8, trim: GOLD },
-  { cuff: SILVER, hand: SILVER, fingers: SILVER, knuckle: SILVER, plate: SILVER, flare: 0.6, trim: SILVER, gem: 0x4aa8ff, runes: 0x6fc8ff },
-  { cuff: BLACK_STEEL, hand: BLACK_STEEL, fingers: BLACK_STEEL, knuckle: DARK_STEEL, plate: BLACK_STEEL, claws: { len: 1.4, colors: DARK_STEEL }, spikes: 3 },
-  { cuff: RED_LEATHER, hand: BLOOD_STEEL, fingers: BLOOD_STEEL, knuckle: BONE, claws: { len: 2.6, colors: BONE }, gem: 0xd02030 },
-  { cuff: ANCIENT, hand: ANCIENT, fingers: ANCIENT, knuckle: GOLD, plate: ANCIENT, flare: 1.1, trim: GOLD, gem: 0xffb040 },
-  { cuff: ABYSS, hand: ABYSS, fingers: ABYSS, knuckle: VOID, plate: ABYSS, flare: 0.6, trim: VOID, claws: { len: 3.2, colors: VOID }, gem: 0xc070ff, spikes: 2, spikeColors: VOID },
+  { cuff: HIDE, hand: HIDE, fingers: HIDE, knuckle: HIDE_DARK, trim: HIDE_DARK, accent: HIDE_DARK, look: 'plainGauntlet', variant: 'soft' },
+  { cuff: PLAIN_IRON, hand: HIDE, fingers: HIDE, knuckle: PLAIN_IRON, plate: PLAIN_IRON, trim: HIDE_DARK, accent: HIDE, look: 'plainGauntlet' },
+  { cuff: PLAIN_STEEL, hand: PLAIN_STEEL, fingers: PLAIN_STEEL, knuckle: PLAIN_STEEL_DARK, plate: PLAIN_STEEL, flare: 0.8, trim: GOLD, accent: HIDE, look: 'plainGauntlet' },
+  { cuff: PLAIN_SILVER, hand: PLAIN_SILVER, fingers: PLAIN_SILVER, knuckle: PLAIN_STEEL_DARK, plate: PLAIN_SILVER, flare: 0.6, trim: PLAIN_SILVER_TRIM, accent: HIDE_DARK, gem: 0x4aa8ff, look: 'plainGauntlet' },
+  { cuff: BLACK_STEEL, hand: BLACK_STEEL, fingers: BLACK_STEEL, knuckle: DARK_STEEL, plate: BLACK_STEEL, trim: DARK_STEEL, accent: HIDE_DARK, look: 'plainGauntlet', variant: 'heavy' },
+  { cuff: PLAIN_BLOOD, hand: PLAIN_BLOOD, fingers: PLAIN_BLOOD, knuckle: BONE, plate: PLAIN_BLOOD, trim: BONE, accent: HIDE_DARK, look: 'plainGauntlet' },
+  { cuff: PLAIN_ANCIENT, hand: PLAIN_ANCIENT, fingers: PLAIN_ANCIENT, knuckle: GOLD, plate: PLAIN_ANCIENT, flare: 1.1, trim: GOLD, accent: HIDE, look: 'plainGauntlet', variant: 'heavy' },
+  { cuff: ABYSS, hand: ABYSS, fingers: ABYSS, knuckle: VOID, plate: ABYSS, flare: 0.6, trim: VOID, accent: HIDE_DARK, look: 'plainGauntlet', variant: 'heavy' },
 ];
+
+// 碎擊者之握、元素之觸的底色
+const SMASHER_ROCK: Tones = [0x443c38, 0x362f2c, 0x201c1a, 0x3e3632];
+const ELEMENT_DARK: Tones = [0x3a3048, 0x2c2438, 0x1a1524, 0x342a42];
+// 獵神之手、泰坦之握的配色
+const GOD_HUNTER: Tones = [0x3e3858, 0x2e2a46, 0x1a182c, 0x36314e];
+const GOD_BLADE: Tones = [0x6a55b0, 0x54429a, 0x2e2460, 0x5e4ca6];
+const GOD_TRIM: Tones = [0x4a4266, 0x3a3454, 0x241f38, 0x423b5c];
+const TITAN_BRONZE: Tones = [0x7a6a50, 0x5e5040, 0x3c3226, 0x6e5e48];
 
 const BASES: { [K in ArmorSlot]: Spec[K][] } = { helmet: HELMETS, armor: ARMORS, gloves: GLOVES, boots: BOOTS, shield: SHIELDS };
 
@@ -156,11 +175,11 @@ const UNIQUES: Record<string, UniqueArmor> = {
   'mythic.realm_walker': { tier: 8, themes: ['speed', 'arcane'], extra: { cuff: STAR, portal: 0xc890ff, wings: null } },
   // 幽影步：攻擊只打中影子 → 腳跟往後竄的影焰
   'mythic.phantom_step': { tier: 6, themes: ['speed', 'crit'], extra: { mat: SHADOW, toe: SHADOW, flames: SHADE_FLAME, spikes: 0, wings: null } },
-  'legendary.smasher_grip': { tier: 5, themes: ['guard', 'crit'], extra: { knuckle: GOLD, flare: 1, claws: null, spikes: 4 } },
-  'legendary.repeater_gloves': { tier: 3, themes: ['speed', 'crit'], extra: { hand: HIDE, cuff: HIDE, knuckle: BRONZE, plate: null, flare: 0 } },
-  'legendary.elemental_touch': { tier: 4, themes: ['fire', 'cold'], extra: {} },
-  'mythic.god_hunter_hands': { tier: 8, themes: ['crit'], extra: { claws: { len: 3.6, colors: STAR } } },
-  'mythic.titan_grip': { tier: 7, themes: ['guard', 'speed'], extra: { flare: 1.6, knuckle: GOLD } },
+  'legendary.smasher_grip': { tier: 5, themes: ['guard', 'crit'], extra: { look: 'obsidian', cuff: SMASHER_ROCK, hand: SMASHER_ROCK, fingers: SMASHER_ROCK, plate: SMASHER_ROCK, trim: BRONZE, knuckle: GOLD, flare: 1, claws: null, spikes: 4, glow: 0xff6a10 } },
+  'legendary.repeater_gloves': { tier: 3, themes: ['speed', 'crit'], extra: { look: 'barbed', variant: 'repeater', hand: HIDE, cuff: HIDE, fingers: HIDE, trim: BRONZE, accent: BONE, knuckle: BRONZE, plate: null, flare: 0 } },
+  'legendary.elemental_touch': { tier: 4, themes: ['fire', 'cold'], extra: { look: 'element', variant: 'tri', cuff: ELEMENT_DARK, hand: ELEMENT_DARK, fingers: ELEMENT_DARK, plate: ELEMENT_DARK, trim: GOLD, knuckle: GOLD, glow: 0xff6a20 } },
+  'mythic.god_hunter_hands': { tier: 8, themes: ['crit'], extra: { look: 'godHand', cuff: GOD_HUNTER, hand: GOD_HUNTER, fingers: GOD_HUNTER, plate: GOD_HUNTER, accent: GOD_BLADE, trim: GOD_TRIM, knuckle: GOD_TRIM, claws: { len: 1.2, colors: GOD_TRIM }, flare: 0.5, glow: 0x8a6aff } },
+  'mythic.titan_grip': { tier: 7, themes: ['guard', 'speed'], extra: { look: 'titanGrip', cuff: TITAN_BRONZE, hand: TITAN_BRONZE, fingers: TITAN_BRONZE, plate: GOLD, accent: TITAN_BRONZE, trim: GOLD, knuckle: GOLD, flare: 1.6, claws: null, glow: 0xff8a18 } },
   'legendary.bastion': { tier: 5, themes: ['guard', 'vital'], extra: { style: 'bulwark', runes: 0xffd060, shape: 'tower', mat: STEEL, rim: GOLD, cross: GOLD, spikes: null } },
   'legendary.flame_ward': { tier: 4, themes: ['fire'], extra: { style: 'emblem', runes: 0xff7a1a, shape: 'heater', mat: BRONZE, rim: DARK_STEEL, rays: EMBER } },
   'legendary.frost_aegis': { tier: 4, themes: ['cold'], extra: { style: 'emblem', runes: 0x9fe8ff, shape: 'round', mat: ICE, rim: SILVER, rays: ICE } },
@@ -180,6 +199,8 @@ export const UNIQUE_ARMOR_IDS = Object.keys(UNIQUES);
 
 /** 穿在身上時染色減弱：保留金屬本色，元素感交給符文、寶石與光芒 */
 const BODY_TINT = 0.75;
+/** 一般裝備的詞條只染一點點，主要靠小裝飾區分 */
+const PLAIN_TINT = 0.25;
 const UNIQUE_TINT = 0.35;
 
 /** 依階級、稀有度、主題算出造型參數 */
@@ -189,17 +210,19 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
   const spec = { ...base, ...extra } as Spec[K] & Record<string, unknown>;
   // extra 裡的 null = 拿掉基底的這個零件
   for (const [key, value] of Object.entries(extra)) if (value === null) delete spec[key];
+  // 樸實的一般頭盔、盔甲、手套、靴子（橘 / 紅的 tintScale 另外指定）：詞條不改輪廓，只有小裝飾
+  const plainGear = tintScale === 1 && slot !== 'shield';
   const { main, accent } = themeColors(themes);
   if (main) {
     const color = THEMES[main].color;
-    const k = RARITY_TINT[rarity] * BODY_TINT * tintScale;
+    const k = RARITY_TINT[rarity] * BODY_TINT * tintScale * (plainGear ? PLAIN_TINT : 1);
     const keys = slot === 'armor' ? ['mat', 'pauldronMat'] : slot === 'boots' ? ['mat', 'shin'] : slot === 'gloves' ? ['cuff', 'hand', 'fingers', 'plate'] : ['mat'];
     for (const key of keys) if (spec[key]) spec[key] = tintTones(spec[key] as Tones, color, k);
     spec.gem = accent ?? color;
     if (slot === 'armor') spec.emblem = color;
     if (slot === 'shield') spec.gem = color;
-    if (hasRunes(rarity)) spec.runes = color;
-    else delete spec.runes;
+    if (hasRunes(rarity) && !plainGear) spec.runes = color;
+    else if (!plainGear || slot !== 'boots') delete spec.runes;
   }
   const wing = main ? tintTones(SILVER, THEMES[main].color, 0.3) : SILVER;
   for (const th of themes) {
@@ -229,7 +252,10 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
     }
     if (th === 'speed') {
       // 專屬外觀自己指定了翅膀（或 null = 不要翅膀）時不覆蓋
-      if ((slot === 'helmet' || slot === 'boots') && !('wings' in extra)) spec.wings = wing;
+      if ((slot === 'helmet' || slot === 'boots') && !('wings' in extra)) {
+        spec.wings = wing;
+        if (plainGear && slot === 'boots') spec.wingScale = 0.4;
+      }
       if (slot === 'shield') spec.size = (spec.size as number) * 0.9;
       if (slot === 'gloves') spec.flare = 0;
       if (slot === 'armor') {
@@ -239,7 +265,7 @@ export function armorSpec<K extends ArmorSlot>(slot: K, tier: number, rarity: Ra
     }
     if (th === 'thorns') {
       if (slot === 'armor') spec.spikes = true;
-      else spec.spikes = Math.max((spec.spikes as number | undefined) ?? 0, slot === 'shield' ? 5 : 4);
+      else spec.spikes = plainGear ? Math.min((spec.spikes as number | undefined) ?? 2, 3) : Math.max((spec.spikes as number | undefined) ?? 0, slot === 'shield' ? 5 : 4);
       spec.spikeColors ??= DARK_STEEL;
     }
   }
@@ -276,7 +302,12 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
   const hide = new Set<string>();
   const skinColors = new Map<number, number>();
   const { helmet, armor, gloves, boots, shield } = specs;
-  if (gloves) {
+  if (gloves?.look) {
+    // 橘 / 紅的專屬造型：依手臂的形狀貼上去，藏起被蓋住的手與護腕
+    const styled = styledGloveFor(gloves)!;
+    for (const [j, meshes] of styled.parts) parts.set(j, meshes);
+    for (const region of styled.hide) hide.add(region);
+  } else if (gloves) {
     // 護手套在前臂外面；手換成手套（藏起 AI 版的手）；指節甲、爪、尖刺只在放大時畫（角色預覽）
     const k = AI_LIMB.forearm / OLD.forearm;
     parts.set('forearmL', along(gauntletPiece(gloves), k));
@@ -332,15 +363,40 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
 }
 
 /** 橘 / 紅頭盔的專屬造型（沒有 look 時 = undefined） */
-export function styledHelmetFor(helmet: HelmetSpec): StyledHelmet | undefined {
+export function styledHelmetFor(helmet: HelmetSpec, forIcon = false): StyledHelmet | undefined {
   if (!helmet.look) return undefined;
-  return styledHelmet({ look: helmet.look, mat: helmet.mat, trim: helmet.trim, glow: helmet.glow ?? helmet.eyes ?? helmet.gem ?? 0xffffff, ...(helmet.cloth ? { cloth: helmet.cloth } : {}) });
+  return styledHelmet({
+    look: helmet.look,
+    mat: helmet.mat,
+    trim: helmet.trim,
+    glow: helmet.glow ?? helmet.eyes ?? helmet.gem ?? 0xffffff,
+    ...(helmet.cloth ? { cloth: helmet.cloth } : {}),
+    ...(helmet.wings ? { feather: helmet.wings } : {}),
+    ...(helmet.spikes ? { spikes: helmet.spikeColors ?? DARK_STEEL } : {}),
+    ...(forIcon ? { solid: true } : {}),
+  });
 }
 
 /** 橘 / 紅盔甲的專屬造型（沒有 look 時 = undefined） */
 export function styledArmorFor(armor: ArmorSpec): StyledArmor | undefined {
   if (!armor.look) return undefined;
-  return styledArmor({ look: armor.look, mat: armor.mat, trim: armor.trim, glow: armor.glow ?? armor.emblem ?? 0xffffff, ...(armor.cloth ? { cloth: armor.cloth } : {}) });
+  return styledArmor({
+    look: armor.look,
+    mat: armor.mat,
+    trim: armor.trim,
+    glow: armor.glow ?? armor.emblem ?? 0xffffff,
+    style: armor.style,
+    pauldron: armor.pauldron,
+    ...(armor.cloth ? { cloth: armor.cloth } : {}),
+    ...(armor.pauldronMat ? { shoulder: armor.pauldronMat } : {}),
+    ...(armor.spikes ? { spikes: armor.spikeColors ?? DARK_STEEL } : {}),
+  });
+}
+
+/** 橘 / 紅手套的專屬造型（沒有 look 時 = undefined） */
+export function styledGloveFor(gloves: GloveSpec): StyledGlove | undefined {
+  if (!gloves.look) return undefined;
+  return styledGlove({ look: gloves.look, mat: gloves.cuff, trim: gloves.trim ?? gloves.cuff, claw: gloves.claws?.colors ?? gloves.knuckle ?? gloves.cuff, glow: gloves.glow ?? gloves.gem ?? 0xffffff, ...(gloves.accent ? { accent: gloves.accent } : {}), ...(gloves.variant ? { variant: gloves.variant } : {}), ...(gloves.claws ? { clawLen: gloves.claws.len } : {}), ...(gloves.spikes ? { spikes: gloves.spikeColors ?? DARK_STEEL } : {}) });
 }
 
 /**

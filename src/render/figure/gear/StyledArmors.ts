@@ -9,7 +9,7 @@ import { chain, darken, gem, lighten, taper, type Tones } from '../weapons/Weapo
  * 女主角的身體中心在 z ≈ 2.5（胸口最前面約 6.9、背約 -1.6）；大腿中段約 x ±6、z -1.5 ～ 5.4。
  */
 
-export type ArmorLook = 'obsidian' | 'carapace' | 'robe' | 'barbed' | 'abyss' | 'undying' | 'fallen' | 'spider' | 'sovereign';
+export type ArmorLook = 'obsidian' | 'carapace' | 'robe' | 'barbed' | 'abyss' | 'undying' | 'fallen' | 'spider' | 'sovereign' | 'plain';
 
 export interface StyledArmorSpec {
   look: ArmorLook;
@@ -19,6 +19,14 @@ export interface StyledArmorSpec {
   glow: number;
   /** 布條的顏色（倒刺輕甲、不朽者、墮騎黑鎧、統御者魔鎧） */
   cloth?: Tones;
+  // ── 一般盔甲（plain） ──
+  /** 布衣、鎖子甲或板甲 */
+  style?: 'cloth' | 'chain' | 'plate';
+  /** 肩甲的大小（0 ～ 2）與材質 */
+  pauldron?: number;
+  shoulder?: Tones;
+  /** 詞條小裝飾：肩上兩根小尖刺（荊棘） */
+  spikes?: Tones;
 }
 
 const FACETS = { size: 1.2, bump: 0.18, vary: 0.06 };
@@ -871,7 +879,47 @@ export interface StyledArmor {
   hide: string[];
 }
 
-const LOOKS: Record<ArmorLook, (s: StyledArmorSpec) => StyledArmor> = { obsidian, carapace, robe, barbed, abyss, undying, fallen, spider, sovereign };
+// ─────────────────────────── 一般 樸實的胸甲 ───────────────────────────
+
+/**
+ * 一般盔甲（設計稿：art/gear/plain_sets/concept/八階整套.png）：貼身的胸甲與肩甲，腰露出來，腰帶與裙子照舊；
+ * 布衣是繫帶的 V 領、鎖子甲與板甲有胸板；有詞條時胸口多一顆小寶石（glow 不是白色）、肩上兩根小尖刺。
+ */
+function plain(s: StyledArmorSpec): StyledArmor {
+  const parts = new Map<Joint, Mesh[]>();
+  const { mat, trim, glow, style = 'plate', pauldron = 1 } = s;
+  const shoulderMat = s.shoulder ?? mat;
+  const plate: Tones = [lighten(mat[0]!, 0.14), mat[3]!, mat[2]!, mat[0]!];
+  const chest: Mesh[] = [F(loft(OBSIDIAN_CHEST, style === 'chain' ? 18 : 14, mat, 1), 1, 0.12)];
+  const top = (x: number, y: number) => frontZ(OBSIDIAN_CHEST, x, y) + 0.1;
+  if (style !== 'cloth') {
+    // 兩片胸板、中央一道細脊
+    if (style === 'plate') {
+      for (const x of [-1, 1]) chest.push(F(tone(lowSphere(2.2, mat[0]!, [x * 2.25, 3, frontZ(OBSIDIAN_CHEST, x * 2.25, 3) - 0.85], 6, 3, [1.05, 0.95, 0.62]), plate, 3), 3 + x, 0.2));
+      chest.push(...line(top, [[0, 3.9], [0, -0.8]], [mat[3]!, mat[0]!, mat[2]!, mat[1]!], 0.14));
+    }
+    chest.push(...[-1, 1].flatMap((x) => line(top, [[0, 3.9], [x * 1.3, 4.9], [x * 2.8, 5.6]], trim, 0.16)));
+  } else {
+    // 繫帶的 V 領
+    for (const [i, y] of [4.6, 3.7, 2.8].entries()) chest.push(...line(top, [[-0.55 - (2 - i) * 0.1, y], [0.55 + (2 - i) * 0.1, y - 0.5]], trim, 0.1), ...line(top, [[0.55 + (2 - i) * 0.1, y], [-0.55 - (2 - i) * 0.1, y - 0.5]], trim, 0.1));
+  }
+  chest.push(tone(prism(14, -1.15, -0.8, [3.7, 3.4], [3.72, 3.42], trim[1]!, [0, 0, 2.4]), trim, 5));
+  chest.push(F(tone(prism(10, 5.7, 6.7, [3.5, 3], [3.25, 2.8], mat[1]!, [0, 0, 1.25]), mat, 4), 4, 0.08));
+  if (glow !== 0xffffff) chest.push(gem(0.5, [0, 4.1, top(0, 4.1) + 0.12], glow, [0.85, 1.1, 0.5], 6, 3));
+  parts.set('chest', chest);
+  const k = 0.54 + pauldron * 0.2;
+  both((side) => {
+    const out = shoulder(side, shoulderMat, k, 30);
+    // 肩甲下緣的飾邊（高度跟著肩甲大小）
+    const y = -3.85 * k;
+    out.push(tone(prism(10, y, y - 0.25, [3.27 * k, 3 * k], [3.32 * k, 3.05 * k], trim[1]!, [side * 1.3, 0, 1.8]), trim, 34));
+    if (s.spikes) for (const dz of [-0.9, 0.9]) out.push(dense(taper([side * (1 + 2 * k * 0.5), 1.1 * k, 1.8 + dz], [side * (1.7 + 2 * k * 0.5), 2.7 * k, 1.8 + dz], [0.42, 0.42], [0.04, 0.04], s.spikes, 5, 36, 0.3), 36));
+    return out;
+  }, parts);
+  return { parts, hide: ['chest', 'pauldronL', 'pauldronR'] };
+}
+
+const LOOKS: Record<ArmorLook, (s: StyledArmorSpec) => StyledArmor> = { obsidian, carapace, robe, barbed, abyss, undying, fallen, spider, sovereign, plain };
 
 /** 專屬造型的盔甲 */
 export const styledArmor = (s: StyledArmorSpec): StyledArmor => LOOKS[s.look](s);
