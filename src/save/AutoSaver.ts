@@ -67,6 +67,11 @@ export class AutoSaver {
     if (!this.pending) void this.write(data);
   }
 
+  /** 只同步寫緊急副本（共用倉庫有變動時，和倉庫的緊急副本在同一個工作裡寫，等於同時寫入） */
+  flushEmergency(): void {
+    if (!this.disabled) this.service.writeEmergency(this.captureForced());
+  }
+
   /**
    * 立即存檔（選單的「儲存遊戲」、返回標題 / 離開前）：等進行中的寫入完成後再寫一次。
    * forced = true 時倒地中也存（存成已重生的狀態）。回傳存檔時間；不適合存檔時回傳 null。

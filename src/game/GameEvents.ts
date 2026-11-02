@@ -159,6 +159,14 @@ export interface GameEvents {
   AttributeAllocated: { attribute: string; points: number };
   /** 點了商人（UI 開啟商店） */
   ShopOpened: Record<string, never>;
+  /** 點了共用倉庫（UI 開啟倉庫面板） */
+  StashOpened: Record<string, never>;
+  /** 倉庫的格子滿了，放不進去 */
+  StashFull: Record<string, never>;
+  /** 藥水不能放進倉庫 */
+  StashRejected: Record<string, never>;
+  /** 角色等級不到熔核的物品等級，不能鑲入 */
+  CoreLevelTooLow: { required: number };
   /** 商店交易：gold 為金幣變化（買 / 賭博為負） */
   ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll' | 'drill' | 'fuse'; gold: number; rarity?: Rarity };
   /** 融合完成（結果動畫：核色、核階、印記是否命中） */

@@ -228,6 +228,9 @@ export class Renderer {
     world.events.on('EquipFailed', (e) =>
       say(world.player.position, e.reason === 'level' ? '等級不足' : e.reason === 'shield' ? '盾牌只能搭配劍或斧' : e.reason === 'noSocket' ? '這件裝備沒有空孔' : '無法裝備在這裡', PALETTE.manaText),
     );
+    world.events.on('CoreLevelTooLow', (e) => say(world.player.position, `需要等級 ${e.required} 才能鑲入`, PALETTE.manaText));
+    world.events.on('StashFull', () => say(world.player.position, '倉庫已滿', PALETTE.manaText));
+    world.events.on('StashRejected', () => say(world.player.position, '藥水不能放進倉庫', PALETTE.manaText));
     world.events.on('PlayerLeveledUp', (e) => {
       this.floatingText.spawnText(projection.toScreen(world.player.position), `升級！Lv ${e.level}`, PALETTE.marker, 20);
     });
@@ -350,7 +353,7 @@ export class Renderer {
     const local = this.camera.toLayer(screen);
     const exit = this.world.exit ? [this.world.exit] : [];
     const stairs = this.world.stairsUp ? [this.world.stairsUp] : [];
-    return this.interactables.pickAt(local, [...stairs, ...this.world.merchants, ...this.world.waypoints, ...exit, ...this.world.relics, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
+    return this.interactables.pickAt(local, [...stairs, ...this.world.merchants, ...this.world.stashChests, ...this.world.waypoints, ...exit, ...this.world.relics, ...this.world.chests.filter((c) => !c.opened), ...this.world.groundItems]);
   }
 
   /** 游標下的敵對角色（畫面空間判定，點到頭或身體都算）；由 Input 在送出指令前呼叫 */
@@ -414,7 +417,7 @@ export class Renderer {
     this.tileMap.update(playerPos, dt);
     this.minimap.update(playerPos, this.minimapMarkers());
     this.interactables.setHovered(this.hoveredInteractable);
-    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000, this.world.waypoints, this.world.relics);
+    this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000, this.world.waypoints, this.world.relics, this.world.stashChests, this.world.stashNear);
     this.markers.update(this.app.ticker.lastTime);
     this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
     this.floatingText.update(dt);

@@ -6,6 +6,8 @@ export interface SystemActions {
   setPaused(paused: boolean): void;
   exportSave(): void;
   importSave(file: File): void;
+  exportStash(): void;
+  importStash(file: File): void;
   /** 刪除所有存檔並重新開始（呼叫前由 UI 確認） */
   newCharacter(): void;
   /** 立即存檔；回傳是否成功 */
@@ -30,6 +32,12 @@ export const systemBridge = {
   },
   importSave(file: File): void {
     actions?.importSave(file);
+  },
+  exportStash(): void {
+    actions?.exportStash();
+  },
+  importStash(file: File): void {
+    actions?.importStash(file);
   },
   newCharacter(): void {
     actions?.newCharacter();

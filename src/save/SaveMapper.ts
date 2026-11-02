@@ -284,7 +284,7 @@ function toGroundContent(entry: SavedGroundItem['entry']): GroundContent {
 }
 
 /** Schema 的 optional 欄位可能是 undefined；ItemInstance 不允許，沒有值時省略 */
-function toItem(saved: SavedItem): ItemInstance {
+export function toItem(saved: SavedItem): ItemInstance {
   const { legendaryId, legendaryRolls, quality, rerolls, sockets, ...rest } = clone(saved);
   return {
     ...rest,
@@ -296,7 +296,7 @@ function toItem(saved: SavedItem): ItemInstance {
   };
 }
 
-function toCore(saved: SavedCore): CoreInstance {
+export function toCore(saved: SavedCore): CoreInstance {
   const { element, pure, brand, ...rest } = clone(saved);
   return {
     ...rest,

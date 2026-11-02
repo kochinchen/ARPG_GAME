@@ -200,6 +200,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     // 高於等級的基底要升級才能穿；早期拿到的好裝備要靠飛昇跟上樓層
     highRarityTier: { offsets: [-1, 0, 1, 2], weights: [15, 40, 30, 15] },
   },
+  // 共用倉庫（設計者 2026-11-02）：3 個存檔欄位共用，5 頁、每頁 6 × 5 共 30 格；只放裝備與熔核。range：離寶箱多遠面板自動關閉
+  stash: { pages: 5, cols: 6, rows: 5, range: 4 },
   salvage: {
     slots: 10,
     // 白 1～2、藍 2～4、黃 4～7、紫 7～11、橘 11～15、紅 16～20

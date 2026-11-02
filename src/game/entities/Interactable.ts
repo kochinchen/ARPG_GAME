@@ -54,6 +54,13 @@ export interface Merchant {
   position: Vec2;
 }
 
+/** 共用倉庫的華麗寶箱（每位商人旁邊一個，都連到同一個倉庫）：點擊開啟倉庫面板 */
+export interface StashChest {
+  kind: 'stash';
+  id: number;
+  position: Vec2;
+}
+
 /**
  * 傳送口：本層的中途存檔點啟動過之後（包含以前來過、已經到過中途的樓層），
  * 樓梯口旁與中途存檔點旁各一個，互相傳送。
@@ -78,4 +85,4 @@ export interface Relic {
 }
 
 /** 玩家可以點擊互動的物件 */
-export type Interactable = GroundItem | Chest | ExitPortal | StairsUp | Merchant | Waypoint | Relic;
+export type Interactable = GroundItem | Chest | ExitPortal | StairsUp | Merchant | StashChest | Waypoint | Relic;

@@ -5,7 +5,7 @@ import type { GameWorld } from '../../game/GameWorld';
 import type { ActorId } from '../../game/entities/Actor';
 import { buildCharacterView, characterSignature } from './CharacterView';
 import { gameView, type ComboBarView, type SkillSlotView } from './GameViewStore';
-import { buildInventoryView } from './InventoryView';
+import { buildInventoryView, buildStashView } from './InventoryView';
 import { buildSkillTreeView, comboDenial, skillTreeSignature } from './SkillTreeView';
 import { buildShopView, shopSignature } from './ShopView';
 
@@ -20,6 +20,7 @@ const SOUL_LINE_SECONDS = 5.5;
  */
 export class ViewSync {
   private inventoryVersion = -1;
+  private stashVersion = -1;
   private skillTreeSig = '';
   private characterSig = '';
   private shopSig = '';
@@ -45,6 +46,7 @@ export class ViewSync {
       this.discoveryTimer = window.setTimeout(() => (gameView.discovery = null), DISCOVERY_SECONDS * 1000);
     });
     events.on('ShopOpened', () => gameView.shopRequest++);
+    events.on('StashOpened', () => gameView.stashRequest++);
     // 遺物、筆記頁：翻開井誌，停在那一頁
     const book = buildBook(this.data);
     const bookPages = [...book, ...hiddenBookPages(this.data, book.length)];
@@ -134,6 +136,11 @@ export class ViewSync {
       this.inventoryVersion = world.itemsVersion;
       gameView.inventory = buildInventoryView(world, this.data);
     }
+    gameView.stashNear = world.stashNear;
+    if (gameView.stashVisible && world.stash.version !== this.stashVersion) {
+      this.stashVersion = world.stash.version;
+      gameView.stash = buildStashView(world, this.data);
+    } else if (!gameView.stashVisible) this.stashVersion = -1;
     const treeSig = skillTreeSignature(world);
     if (treeSig !== this.skillTreeSig) {
       this.skillTreeSig = treeSig;

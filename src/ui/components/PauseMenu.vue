@@ -12,12 +12,20 @@ const emit = defineEmits<{ close: []; toggleDev: []; bestiary: []; items: [] }>(
 
 const page = ref<'main' | 'controls'>('main');
 const importInput = ref<HTMLInputElement | null>(null);
+const importStashInput = ref<HTMLInputElement | null>(null);
 
 function onImportFile(e: Event) {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = '';
   if (file) systemBridge.importSave(file);
+}
+
+function onImportStash(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (file) systemBridge.importStash(file);
 }
 
 const saving = ref(false);
@@ -63,6 +71,7 @@ const CONTROLS: [string, string][] = [
   ['I', '背包與裝備（「整理」依類別、等級排列）'],
   ['Tab', '小地圖 / 全地圖（走過的地方才會顯示）'],
   ['Ctrl + 點擊', '商店開啟時：把背包物品賣給商人'],
+  ['共用倉庫', '商人旁邊的華麗寶箱：3 個存檔欄位共用，可以放裝備與熔核；Ctrl（Mac：⌘）+ 點擊直接存取，每頁可以「整理」'],
   ['拆解區', '背包中：拿著裝備點拆解區的格子放進去，按「拆掉」換成精華（飛昇用）'],
   ['Esc', '關閉面板 / 選單（暫停）'],
 ];
@@ -115,7 +124,12 @@ const CONTROLS: [string, string][] = [
         <button type="button" @click="importInput?.click()">匯入存檔</button>
         <input ref="importInput" type="file" accept=".json,application/json" hidden @change="onImportFile" />
       </div>
-      <p class="hint">遊戲會自動存檔。匯出的檔案可以在別台電腦或瀏覽器匯入。</p>
+      <div class="row">
+        <button type="button" @click="systemBridge.exportStash()">匯出倉庫</button>
+        <button type="button" @click="importStashInput?.click()">匯入倉庫</button>
+        <input ref="importStashInput" type="file" accept=".json,application/json" hidden @change="onImportStash" />
+      </div>
+      <p class="hint">遊戲會自動存檔。匯出的檔案可以在別台電腦或瀏覽器匯入。共用倉庫是所有欄位共用的，要另外匯出。</p>
 
       <h3>遊戲</h3>
       <div class="row">

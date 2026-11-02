@@ -26,6 +26,7 @@ import Notices from './components/Notices.vue';
 import PauseMenu from './components/PauseMenu.vue';
 import SkillTreePanel from './components/SkillTreePanel.vue';
 import ShopPanel, { type ShopTab } from './components/ShopPanel.vue';
+import StashPanel from './components/StashPanel.vue';
 import TouchControls from './components/TouchControls.vue';
 import { isTouchDevice, touchOverride } from './bridge/TouchBridge';
 
@@ -40,11 +41,38 @@ const shopOpen = ref(false);
 watch(
   () => gameView.shopRequest,
   () => {
+    stashOpen.value = false;
     shopOpen.value = true;
     open.inventory = true;
     open.character = open.skills = false;
   },
 );
+/** 共用倉庫：點寶箱時開啟（同時打開背包），離開寶箱附近自動關閉；和商人都在左側，一次開一個 */
+const stashOpen = ref(false);
+/** 倉庫目前這一頁的第一格（背包 Ctrl + 點擊 / 點兩下時從這裡找空格） */
+const stashFrom = ref(0);
+watch(
+  () => gameView.stashRequest,
+  () => {
+    shopOpen.value = false;
+    stashOpen.value = true;
+    open.inventory = true;
+    open.character = open.skills = false;
+  },
+);
+watch(
+  () => gameView.stashNear,
+  (near) => {
+    if (!near) stashOpen.value = false;
+  },
+);
+watch(stashOpen, (isOpen) => {
+  gameView.stashVisible = isOpen;
+  if (!isOpen) {
+    if (hoverTarget.value?.kind === 'stash') hoverTarget.value = null;
+    if (selected.value?.kind === 'stash') selected.value = null;
+  }
+});
 watch(
   () => gameView.shop.near,
   (near) => {
@@ -64,12 +92,13 @@ watch(touchMode, (touch) => displayBridge.setMapInset(touch ? 96 : 0), { immedia
  * 觸控版畫面放不下：角色、技能、背包、商人最多同時開兩個（商人＋背包、技能＋背包、角色＋技能、角色＋背包），
  * 開第三個時關掉最早開的。左右兩欄：背包固定在右邊，其他依角色 → 技能 → 商人的順序排。
  */
-type DockPanel = 'character' | 'skills' | 'inventory' | 'shop';
-const DOCK_PANELS: DockPanel[] = ['character', 'skills', 'inventory', 'shop'];
+type DockPanel = 'character' | 'skills' | 'inventory' | 'shop' | 'stash';
+const DOCK_PANELS: DockPanel[] = ['character', 'skills', 'inventory', 'shop', 'stash'];
 const dockOrder: DockPanel[] = [];
-const isDockOpen = (panel: DockPanel) => (panel === 'shop' ? shopOpen.value : open[panel]);
+const isDockOpen = (panel: DockPanel) => (panel === 'shop' ? shopOpen.value : panel === 'stash' ? stashOpen.value : open[panel]);
 function closeDock(panel: DockPanel) {
   if (panel === 'shop') shopOpen.value = false;
+  else if (panel === 'stash') stashOpen.value = false;
   else open[panel] = false;
 }
 for (const panel of DOCK_PANELS) {
@@ -88,7 +117,7 @@ for (const panel of DOCK_PANELS) {
 const dockOpen = computed(() => DOCK_PANELS.some(isDockOpen));
 
 /** 依最新快照計算，穿脫或交換後 Tooltip 立即更新 */
-const hovered = computed(() => resolveHover(gameView.inventory, hoverTarget.value));
+const hovered = computed(() => resolveHover(gameView.inventory, hoverTarget.value, gameView.stash));
 
 const DEV_KEY = 'arpg.devOverlay';
 function readDevPref(): boolean {
@@ -140,7 +169,7 @@ function toggle(panel: PanelName, value = !open[panel]) {
   if (open.menu && panel !== 'menu') return;
   open[panel] = value;
   // 商店也在左側
-  if (value && (panel === 'character' || panel === 'skills')) shopOpen.value = false;
+  if (value && (panel === 'character' || panel === 'skills')) shopOpen.value = stashOpen.value = false;
   if (!open.inventory) hoverTarget.value = null;
 }
 // 問答框開著時也暫停（像以前瀏覽器的確認框一樣，回答前遊戲不會動）
@@ -151,7 +180,7 @@ watch(
 
 function closeAll() {
   open.character = open.skills = open.inventory = false;
-  shopOpen.value = false;
+  shopOpen.value = stashOpen.value = false;
   hoverTarget.value = null;
 }
 
@@ -190,7 +219,7 @@ function onKeyDown(e: KeyboardEvent) {
       else if (open.bestiary) open.bestiary = false;
       else if (itemCodexOpen.value) itemCodexOpen.value = false;
       else if (open.menu) open.menu = false;
-      else if (open.character || open.skills || open.inventory || shopOpen.value) closeAll();
+      else if (open.character || open.skills || open.inventory || shopOpen.value || stashOpen.value) closeAll();
       else open.menu = true;
       break;
   }
@@ -206,7 +235,7 @@ function onPointerMove(e: PointerEvent) {
 
 // ---- 觸控背包：點一下選取（顯示說明）、選取後長按拿起並拖到別處放下 ----
 const selected = ref<HoverTarget | null>(null);
-const selectedInfo = computed(() => resolveHover(gameView.inventory, selected.value));
+const selectedInfo = computed(() => resolveHover(gameView.inventory, selected.value, gameView.stash));
 watch(
   () => open.inventory,
   (isOpen) => {
@@ -261,6 +290,9 @@ function clickTarget(target: HoverTarget) {
  */
 function onQuick(target: HoverTarget) {
   selected.value = null;
+  // 倉庫開著：點兩下直接存取
+  if (target.kind === 'stash') return gameBridge.send({ type: 'StashWithdraw', cell: target.cell });
+  if (stashOpen.value && target.kind === 'cell') return gameBridge.send({ type: 'StashDeposit', cell: target.cell, fromCell: stashFrom.value });
   if (!shopOpen.value || target.kind === 'salvage') return;
   const entry = resolveHover(gameView.inventory, target)?.entry;
   if (entry?.kind !== 'item') return;
@@ -301,11 +333,13 @@ function onHover(target: HoverTarget | null) {
 
 /** Tooltip 放在游標左側（背包在右邊），並保持在畫面內 */
 const tooltipStyle = computed(() => ({
-  right: `${Math.max(8, window.innerWidth - pointer.value.x + 16)}px`,
+  // 倉庫在左邊：放在游標右側
+  ...(hoverTarget.value?.kind === 'stash' ? { left: `${pointer.value.x + 16}px` } : { right: `${Math.max(8, window.innerWidth - pointer.value.x + 16)}px` }),
   top: `${Math.min(Math.max(8, pointer.value.y - 20), window.innerHeight - 280)}px`,
 }));
 const heldStyle = computed(() => ({ left: `${pointer.value.x}px`, top: `${pointer.value.y}px` }));
 const heldHint = computed(() => {
+  if (stashOpen.value) return dragOrigin.value ? '放到背包格、裝備欄或倉庫' : '點倉庫的格子放進去 · 點背包 / 裝備欄放下';
   if (dragOrigin.value) return '放到背包格、裝備欄、拆解區或商人';
   if (gameView.inventory.held?.kind === 'core') return '點有空孔的裝備鑲入 · 點背包放下 · 點地面丟棄';
   return '點背包 / 裝備欄放下 · 點地面丟棄';
@@ -360,11 +394,27 @@ onBeforeUnmount(() => {
       <SkillTreePanel v-if="open.skills" :view="gameView.skillTree" @close="open.skills = false" />
     </div>
     <ShopPanel v-if="shopOpen" :view="gameView.shop" @close="shopOpen = false" @tab="(t) => (shopTab = t)" />
+    <StashPanel
+      v-if="stashOpen && gameView.stash.cells.length > 0"
+      :view="gameView.stash"
+      :holding="gameView.inventory.held !== null"
+      :touch="touchMode"
+      :selected="selected"
+      :dev-available="devAvailable"
+      @close="stashOpen = false"
+      @hover="onHover"
+      @select="(target) => (selected = target)"
+      @grab="onGrab"
+      @quick="onQuick"
+      @page="(first) => (stashFrom = first)"
+    />
     <InventoryPanel
       v-if="open.inventory"
       :view="gameView.inventory"
       :gold="gameView.hud.gold"
       :shop-open="shopOpen"
+      :stash-open="stashOpen"
+      :stash-from="stashFrom"
       :touch="touchMode"
       :selected="selected"
       @close="toggle('inventory', false)"

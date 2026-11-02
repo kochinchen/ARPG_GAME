@@ -9,7 +9,7 @@ import { box, orient, type Face, type Mesh, type V3 } from './Poly3D';
  *
  * 模型座標：Y 向上、Z 為寶箱正面（鎖扣那一面）。
  */
-export type ChestStyle = 'wood' | 'royal';
+export type ChestStyle = 'wood' | 'royal' | 'vault';
 
 interface Palette {
   wood: number[];
@@ -18,6 +18,8 @@ interface Palette {
   lock: number[];
   inside: number;
   gem: number | null;
+  /** 華麗版：箱身金飾、角柱寶石、箱蓋頂飾（共用倉庫） */
+  ornate?: boolean;
 }
 
 const PALETTES: Record<ChestStyle, Palette> = {
@@ -25,6 +27,8 @@ const PALETTES: Record<ChestStyle, Palette> = {
   wood: { wood: [0x8a5a30, 0x6e4424], woodDark: [0x5a3a1e, 0x4a2e18], metal: [0x5a5e66, 0x3e4148], lock: [0xd0a24a, 0xa87c2a], inside: 0x1e140c, gem: null },
   // 王座廳的寶箱：深紅木 + 金箍 + 紅寶石
   royal: { wood: [0x7a2a26, 0x5c1c1a], woodDark: [0x3e1210, 0x2e0c0a], metal: [0xe0b050, 0xb08030], lock: [0xf0c860, 0xc09838], inside: 0x160808, gem: 0xd8283a },
+  // 共用倉庫：深藍黑木 + 亮金飾 + 藍寶石（和會掉東西的寶箱一眼就分得出來）
+  vault: { wood: [0x23304f, 0x18223c], woodDark: [0x101729, 0x0b1020], metal: [0xf0c464, 0xc0903a], lock: [0xffdc80, 0xd4a848], inside: 0x0c1020, gem: 0x3a8cff, ornate: true },
 };
 
 /** 箱身寬（X）、深（Z）、高（Y）、牆厚 */
@@ -124,7 +128,27 @@ function chestParts(p: Palette): FigureModel['parts'] {
       [-bandX, bandX].flatMap((x, i) => [3.5, 7.5, 11.5].map((y, k) => rivet([x, y, D / 2 + 0.95], i * 3 + k))),
     ),
   ];
-  if (p.gem !== null) body.push(knob(1.1, [0, H - 2.2, D / 2 + 1.4], [p.gem, 0x901020], 90));
+  if (p.gem !== null) body.push(knob(1.1, [0, H - 2.2, D / 2 + 1.4], [p.gem, p.ornate ? 0x1c4aa0 : 0x901020], 90));
+  if (p.ornate) {
+    const GEM = [p.gem!, 0x1c4aa0];
+    body.push(
+      // 底座的金邊與四隻腳
+      faceted(box(W + 2.6, 0.9, D + 2.6, p.metal[0]!, [0, 2.2, 0]), p.metal, 140),
+      ...[
+        [1, 1],
+        [1, -1],
+        [-1, 1],
+        [-1, -1],
+      ].flatMap(([sx, sz], i) => [
+        knob(2, [(sx! * (W + 1)) / 2, 0.9, (sz! * (D + 1)) / 2], p.metal, 141 + i),
+        // 四角的寶石
+        knob(1.15, [(sx! * (W + 0.4)) / 2, H + 0.3, (sz! * (D + 0.4)) / 2], GEM, 145 + i),
+      ]),
+      // 正面中段的金飾帶與兩側的小寶石
+      faceted(box(W - 7, 1.2, 0.8, p.metal[0]!, [0, 4.4, D / 2 + 0.4]), p.metal, 150),
+      ...[-1, 1].flatMap((s, i) => [knob(0.9, [s * W * 0.15, 4.4, D / 2 + 1], GEM, 151 + i), knob(0.9, [s * W * 0.42, 8.4, D / 2 + 0.9], GEM, 153 + i)]),
+    );
+  }
   // 滿滿一堆金幣（打開時才看得到；鏡頭的角度看不到箱底，所以堆到接近箱口）
   const GOLD = [0xf0c860, 0xc89a30];
   body.push(knob(9, [0, 7, 0], GOLD, 130, [1.5, 0.55, 0.8]));
@@ -151,6 +175,16 @@ function chestParts(p: Palette): FigureModel['parts'] {
     faceted(box(3.6, 4.4, 1, p.lock[0]!, [0, 0.2, D + 0.9]), p.lock, 120, 0.1),
     ...detail(1, [-bandX, bandX].map((x, i) => rivet([x, SKIRT / 2, D + 0.55], 20 + i))),
   ];
+  if (p.ornate) {
+    const GEM = [p.gem!, 0x1c4aa0];
+    lid.push(
+      // 箱蓋正中央再一道金條，頂上是金座托著的大顆藍寶石，兩端各一個金球
+      arch(-1.1, 1.1, D / 2 + 0.75, ARCH + 0.6, SKIRT - 0.2, zc, p.metal, 160, 12),
+      knob(2.1, [0, SKIRT + ARCH + 1.4, zc], p.metal, 161, [1.5, 0.6, 1.5]),
+      knob(2, [0, SKIRT + ARCH + 3, zc], GEM, 162, [1, 1.25, 1]),
+      ...[-1, 1].map((s, i) => knob(1.5, [s * (W / 2 - 2), SKIRT + ARCH * 0.85 + 1, zc], p.metal, 163 + i)),
+    );
+  }
 
   return [
     { joint: 'root', parent: null, offset: [0, 0, 0], meshes: body },
@@ -185,4 +219,4 @@ function chestModel(style: ChestStyle): FigureModel {
   };
 }
 
-export const CHESTS: Record<ChestStyle, FigureModel> = { wood: chestModel('wood'), royal: chestModel('royal') };
+export const CHESTS: Record<ChestStyle, FigureModel> = { wood: chestModel('wood'), royal: chestModel('royal'), vault: chestModel('vault') };

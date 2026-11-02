@@ -110,17 +110,7 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   // ---- 物品 ----
   // 改版後的基底：舊 ID 換成宣告了這個別名的新基底
   const aliasOf = new Map(data.items.all.flatMap((b) => b.aliases.map((a) => [a, b.id] as const)));
-  const fixItem = (input: SavedItem): SavedItem | null => {
-    const renamed = aliasOf.get(input.baseId);
-    const item = renamed && !data.items.has(input.baseId) ? { ...input, baseId: renamed } : input;
-    if (!data.items.has(item.baseId)) {
-      notes.push(`物品「${item.baseId}」已移除`);
-      return null;
-    }
-    const affixes = item.affixes.filter((a) => data.affixes.has(a.id));
-    if (affixes.length !== item.affixes.length) notes.push(`物品「${data.items.get(item.baseId).name}」的部分詞綴已移除`);
-    return { ...item, affixes };
-  };
+  const fixItem = (item: SavedItem) => fixSavedItem(item, data, notes);
   const fixEntry = (entry: SavedEntry | null): SavedEntry[] => {
     if (entry === null) return [];
     if (entry.kind === 'item') {
@@ -250,6 +240,19 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   ];
 
   return { data: save, overflow, notes };
+}
+
+/** 一件存檔裡的物品：改名的基底換成新 ID，已刪除的基底回傳 null，已刪除的詞綴移除（角色存檔與共用倉庫共用） */
+export function fixSavedItem(input: SavedItem, data: Pick<DataRegistry, 'items' | 'affixes'>, notes: string[]): SavedItem | null {
+  const renamed = data.items.all.find((b) => b.aliases.includes(input.baseId))?.id;
+  const item = renamed && !data.items.has(input.baseId) ? { ...input, baseId: renamed } : input;
+  if (!data.items.has(item.baseId)) {
+    notes.push(`物品「${item.baseId}」已移除`);
+    return null;
+  }
+  const affixes = item.affixes.filter((a) => data.affixes.has(a.id));
+  if (affixes.length !== item.affixes.length) notes.push(`物品「${data.items.get(item.baseId).name}」的部分詞綴已移除`);
+  return { ...item, affixes };
 }
 
 /** uid 格式為「流水號（36 進位）-隨機碼」；回傳所有物品中最大的流水號 */

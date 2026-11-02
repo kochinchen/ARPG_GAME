@@ -64,7 +64,7 @@ function describe(s: SlotSummary): string {
 }
 
 async function startNew(s: SlotSummary) {
-  if (s.status !== 'empty' && !(await ask({ title: '開始新遊戲？', message: `欄位 ${s.slot} 已有存檔（${describe(s)}）。\n開始新遊戲會刪除這個存檔，無法復原。`, confirmLabel: '刪除並開始', danger: true }))) return;
+  if (s.status !== 'empty' && !(await ask({ title: '開始新遊戲？', message: `欄位 ${s.slot} 已有存檔（${describe(s)}）。\n開始新遊戲會刪除這個存檔，無法復原（共用倉庫不受影響）。`, confirmLabel: '刪除並開始', danger: true }))) return;
   emit('start', s.slot, 'new');
 }
 
@@ -74,7 +74,7 @@ function load(s: SlotSummary) {
 }
 
 async function remove(s: SlotSummary) {
-  if (!(await ask({ title: `刪除欄位 ${s.slot} 的存檔？`, message: `${describe(s)}\n這個動作無法復原。`, confirmLabel: '刪除', danger: true }))) return;
+  if (!(await ask({ title: `刪除欄位 ${s.slot} 的存檔？`, message: `${describe(s)}\n這個動作無法復原（共用倉庫不受影響）。`, confirmLabel: '刪除', danger: true }))) return;
   emit('delete', s.slot);
 }
 </script>

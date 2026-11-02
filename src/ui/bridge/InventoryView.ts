@@ -101,11 +101,30 @@ const GLYPHS: Record<string, string> = {
 };
 
 /** 滑鼠所在的位置（而非當下的內容），快照更新後 Tooltip 會跟著更新 */
-export type HoverTarget = { kind: 'cell'; cell: number } | { kind: 'slot'; slot: EquipmentSlot } | { kind: 'salvage'; slot: number };
+export type HoverTarget = { kind: 'cell'; cell: number } | { kind: 'slot'; slot: EquipmentSlot } | { kind: 'salvage'; slot: number } | { kind: 'stash'; cell: number };
+
+/** 共用倉庫面板：全部格子（面板只顯示目前這一頁） */
+export interface StashView {
+  pages: number;
+  cols: number;
+  rows: number;
+  cells: (EntryView | null)[];
+  count: number;
+  /** 存檔讀不進來，暫時不能使用 */
+  locked: boolean;
+}
+
+export function emptyStashView(): StashView {
+  return { pages: 1, cols: 1, rows: 1, cells: [], count: 0, locked: false };
+}
 
 /** 依目前快照解析 Tooltip 內容：背包物品附帶比較對象；裝備欄只顯示自己 */
-export function resolveHover(view: InventoryView, target: HoverTarget | null): { entry: EntryView; compare: EntryView[] } | null {
+export function resolveHover(view: InventoryView, target: HoverTarget | null, stash?: StashView): { entry: EntryView; compare: EntryView[] } | null {
   if (!target) return null;
+  if (target.kind === 'stash') {
+    const entry = stash?.cells[target.cell];
+    return entry ? { entry, compare: comparisonFor(view, entry) } : null;
+  }
   if (target.kind === 'slot') {
     const entry = view.equipment.find((e) => e.slot === target.slot)?.item;
     return entry ? { entry, compare: [] } : null;
@@ -197,7 +216,7 @@ export function coreEntryView(core: CoreInstance, data: DataRegistry): EntryView
     glyph: '核',
     icon: coreIcon(core),
     slotLabel: d.subtitle,
-    baseLines: [...d.notes, '拿著熔核點有空孔的裝備鑲入；右鍵裝備取回背包'],
+    baseLines: [...d.notes, `需要等級 ${core.itemLevel} 才能鑲入`, '拿著熔核點有空孔的裝備鑲入；右鍵裝備取回背包'],
     coreSlots: d.slots.map((s) => ({ label: `鑲${s.label}`, texts: s.texts })),
     mainLine: null,
     strongLines: d.brand ? [d.brand] : [],
@@ -213,6 +232,24 @@ export function coreEntryView(core: CoreInstance, data: DataRegistry): EntryView
 
 function weaponSkillsLine(weapon: WeaponType | undefined, data: DataRegistry): string | undefined {
   return weapon ? `可用技能：${data.balance.weaponRules[weapon].map((c) => SKILL_CATEGORY_LABELS[c]).join('、')}` : undefined;
+}
+
+/** 倉庫裡的物品不會變動（拿出來才換 uid）：記住算好的顯示資料，換頁、放東西時不用全部重算 */
+const stashEntryViews = new WeakMap<object, EntryView>();
+
+/** 由 GameWorld 產生倉庫面板的唯讀快照 */
+export function buildStashView(world: GameWorld, data: DataRegistry): StashView {
+  const { pages, cols, rows } = data.balance.stash;
+  const cells = world.stash.cells.map((entry) => {
+    if (!entry) return null;
+    let view = stashEntryViews.get(entry);
+    if (!view) {
+      view = entry.kind === 'item' ? itemEntryView(entry.item, data) : coreEntryView(entry.core, data);
+      stashEntryViews.set(entry, view);
+    }
+    return view;
+  });
+  return { pages, cols, rows, cells, count: world.stash.count, locked: world.stash.locked };
 }
 
 /** 由 GameWorld 產生背包面板的唯讀快照（world.itemsVersion 變動時才重建） */

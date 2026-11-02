@@ -1,6 +1,6 @@
 import type { CommandQueue } from '../core/CommandQueue';
 import { Rng } from '../core/Rng';
-import { vec2, type Vec2 } from '../core/math/Vec2';
+import { distance, vec2, type Vec2 } from '../core/math/Vec2';
 import { RARITIES } from '../data/schema/item';
 import type { DataRegistry } from '../data/DataRegistry';
 import type { FloorDef } from '../data/schema/floor';
@@ -20,7 +20,7 @@ import { SalvageSystem } from './items/SalvageSystem';
 import { Materials } from './player/Materials';
 import { EQUIPMENT_SLOTS, type ItemInstance } from './items/ItemInstance';
 import { Actor } from './entities/Actor';
-import type { Chest, ExitPortal, GroundContent, GroundItem, Merchant, Relic, StairsUp, Waypoint } from './entities/Interactable';
+import type { Chest, ExitPortal, GroundContent, GroundItem, Merchant, Relic, StairsUp, StashChest, Waypoint } from './entities/Interactable';
 import { ShopSystem } from './items/ShopSystem';
 import { sortInventory } from './items/InventorySort';
 import type { Projectile } from './entities/Projectile';
@@ -39,6 +39,7 @@ import { SeparationSystem } from './movement/SeparationSystem';
 import { DeathHandler } from './player/DeathHandler';
 import { InteractionSystem } from './player/InteractionSystem';
 import { ItemActions } from './player/ItemActions';
+import { SharedStash } from './items/SharedStash';
 import { PlayerController } from './player/PlayerController';
 import { PlayerLoadout, type ComboSlots } from './player/PlayerLoadout';
 import { PotionBelt } from './player/PotionBelt';
@@ -78,6 +79,13 @@ import { TargetingService } from './targeting/TargetingService';
 
 /** 魔王競技場的大小：魔王身體寬度的幾倍（19 × 19，約為原本 15 倍的 1.27 倍，大型魔王也不擁擠） */
 const ARENA_BODIES = 19;
+/** 共用倉庫的寶箱：離商人的距離（格）、箱子的半徑、和樓梯 / 出口 / 存檔點、其他可以點的東西至少隔多遠 */
+const STASH_MIN_DISTANCE = 2.5;
+const STASH_BEST_DISTANCE = 3;
+const STASH_MAX_DISTANCE = 5;
+const STASH_RADIUS = 0.7;
+const STASH_CLEARANCE = 2.5;
+const STASH_ITEM_CLEARANCE = 1.6;
 /** 首領寶箱的生成索引（一般寶箱是 0 起的流水號，不會撞到） */
 const CHAMPION_CHEST_INDEX = 1000;
 /**
@@ -145,6 +153,9 @@ export class GameWorld {
   stairsUp: StairsUp | null = null;
   /** 本層的商人（樓梯口、中途存檔點、出口旁），共用 shop 的同一個貨架；固定地圖模式沒有 */
   merchants: Merchant[] = [];
+  private reachableCache: { map: MapDef; tiles: readonly Vec2[] } | null = null;
+  /** 共用倉庫的寶箱（每位商人旁邊一個，都連到同一個倉庫） */
+  stashChests: StashChest[] = [];
   /** 本層散落的遺物 */
   relics: Relic[] = [];
   /** 傳送口（中途存檔點啟動後：樓梯口 ⇄ 中途） */
@@ -172,6 +183,7 @@ export class GameWorld {
   readonly materials = new Materials();
   /** 背包裡的拆解區 */
   readonly salvage: SalvageSystem;
+  readonly stash: SharedStash;
   readonly interaction: InteractionSystem;
   readonly progress = new PlayerProgress();
   readonly skillTree: SkillTree;
@@ -378,7 +390,8 @@ export class GameWorld {
       new ItemActions(this.inventory, this.equipment, this.cursor, this.events, (content) => {
         this.spawnGroundItem(this.player.position, content).droppedByPlayer = true;
         this.events.emit('ItemDropped', { position: this.player.position });
-      }, (baseId) => data.items.get(baseId).levelReq <= this.progress.level),
+      }, (item) => data.items.get(item.baseId).levelReq <= this.progress.level && (item.sockets?.cores ?? []).every((c) => c.itemLevel <= this.progress.level),
+      (core) => core.itemLevel <= this.progress.level),
       this.skillTree,
       this.combos,
       data.skills,
@@ -391,6 +404,7 @@ export class GameWorld {
     this.support = new SupportSystem(this.player, this.loadout, data.skills);
     this.support.update();
     this.itemGenerator = new ItemGenerator(data, streams.items, streams.sockets);
+    this.stash = new SharedStash(data.balance.stash, this.cursor, this.inventory, () => this.itemGenerator.newUid(), this.events);
     new LootSystem(
       data,
       streams.loot,
@@ -709,6 +723,7 @@ export class GameWorld {
       : [];
     this.merchants = merchantSpots.map((position) => ({ kind: 'merchant', id: this.nextInteractableId++, position }));
     this.shop.open(floor, merchantSpots, new Rng(this.seed).fork(`shop-${floor}`), restore?.shopBought);
+    this.stashChests = this.stashSpots(merchantSpots).map((position) => ({ kind: 'stash', id: this.nextInteractableId++, position }));
     if (restore?.midwayActive) this.floors.midwayFloors.add(floor);
     if (this.floors.midwayFloors.has(floor)) this.checkpoints.restore('midway');
     if (restore?.bossGateActive) this.checkpoints.restore('boss');
@@ -826,6 +841,44 @@ export class GameWorld {
       { kind: 'waypoint', id: this.nextInteractableId++, position: this.spotNear(stairs.position, 3.2, 0.5), to: 'midway' },
       { kind: 'waypoint', id: this.nextInteractableId++, position: this.spotNear(midway.position, 3.2, 0.5), to: 'stairs' },
     ];
+  }
+
+  /**
+   * 共用倉庫的寶箱位置：每位商人旁邊隔一點距離，避開樓梯、出口、存檔點、傳送口與其他可以點的東西，點擊時不會點錯。
+   * 只由地圖推導（不用亂數、不存檔），不影響這一層的其他內容。找不到合適位置的商人旁邊就不放。
+   */
+  private stashSpots(merchantSpots: readonly Vec2[]): Vec2[] {
+    const stairs = findMarker(this.map, MAP_TILES.spawn);
+    if (!stairs || merchantSpots.length === 0) return [];
+    const midway = this.checkpoints.checkpoints[1]?.position;
+    const avoid: { at: Vec2; radius: number }[] = [
+      { at: this.spawnPoint, radius: STASH_CLEARANCE },
+      ...(this.exit ? [{ at: this.exit.position, radius: STASH_CLEARANCE }] : []),
+      ...this.checkpoints.checkpoints.map((c) => ({ at: c.position, radius: STASH_CLEARANCE })),
+      ...merchantSpots.map((at) => ({ at, radius: STASH_MIN_DISTANCE })),
+      // 傳送口要走到中途才出現，位置先算好讓開
+      { at: this.spotNear(this.spawnPoint, 3.2, 0.5), radius: STASH_ITEM_CLEARANCE },
+      ...(midway ? [{ at: this.spotNear(midway, 3.2, 0.5), radius: STASH_ITEM_CLEARANCE }] : []),
+      ...this.chests.map((c) => ({ at: c.position, radius: STASH_ITEM_CLEARANCE })),
+      ...this.relics.map((r) => ({ at: r.position, radius: STASH_ITEM_CLEARANCE })),
+      ...this.map.setPieces.map((p) => ({ at: vec2(p.x + p.w / 2, p.y + p.h / 2), radius: Math.hypot(p.w, p.h) / 2 + 1 })),
+    ];
+    const spots: Vec2[] = [];
+    for (const merchant of merchantSpots) {
+      let best: Vec2 | null = null;
+      let bestScore = Infinity;
+      for (const p of this.reachableCenters(stairs)) {
+        const d = distance(p, merchant);
+        if (d < STASH_MIN_DISTANCE || d > STASH_MAX_DISTANCE) continue;
+        const score = Math.abs(d - STASH_BEST_DISTANCE);
+        if (score >= bestScore || !this.nav.isClearAt(p, STASH_RADIUS)) continue;
+        if (avoid.some((a) => distance(p, a.at) < a.radius) || spots.some((s) => distance(p, s) < STASH_MIN_DISTANCE)) continue;
+        best = p;
+        bestScore = score;
+      }
+      if (best) spots.push(best);
+    }
+    return spots;
   }
 
   /** 玩家點了傳送口：傳送到另一端的存檔點 */
@@ -974,18 +1027,28 @@ export class GameWorld {
     return this.spotNear(this.exit?.position ?? this.spawnPoint, 4.5, radius);
   }
 
+  /** 從樓梯口走得到的格子中心（一層會問好幾次，算一次就記住） */
+  private reachableCenters(stairs: { x: number; y: number }): readonly Vec2[] {
+    if (this.reachableCache?.map !== this.map) {
+      const tiles = [...reachableTiles(this.map, stairs)].map((key) => {
+        const [x, y] = key.split(',').map(Number) as [number, number];
+        return this.nav.cellCenter(vec2(x, y));
+      });
+      this.reachableCache = { map: this.map, tiles };
+    }
+    return this.reachableCache.tiles;
+  }
+
   /** 離 target 約 distance 格、從樓梯口走得到的空地（同一張地圖一定是同一個位置） */
   private spotNear(target: Vec2, distance: number, radius: number): Vec2 {
     const exit = target;
     const stairs = findMarker(this.map, MAP_TILES.spawn)!;
     let best: Vec2 = exit;
     let bestScore = Infinity;
-    for (const key of reachableTiles(this.map, stairs)) {
-      const [x, y] = key.split(',').map(Number) as [number, number];
-      const p = this.nav.cellCenter(vec2(x, y));
-      if (!this.nav.isClearAt(p, radius)) continue;
+    for (const p of this.reachableCenters(stairs)) {
       const score = Math.abs(Math.hypot(p.x - exit.x, p.y - exit.y) - distance);
-      if (score < bestScore) {
+      // 距離先比（便宜），比目前最好的近才檢查空地
+      if (score < bestScore && this.nav.isClearAt(p, radius)) {
         best = p;
         bestScore = score;
       }
@@ -1037,6 +1100,7 @@ export class GameWorld {
     this.chests.length = 0;
     this.stairsUp = null;
     this.merchants = [];
+    this.stashChests = [];
     this.relics = [];
     this.waypoints = [];
     this.scheduler.clear();
@@ -1083,6 +1147,17 @@ export class GameWorld {
   /** 玩家點了商人（UI 開啟商店） */
   openShop(): void {
     if (this.shop.isNear()) this.events.emit('ShopOpened', {});
+  }
+
+  /** 玩家點了共用倉庫（UI 開啟倉庫面板） */
+  openStash(): void {
+    if (this.stashNear) this.events.emit('StashOpened', {});
+  }
+
+  /** 玩家在某個倉庫寶箱附近（離開就關面板，也不能遠端存取） */
+  get stashNear(): boolean {
+    const range = this.data.balance.stash.range;
+    return this.stashChests.some((s) => distance(this.player.position, s.position) <= range);
   }
 
   /** 玩家點了往上的樓梯 */
@@ -1160,6 +1235,9 @@ export class GameWorld {
         if (command.uniques) this.spawnUniqueSamples(command.ids);
         else this.spawnLootSamples();
         return true;
+      case 'DebugClearStash':
+        this.stash.clear();
+        return true;
       case 'DebugFusionKit':
         this.spawnFusionKit(command.highLevel ? 45 : undefined);
         return true;
@@ -1190,6 +1268,18 @@ export class GameWorld {
         return true;
       case 'SalvageAll':
         this.salvage.salvageAll();
+        return true;
+      case 'StashClick':
+        if (this.stashNear) this.stash.click(command.cell);
+        return true;
+      case 'StashDeposit':
+        if (this.stashNear) this.stash.deposit(command.cell, command.fromCell);
+        return true;
+      case 'StashWithdraw':
+        if (this.stashNear) this.stash.withdraw(command.cell);
+        return true;
+      case 'StashSortPage':
+        if (this.stashNear) this.stash.sortPage(command.page, this.data);
         return true;
       case 'ShopAscendSlotClick':
         this.shop.clickAscendSlot();
@@ -1394,7 +1484,7 @@ export class GameWorld {
 
   /** 背包 / 裝備 / 手上物品的變動版本號；UI 只在變動時重建快照 */
   get itemsVersion(): number {
-    return this.inventory.version + this.equipment.version + this.cursor.version + this.salvage.version + this.materials.version + this.shop.version;
+    return this.inventory.version + this.equipment.version + this.cursor.version + this.salvage.version + this.materials.version + this.shop.version + this.stash.version;
   }
 
   spawnGroundItem(position: Vec2, content: GroundContent): GroundItem {

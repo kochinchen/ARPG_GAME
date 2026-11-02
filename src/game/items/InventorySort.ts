@@ -3,7 +3,7 @@ import { RARITIES, type EquipSlot, type Rarity } from '../../data/schema/item';
 import type { Inventory, InventoryEntry } from './Inventory';
 
 /** 整理順序：裝備類別 */
-const SLOT_ORDER: readonly EquipSlot[] = ['weapon', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
+const SLOT_ORDER: readonly EquipSlot[] = ['weapon', 'shield', 'helmet', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
 const RARITY_ORDER: readonly Rarity[] = [...RARITIES].reverse();
 
 /**
@@ -11,13 +11,24 @@ const RARITY_ORDER: readonly Rarity[] = [...RARITIES].reverse();
  * 接著是熔核（核階高到低 → 核色高到低），藥水放在最後並合併成滿疊。手上拿著的物品不受影響。
  */
 export function sortInventory(inventory: Inventory, data: Pick<DataRegistry, 'items' | 'potions'>): void {
+  const potions = new Map<string, number>();
+  for (const entry of inventory.cells) if (entry?.kind === 'potion') potions.set(entry.potionId, (potions.get(entry.potionId) ?? 0) + entry.count);
+  const cells: (InventoryEntry | null)[] = sortGear(inventory.cells, data);
+  for (const [potionId, total] of potions) {
+    const max = data.potions.get(potionId).maxStack;
+    for (let left = total; left > 0; left -= max) cells.push({ kind: 'potion', potionId, count: Math.min(left, max) });
+  }
+  while (cells.length < inventory.capacity) cells.push(null);
+  inventory.restore(cells);
+}
+
+/** 裝備與熔核的整理順序（背包與共用倉庫共用）：裝備在前、熔核在後；回傳新陣列，藥水與空格不包含在內 */
+export function sortGear(entries: readonly (InventoryEntry | null)[], data: Pick<DataRegistry, 'items'>): Extract<InventoryEntry, { kind: 'item' | 'core' }>[] {
   const items: Extract<InventoryEntry, { kind: 'item' }>[] = [];
   const cores: Extract<InventoryEntry, { kind: 'core' }>[] = [];
-  const potions = new Map<string, number>();
-  for (const entry of inventory.cells) {
+  for (const entry of entries) {
     if (entry?.kind === 'item') items.push(entry);
     else if (entry?.kind === 'core') cores.push(entry);
-    else if (entry?.kind === 'potion') potions.set(entry.potionId, (potions.get(entry.potionId) ?? 0) + entry.count);
   }
   items.sort((a, b) => {
     const slotA = SLOT_ORDER.indexOf(data.items.get(a.item.baseId).slot);
@@ -37,11 +48,5 @@ export function sortInventory(inventory: Inventory, data: Pick<DataRegistry, 'it
       a.core.types.join().localeCompare(b.core.types.join()) ||
       a.core.uid.localeCompare(b.core.uid),
   );
-  const cells: (InventoryEntry | null)[] = [...items, ...cores];
-  for (const [potionId, total] of potions) {
-    const max = data.potions.get(potionId).maxStack;
-    for (let left = total; left > 0; left -= max) cells.push({ kind: 'potion', potionId, count: Math.min(left, max) });
-  }
-  while (cells.length < inventory.capacity) cells.push(null);
-  inventory.restore(cells);
+  return [...items, ...cores];
 }

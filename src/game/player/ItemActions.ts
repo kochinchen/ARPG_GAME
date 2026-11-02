@@ -23,8 +23,10 @@ export class ItemActions {
     private readonly cursor: ItemCursor,
     private readonly events: GameEventBus,
     private readonly dropToGround: (content: GroundContent) => void,
-    /** 物品的等級需求 → 是否符合 */
-    private readonly meetsLevel: (baseId: string) => boolean,
+    /** 物品的等級需求（基底與已鑲的熔核）→ 是否符合 */
+    private readonly meetsLevel: (item: ItemInstance) => boolean,
+    /** 角色等級是否達到熔核的物品等級（高階核不能給低等角色用，共用倉庫才不會讓新角色一開始就太強） */
+    private readonly meetsCoreLevel: (core: CoreInstance) => boolean,
   ) {}
 
   get holding(): boolean {
@@ -40,6 +42,11 @@ export class ItemActions {
     }
     const target = this.inventory.get(cell);
     if (held.kind === 'core' && target?.kind === 'item' && hasFreeSocket(target.item)) {
+      if (!this.meetsCoreLevel(held.core)) {
+        this.cursor.set(held);
+        this.events.emit('CoreLevelTooLow', { required: held.core.itemLevel });
+        return;
+      }
       this.inventory.take(cell);
       this.inventory.place(cell, { kind: 'item', item: withCores(target.item, [...target.item.sockets!.cores, held.core]) });
       this.events.emit('CoreSocketed', { action: 'insert' });
@@ -61,6 +68,10 @@ export class ItemActions {
         this.events.emit('EquipFailed', { slot, reason: 'noSocket' });
         return;
       }
+      if (!this.meetsCoreLevel(held.core)) {
+        this.events.emit('CoreLevelTooLow', { required: held.core.itemLevel });
+        return;
+      }
       this.cursor.take();
       this.equipment.setSockets(slot, { max: item.sockets!.max, cores: [...item.sockets!.cores, held.core] });
       this.events.emit('CoreSocketed', { action: 'insert' });
@@ -71,7 +82,7 @@ export class ItemActions {
       this.events.emit('EquipFailed', { slot, reason: shield ? 'shield' : 'wrongSlot' });
       return;
     }
-    if (!this.meetsLevel(held.item.baseId)) {
+    if (!this.meetsLevel(held.item)) {
       this.events.emit('EquipFailed', { slot, reason: 'level' });
       return;
     }

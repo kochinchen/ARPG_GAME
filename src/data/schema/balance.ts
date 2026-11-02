@@ -272,6 +272,8 @@ export const BalanceSchema = z.strictObject({
       .strictObject({ offsets: z.array(z.int()).min(1), weights: z.array(z.number().positive()).min(1) })
       .refine((t) => t.offsets.length === t.weights.length, 'offsets 與 weights 長度必須相同'),
   }),
+  /** 共用倉庫：頁數、每頁欄列、離寶箱多遠面板自動關閉 */
+  stash: z.strictObject({ pages: z.int().positive(), cols: z.int().positive(), rows: z.int().positive(), range: z.number().positive() }),
   /** 拆解：拆解區的格數與各稀有度拆出的精華數量 */
   salvage: z.strictObject({
     slots: z.int().positive(),

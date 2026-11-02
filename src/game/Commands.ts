@@ -96,6 +96,14 @@ export type GameCommand =
   | { type: 'ShopFuse'; confirm: boolean }
   /** 商人：收下融合結果（關掉揭曉畫面） */
   | { type: 'ShopDismissFused' }
+  /** 共用倉庫：點第 cell 格（手上沒東西 = 拿起；手上有裝備或熔核 = 放下，那格有東西就放到後面第一個空格） */
+  | { type: 'StashClick'; cell: number }
+  /** 共用倉庫：背包第 cell 格直接放進倉庫（從第 fromCell 格往後找空格） */
+  | { type: 'StashDeposit'; cell: number; fromCell: number }
+  /** 共用倉庫：倉庫第 cell 格直接拿回背包 */
+  | { type: 'StashWithdraw'; cell: number }
+  /** 共用倉庫：整理第 page 頁（0 起算） */
+  | { type: 'StashSortPage'; page: number }
   /** 離開樓層確認對話框按「確定」（地上還有稀有以上物品時才會詢問） */
   | { type: 'ConfirmLeaveFloor'; direction: 'down' | 'up' }
   /** 確認進入極限挑戰（第 31 層，之後回不到 1～30 層） */
@@ -110,6 +118,8 @@ export type GameCommand =
   | { type: 'DebugNextFloor' }
   /** 開發用：在玩家周圍掉落每種稀有度各一件裝備（檢查光柱、名稱與光芒） */
   | { type: 'DebugSpawnLoot'; uniques?: boolean; /** 指定的傳奇 / 神話 ID（省略 = 隨機） */ ids?: string[] }
+  /** 開發用：清空共用倉庫 */
+  | { type: 'DebugClearStash' }
   /** 開發用：融合測試包（金幣、武器 / 防具精華、四把武器含一把傳奇、一件帶孔的頭盔）；highLevel = 物品等級 45（融出 T5） */
   | { type: 'DebugFusionKit'; highLevel?: boolean };
 

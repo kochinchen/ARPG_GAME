@@ -27,7 +27,7 @@ const core = (uid: string, over: Partial<CoreInstance> = {}): CoreInstance => ({
   tier: 1,
   rarity: 'epic',
   power: 1.2,
-  itemLevel: 10,
+  itemLevel: 1,
   main: { ...EMPTY, weapon: [{ lineId: 'core.sharp.crit', roll: 1 }], helmet: [{ lineId: 'core.sharp.cast_speed', roll: 1 }] },
   secondary: [],
   ...over,

@@ -26,7 +26,8 @@
 - **v19（過場影片）**：`cutscenes`（看過的過場影片 ID，`data/cutscenes.json`）。播完或跳過時由 `MarkCutsceneSeen` 記錄，之後不再自動播放；標題畫面的「過場影片」列出任一存檔看過的。Migration v18 → v19 給空的清單（舊存檔第一次站上各環的第一層時會播一次）。
 - **v20（遺物與魂魄）**：`lore`（讀過的遺物 ID，`data/lore.json`）、`souls`（聽過的魔王魂魄 ID，`data/souls.json`；每個魂魄只飄出一次）。遺物的位置由世界種子 + 樓層決定，不存。Migration v19 → v20 給空的清單。
 - **v21（挑戰者的筆記）**：`notebook`（找到的筆記頁 ID，`data/notebook.json`）。《井誌》的獎勵在跨過 1/4、2/4、3/4、4/4 的當下發放，不另外存；SaveRepair 把全部收集的額外屬性點算進總數。第 35 層寶箱旁的紙條改成夾在各層寶箱的筆記頁，Migration v20 → v21 移除舊紙條的閱讀紀錄。
-- 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
+- **共用倉庫**：不在角色存檔裡，另外存一份，規則見第 10 節（`SAVE_VERSION` 不變）。
+- 檔案：`src/save/`（schema、Envelope、migrations、SaveRepair、SaveMapper、SaveService、StashStore、AutoSaver、SaveLock、storage/）；測試：`tests/save/`、`tests/game/world/Floor.test.ts`（往上一層）。
 
 ---
 
@@ -262,7 +263,8 @@ db: arpg-save
    ├─ main.2   ┘
    ├─ main.pointer → { latest: 0 | 1 | 2, savedAt }
    ├─ slot2.0～2、slot2.pointer   欄位 2
-   └─ slot3.0～2、slot3.pointer   欄位 3
+   ├─ slot3.0～2、slot3.pointer   欄位 3
+   └─ stash.0～2、stash.pointer   共用倉庫（第 10 節）
 ```
 
 **存檔欄位**：標題畫面有 3 個欄位（`SaveService` 的 `slot` 參數）。欄位 1 沿用舊版的鍵，所以舊存檔自動成為欄位 1。
@@ -404,3 +406,30 @@ src/save/                         ← 可以用 DOM / IndexedDB；game 不知道
 | 3 | 存檔要不要加密 / 混淆 | 不要，JSON 明文 + Checksum |
 | 4 | 可以回到上面的樓層嗎 | 可以，一次一層；怪物（含魔王）重生、強制從該層樓梯口開始、出口關閉（要重新打過）；寶箱不重生（4.9） |
 | 5 | 重打魔王要走完整張地圖嗎 | 不用：到過中途的樓層有傳送口（樓梯口 ⇄ 中途），魔王門前有存檔點；沿路的怪仍要清（4.10） |
+| 6 | 共用倉庫要不要限制新角色（2026-11-02） | 熔核加等級限制：角色等級 ≥ 核的物品等級才能鑲；鑲著高階核的裝備也要達到等級才能穿。已經穿在身上的不會被卸下 |
+
+---
+
+## 10. 共用倉庫
+
+商人旁邊的華麗寶箱：3 個存檔欄位共用一份，5 頁、每頁 6 × 5 共 150 格（`balance.stash`），只放裝備（鑲著的熔核跟著走）與熔核。
+
+| 項目 | 規則 |
+|---|---|
+| 存放位置 | IndexedDB 的 `stash.0～2`、`stash.pointer`（3 份輪替）＋ localStorage 的 `arpg-save.stash.emergency`（緊急副本），和角色存檔同一套 `RotatingStore`。跟著瀏覽器與網址走：線上版和本機版各有一個 |
+| 內容 | `{ cells: (裝備 \| 熔核 \| null)[] }`，信封多一個 `kind: 'stash'`，角色存檔不能當倉庫檔案匯入。版本號 `STASH_VERSION` 獨立；**物品格式改變時（`SAVE_VERSION` 的 Migration 動到物品）`STASH_VERSION` 也要 + 1，並在 `migrateStash` 加一步** |
+| 存取 | 只能在寶箱附近（`balance.stash.range`）。每個動作只會是放進去或拿出來，不互換：放到有東西的格子時，改放到後面第一個空格。每頁有「整理」（和背包同一套順序，只動這一頁、只換位置，件數不同就不套用） |
+| uid | 拿出來時裝備與上面的熔核都換新 uid（其他欄位的流水號可能相同，見 4.6） |
+| 寫入 | 每次變動立刻寫，不等節流（`StashSync`）：① 同一個 JS 工作裡同步寫倉庫與角色的緊急副本，讀檔時兩邊都用這一份，等於同時寫入 ② 再寫 IndexedDB：放進去先寫倉庫、拿出來先寫角色。沒有 localStorage、又剛好在兩次寫入之間當機時，最壞是多一件，不會少一件 |
+| 讀取 | 和角色存檔相同（5.2）。全部損毀時**鎖住倉庫**：不能存取、不寫入、不覆蓋，角色照常遊玩；選單的「匯出倉庫」改成匯出原始內容 |
+| 修復 | `repairStash`：補滿格數；改名的基底換新 ID；已刪除的基底移除、已刪除的詞綴移除（和角色存檔共用 `fixSavedItem`）；格數變少時往前補 |
+| 不受影響 | 刪除欄位、開新遊戲、開發用 B 重置都不動倉庫；開發版面板有「清空倉庫」按鈕 |
+| 匯出 / 匯入 | 選單的「匯出倉庫」「匯入倉庫」；匯入前先下載一份目前的倉庫當備份。匯入角色存檔不會動到倉庫 |
+| 裝備圖鑑 | 拿到背包、手上或穿上才算拿到過，放在倉庫裡不算 |
+
+寶箱位置由地圖推導（不用亂數、不存檔，`GameWorld.stashSpots`）：每位商人旁邊約 3 格（2.5～5 格），和樓梯、出口、存檔點至少隔 2.5 格，避開傳送口、寶箱、遺物與小說場景；走得過去，不擋路。
+
+### 測試
+
+`tests/game/items/Stash.test.ts`（存取規則、熔核等級限制、每一層的寶箱位置）、`tests/save/Stash.test.ts`（輪替備份、損毀、修復、寫入順序、跨存檔交換）。
+

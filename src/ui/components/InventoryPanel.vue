@@ -12,7 +12,7 @@ import ItemCell from './ItemCell.vue';
  * 長按 0.5 秒 = 拿起，跟著手指拖到別的格子、裝備欄或商人放下（由 App 處理放下）。
  * 手上已經拿著東西時，輕點照舊是放下。滑鼠操作不受影響。selected：目前選取的位置。
  */
-const props = defineProps<{ view: InventoryView; gold: number; shopOpen?: boolean; touch?: boolean; selected?: HoverTarget | null }>();
+const props = defineProps<{ view: InventoryView; gold: number; shopOpen?: boolean; stashOpen?: boolean; stashFrom?: number; touch?: boolean; selected?: HoverTarget | null }>();
 
 const press = createPress();
 /** 最近一次按下是手指：瀏覽器之後補發的 click 已由輕點 / 長按處理，不再當成滑鼠點擊（放下時 App 送的 click 不是使用者觸發，照常處理） */
@@ -22,7 +22,7 @@ const byFinger = (e: MouseEvent) => fingerDown && e.isTrusted;
 function command(target: HoverTarget) {
   if (target.kind === 'cell') gameBridge.send({ type: 'InventoryClick', cell: target.cell });
   else if (target.kind === 'slot') gameBridge.send({ type: 'EquipmentClick', slot: target.slot });
-  else gameBridge.send({ type: 'SalvageClick', slot: target.slot });
+  else if (target.kind === 'salvage') gameBridge.send({ type: 'SalvageClick', slot: target.slot });
 }
 
 function sameTarget(a: HoverTarget | null | undefined, b: HoverTarget): boolean {
@@ -61,7 +61,9 @@ function onPress(e: PointerEvent, target: HoverTarget) {
 function clickCell(e: MouseEvent, cell: number) {
   (e.currentTarget as HTMLElement).blur();
   if (byFinger(e)) return;
-  if (props.shopOpen && (e.ctrlKey || e.metaKey) && props.view.cells[cell]) gameBridge.send({ type: 'ShopSell', cell });
+  // 倉庫開著：Ctrl + 點擊 = 放進倉庫（從目前這一頁找空格）
+  if (props.stashOpen && (e.ctrlKey || e.metaKey) && props.view.cells[cell]) gameBridge.send({ type: 'StashDeposit', cell, fromCell: props.stashFrom ?? 0 });
+  else if (props.shopOpen && (e.ctrlKey || e.metaKey) && props.view.cells[cell]) gameBridge.send({ type: 'ShopSell', cell });
   else gameBridge.send({ type: 'InventoryClick', cell });
 }
 
@@ -232,7 +234,8 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
           <ItemCell :entry="entry" />
         </button>
       </div>
-      <p v-if="touch" class="hint">點一下看內容 · 長按拿起，拖到格子、裝備欄或商人放下 · 商人鍛造 / 融合頁點兩下直接放入</p>
+      <p v-if="touch" class="hint">點一下看內容 · 長按拿起，拖到格子、裝備欄或商人放下 · 商人鍛造 / 融合頁、倉庫開著時點兩下直接放入</p>
+      <p v-else-if="stashOpen" class="hint shop">Ctrl（Mac：⌘）+ 點擊：放進共用倉庫 · 或拿起物品點倉庫的格子</p>
       <p v-else-if="shopOpen" class="hint shop">Ctrl（Mac：⌘）+ 點擊：賣給商人 · 或拿起物品放到商人的「賣出」區</p>
       <p v-else class="hint">點擊拿起 · 再點背包格或裝備欄放下 · 拿著物品點地面可丟棄 · 拿著熔核點有空孔的裝備鑲入，右鍵裝備取下熔核</p>
     </section>

@@ -26,11 +26,11 @@ export interface LoadFailure {
   savedAt?: string | undefined;
 }
 
-export type LoadResult =
+export type LoadResult<T = SaveData> =
   | { status: 'empty' }
   | {
       status: 'ok';
-      data: SaveData;
+      data: T;
       savedAt: string;
       source: string;
       /** 最新的存檔讀不進來，改用了備份 */
@@ -39,27 +39,26 @@ export type LoadResult =
     }
   | { status: 'corrupt'; failures: LoadFailure[]; raw: Candidate[] };
 
+type Decoded<T> = { ok: true; data: T; savedAt: string } | { ok: false; reason: string; message: string; savedAt?: string | undefined };
+
 /**
- * 存 / 讀 / 輪替備份 / Checksum 驗證（規格見 docs/SAVE_SYSTEM.md 第 5 節）。
+ * 存 / 讀 / 輪替備份 / Checksum 驗證（規格見 docs/SAVE_SYSTEM.md 第 5 節）；角色存檔與共用倉庫共用。
  * - 寫入：寫到下一個輪替位置，成功後才更新 pointer（寫到一半失敗，pointer 仍指向完整的舊存檔）
  * - 讀取：pointer 指向的最新 → 次新 → 最舊，另外比較緊急副本；第一份完全通過的就用它
  * - 全部失敗：回傳 corrupt，絕不自動覆蓋
  */
-export class SaveService {
+export class RotatingStore<T> {
   private latest: number | null = null;
-  private readonly prefix: string;
-  private readonly emergencyKey: string;
 
   constructor(
     private readonly storage: ISaveStorage,
-    private readonly emergency: SyncStore | null = null,
-    private readonly now: () => Date = () => new Date(),
-    /** 存檔欄位（1～SAVE_SLOTS） */
-    readonly slot = 1,
-  ) {
-    this.prefix = prefixOf(slot);
-    this.emergencyKey = emergencyKeyOf(slot);
-  }
+    private readonly emergency: SyncStore | null,
+    private readonly now: () => Date,
+    private readonly prefix: string,
+    private readonly emergencyKey: string,
+    private readonly encode: (data: T, savedAt: Date) => string,
+    private readonly decode: (text: string) => Decoded<T>,
+  ) {}
 
   private slotKey(i: number): string {
     return `${this.prefix}.${i}`;
@@ -69,7 +68,7 @@ export class SaveService {
     return `${this.prefix}.pointer`;
   }
 
-  async load(): Promise<LoadResult> {
+  async load(): Promise<LoadResult<T>> {
     const pointer = await this.readPointer();
     const order = pointer === null ? [0, 1, 2] : [0, 1, 2].map((k) => (pointer - k + SLOT_COUNT) % SLOT_COUNT);
     const candidates: Candidate[] = [];
@@ -82,9 +81,9 @@ export class SaveService {
     if (candidates.length === 0) return { status: 'empty' };
 
     const failures: LoadFailure[] = [];
-    const valid: { source: string; data: SaveData; savedAt: string }[] = [];
+    const valid: { source: string; data: T; savedAt: string }[] = [];
     for (const c of candidates) {
-      const result = decodeSave(c.text);
+      const result = this.decode(c.text);
       if (result.ok) valid.push({ source: c.source, data: result.data, savedAt: result.savedAt });
       else failures.push({ source: c.source, reason: `${result.reason}: ${result.message}`, savedAt: result.savedAt });
     }
@@ -104,21 +103,21 @@ export class SaveService {
   }
 
   /** 寫入下一個輪替位置；成功後才更新 pointer。回傳存檔時間 */
-  async write(data: SaveData): Promise<string> {
+  async write(data: T): Promise<string> {
     if (this.latest === null) this.latest = await this.readPointer();
     const next = this.latest === null ? 0 : (this.latest + 1) % SLOT_COUNT;
     const savedAt = this.now();
-    await this.storage.put(this.slotKey(next), encodeSave(data, savedAt));
+    await this.storage.put(this.slotKey(next), this.encode(data, savedAt));
     await this.storage.put(this.pointerKey, JSON.stringify({ latest: next, savedAt: savedAt.toISOString() }));
     this.latest = next;
     return savedAt.toISOString();
   }
 
   /** 同步寫入緊急副本（關閉分頁時 IndexedDB 不保證寫完）。空間不足時放棄 */
-  writeEmergency(data: SaveData): boolean {
+  writeEmergency(data: T): boolean {
     if (!this.emergency) return false;
     try {
-      this.emergency.setItem(this.emergencyKey, encodeSave(data, this.now()));
+      this.emergency.setItem(this.emergencyKey, this.encode(data, this.now()));
       return true;
     } catch {
       return false;
@@ -162,5 +161,18 @@ export class SaveService {
     } catch {
       return null;
     }
+  }
+}
+
+/** 角色存檔：每個欄位一份 */
+export class SaveService extends RotatingStore<SaveData> {
+  constructor(
+    storage: ISaveStorage,
+    emergency: SyncStore | null = null,
+    now: () => Date = () => new Date(),
+    /** 存檔欄位（1～SAVE_SLOTS） */
+    readonly slot = 1,
+  ) {
+    super(storage, emergency, now, prefixOf(slot), emergencyKeyOf(slot), encodeSave, decodeSave);
   }
 }

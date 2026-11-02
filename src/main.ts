@@ -38,6 +38,7 @@ import { acquireSaveLock } from './save/SaveLock';
 import { SaveMapper, saveSignature } from './save/SaveMapper';
 import { repairSave } from './save/SaveRepair';
 import { SAVE_SLOTS, SaveService, type SyncStore } from './save/SaveService';
+import { captureStash, decodeStash, encodeStash, repairStash, restoreStash, StashService, StashSync } from './save/StashStore';
 import { IndexedDbStorage } from './save/storage/IndexedDbStorage';
 import { LocalStorageStorage } from './save/storage/LocalStorageStorage';
 import type { ISaveStorage } from './save/storage/ISaveStorage';
@@ -116,6 +117,20 @@ async function bootstrap(): Promise<void> {
     if (chosenFloor !== null && world.startAtFloor(chosenFloor)) saveNotices.push(`從第 ${chosenFloor} 層的樓梯口開始`);
   }
 
+  // 共用倉庫：所有欄位共用；讀不進來時鎖住（不覆蓋損毀的檔案），角色照常遊玩
+  const stashService = new StashService(storage, browserStorage());
+  const stashLoaded = await stashService.load();
+  if (stashLoaded.status === 'corrupt') {
+    console.error('倉庫存檔全部無法讀取', stashLoaded.failures);
+    world.stash.locked = true;
+    saveNotices.push('共用倉庫無法讀取，暫時不能使用（檔案沒有被覆蓋，可以在選單匯出保留）');
+  } else if (stashLoaded.status === 'ok') {
+    if (stashLoaded.fellBack) saveNotices.push(`共用倉庫最新的存檔已損毀，已從備份還原（${formatTime(stashLoaded.savedAt)}）`);
+    const repaired = repairStash(stashLoaded.data, data);
+    saveNotices.push(...repaired.notes);
+    restoreStash(world.stash, repaired.data);
+  }
+
   // 6. Render
   const host = document.getElementById('game');
   if (!host) throw new Error('#game not found');
@@ -190,15 +205,24 @@ async function bootstrap(): Promise<void> {
   );
   // 新角色：立即建立第一份存檔
   if (loaded.status === 'empty') autoSaver.markDirty(true);
-  window.addEventListener('pagehide', () => autoSaver.flushSync());
+  const stashSync = new StashSync(world.stash, stashService, autoSaver, (error) => {
+    console.error('倉庫存檔失敗', error);
+    gameView.save.error = error instanceof Error ? error.message : String(error);
+  });
+  const flushBoth = () => {
+    stashSync.flushSync();
+    autoSaver.flushSync();
+  };
+  window.addEventListener('pagehide', flushBoth);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') autoSaver.flushSync();
+    if (document.visibilityState === 'hidden') flushBoth();
   });
   let saveSig = saveSignature(world);
   /** 刪除所有存檔並重新載入 = 全新角色（先停止自動存檔，避免舊狀態被寫回去） */
   const newCharacter = () => {
-    void autoSaver
-      .disable()
+    void stashSync
+      .flush()
+      .then(() => autoSaver.disable())
       .then(() => saves.clear())
       .then(() => window.location.reload());
   };
@@ -256,6 +280,7 @@ async function bootstrap(): Promise<void> {
       if (sig.immediate !== saveSig.immediate) autoSaver.markDirty(true);
       else if (sig.normal !== saveSig.normal) autoSaver.markDirty();
       saveSig = sig;
+      stashSync.update(now());
       autoSaver.update(now());
       checkCutscene(frameTime);
     },
@@ -294,19 +319,49 @@ async function bootstrap(): Promise<void> {
         window.location.reload();
       });
     },
+    exportStash: () => {
+      // 倉庫損毀時匯出原始內容，之後可以人工救回
+      if (world.stash.locked) void stashService.dumpRaw().then((raw) => downloadText(exportFileName('倉庫-損毀', 'arpg-stash'), JSON.stringify(raw, null, 2)));
+      else downloadText(exportFileName('', 'arpg-stash'), encodeStash(captureStash(world.stash), new Date()));
+    },
+    importStash: (file) => {
+      void file.text().then(async (text) => {
+        const decoded = decodeStash(text);
+        if (!decoded.ok) {
+          await tell('無法匯入', `這不是有效的倉庫檔案（${decoded.reason}）。目前的倉庫沒有變動。`);
+          return;
+        }
+        const count = decoded.data.cells.filter((c) => c !== null).length;
+        const ok = await ask({
+          title: '匯入倉庫？',
+          message: `檔案裡有 ${count} 件物品（存檔時間 ${formatTime(decoded.savedAt)}）。\n\n目前倉庫的內容會被覆蓋，所有欄位都會受影響。覆蓋前會先下載一份目前的倉庫作為備份。`,
+          confirmLabel: '匯入',
+          danger: true,
+        });
+        if (!ok) return;
+        if (!world.stash.locked) downloadText(exportFileName('備份', 'arpg-stash'), encodeStash(captureStash(world.stash), new Date()));
+        await stashSync.stop();
+        await autoSaver.saveNow(true);
+        await autoSaver.disable();
+        await stashService.write(decoded.data);
+        window.location.reload();
+      });
+    },
     newCharacter,
     saveNow: async () => (await autoSaver.saveNow()) !== null,
     returnToTitle: () => {
       loop.paused = true;
-      void autoSaver
-        .saveNow(true)
+      void stashSync
+        .flush()
+        .then(() => autoSaver.saveNow(true))
         .then(() => autoSaver.disable())
         .then(() => window.location.reload());
     },
     quitGame: () => {
       loop.paused = true;
-      void autoSaver
-        .saveNow(true)
+      void stashSync
+        .flush()
+        .then(() => autoSaver.saveNow(true))
         .then(() => autoSaver.disable())
         .then(() => quit());
     },
@@ -508,11 +563,11 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-TW', { hour12: false });
 }
 
-function exportFileName(suffix = ''): string {
+function exportFileName(suffix = '', name = 'arpg-save'): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-  return `arpg-save-${stamp}${suffix ? `-${suffix}` : ''}.json`;
+  return `${name}-${stamp}${suffix ? `-${suffix}` : ''}.json`;
 }
 
 function downloadText(filename: string, text: string): void {

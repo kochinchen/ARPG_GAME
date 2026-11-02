@@ -3,7 +3,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
-import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, Relic, StairsUp, Waypoint } from '../../game/entities/Interactable';
+import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, Relic, StairsUp, StashChest, Waypoint } from '../../game/entities/Interactable';
 import { CHESTS, chestPose } from '../figure/Chest';
 import { EXIT_GATE } from '../figure/ExitGate';
 import { STAIRS } from '../figure/Stairs';
@@ -50,6 +50,7 @@ interface ChestView {
 
 /** 寶箱模型的大小（比主角矮、但在地上一眼看得到） */
 const CHEST_SCALE = 1.25;
+const STASH_SCALE = 1.5;
 /** 箱蓋開啟所需時間（秒） */
 const CHEST_OPEN_TIME = 0.45;
 /** 開箱金光持續時間（秒） */
@@ -152,6 +153,9 @@ export class InteractableLayer {
     dt = 1 / 60,
     waypoints: readonly Waypoint[] = [],
     relics: readonly Relic[] = [],
+    stashChests: readonly StashChest[] = [],
+    /** 玩家在倉庫旁邊：箱蓋打開 */
+    stashNear = false,
   ): void {
     const seen = new Set<number>();
     let changed = false;
@@ -178,6 +182,12 @@ export class InteractableLayer {
       this.highlight(view, merchant.id);
       // 商人面向鏡頭（畫面下方）
       this.merchantFigures.get(merchant.id)?.update(dt, { facing: TOWARD_CAMERA, moving: false, alive: true });
+    }
+    for (const stash of stashChests) {
+      seen.add(stash.id);
+      const view = this.views.get(stash.id) ?? this.createStashView(stash);
+      if (view.chest) this.animateChest(view.chest, stashNear, dt);
+      this.highlight(view, stash.id);
     }
     for (const wp of waypoints) {
       seen.add(wp.id);
@@ -378,6 +388,44 @@ export class InteractableLayer {
       model: { figure, position: c.position, three: null, shadow, redraw: () => figure.showPose(chestPose(chest.open), facing) },
     };
     this.views.set(c.id, view);
+    this.attachThree(view);
+    return view;
+  }
+
+  /** 共用倉庫：比一般寶箱大一點的華麗寶箱，面向鏡頭，頭上有名稱 */
+  private createStashView(stash: StashChest): View {
+    const s = this.projection.toScreen(stash.position);
+    const container = new Container();
+    container.position.set(s.x, s.y);
+    container.zIndex = this.projection.depth(stash.position);
+    const shadow = new Graphics().ellipse(0, 3, 34, 15).fill({ color: PALETTE.shadow, alpha: 0.45 });
+    const figure = new PolyFigure(CHESTS.vault, STASH_SCALE);
+    // 只是打開，不是開出東西：沒有閃光
+    const glow = new Graphics();
+    glow.visible = false;
+    container.addChild(shadow, figure.graphics, glow);
+    this.objectLayer.addChild(container);
+    const chest: ChestView = { figure, facing: TOWARD_CAMERA, open: 0, target: 0, glow, glowTime: 0 };
+    figure.showPose(chestPose(0), TOWARD_CAMERA);
+    const label = new Text({ text: '共用倉庫', style: { fontFamily: 'sans-serif', fontSize: 12, fill: 0x9cc8ff } });
+    label.anchor.set(0.5, 1);
+    label.position.set(s.x, s.y - 62);
+    const labelBack = new Graphics();
+    labelBack.position.copyFrom(label.position);
+    labelBack
+      .rect(-label.width / 2 - LABEL_PAD, -label.height - LABEL_PAD / 2, label.width + LABEL_PAD * 2, label.height + LABEL_PAD)
+      .fill({ color: LOOT_COLORS.labelBack, alpha: 0.55 });
+    this.labels.addChild(labelBack, label);
+    const view: View = {
+      container,
+      label,
+      labelBack,
+      labelShift: 0,
+      chest,
+      hit: [{ x: -36, y: -60, width: 72, height: 66 }],
+      model: { figure, position: stash.position, three: null, shadow, redraw: () => figure.showPose(chestPose(chest.open), TOWARD_CAMERA) },
+    };
+    this.views.set(stash.id, view);
     this.attachThree(view);
     return view;
   }

@@ -2,7 +2,7 @@ import type { SoulSmoke } from '../../data/schema/story';
 import type { ComboKey, ComboKeyLabel } from '../../game/player/PlayerLoadout';
 import { reactive } from 'vue';
 import { emptyCharacterView } from './CharacterView';
-import { emptyInventoryView } from './InventoryView';
+import { emptyInventoryView, emptyStashView } from './InventoryView';
 import { emptySkillTreeView } from './SkillTreeView';
 import { emptyShopView } from './ShopView';
 
@@ -105,6 +105,12 @@ export const gameView = reactive({
   shop: emptyShopView(),
   /** 點了商人：每次 +1，UI 看到變化就開啟商店 */
   shopRequest: 0,
+  /** 共用倉庫面板的快照（面板開著才建立）；visible 由 UI 設定，near = 玩家在寶箱附近 */
+  stash: emptyStashView(),
+  stashVisible: false,
+  stashNear: false,
+  /** 點了倉庫：每次 +1，UI 看到變化就開啟倉庫面板 */
+  stashRequest: 0,
   /** 存檔狀態：最後一次成功存檔的時間、錯誤訊息 */
   /** 存檔狀態；slot = 目前遊玩的存檔欄位 */
   save: { slot: 1, lastSavedAt: '', error: null as string | null },
