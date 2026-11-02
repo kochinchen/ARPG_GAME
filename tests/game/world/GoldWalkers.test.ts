@@ -47,7 +47,8 @@ describe('噴錢的結晶獸', () => {
     expect(total / N).toBeGreaterThan(0.7);
     expect(total / N).toBeLessThan(1.4);
     expect(max).toBeLessThanOrEqual(config.chances.length);
-  });
+    // 要產生 92 個世界，全部測試一起跑時會超過預設的 30 秒
+  }, 120_000);
 
   it('血量同精英、體型固定，但不算精英', () => {
     const w = withWalkers(12);

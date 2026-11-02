@@ -161,7 +161,8 @@ describe('樓層分布（minFloor）', () => {
       expect(kinds(floor - 1).has(id)).toBe(false);
       expect(kinds(floor).has(id)).toBe(true);
     }
-  });
+    // 要產生很多層的世界，全部測試一起跑時會超過預設的 30 秒
+  }, 120_000);
 
   it('第 3 層起有弓手、第 4 層起有重甲骷髏、第 6 層起有法師', () => {
     expect(kinds(3).has('enemy.skeleton_archer')).toBe(true);
