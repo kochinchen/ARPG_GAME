@@ -7,7 +7,7 @@ import { DataRegistry } from '../../../src/data/DataRegistry';
 import type { GameCommand } from '../../../src/game/Commands';
 import type { GameEvents } from '../../../src/game/GameEvents';
 import { GameWorld } from '../../../src/game/GameWorld';
-import { buildBook } from '../../../src/data/book';
+import { buildBook, hiddenBookPages } from '../../../src/data/book';
 import { ChestSystem } from '../../../src/game/items/ChestSystem';
 import { notePageInChest } from '../../../src/game/world/Notebook';
 import { SaveMapper } from '../../../src/save/SaveMapper';
@@ -82,6 +82,65 @@ describe('挑戰者的筆記', () => {
     for (const chest of world.chests) chests.open(chest);
     expect(found).toEqual([page8.id]);
     expect(SaveMapper.capture(world, '2026-01-01T00:00:00.000Z').notebook).toEqual([page8.id]);
+  });
+});
+
+describe('隱藏的第 70 頁（第 18 層的女屍）', () => {
+  const cleared = (seed = 7) => {
+    const { world } = floorWorld(18, seed);
+    world.progress.completedHidden = true;
+    world.enterFloor(18);
+    return world;
+  };
+  const corpse = (world: GameWorld) => world.relics.find((r) => r.loreId === 'lore.mavis');
+
+  it('打完隱藏難關才出現；不影響原本遺物的位置', () => {
+    const before = floorWorld(18).world;
+    expect(corpse(before)).toBeUndefined();
+    const after = cleared();
+    expect(corpse(after)).toBeDefined();
+    expect(after.relics.find((r) => r.loreId === 'lore.f18')!.position).toEqual(before.relics[0]!.position);
+    for (const floor of [17, 19]) {
+      const { world } = floorWorld(floor);
+      world.progress.completedHidden = true;
+      world.enterFloor(floor);
+      expect(corpse(world)).toBeUndefined();
+    }
+  });
+
+  it('每個種子都放得下、走得到', () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const world = cleared(seed);
+      const c = corpse(world)!;
+      expect(c, `seed ${seed}`).toBeDefined();
+      expect(world.nav.isClearAt(c.position, 0.35), `seed ${seed}`).toBe(true);
+      // 背後真的有牆：往後一點就撞到，兩塊都是新生的
+      expect(world.nav.isWalkableAt(c.position.x - 0.5, c.position.y - 1), `seed ${seed}`).toBe(false);
+      expect(world.nav.isWalkableAt(c.position.x + 0.5, c.position.y - 1), `seed ${seed}`).toBe(false);
+      // 不會擋路：還走得到樓梯口與出口
+      expect(world.nav.hasLineOfSight(c.position, vec2(c.position.x, c.position.y + 1), 0.3)).toBe(true);
+    }
+  });
+
+  it('書還是 69 頁，撿到不算進獎勵也不會重複給；存檔記得', () => {
+    expect(buildBook(data)).toHaveLength(69);
+    expect(hiddenBookPages(data, 69).map((p) => [p.number, p.id])).toEqual([[70, 'lore.mavis']]);
+    const commands = new CommandQueue<GameCommand>();
+    const events = new EventBus<GameEvents>();
+    const world = new GameWorld({ data, floor: 18, commands, events, seed: 7 });
+    world.progress.completedHidden = true;
+    world.enterFloor(18);
+    const rewards: unknown[] = [];
+    events.on('BookMilestone', (e) => rewards.push(e));
+    for (const page of buildBook(data)) (page.kind === 'soul' ? world.progress.souls : page.kind === 'lore' ? world.progress.lore : world.progress.notebook).add(page.sourceId);
+    world.readRelic(corpse(world)!);
+    expect(rewards).toEqual([]);
+    expect(world.progress.lore.has('lore.mavis')).toBe(true);
+    const save = SaveMapper.capture(world, '2026-01-01T00:00:00.000Z');
+    expect(save.lore).toContain('lore.mavis');
+    // 屬性點獎勵看的是 69 頁：多這一頁不影響
+    const without = { ...structuredClone(save), lore: save.lore.filter((id) => id !== 'lore.mavis') };
+    expect(repairSave(structuredClone(save), data).data.attributes.unspent).toBe(repairSave(without, data).data.attributes.unspent);
   });
 });
 

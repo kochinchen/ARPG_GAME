@@ -73,6 +73,8 @@ export interface Relic {
   position: Vec2;
   loreId: string;
   read: boolean;
+  /** 隱藏遺物是靠牆坐著的屍體：她面向哪裡（畫面用） */
+  seatForward?: Vec2;
 }
 
 /** 玩家可以點擊互動的物件 */

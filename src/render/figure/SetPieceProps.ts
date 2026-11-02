@@ -191,6 +191,74 @@ const DEAD = (u: number, v: number, kind: string, scale = 1): SetPieceProp[] => 
   { model: MONSTER_MODELS[kind]!, u, v, pose: SITTING, scale },
 ];
 
+/** 第 18 層靠牆坐著的女屍（lore.mavis）：矮小的骨頭，身上是改小過還是太大的盔甲，少一條小腿，膝蓋綁著繩子，手攏著布袋 */
+const ARMOR = [0x6f7278, 0x55585e];
+const LEATHER = [0x6a4a2a, 0x4e3620];
+const ROPE = [0xb09a68, 0x8c784e];
+const GOLD = [0xc8a858, 0xa08440];
+const BONE = [0xd8ceb4, 0xb4a88c];
+
+/** 圓和八道光：騎士團的紋章 */
+const crest = (y: number, z: number): Mesh[] => [
+  knob(1.6, [0, y, z], GOLD, 71, [1, 1, 0.4]),
+  ...Array.from({ length: 8 }, (_, i) => {
+    const a = (i * Math.PI) / 4;
+    return bar([Math.cos(a) * 1.8, y + Math.sin(a) * 1.8, z], [Math.cos(a) * 3.6, y + Math.sin(a) * 3.6, z], 0.5, 0.5, GOLD, 72 + i);
+  }),
+];
+
+const MAVIS_ADDED: Record<string, Mesh[]> = {
+  root: [
+    solid(box(13, 5, 9, LEATHER[0]!, [0, 0, 0]), LEATHER, 80),
+    // 攏在手裡的布袋
+    knob(2.8, [1, 3, 7.5], [0x7a6444, 0x5e4c32], 81, [1, 0.9, 0.9]),
+  ],
+  torso: [solid(box(15, 15, 10, ARMOR[0]!, [0, 8, -0.5]), ARMOR, 82, 0.1), ...crest(9, 5)],
+  head: [knob(5.6, [0, 5.4, -1.4], [0x5a3c24, 0x46301c], 83, [1, 0.8, 1])],
+  upperArmL: [knob(4.6, [0.6, -0.5, 0], ARMOR, 84, [1, 0.8, 1.1])],
+  upperArmR: [knob(4.6, [-0.6, -0.5, 0], ARMOR, 85, [1, 0.8, 1.1])],
+  handL: [knob(1.8, [0, -1, 0], BONE, 86)],
+  handR: [knob(1.8, [0, -1, 0], BONE, 87)],
+  // 自己綁的繩子：斷在膝蓋下面
+  thighL: [bar([-2.6, -11.5, 0], [2.6, -11.5, 0], 3, 1.2, ROPE, 88), bar([-2.6, -9.8, 0.3], [2.6, -9.8, 0.3], 3, 1, ROPE, 89)],
+};
+
+const MAVIS_BODY: FigureModel = {
+  ...MONSTER_MODELS['enemy.skeleton']!,
+  parts: MONSTER_MODELS['enemy.skeleton']!.parts.map((part) => {
+    // 拿掉骷髏兵的劍與盾、破布，還有那條不在了的小腿
+    const gone = ['shinL', 'footL', 'handL', 'handR', 'cloth'].includes(part.joint);
+    return { ...part, meshes: [...(gone ? [] : part.meshes), ...(MAVIS_ADDED[part.joint] ?? [])] };
+  }),
+};
+
+const SEATED_AGAINST_WALL: Pose = {
+  rootY: -21,
+  angles: {
+    torso: [-0.12, 0, 0],
+    head: [0.42, 0.25, 0],
+    thighL: [-1.42, 0, 0.22],
+    thighR: [-1.38, 0, -0.14],
+    shinR: [0.42, 0, 0],
+    upperArmL: [0.28, 0, 0.12],
+    forearmL: [-1.3, 0, -0.5],
+    upperArmR: [0.34, 0, -0.14],
+    forearmR: [-1.36, 0, 0.5],
+  },
+};
+
+/** 掉在她手邊的骰子，朝上是六 */
+const DIE = prop([
+  solid(box(3, 3, 3, 0xe8e0cc, [0, 1.5, 0]), [0xe8e0cc, 0xd0c8b0], 91, 0),
+  ...[-0.8, 0.8].flatMap((x) => [-0.8, 0, 0.8].map((z) => box(0.5, 0.15, 0.5, 0x2a2018, [x, 3.05, z]))),
+]);
+
+/** 屍體的擺設：u = 往旁邊幾 Tile、v = 往前幾 Tile（以她坐的位置為準） */
+export const CORPSE_PROPS: readonly SetPieceProp[] = [
+  { model: MAVIS_BODY, u: 0, v: 0, pose: SEATED_AGAINST_WALL, scale: 0.92 },
+  { model: DIE, u: 0.42, v: 0.62 },
+];
+
 export const SET_PIECE_PROPS: Record<string, readonly SetPieceProp[]> = {
   'piece.dead_supper': [
     { model: SUPPER_TABLE, u: 0.5, v: 0.5 },

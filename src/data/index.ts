@@ -11,6 +11,7 @@ import { lootTables } from './lootTables';
 import { eliteAffixes } from './eliteAffixes';
 import { legendaries } from './legendaries';
 import { cores } from './cores';
+import hiddenLore from './hiddenLore.json';
 import lore from './lore.json';
 import notebook from './notebook.json';
 import { setPieces } from './setPieces';
@@ -33,7 +34,7 @@ export const gameData: RawGameData = {
   eliteAffixes,
   legendaries,
   cores,
-  lore,
+  lore: [...lore, ...hiddenLore],
   notebook,
   setPieces,
   souls,

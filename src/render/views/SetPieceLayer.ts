@@ -4,7 +4,7 @@ import { vec2, type Vec2 } from '../../core/math/Vec2';
 import type { PlacedSetPiece } from '../../data/schema/map';
 import { setPieceForward, setPieceSpot } from '../../game/world/SetPieces';
 import { PolyFigure } from '../figure/PolyFigure';
-import { SET_PIECE_PROPS } from '../figure/SetPieceProps';
+import { CORPSE_PROPS, SET_PIECE_PROPS, type SetPieceProp } from '../figure/SetPieceProps';
 import type { ThreeFigure, ThreeWorld } from '../three/ThreeWorld';
 
 interface PropView {
@@ -33,30 +33,37 @@ export class SetPieceLayer {
     return this.containers.has(container);
   }
 
-  rebuild(pieces: readonly PlacedSetPiece[]): void {
+  /** corpses：靠牆坐著的屍體（隱藏遺物），不是地圖的一部分，只在條件達成時才有 */
+  rebuild(pieces: readonly PlacedSetPiece[], corpses: readonly { position: Vec2; forward: Vec2 }[] = []): void {
     this.clear();
     for (const piece of pieces) {
       const forward = setPieceForward(piece);
       const side = vec2(-forward.y, forward.x);
-      for (const prop of SET_PIECE_PROPS[piece.id] ?? []) {
-        const position = setPieceSpot(piece, prop.u, prop.v);
-        const s = this.projection.toScreen(position);
-        const container = new Container();
-        container.position.set(s.x, s.y);
-        // 牆上的東西貼在牆前，排在角色後面
-        container.zIndex = this.projection.depth(position) - 0.6;
-        const figure = new PolyFigure(prop.model, prop.scale ?? 1);
-        container.addChild(figure.graphics);
-        this.objectLayer.addChild(container);
-        const facing = prop.turn === 'side' ? side : forward;
-        const pose = prop.pose ?? { rootY: 0, angles: {} };
-        const view: PropView = { container, figure, position, three: null, redraw: () => figure.showPose(pose, facing) };
-        view.redraw();
-        this.containers.add(container);
-        this.views.push(view);
-        this.attach(view);
+      for (const prop of SET_PIECE_PROPS[piece.id] ?? []) this.addProp(prop, setPieceSpot(piece, prop.u, prop.v), prop.turn === 'side' ? side : forward);
+    }
+    for (const { position, forward } of corpses) {
+      const side = vec2(-forward.y, forward.x);
+      for (const prop of CORPSE_PROPS) {
+        this.addProp(prop, vec2(position.x + side.x * prop.u + forward.x * prop.v, position.y + side.y * prop.u + forward.y * prop.v), forward);
       }
     }
+  }
+
+  private addProp(prop: SetPieceProp, position: Vec2, facing: Vec2): void {
+    const s = this.projection.toScreen(position);
+    const container = new Container();
+    container.position.set(s.x, s.y);
+    // 牆上的東西貼在牆前，排在角色後面
+    container.zIndex = this.projection.depth(position) - 0.6;
+    const figure = new PolyFigure(prop.model, prop.scale ?? 1);
+    container.addChild(figure.graphics);
+    this.objectLayer.addChild(container);
+    const pose = prop.pose ?? { rootY: 0, angles: {} };
+    const view: PropView = { container, figure, position, three: null, redraw: () => figure.showPose(pose, facing) };
+    view.redraw();
+    this.containers.add(container);
+    this.views.push(view);
+    this.attach(view);
   }
 
   setThree(world: ThreeWorld | null): void {

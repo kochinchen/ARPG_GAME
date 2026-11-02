@@ -662,7 +662,7 @@ export class GameWorld {
     });
     this.floorChestCount = chestCount;
     // 遺物：內容固定、位置由世界種子 + 樓層決定（獨立亂數，不影響怪物與寶箱）
-    const relicDefs = this.data.lore.all.filter((l) => l.floor === floor);
+    const relicDefs = this.data.lore.all.filter((l) => l.floor === floor && !l.hidden);
     const relicSpots = relicDefs.length === 0
       ? []
       : new SpawnSystem(this.nav, new Rng(this.seed).fork(`relic-${floor}`)).planChests(relicDefs.length, [...safe, ...chestSpots], [
@@ -674,6 +674,13 @@ export class GameWorld {
       const position = this.setPieceRelicSpot(l.id) ?? relicSpots[i];
       return position ? [{ kind: 'relic' as const, id: this.nextInteractableId++, position, loreId: l.id, read: this.progress.lore.has(l.id) }] : [];
     });
+    // 隱藏遺物：打完隱藏難關才出現（同樣用獨立亂數，不影響其他東西的位置）
+    if (this.progress.completedHidden) {
+      for (const l of this.data.lore.all.filter((d) => d.floor === floor && d.hidden)) {
+        const seat = this.raiseSeatWall(l.id, [...safe, ...chestSpots, ...relicSpots], [...arenaZone, ...setPieceZones]);
+        if (seat) this.relics.push({ kind: 'relic', id: this.nextInteractableId++, position: seat.position, loreId: l.id, read: this.progress.lore.has(l.id), seatForward: seat.forward });
+      }
+    }
     this.floors.begin(floor, monsterCount, {
       killed: [...killed].filter((i) => i < monsterCount),
       exitOpen: restore?.exitOpen ?? false,
@@ -900,14 +907,42 @@ export class GameWorld {
     return fuse(inputs, [], this.data, rng, this.itemGenerator.newUid());
   }
 
+  /**
+   * 隱藏遺物靠著的牆：在空地上生兩塊牆（四周都是地板，不會擋路），她坐在南邊（這一面畫得出來）。
+   * 打完隱藏難關才有，只改這次載入的地圖，不影響生成與存檔。
+   */
+  private raiseSeatWall(id: string, avoid: Vec2[], zones: { center: Vec2; radius: number }[]): { position: Vec2; forward: Vec2 } | null {
+    const spots = new SpawnSystem(this.nav, new Rng(this.seed).fork(`relic-${id}`)).planChests(24, avoid, zones);
+    const cell = this.nav.cell;
+    // 一塊 = 1 Tile 見方（地圖一格可能只有 0.5 Tile）
+    const n = Math.round(1 / cell);
+    for (const spot of spots) {
+      const { x: cx, y: cy } = this.nav.cellOf(spot);
+      let open = true;
+      for (let y = cy - 3 * n; y < cy + 2 * n; y++) for (let x = cx - 2 * n; x < cx + 2 * n; x++) open &&= this.nav.isWalkable(x, y);
+      if (!open) continue;
+      const position = vec2(cx * cell, cy * cell + 0.6);
+      const crowded = [...this.actors.map((a) => a.position), ...avoid].some((p) => Math.hypot(p.x - position.x, p.y - position.y) < 2.5);
+      if (crowded) continue;
+      const rows = this.map.rows.map((row, y) => (y >= cy - n && y < cy ? `${row.slice(0, cx - n)}${MAP_TILES.wall.repeat(2 * n)}${row.slice(cx + n)}` : row));
+      this.map = { ...this.map, rows };
+      this.nav.load(this.map);
+      return { position, forward: vec2(0, 1) };
+    }
+    return spots[0] ? { position: spots[0], forward: vec2(0, 1) } : null;
+  }
+
   /** 翻開遺物：記進井誌，UI 顯示舊紙頁 */
   readRelic(relic: Relic): void {
     relic.read = true;
-    this.events.emit('RelicRead', { loreId: relic.loreId });
-    if (this.progress.lore.has(relic.loreId)) return;
+    if (this.progress.lore.has(relic.loreId)) {
+      this.events.emit('RelicRead', { loreId: relic.loreId });
+      return;
+    }
     const found = this.bookFound();
     this.progress.lore.add(relic.loreId);
     this.progress.changed();
+    this.events.emit('RelicRead', { loreId: relic.loreId });
     this.grantBookReward(found);
   }
 

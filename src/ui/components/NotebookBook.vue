@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { buildBook } from '../../data/book';
+import { buildBook, hiddenBookPages } from '../../data/book';
+import HIDDEN_LORE from '../../data/hiddenLore.json';
 import LORE from '../../data/lore.json';
 import NOTEBOOK from '../../data/notebook.json';
 import SOULS from '../../data/souls.json';
@@ -8,20 +9,23 @@ import SOULS from '../../data/souls.json';
 /**
  * 《井誌》：整個遊戲收集到的內容合成一本小書，遊戲暫停。一次一頁，左右翻頁；還沒收集到的頁是「？？？」。
  * 上面是內容，下面是小字頁碼。← → 或按鈕翻頁，Esc（由 App 處理）或點書外面闔上。
+ * 隱藏頁撿到以前不存在（總頁數不變），撿到才多一頁。
  */
 const props = defineProps<{ page: number; owned: readonly string[] }>();
 const emit = defineEmits<{ close: []; turned: [page: number] }>();
 
-const pages = buildBook({ lore: LORE, notebook: NOTEBOOK, souls: SOULS });
-const clamp = (n: number) => Math.min(pages.length - 1, Math.max(0, n));
+const book = buildBook({ lore: LORE, notebook: NOTEBOOK, souls: SOULS });
+const hidden = hiddenBookPages({ lore: HIDDEN_LORE }, book.length);
+const ownedSet = computed(() => new Set(props.owned));
+const pages = computed(() => [...book, ...hidden.filter((p) => ownedSet.value.has(p.sourceId))]);
+const clamp = (n: number) => Math.min(pages.value.length - 1, Math.max(0, n));
 const index = ref(clamp(props.page - 1));
 watch(
-  () => props.page,
-  (page) => (index.value = clamp(page - 1)),
+  () => [props.page, pages.value.length] as const,
+  ([page]) => (index.value = clamp(page - 1)),
 );
-const current = computed(() => pages[index.value]!);
-const ownedSet = computed(() => new Set(props.owned));
-const found = computed(() => pages.filter((p) => ownedSet.value.has(p.sourceId)).length);
+const current = computed(() => pages.value[index.value]!);
+const found = computed(() => pages.value.filter((p) => ownedSet.value.has(p.sourceId)).length);
 const known = computed(() => ownedSet.value.has(current.value.sourceId));
 const label = computed(() => `P.${String(current.value.number).padStart(2, '0')}`);
 

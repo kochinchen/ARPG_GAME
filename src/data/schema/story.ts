@@ -9,6 +9,8 @@ export const LoreDefSchema = z.object({
   object: z.string().min(1),
   en: z.string().min(1),
   zh: z.string().min(1),
+  /** 隱藏遺物（data/hiddenLore.json）：打完隱藏難關才出現，不算在井誌的總頁數與獎勵裡 */
+  hidden: z.boolean().optional(),
 });
 export type LoreDef = z.infer<typeof LoreDefSchema>;
 
