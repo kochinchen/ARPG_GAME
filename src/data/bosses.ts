@@ -198,6 +198,46 @@ export const bossEnemies: EnemyInput[] = [
   },
   {
     ...BOSS,
+    id: 'enemy.bone_dragon',
+    name: '萬骸之口',
+    lore: '地牢裡死去的士兵與騎士的怨念聚在一起，把骨頭和盔甲拼成的怪物。身體就是一張巨口，嘴裡塞滿骷髏；四根觸手的尖端也都是嘴。行動緩慢，但會把人拉進嘴裡、喚醒亡者，吐出的東西每次都可能是另一種屬性。第 11～22 層的隱藏魔王，可以不打。',
+    // 牠待在自己的房間：離開房間就走回中央
+    leashRange: 30,
+    lootTable: 'loot.hidden_boss',
+    hp: 800,
+    damage: [8, 13],
+    defense: 35,
+    moveSpeed: 1.4,
+    radius: 0.5,
+    attackRange: 0.7,
+    attackSpeed: 0.75,
+    ai: 'melee',
+    skills: ['basic.attack', 'enemy.guardian_summon', 'enemy.maw_drag', 'enemy.maw_spread', 'enemy.behemoth_slam', 'enemy.maw_spit'],
+    // 腳下留下腐液；四張小嘴不定時噴濺
+    passives: [
+      { skill: 'enemy.maw_trail', every: 20 },
+      { skill: 'enemy.maw_vent', every: 20 },
+    ],
+    xp: 520,
+    phases: [
+      {
+        hpBelow: 0.6,
+        label: '怨念沸騰',
+        modifiers: [{ stat: 'damageBonus', value: 0.15 }],
+      },
+      {
+        hpBelow: 0.3,
+        label: '萬骸齊鳴',
+        modifiers: [
+          { stat: 'attackSpeed', kind: 'increased', value: 0.25 },
+          { stat: 'moveSpeed', kind: 'increased', value: 0.2 },
+        ],
+        skills: ['basic.attack', 'enemy.guardian_legion', 'enemy.guardian_summon', 'enemy.maw_drag', 'enemy.maw_spread', 'enemy.behemoth_slam', 'enemy.maw_spit'],
+      },
+    ],
+  },
+  {
+    ...BOSS,
     id: 'enemy.abyss_lord',
     name: '深淵魔王',
     lore: '深淵的主宰，有翼的惡魔。多段重擊、天降火雨、召喚分身；受傷後展開暗黑領域，最後深淵覺醒。出現在第 30 與第 34 層。',
@@ -1028,6 +1068,58 @@ function scaleAoe(effect: EffectInput): EffectInput {
   return e;
 }
 
+// ─────────────────── 隱藏魔王「萬骸之口」───────────────────
+// 地上的腐液（設計者 2026-11-02）：大小固定、彼此不重疊。怨念蔓延直徑 2.5 格、維持 10 秒、冷卻 30 秒；足跡與噴濺直徑 1.5 格、冷卻 20 秒。
+// 招式參考熔岩巨獸。每招有四個屬性的版本（<技能 ID>.<屬性>），SkillExecutor 每次出招從抽到的兩種屬性選一種；不帶屬性的 ID 給 AI 排招式用（內容同火）。
+type MawElement = 'fire' | 'cold' | 'lightning' | 'poison';
+const MAW_ELEMENTS: readonly MawElement[] = ['fire', 'cold', 'lightning', 'poison'];
+const MAW_NAME: Record<MawElement, string> = { fire: '火焰', cold: '冰寒', lightning: '閃電', poison: '劇毒' };
+/** 命中一次的附帶效果 */
+const MAW_BURST: Record<MawElement, EffectInput> = {
+  fire: { type: 'status', status: 'burn', duration: 2 },
+  cold: { type: 'status', status: 'slow', duration: 2, magnitude: 0.3 },
+  lightning: { type: 'status', status: 'stun', duration: 0.4 },
+  poison: { type: 'status', status: 'poison', duration: 3, magnitude: 0.4, maxStacks: 3 },
+};
+/** 持續區域每跳的附帶效果（閃電不暈眩，否則站在裡面會一直被定住） */
+const MAW_GROUND: Record<MawElement, EffectInput> = {
+  fire: { type: 'status', status: 'burn', duration: 1.5 },
+  cold: { type: 'status', status: 'slow', duration: 1, magnitude: 0.3 },
+  lightning: { type: 'status', status: 'slow', duration: 1, magnitude: 0.2 },
+  poison: { type: 'status', status: 'poison', duration: 2, magnitude: 0.25, maxStacks: 3 },
+};
+const mawSkill = (base: Omit<SkillInput, 'effects' | 'tags' | 'description'>, tags: string[], description: string, effects: (element: MawElement) => EffectInput[]): SkillInput[] => [
+  { ...base, tags: [...tags, 'fire'], description, effects: effects('fire') },
+  ...MAW_ELEMENTS.map((element) => ({ ...base, id: `${base.id}.${element}`, tags: [...tags, element], description: `${MAW_NAME[element]}：${description}`, effects: effects(element) })),
+];
+const MAW_SKILLS: SkillInput[] = [
+  ...mawSkill({ id: 'enemy.maw_spread', name: '怨念蔓延', targeting: 'self', range: 12, castTime: 1.2, cooldown: 30, fixedArea: true }, ['spell', 'area'], '在周圍留下 4 灘持續 10 秒、彼此不重疊的屬性腐液。', (element) => [
+    { type: 'delayed', delay: 0.3, repeat: 4, interval: 0.5, scatter: 7, effects: [{ type: 'zone', radius: 1.25, duration: 10, interval: 0.5, exclusive: true, effects: [hit(element, 0.3), MAW_GROUND[element]] }] },
+  ]),
+  ...mawSkill({ id: 'enemy.maw_spit', name: '觸手噴吐', targeting: 'ground', range: 8, castTime: 1.1, cooldown: 7 }, ['spell', 'area'], '四張小嘴往目標周圍連續噴 5 發。', (element) => [
+    { type: 'delayed', delay: 0.6, repeat: 5, interval: 0.3, scatter: 2.5, effects: [{ type: 'area', radius: 1.3, effects: [hit(element, 1.5), MAW_BURST[element]] }] },
+  ]),
+  ...mawSkill({ id: 'enemy.maw_trail', name: '腐蝕足跡', targeting: 'self', range: 1, castTime: 0 }, ['area'], '（被動）約每 20 秒在腳下留下一小灘持續 5 秒的腐液。', (element) => [
+    { type: 'zone', radius: 0.75, duration: 5, interval: 0.5, exclusive: true, effects: [hit(element, 0.12), MAW_GROUND[element]] },
+  ]),
+  ...mawSkill({ id: 'enemy.maw_vent', name: '觸手噴濺', targeting: 'self', range: 3, castTime: 0 }, ['area'], '（被動）約每 20 秒，四張小嘴噴濺，落在周圍不重疊的 3 處。', (element) => [
+    { type: 'delayed', delay: 0.4, repeat: 3, interval: 0.15, scatter: 3, minApart: 1.6, effects: [{ type: 'area', radius: 0.75, effects: [hit(element, 0.6), MAW_BURST[element]] }] },
+  ]),
+  {
+    // 牠走得慢，靠這招把人拉回嘴前
+    id: 'enemy.maw_drag',
+    name: '吞噬拉扯',
+    description: '觸手抓住目標，把人拉到嘴前。',
+    targeting: 'enemy',
+    range: 8,
+    castTime: 1,
+    impactAt: 0.7,
+    cooldown: 10,
+    tags: ['attack', 'melee'],
+    effects: [hit('physical', 0.8), { type: 'knockback', distance: -8 }],
+  },
+];
+
 /**
  * 魔王技能：範圍技的範圍 × 1.2；直接打在地上的範圍技（重擊、衝鋒落點、暗黑領域）一律在前搖時顯示範圍，
  * 讓玩家有時間閃開（延遲落下的轟擊本來就會先標出落點）。原本的前搖秒數不變。
@@ -1042,4 +1134,5 @@ export const bossSkills: SkillInput[] = [
     };
   }),
   ...SOVEREIGN_SKILLS,
+  ...MAW_SKILLS,
 ];

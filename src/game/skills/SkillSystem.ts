@@ -145,7 +145,7 @@ export class SkillSystem {
     const empower = empowerKind ? this.statuses.consume(actor, empowerKind) : null;
     if (empower) mods = { ...mods, damage: mods.damage + empower.magnitude };
     // 怪物的特殊技能範圍隨樓層放大（普通攻擊不變；直線範圍不看 aoeRadius）
-    if (actor.skillArea !== 1 && skill.id !== BASIC_ATTACK) mods = { ...mods, aoeRadius: (1 + mods.aoeRadius) * actor.skillArea - 1 };
+    if (actor.skillArea !== 1 && skill.id !== BASIC_ATTACK && !skill.fixedArea) mods = { ...mods, aoeRadius: (1 + mods.aoeRadius) * actor.skillArea - 1 };
 
     actor.mana -= cost;
     if (skill.cooldown > 0) actor.cooldowns.set(skill.id, skill.cooldown);

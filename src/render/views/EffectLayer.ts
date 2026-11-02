@@ -228,6 +228,8 @@ export class EffectLayer {
       if (!g) {
         const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
         g = new Graphics().poly(this.outline(zone.position, zone.radius)).fill({ color, alpha: zone.followCaster ? 0.1 : 0.28 }).stroke({ color, width: 2, alpha: 0.8 });
+        // 隱藏魔王的腐液：依屬性加上燃燒、冰柱、電弧、毒泡泡
+        if (zone.exclusive) g.addChild(new Graphics());
         this.ground.addChild(g);
         this.zoneViews.set(zone.id, g);
         this.zoneOrigins.set(zone.id, this.projection.toScreen(zone.position));
@@ -239,13 +241,17 @@ export class EffectLayer {
         g.position.set(now.x - from.x, now.y - from.y);
       }
       g.alpha = 0.7 + 0.3 * Math.sin(performance.now() / 90 + zone.id);
+      if (zone.exclusive) {
+        g.alpha = 1;
+        drawZoneElement(g.children[0] as Graphics, zone, zoneElement(zone.effects), performance.now() / 1000, (x, y) => this.projection.toScreen(vec2(x, y)));
+      }
       // 持續區域一直亮著（火牆、毒池、冰霜地面），亮度隨閃爍起伏
       const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
       this.glows.push({ skillId: originalSkillId(zone.ctx.skill.id), id: `z${zone.id}`, kind: 'zone', position: zone.position, height: ZONE_GLOW_HEIGHT, color, strength: 0.55 * g.alpha, radius: zone.radius, t: 0 });
     }
     for (const [id, g] of this.zoneViews) {
       if (seen.has(id)) continue;
-      g.destroy();
+      g.destroy({ children: true });
       this.zoneViews.delete(id);
       this.zoneOrigins.delete(id);
     }
@@ -351,6 +357,56 @@ export class EffectLayer {
 }
 
 /** 持續區域的顏色：有傷害看元素；只有緩速 / 冰凍（絕對零度的冰凍地面）是冰色；其他是火 */
+/** 固定的亂數（同一個區域每次一樣）：0～1 */
+const zoneRand = (seed: number): number => {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+/** 區域裡的屬性動畫：火焰往上竄、冰柱立在地上、電弧閃爍、毒泡泡冒出來破掉 */
+function drawZoneElement(g: Graphics, zone: Zone, element: string, now: number, toScreen: (x: number, y: number) => { x: number; y: number }): void {
+  g.clear();
+  const count = Math.round(4 + zone.radius * 7);
+  const spot = (i: number) => {
+    const angle = zoneRand(zone.id * 7 + i) * Math.PI * 2;
+    const r = Math.sqrt(zoneRand(zone.id * 13 + i * 3)) * zone.radius * 0.85;
+    return toScreen(zone.position.x + Math.cos(angle) * r, zone.position.y + Math.sin(angle) * r);
+  };
+  for (let i = 0; i < count; i++) {
+    const p = spot(i);
+    const size = 0.6 + zoneRand(zone.id + i * 11) * 0.8;
+    const life = (now * (0.8 + zoneRand(i) * 0.7) + zoneRand(zone.id + i)) % 1;
+    if (element === 'fire') {
+      const h = 22 * size * (1 - life * 0.6);
+      const w = 6 * size * (1 - life);
+      const y = p.y - life * 10;
+      g.poly([p.x - w, y, p.x + w, y, p.x, y - h]).fill({ color: life < 0.45 ? 0xffd24a : 0xff5a14, alpha: 0.9 * (1 - life) });
+    } else if (element === 'cold') {
+      const h = 26 * size;
+      const w = 5 * size;
+      g.poly([p.x - w, p.y, p.x, p.y + w * 0.5, p.x, p.y - h]).fill({ color: 0x8fd8ff, alpha: 0.9 });
+      g.poly([p.x + w, p.y, p.x, p.y + w * 0.5, p.x, p.y - h]).fill({ color: 0xe4f8ff, alpha: 0.95 });
+    } else if (element === 'lightning') {
+      if (i % 3 !== 0) continue;
+      // 每秒換 12 次形狀，看起來在閃
+      const beat = Math.floor(now * 12);
+      const q = spot((i + 1 + (beat % 4)) % count);
+      const points = [p.x, p.y - 4];
+      for (let k = 1; k < 4; k++) {
+        const t = k / 4;
+        points.push(p.x + (q.x - p.x) * t + (zoneRand(beat + i * 5 + k) - 0.5) * 16, p.y + (q.y - p.y) * t - 4 + (zoneRand(beat + i * 7 + k) - 0.5) * 12);
+      }
+      points.push(q.x, q.y - 4);
+      g.poly(points, false).stroke({ color: 0xd8c4ff, width: 2, alpha: 0.95 });
+      g.circle(p.x, p.y - 4, 2.5).fill({ color: 0xf4eaff, alpha: 0.9 });
+    } else if (element === 'poison') {
+      const r = (2 + 6 * life) * size;
+      const y = p.y - life * 14;
+      g.circle(p.x, y, r).fill({ color: 0x6ce030, alpha: 0.35 * (1 - life * 0.5) }).stroke({ color: 0xc8ff80, width: 1.5, alpha: life > 0.9 ? 0.2 : 0.9 });
+    }
+  }
+}
+
 function zoneElement(effects: readonly Zone['effects'][number][]): string {
   const element = firstElement(effects);
   if (element) return element;

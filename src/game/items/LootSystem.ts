@@ -59,6 +59,17 @@ export class LootSystem {
           break;
       }
     }
+    // 隱藏魔王：其中一件換成孔數全滿的白裝
+    if (table.fullSocketWhite && this.rng.chance(table.fullSocketWhite)) {
+      const index = drops.findIndex((d) => d.kind === 'item');
+      if (index >= 0) drops[index] = { kind: 'item', item: this.generator.generateFullSocketWhite(this.itemLevel()) };
+    }
+    // 隱藏魔王：額外的金幣
+    if (table.bonusGold) {
+      const { amount, piles } = table.bonusGold;
+      const total = this.rng.int(amount[0], amount[1]);
+      for (let i = 0; i < piles; i++) drops.push({ kind: 'gold', amount: Math.floor(total / piles) + (i < total % piles ? 1 : 0) });
+    }
     // 魔王：飛昇碎片
     if (table.shards && this.rng.chance(table.shards.chance)) {
       drops.push({ kind: 'material', materialId: 'ascensionShard', count: this.rng.int(table.shards.count[0], table.shards.count[1]) });

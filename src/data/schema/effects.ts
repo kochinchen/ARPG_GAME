@@ -172,6 +172,8 @@ export const ZoneEffectSchema = z.strictObject({
   interval: z.number().positive(),
   /** 區域跟著施放者移動（劍刃旋舞的劍風）；施放者死亡時消失 */
   followCaster: z.boolean().default(false),
+  /** 不和同一個施放者的其他 exclusive 區域重疊：落點重疊時就近換位置，找不到就不放 */
+  exclusive: z.boolean().default(false),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },
@@ -189,6 +191,8 @@ export const DelayedEffectSchema = z.strictObject({
   spinDeg: z.number().default(0),
   /** > 0：每次的落點排成一排（與施放方向垂直、以中心點為中央），間隔 spacing 格（火牆） */
   spacing: z.number().nonnegative().default(0),
+  /** > 0：這一次的落點彼此至少相隔幾格（找不到就放在能找到的最遠處） */
+  minApart: z.number().nonnegative().default(0),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },

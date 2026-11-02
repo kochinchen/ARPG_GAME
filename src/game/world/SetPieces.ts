@@ -141,7 +141,8 @@ export function placeSetPieces(map: MapDef, defs: readonly SetPieceDef[], rng: R
       const my = Math.floor(marker / grid.W);
       if (mx > box.x - clear && mx < box.x + box.w + clear && my > box.y - clear && my < box.y + box.h + clear) return false;
     }
-    const arenas = [...(map.arena ? [map.arena] : []), ...map.subArenas];
+    const hidden = map.hiddenRoom ? [{ x: map.hiddenRoom.x, y: map.hiddenRoom.y, radius: map.hiddenRoom.size * 0.72 }] : [];
+    const arenas = [...(map.arena ? [map.arena] : []), ...map.subArenas, ...hidden];
     for (const a of arenas) {
       const ax = a.x * perTile;
       const ay = a.y * perTile;

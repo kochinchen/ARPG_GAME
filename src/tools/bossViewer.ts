@@ -4,6 +4,7 @@ import { enemies } from '../data/enemies';
 import { BOSS_MODELS } from '../render/figure/Bosses';
 import { figureScale, type AttackVariant, type FigureModel } from '../render/figure/FigureModel';
 import { PolyFigure, type FigureState } from '../render/figure/PolyFigure';
+import { boneDragonLook, type GlowElement } from '../render/figure/bosses/BoneDragonAI';
 import { STONE_WALKERS } from '../render/figure/StoneWalkers';
 import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
 
@@ -17,7 +18,9 @@ import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
 const params = new URLSearchParams(location.search);
 const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && e.boss)), ...Object.keys(STONE_WALKERS)];
 const modelId = ids.includes(`enemy.${params.get('model')}`) ? `enemy.${params.get('model')}` : 'enemy.abyss_sovereign';
-const baseModel: FigureModel = BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId]!;
+/** ?glow=fire,poison：骨龍的兩種屬性 */
+const glow = params.get('glow')?.split(',') as [GlowElement, GlowElement] | undefined;
+const baseModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId]!;
 /** ?bones=1：蒙皮網格每個面依權重最大的骨頭上色（手臂 = 黃 / 橘 / 紅、鎖骨 = 白，其他依名稱），檢查分區 */
 const BONE_COLORS: Record<string, number> = { upperArm: 0xffe040, forearm: 0xff8a20, hand: 0xff3030, ex_fingers: 0xff40c0, ex_clav: 0xffffff };
 const model: FigureModel =
@@ -162,6 +165,27 @@ for (const id of ids) {
 }
 select.onchange = () => (location.search = `?model=${select.value}`);
 bar.append(select);
+// 萬骸之口：兩種屬性的配色（第一屬性 = 眼睛與嘴，第二屬性 = 裂縫與關節縫）
+if (modelId === 'enemy.bone_dragon') {
+  const NAMES: Record<GlowElement, string> = { fire: '火', cold: '冰', lightning: '雷', poison: '毒' };
+  const current: GlowElement[] = glow?.length === 2 ? glow : ['fire', 'cold'];
+  [0, 1].forEach((slot) => {
+    const pick = document.createElement('select');
+    for (const key of Object.keys(NAMES) as GlowElement[]) {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = `${slot === 0 ? '嘴' : '縫'}：${NAMES[key]}`;
+      opt.selected = current[slot] === key;
+      pick.append(opt);
+    }
+    pick.onchange = () => {
+      const next = [...current];
+      next[slot] = pick.value as GlowElement;
+      location.search = `?model=bone_dragon&glow=${next.join(',')}`;
+    };
+    bar.append(pick);
+  });
+}
 
 const gMove = group('移動');
 for (const [m, label] of [['idle', '待機'], ['walk', '走路'], ['run', '跑步']] as [Move, string][]) {

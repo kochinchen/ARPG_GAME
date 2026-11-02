@@ -23,6 +23,19 @@ export const MapDefSchema = z
     arena: z.strictObject({ x: z.number(), y: z.number(), radius: z.number().positive() }).optional(),
     /** 中途小王的圓形空地（挑戰樓層）：小王在圓心，一般怪物與寶箱不會生成在裡面 */
     subArenas: z.array(z.strictObject({ x: z.number(), y: z.number(), radius: z.number().positive() })).default([]),
+    /**
+     * 預留的隱藏房（World 單位）：正方形，x / y 是中心、size 是邊長、door 是通道接上地圖的地方。
+     * rows 是封閉的樣子（整塊都是牆）；骰到才依 carve（格子座標的 [x, y, 寬, 高]，房間與通道）挖開，其他地方完全不變。
+     */
+    hiddenRoom: z
+      .strictObject({
+        x: z.number(),
+        y: z.number(),
+        size: z.number().positive(),
+        door: PointSchema,
+        carve: z.array(z.tuple([z.int(), z.int(), z.int().positive(), z.int().positive()])).min(1),
+      })
+      .optional(),
     /** 放進隨機地圖的固定場景（World 單位）；front 是從後牆往前的方向。放不下的場景不會出現在這裡 */
     setPieces: z
       .array(z.strictObject({ id: IdSchema, x: z.number(), y: z.number(), w: z.number().positive(), h: z.number().positive(), front: z.enum(['N', 'S', 'E', 'W']) }))

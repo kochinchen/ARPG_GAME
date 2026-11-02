@@ -76,6 +76,7 @@ export const SaveMapper = {
         midwayFloors: [...world.floors.midwayFloors].sort((a, b) => a - b),
         exitOpen: world.floors.exitOpen,
         killed: [...world.floors.killedSpawns],
+        hiddenBoss: world.hiddenBoss,
         corpses: world.corpses.flatMap((c) =>
           c.index === null ? [] : [{ index: c.index, x: c.position.x, y: c.position.y, facing: Math.atan2(c.facing.y, c.facing.x) }],
         ),
@@ -202,6 +203,7 @@ export const SaveMapper = {
       bossGateActive: save.floor.bossGateActive,
       exitOpen: save.floor.exitOpen,
       shopBought: save.floor.shopBought,
+      hiddenBoss: save.floor.hiddenBoss,
     });
     for (const g of save.floor.groundItems) {
       const item = world.spawnGroundItem(vec2(g.x, g.y), toGroundContent(g.entry));

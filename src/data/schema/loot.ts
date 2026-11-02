@@ -23,6 +23,10 @@ export const LootTableDefSchema = z.strictObject({
   rarityWeights: RarityWeightsSchema,
   /** 飛昇碎片：chance 機率掉落 count 片（魔王） */
   shards: z.strictObject({ chance: z.number().gt(0).max(1), count: RangeSchema }).optional(),
+  /** 額外的金幣（隱藏魔王）：範圍內一筆，分成 piles 堆噴出來 */
+  bonusGold: z.strictObject({ amount: RangeSchema, piles: z.int().positive() }).optional(),
+  /** 這個機率把其中一件裝備換成孔數全滿的白裝（隱藏魔王） */
+  fullSocketWhite: z.number().gt(0).max(1).optional(),
 });
 
 export type LootTableDef = z.infer<typeof LootTableDefSchema>;

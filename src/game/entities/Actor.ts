@@ -1,4 +1,5 @@
 import { vec2, type Vec2 } from '../../core/math/Vec2';
+import type { Element } from '../../data/schema/common';
 import type { DeviceEffectDef, StatusKind } from '../../data/schema/effects';
 import type { SkillDef } from '../../data/schema/skill';
 import type { AiBrain } from '../ai/AiBrain';
@@ -120,6 +121,8 @@ export class Actor {
   readonly miniBoss: boolean;
   readonly elite: boolean;
   readonly summonedBy: ActorId | null;
+  /** 隱藏魔王隨機抽到的兩種屬性（第一種是眼睛與嘴，第二種是裂縫）：每次出招從中選一種，改用該屬性的技能（SkillExecutor） */
+  innateElements: readonly Element[] | null = null;
   readonly xpReward: number;
   readonly skillArea: number;
   readonly device: DeviceState | null;

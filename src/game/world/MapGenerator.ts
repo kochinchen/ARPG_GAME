@@ -12,6 +12,8 @@ import type { LayoutDef } from '../../data/schema/floor';
  * 魔王層（arena）：先在地圖右下方挖出圓形競技場（不放柱子、不放怪），魔王在圓心；
  * 競技場遠端（右下）再接一間小房間（出口與商人），只能穿過競技場進去。
  * 挑戰樓層另有中途小王的圓形空地（subArenas），和一般房間一樣連進通道。
+ * 隱藏房（hiddenRoom）：地圖右上角固定預留一塊正方形，平常是實心牆；骰到時由 openHiddenRoom 挖開房間和一條通道。
+ * 通道最後才接，所以隱藏房一定是死路，樓梯口、存檔點和出口之間的路都不經過它。
  * 最後一層（王座廳）改用 generateThroneMap：整層只有一個圓形大空間
  */
 
@@ -47,22 +49,33 @@ export interface ArenaSpec {
   subArenas?: readonly number[];
 }
 
-export function generateMap(id: string, rng: Rng, layout: LayoutDef, arena?: ArenaSpec): MapDef {
+export function generateMap(id: string, rng: Rng, layout: LayoutDef, arena?: ArenaSpec, hiddenRoomSize?: number): MapDef {
   // 極少數情況（房間太少、連不起來）重試
   for (let attempt = 0; attempt < 8; attempt++) {
-    const map = tryGenerate(id, rng, layout, arena);
+    const map = tryGenerate(id, rng, layout, arena, hiddenRoomSize);
     if (map) return map;
   }
   throw new Error(`map generation failed: ${id}`);
 }
 
-function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaSpec): MapDef | null {
+/** 隱藏房離地圖邊緣的格數；通道寬度的一半（格）；通道不能離樓梯口、存檔點、出口太近（格） */
+const HIDDEN_MARGIN = 8;
+const HIDDEN_DOOR_HALF = 8;
+const HIDDEN_DOOR_CLEAR = 30;
+
+function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaSpec, hiddenRoomSize?: number): MapDef | null {
   const W = Math.round(layout.width / layout.cellSize);
   const H = Math.round(layout.height / layout.cellSize);
   const grid = new Uint8Array(W * H).fill(WALL);
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? WALL : grid[y * W + x]!);
+  /** 預留的隱藏房（含一圈牆）：任何房間、通道都不能挖進來 */
+  const hiddenCells = hiddenRoomSize ? Math.round(hiddenRoomSize / layout.cellSize) : 0;
+  const hidden: Room | null = hiddenCells
+    ? { x: W - hiddenCells - HIDDEN_MARGIN, y: HIDDEN_MARGIN, w: hiddenCells, h: hiddenCells, cx: W - HIDDEN_MARGIN - Math.round(hiddenCells / 2), cy: HIDDEN_MARGIN + Math.round(hiddenCells / 2) }
+    : null;
+  const inHidden = (x: number, y: number) => hidden !== null && x >= hidden.x - 3 && y >= hidden.y - 3 && x < hidden.x + hidden.w + 3 && y < hidden.y + hidden.h + 3;
   const set = (x: number, y: number, v: number) => {
-    if (x > 1 && y > 1 && x < W - 2 && y < H - 2) grid[y * W + x] = v;
+    if (x > 1 && y > 1 && x < W - 2 && y < H - 2 && !inHidden(x, y)) grid[y * W + x] = v;
   };
 
   // ── 1. 房間（魔王層先放競技場：右下方的大圓，其他房間避開它） ──
@@ -97,6 +110,7 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaS
     const edge = Math.round(r * 0.6);
     reserved.push({ x: cx + edge, y: cy + edge, w: ax + R - (cx + edge) + 1, h: ay + R - (cy + edge) + 1, cx: ax, cy: ay });
   }
+  if (hidden) reserved.push(hidden);
   const blocked = (x: number, y: number, w: number, h: number) =>
     [...rooms, ...reserved].some((r) => x < r.x + r.w + GAP && x + w + GAP > r.x && y < r.y + r.h + GAP && y + h + GAP > r.y);
   // 中途小王的圓形空地：先放（尺寸大），放不下就少放
@@ -203,6 +217,9 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaS
   }
   grid.set(opened);
 
+  // 平滑、開運算會直接寫格子，隱藏房的範圍再清一次
+  if (hidden) for (let y = hidden.y - 3; y < hidden.y + hidden.h + 3; y++) for (let x = hidden.x - 3; x < hidden.x + hidden.w + 3; x++) grid[y * W + x] = WALL;
+
   // ── 5. 最大連通區域 ──
   const region = largestRegion(grid, W, H);
   if (!region) return null;
@@ -266,6 +283,44 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaS
   }
   if (mid === null) return null;
 
+  // 隱藏房的通道：從房間的下緣或左緣筆直往外，接到最近的、走得到的地板
+  let hiddenRoom: MapDef['hiddenRoom'];
+  if (hidden) {
+    const markers = [s, mid, far];
+    const clear = (x: number, y: number) =>
+      markers.every((m) => Math.hypot((m % W) - x, Math.floor(m / W) - y) > HIDDEN_DOOR_CLEAR);
+    let best: { len: number; rect: [number, number, number, number]; door: [number, number] } | null = null;
+    for (let t = 0; t <= 0.6; t += 0.1) {
+      for (const k of t === 0 ? [0] : [-t, t]) {
+        // 下緣：往下找
+        const dx = hidden.cx + Math.round((k * hidden.w) / 2);
+        for (let y = hidden.y + hidden.h; y < Math.min(H - 3, hidden.y + hidden.h + 140); y++) {
+          if (at(dx, y) === WALL || d[y * W + dx]! < 0) continue;
+          const len = y - (hidden.y + hidden.h);
+          if (clear(dx, y) && (!best || len < best.len)) best = { len, rect: [dx - HIDDEN_DOOR_HALF, hidden.y + hidden.h, HIDDEN_DOOR_HALF * 2 + 1, len + 3], door: [dx, y] };
+          break;
+        }
+        // 左緣：往左找
+        const dy = hidden.cy + Math.round((k * hidden.h) / 2);
+        for (let x = hidden.x - 1; x > Math.max(3, hidden.x - 140); x--) {
+          if (at(x, dy) === WALL || d[dy * W + x]! < 0) continue;
+          const len = hidden.x - x;
+          if (clear(x, dy) && (!best || len < best.len)) best = { len, rect: [x - 2, dy - HIDDEN_DOOR_HALF, len + 3, HIDDEN_DOOR_HALF * 2 + 1], door: [x, dy] };
+          break;
+        }
+      }
+    }
+    if (!best) return null;
+    const c = layout.cellSize;
+    hiddenRoom = {
+      x: (hidden.x + hidden.w / 2) * c,
+      y: (hidden.y + hidden.h / 2) * c,
+      size: hidden.w * c,
+      door: [(best.door[0] + 0.5) * c, (best.door[1] + 0.5) * c],
+      carve: [[hidden.x, hidden.y, hidden.w, hidden.h], best.rect],
+    };
+  }
+
   const rows: string[] = [];
   for (let y = 0; y < H; y++) {
     let row = '';
@@ -284,8 +339,23 @@ function tryGenerate(id: string, rng: Rng, layout: LayoutDef, arenaSpec?: ArenaS
     chests: [],
     ...(arena ? { arena: { x: (arena.cx + 0.5) * c, y: (arena.cy + 0.5) * c, radius: (arena.w / 2) * c } } : {}),
     subArenas: subs.filter((r) => rooms.includes(r)).map((r) => ({ x: (r.cx + 0.5) * c, y: (r.cy + 0.5) * c, radius: (r.w / 2) * c })),
+    ...(hiddenRoom ? { hiddenRoom } : {}),
     setPieces: [],
   };
+}
+
+/** 打開隱藏房：只把牆挖成地板（樓梯口、存檔點、出口的標記不動），其他地方完全不變 */
+export function openHiddenRoom(map: MapDef): MapDef {
+  if (!map.hiddenRoom) return map;
+  const rows = map.rows.map((r) => [...r]);
+  for (const [x, y, w, h] of map.hiddenRoom.carve) {
+    for (let yy = y; yy < y + h; yy++) {
+      for (let xx = x; xx < x + w; xx++) {
+        if (rows[yy]?.[xx] === MAP_TILES.wall) rows[yy]![xx] = MAP_TILES.floor;
+      }
+    }
+  }
+  return { ...map, rows: rows.map((r) => r.join('')) };
 }
 
 /**

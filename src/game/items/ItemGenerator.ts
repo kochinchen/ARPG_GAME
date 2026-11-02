@@ -136,6 +136,16 @@ export class ItemGenerator {
     return { uid, baseId: base.id, rarity, itemLevel, ...(quality > 0 ? { quality } : {}), affixes, ...(sockets > 0 ? { sockets: { max: sockets, cores: [] } } : {}) };
   }
 
+  /** 孔數全滿的白裝（隱藏魔王）：一定是可鑲嵌的部位 */
+  generateFullSocketWhite(itemLevel: number): ItemInstance {
+    const white = { normal: 1, magic: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 };
+    for (let tries = 0; ; tries++) {
+      const item = this.generate(itemLevel, white);
+      const base = this.data.items.get(item.baseId);
+      if (CORE_SLOTS.includes(base.slot as CoreSlot) || tries > 50) return { ...item, sockets: { max: this.data.balance.sockets.max.normal, cores: [] } };
+    }
+  }
+
   /** 掉落時的孔數：白 / 藍 / 黃依權重 0～2 孔，紫以上 0 孔；只有可鑲嵌的部位 */
   private rollSockets(base: ItemBaseDef, rarity: Rarity): number {
     if (!this.socketRng || !CORE_SLOTS.includes(base.slot as CoreSlot)) return 0;

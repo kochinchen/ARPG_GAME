@@ -123,6 +123,8 @@ export interface GameEvents {
   /** 《井誌》收集滿 quarter / 4；reward：給玩家看的獎勵說明 */
   BookMilestone: { quarter: number; reward: string };
   /** 魔王第一次倒下，魂魄飄出（Render 畫煙、UI 顯示台詞） */
+  /** 這一層有隱藏魔王：進入樓層時提示，不標位置 */
+  HiddenBossAwake: { name: string };
   SoulReleased: { soulId: string; smoke: SoulSmoke; position: Vec2 };
   /** 點了尚未開啟的出口；boss = Boss 層（擊敗 Boss 才開） */
   /** champion：首領還活著（擊敗首領後出口才會開） */

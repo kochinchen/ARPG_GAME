@@ -2,7 +2,8 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { Actor } from '../../game/entities/Actor';
-import { figureScale, type AttackVariant } from '../figure/FigureModel';
+import { boneDragonLook, type GlowElement } from '../figure/bosses/BoneDragonAI';
+import { figureScale, type AttackVariant, type FigureModel } from '../figure/FigureModel';
 import { HEROINE } from '../figure/Heroine';
 import { DEFAULT_MONSTER_MODEL, MONSTER_MODELS } from '../figure/Monsters';
 import { PolyFigure, type ActionKind } from '../figure/PolyFigure';
@@ -29,7 +30,19 @@ const MOVING_SPEED = 8;
 export const HIT_BOX = { halfWidth: 18, top: -60, bottom: 10 } as const;
 
 /** 角色的模型（主角 / 各種怪物） */
-const modelOf = (actor: Actor) => (actor.faction === 'player' ? HEROINE : (MONSTER_MODELS[actor.defId ?? ''] ?? DEFAULT_MONSTER_MODEL));
+/** 隱藏魔王依抽到的兩種屬性換色；同一組顏色共用模型 */
+const boneDragonLooks = new Map<string, FigureModel>();
+const boneDragonModel = (elements: readonly GlowElement[]): FigureModel => {
+  const key = elements.join();
+  let model = boneDragonLooks.get(key);
+  if (!model) boneDragonLooks.set(key, (model = boneDragonLook(elements[0]!, elements[1]!)));
+  return model;
+};
+const modelOf = (actor: Actor) => {
+  if (actor.faction === 'player') return HEROINE;
+  if (actor.defId === 'enemy.bone_dragon' && actor.innateElements) return boneDragonModel(actor.innateElements as readonly GlowElement[]);
+  return MONSTER_MODELS[actor.defId ?? ''] ?? DEFAULT_MONSTER_MODEL;
+};
 
 /** 角色相對於標準體型（主角）的大小：模型的縮放倍率（隨機體型、精英、Boss 都會放大） */
 export const sizeOf = (actor: Actor) => Math.max(1, figureScale(modelOf(actor), actor.visualRadius));

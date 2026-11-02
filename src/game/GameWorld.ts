@@ -65,7 +65,8 @@ import { CheckpointSystem } from './world/CheckpointSystem';
 import { floorResistFor, scaleForFloor, type FloorScaling } from './world/DifficultyScaler';
 import { FloorManager, mapIdForFloor } from './world/FloorManager';
 import { canAscend, descendKind, selectableFloors } from './world/Endgame';
-import { generateMap, generatedMapId, generateThroneMap } from './world/MapGenerator';
+import type { Element } from '../data/schema/common';
+import { generateMap, generatedMapId, generateThroneMap, openHiddenRoom } from './world/MapGenerator';
 import { placeSetPieces, setPieceSpot } from './world/SetPieces';
 import { bookQuarter, buildBook, type BookPage } from '../data/book';
 import { notePageInChest } from './world/Notebook';
@@ -124,6 +125,15 @@ export interface FloorRestore {
   exitOpen: boolean;
   /** 商人貨架已買走的位置 */
   shopBought?: readonly number[];
+  /** 這一層的隱藏魔王（v22） */
+  hiddenBoss?: HiddenBossState | null;
+}
+
+/** 這一層的隱藏魔王：魔王、抽到的兩種屬性（順序決定上色）、是否已被打倒 */
+export interface HiddenBossState {
+  enemyId: string;
+  elements: [Element, Element];
+  dead: boolean;
 }
 
 /** 需要存檔的亂數序列名稱（存檔的 key，改名需寫 Migration） */
@@ -241,6 +251,11 @@ export class GameWorld {
   private readonly enemyFactory = new EnemyFactory();
   /** 本層活著的首領（被擊敗時在原地放首領寶箱）；沒有首領或已被擊敗為 null */
   private champion: { actorId: number } | null = null;
+  /** 這一層的隱藏魔王（存檔內容）；這次沒有骰到為 null */
+  hiddenBoss: HiddenBossState | null = null;
+  private hiddenBossActor: number | null = null;
+  /** 開發用：每次進入有隱藏房的樓層都出現（網址 ?hiddenboss） */
+  forceHiddenBoss = false;
 
   constructor(options: GameWorldOptions) {
     const { data } = options;
@@ -290,7 +305,7 @@ export class GameWorld {
       spawnProjectile: (p) => {
         this.projectiles.push({ ...p, id: this.nextProjectileId++ });
       },
-    });
+    }, data.skills);
     const comboIndex = new ComboSkillIndex(data.skills);
     this.comboResolver = new ComboResolver(data.comboRules, comboIndex, data.balance.combo.nearNearFarBonus);
     this.combos = new ComboSystem(this.comboResolver, this.targeting, this.statuses, this.events);
@@ -454,7 +469,7 @@ export class GameWorld {
     });
     // 魔王第一次倒下：魂魄飄出，說出那個人的真相（每個存檔一次；中途小王與召喚物沒有）
     this.events.on('ActorDied', (e) => {
-      if (e.faction !== 'enemy' || !e.boss || e.miniBoss || e.summoned) return;
+      if (e.faction !== 'enemy' || !e.boss || e.miniBoss || e.summoned || e.actorId === this.hiddenBossActor) return;
       const soul = this.data.souls.all.find((s) => s.floor === this.floors.floor);
       if (!soul || this.progress.souls.has(soul.id)) return;
       const found = this.bookFound();
@@ -485,6 +500,7 @@ export class GameWorld {
     // 首領被擊敗：原地出現首領寶箱
     this.events.on('ActorDied', (e) => {
       if (this.champion !== null && e.actorId === this.champion.actorId) this.placeChampionChest(e.position);
+      if (this.hiddenBoss && e.actorId === this.hiddenBossActor) this.hiddenBoss.dead = true;
     });
     this.events.on('ChestOpened', (e) => {
       const chest = this.chests.find((c) => c.id === e.chestId);
@@ -526,12 +542,47 @@ export class GameWorld {
         ? Array.from({ length: mini.maxPerFloor }, (_, i) => mini.arenaBodies * bodyWidth(def.miniBosses![i % def.miniBosses!.length]!))
         : [];
       const arena = bossDef ? { diameter: ARENA_BODIES * 2 * bossDef.radius * bossDef.size, subArenas } : undefined;
-      const generated = generateMap(generatedMapId(floor), new Rng(this.seed).fork(`map-${floor}`), def.layout, arena);
+      const hidden = this.data.balance.hiddenBoss;
+      const generated = generateMap(generatedMapId(floor), new Rng(this.seed).fork(`map-${floor}`), def.layout, arena, hidden.roomFloors.includes(floor) ? hidden.roomSize : undefined);
       // 小說的固定場景：獨立亂數，放不下就跳過，不影響地圖產生
       const pieces = this.data.setPieces.all.filter((p) => p.floor === floor);
       this.generated = { floor, map: placeSetPieces(generated, pieces, new Rng(this.seed).fork(`set-piece-${floor}`)) };
     }
     return this.generated.map;
+  }
+
+  /**
+   * 這一層的隱藏魔王：每次進入樓層（新樓層或回到上一層）擲一次；讀檔不重擲（不能靠重新整理刷魔王）。
+   * 屬性隨機抽兩種，順序決定上色的區塊。
+   */
+  private rollHiddenBoss(floor: number): HiddenBossState | null {
+    const config = this.data.balance.hiddenBoss;
+    const boss = config.bosses.find((b) => b.floors.includes(floor));
+    if (!boss) return null;
+    const rng = new Rng(this.seed).fork(`hidden-boss-${floor}-${Math.round(this.playTime * 60)}`);
+    if (!this.forceHiddenBoss && !rng.chance(config.chance)) return null;
+    const pool = [...boss.elements];
+    const first = pool.splice(rng.int(0, pool.length - 1), 1)[0]!;
+    const second = pool[rng.int(0, pool.length - 1)]!;
+    return { enemyId: boss.enemyId, elements: [first, second], dead: false };
+  }
+
+  /** 打開隱藏房並放魔王（一般怪物、寶箱都已經照封閉的地圖放好，所以有沒有魔王，這些東西的位置都一樣） */
+  private openHiddenBoss(state: HiddenBossState, scaling: FloorScaling, floor: number): void {
+    this.map = openHiddenRoom(this.map);
+    this.nav.load(this.map);
+    const room = this.map.hiddenRoom!;
+    this.checkpoints.addBossGate(this.spotNear(vec2(room.door[0], room.door[1]), 0, 0.5));
+    if (state.dead) return;
+    const def = this.data.enemies.get(state.enemyId);
+    const actor = this.enemyFactory.create(def, this.nextActorId++, this.spotNear(vec2(room.x, room.y), 0, Math.min(0.8, def.radius * def.size)), scaling);
+    actor.innateElements = state.elements;
+    const resist = floorResistFor(floor, true, this.data.balance.elite.floorResist);
+    applyFloorResist(actor, { physical: resist, elemental: resist });
+    this.addActor(actor);
+    this.hiddenBossActor = actor.id;
+    // 不算進開出口的擊殺數：可以不打
+    this.floors.excludeFromClear(actor.id);
   }
 
   /** 這件遺物在固定場景裡的位置（沒有對應的場景：null） */
@@ -585,6 +636,8 @@ export class GameWorld {
       ...(this.map.arena ? [{ center: vec2(this.map.arena.x, this.map.arena.y), radius: this.map.arena.radius + 2 }] : []),
       ...this.map.subArenas.map((a) => ({ center: vec2(a.x, a.y), radius: a.radius + 2 })),
       ...setPieceZones,
+      // 隱藏房打開後，噴錢的結晶獸也不能生成在裡面
+      ...(this.map.hiddenRoom ? [{ center: vec2(this.map.hiddenRoom.x, this.map.hiddenRoom.y), radius: this.map.hiddenRoom.size * 0.75 }] : []),
     ];
     const safe = zones.map((z) => z.center);
     const killed = new Set(restore?.killed ?? []);
@@ -710,6 +763,10 @@ export class GameWorld {
     // 讀檔時首領已被擊敗、寶箱還沒開：寶箱放在首領原本站的位置
     if (championSpot && championIndex !== undefined && killed.has(championIndex)) this.placeChampionChest(championSpot);
     for (const [actorId, index] of spawnedIds) this.floors.trackSpawn(actorId, index);
+    // 隱藏魔王（放在 floors.begin 之後：excludeFromClear 不能被 begin 清掉）；讀檔沿用存檔的結果
+    this.hiddenBoss = restore ? (restore.hiddenBoss ?? null) : this.rollHiddenBoss(floor);
+    this.hiddenBossActor = null;
+    if (this.hiddenBoss && this.map.hiddenRoom) this.openHiddenBoss(this.hiddenBoss, scaling, floor);
     if (!def.throne && !restore) this.spawnGoldWalkers(floor, safe, zones, plan.map((r) => r.position), scaling, eliteResist);
     if (this.exit) this.exit.open = this.floors.exitOpen;
     // 往上的樓梯：挑戰的第一層不能回到一般模式（完成隱藏難關後解除）
@@ -731,6 +788,7 @@ export class GameWorld {
     // 讀檔：回到最後啟動的存檔點（一般換層從樓梯口開始）
     if (restore) this.placePlayer(this.checkpoints.respawn.position);
     this.events.emit('FloorEntered', { floor, mapId: this.map.id });
+    if (this.hiddenBoss && !this.hiddenBoss.dead && !restore) this.events.emit('HiddenBossAwake', { name: this.data.enemies.get(this.hiddenBoss.enemyId).name });
   }
 
   /**

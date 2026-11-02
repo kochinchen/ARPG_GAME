@@ -58,6 +58,11 @@ export class ViewSync {
       window.clearTimeout(this.milestoneTimer);
       this.milestoneTimer = window.setTimeout(() => (gameView.milestone = null), 12_000);
     });
+    events.on('HiddenBossAwake', (e) => {
+      gameView.milestone = { badge: '遠處傳來低吼', title: `${e.name}醒了`, text: '牆後的某處打開了。可以不去理牠。' };
+      window.clearTimeout(this.milestoneTimer);
+      this.milestoneTimer = window.setTimeout(() => (gameView.milestone = null), 8_000);
+    });
     events.on('SoulReleased', (e) => {
       const soul = this.data.souls.get(e.soulId);
       window.clearTimeout(this.soulTimer);

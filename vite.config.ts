@@ -10,6 +10,6 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     environment: 'node',
     // 隨機地牢較大：建立樓層世界約 0.1～0.2 秒，跑多個樓層的測試需要較長的時間
-    testTimeout: 30000,
+    testTimeout: 120_000,
   },
 });

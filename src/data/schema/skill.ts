@@ -61,6 +61,8 @@ export const SkillDefSchema = z
     impactAt: z.number().min(0).max(1).default(0.5),
     /** 前搖期間在地上顯示攻擊範圍（怪物的重擊、法術），讓玩家有時間躲開 */
     telegraph: z.boolean().default(false),
+    /** 範圍不隨樓層放大（怪物的特殊技能預設會乘上 scaling.skillArea） */
+    fixedArea: z.boolean().default(false),
     /** true：施放時間 = 1 / 攻速（普通攻擊、近戰、弓箭） */
     useAttackSpeed: z.boolean().default(false),
     /** 施放距離（Tile）；省略時使用角色的 attackRange（近戰） */

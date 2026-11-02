@@ -1,6 +1,7 @@
 import type { FigureModel } from './FigureModel';
 import { ABYSS_LORD } from './bosses/AbyssLordAI';
 import { ABYSS_SOVEREIGN } from './bosses/AbyssSovereignAI';
+import { BONE_DRAGON } from './bosses/BoneDragonAI';
 import { CRYPT_GUARDIAN, FALLEN_KNIGHT, FALLEN_PRIEST, LAVA_BEHEMOTH } from './bosses/HumanoidAI';
 import { CULTIST } from './bosses/RobedBosses';
 import { SPIDER_QUEEN } from './bosses/SpiderQueenAI';
@@ -23,4 +24,6 @@ export const BOSS_MODELS: Record<string, FigureModel> = {
   'enemy.abyss_shade': ABYSS_LORD,
   // 35F 深淵統御者：四足半身的惡魔（docs/ENDGAME.md 5.3）
   'enemy.abyss_sovereign': ABYSS_SOVEREIGN,
+  // 隱藏魔王：身體是一張巨口、四根觸手、四隻腳
+  'enemy.bone_dragon': BONE_DRAGON,
 };

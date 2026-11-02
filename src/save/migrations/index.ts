@@ -265,8 +265,14 @@ const v20ToV21: Migration = (v20) => {
   return { ...v20, lore, notebook: [] };
 };
 
+/** v21 → v22：本層的隱藏魔王（舊存檔這層沒有） */
+const v21ToV22: Migration = (v21) => {
+  const floor = v21.floor as Record<string, unknown> | undefined;
+  return !floor || 'hiddenBoss' in floor ? v21 : { ...v21, floor: { ...floor, hiddenBoss: null } };
+};
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22];
 
 export class MigrationError extends Error {}
 

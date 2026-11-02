@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdSchema, RangeSchema, StatIdSchema } from './common';
+import { ElementSchema, IdSchema, RangeSchema, StatIdSchema } from './common';
 import { EliteConfigSchema } from './elite';
 import { RaritySchema, RarityWeightsSchema, WeaponTypeSchema } from './item';
 import { ActiveCategorySchema } from './skill';
@@ -227,6 +227,15 @@ export const BalanceSchema = z.strictObject({
     piles: z.int().positive(),
     /** 離其他怪物至少幾格（單獨行動） */
     alone: z.number().positive(),
+  }),
+  // 隱藏魔王：見 balance.ts
+  hiddenBoss: z.strictObject({
+    /** 預留隱藏房的樓層 */
+    roomFloors: z.array(z.int().positive()).min(1),
+    /** 隱藏房的邊長（Tile） */
+    roomSize: z.number().positive(),
+    chance: z.number().gt(0).max(1),
+    bosses: z.array(z.strictObject({ enemyId: IdSchema, floors: z.array(z.int().positive()).min(1), elements: z.array(ElementSchema).min(2) })).min(1),
   }),
   champion: z.strictObject({
     hpMultiplier: z.number().positive(),

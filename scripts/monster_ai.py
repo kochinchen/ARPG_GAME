@@ -8,6 +8,7 @@ AI 生成的怪物（微軟 TRELLIS 用設計圖四視圖生成的 .glb）→ �
   深淵魔王：art/monsters/abyss_lord → src/render/figure/bosses/abyssLordAI.json
   深淵統御者：art/monsters/abyss_sovereign → src/render/figure/bosses/abyssSovereignAI.json（另有巨劍、盾牌）
   石頭獸（結晶獸四種屬性共用）：art/monsters/stone_walker → src/render/figure/monsters/stoneWalkerAI.json
+  骨龍（巨口、四根觸手、四隻腳）：art/monsters/bone_dragon → src/render/figure/bosses/boneDragonAI.json
   熔岩巨獸 / 墮落騎士 / 墓穴守衛 / 墮落神官：art/monsters/<lava_behemoth|fallen_knight|crypt_guardian|fallen_priest> → bosses/<lavaBehemothAI|fallenKnightAI|cryptGuardianAI|fallenPriestAI>.json
 
 輸入：<資料夾>/ai/trellis-1.glb；輸出：<資料夾>/<怪物>-ai.blend（網格 + 骨架 + 權重，可在 Blender 修整）、
@@ -35,14 +36,18 @@ args = sys.argv[sys.argv.index("--") + 1:]
 folder, out_json = args[0], args[1]
 NAME = os.path.basename(os.path.normpath(folder))
 TRIS = 7000
-# 一般怪物同時出現的數量多，面數要少；魔王用預設
-TRIS_OF = {"stone_walker": 4500}
+# 一般怪物同時出現的數量多，面數要少；魔王用預設（骨龍細節多又一次只有一隻，設計者要求加倍）
+TRIS_OF = {"stone_walker": 4500, "bone_dragon": 9000}
 FLOOR_AT = {"stone_walker": -0.378}
+# 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
+SPLIT_EDGE = {"bone_dragon": 0.042}
 
 # 生成時多出來、要切掉的部分（Blender 座標、減面前判斷；整個三角形都在範圍內才刪）
 CLEANUP = {
     # 深淵統御者：TRELLIS 把左右側面的尾巴混在一起，身體正前方多長出一條垂到地上的尾巴
     "abyss_sovereign": lambda p: p.y < -0.33 and abs(p.x) < 0.1 and p.z > -0.42,
+    # 骨龍：TRELLIS 每邊多生一隻中間的腳（設計是四隻腳），切掉腳掌與小腿
+    "bone_dragon": lambda p: 0.05 < p.y < 0.255 and 0.14 < abs(p.x) < 0.31 and p.z < -0.225,
 }
 
 
@@ -70,6 +75,9 @@ def load(path, tris, name, cut=None):
     if cut:
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(cut(v.co) for v in f.verts)], context="FACES")
         bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        # 骨龍：切掉多餘的腳留下的開口補起來，否則從旁邊看得到身體裡面（補的面沒有貼圖，下面當黑面處理）
+        if name.startswith("bone_dragon"):
+            bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
     bm.to_mesh(obj.data)
     bm.free()
     for o in bpy.context.selected_objects:
@@ -79,6 +87,18 @@ def load(path, tris, name, cut=None):
     dec = obj.modifiers.new("dec", "DECIMATE")
     dec.ratio = min(1.0, tris / len(obj.data.polygons))
     bpy.ops.object.modifier_apply(modifier=dec.name)
+    split = next((v for k, v in SPLIT_EDGE.items() if name.startswith(k)), None)
+    if split:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        for _ in range(3):
+            long_edges = [e for e in bm.edges if e.calc_length() > split]
+            if not long_edges:
+                break
+            bmesh.ops.subdivide_edges(bm, edges=long_edges, cuts=1, use_grid_fill=False)
+            bmesh.ops.triangulate(bm, faces=bm.faces)
+        bm.to_mesh(obj.data)
+        bm.free()
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.quads_convert_to_tris()
@@ -320,6 +340,35 @@ def stone_walker():
     ), {}
 
 
+def bone_dragon():
+    """骨龍：身體就是一張巨口。上顎（head）掛在背上、下顎（jaw）掛在骨盆，兩根骨頭在嘴的最後方分開；肩背兩側各兩根觸手（A 上、B 下），四隻腳"""
+    spine = [
+        ("root", None, V((0, 0.10, -0.10)), V((0, 0.28, -0.12)), 0.16),
+        ("torso", "root", V((0, 0.10, -0.10)), V((0, 0.08, 0.05)), 0.16),
+        ("chest", "torso", V((0, 0.08, 0.05)), V((0, 0.16, 0.14)), 0.14),
+        ("head", "chest", V((0, -0.02, 0.03)), V((0, -0.38, 0.13)), 0.09),
+        ("jaw", "root", V((0, -0.02, -0.03)), V((0, -0.36, -0.14)), 0.10),
+    ]
+
+    def side(s, m):
+        out = chain([f"ex_tentA{s}{i}" for i in range(1, 5)], "chest",
+                    [m(V((0.17, -0.09, 0.08))), snap(m(V((0.28, -0.09, 0.19)))), snap(m(V((0.38, -0.07, 0.27)))), snap(m(V((0.44, -0.06, 0.27)))), m(V((0.49, -0.05, 0.22)))],
+                    [0.06, 0.055, 0.05, 0.05])
+        out += chain([f"ex_tentB{s}{i}" for i in range(1, 5)], "chest",
+                     [m(V((0.20, 0.0, 0.0))), snap(m(V((0.31, 0.05, 0.08)))), snap(m(V((0.40, 0.08, 0.14)))), snap(m(V((0.45, 0.09, 0.12)))), m(V((0.49, 0.10, 0.06)))],
+                     [0.06, 0.055, 0.05, 0.05])
+        # 前腳：人形骨架的腿；後腳：斜向後
+        out += chain([f"thigh{s}", f"shin{s}", f"foot{s}", f"ex_toe{s}"], "root",
+                     [m(V((0.23, -0.10, -0.12))), m(V((0.25, -0.16, -0.21))), m(V((0.25, -0.20, -0.28))), m(V((0.25, -0.24, -0.31))), m(V((0.25, -0.31, -0.33)))],
+                     [0.07, 0.07, 0.06, 0.05])
+        out += chain([f"ex_hthigh{s}", f"ex_hshin{s}", f"ex_hfoot{s}", f"ex_htoe{s}"], "root",
+                     [m(V((0.24, 0.08, -0.10))), m(V((0.29, 0.17, -0.20))), m(V((0.30, 0.26, -0.28))), m(V((0.30, 0.31, -0.31))), m(V((0.30, 0.39, -0.33)))],
+                     [0.07, 0.07, 0.06, 0.05])
+        return out
+
+    return spine + sides(side), {}
+
+
 # 另外生成的獨立物件（<資料夾>/ai/<名稱>.glb → 不綁骨架的網格，遊戲端掛在關節上或掉在地上）：名稱 → 三角形數
 PROPS = {"abyss_sovereign": {"sword": 1500, "shield": 2500}}
 
@@ -441,8 +490,40 @@ ZONES = {
     # 石頭獸：頭只帶動正前方；手臂在身體外側，拳頭下方要和後面的腳分開
     "stone_walker": lambda p, bone: (not bone.startswith("head") or (abs(p.x) < 0.16 and p.y < -0.1)) and STONE_ARMS(p, bone),
 }
+
+def bone_dragon_zone(p, bone):
+    """上下顎以嘴的水平面分開；觸手只帶動身體外側；腳不帶動側腹的塔盾"""
+    ax = abs(p.x)
+    side_mark = re.search(r"[LR]", bone)
+    if side_mark and (p.x > 0) != (side_mark.group() == "L"):
+        return False
+    # 嘴裡的骷髏與骨手一律跟下顎；分界在上排牙尖的上下（牙尖約 z = 0.043）與骨手最高處（約 z = 0.03）之間
+    # 嘴角兩側與喉嚨深處留一條跟身體的皮，張嘴時拉開而不是破洞
+    cheek = abs(p.z) < 0.045 and ((ax > 0.15 and p.y > -0.2) or p.y > -0.12)
+    if bone == "head":
+        return p.z >= 0.035 and p.y < 0.06 and ax < 0.3 and not cheek
+    if bone == "jaw":
+        return p.z < 0.035 and p.y < 0.0 and (ax < 0.2 or p.z > -0.1) and not cheek
+    if bone in ("root", "torso") and p.y < -0.12 and abs(p.z) < 0.05 and ax <= 0.15:
+        return False
+    if bone.startswith("ex_tentA"):
+        return p.z > 0.06 and ax > 0.17
+    if bone.startswith("ex_tentB"):
+        return p.z > -0.03 and ax > 0.2
+    front = re.match(r"(thigh|shin|foot|ex_toe)", bone)
+    hind = re.match(r"ex_h", bone)
+    if front or hind:
+        if p.z > -0.06 or ax < 0.15 or (p.z > -0.2 and ax > 0.29 and -0.02 < p.y < 0.2):
+            return False
+        return p.y < 0.02 if front else p.y > 0.0
+    return True
+
+
+ZONES["bone_dragon"] = bone_dragon_zone
 # 分開的部位（joined(三角形三個頂點的主要骨頭, 三個頂點的權重) → 可以留下嗎）：跨到不相連部位的三角形在動作時會被拉長，輸出時拿掉
 JOINED = {n: limbs_joined for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
+# 骨龍：嘴裡的東西碰到上顎的三角形，張嘴時會被拉成長條
+JOINED["bone_dragon"] = lambda bones, ws: not {"head", "jaw"} <= bones
 
 SKELETONS = {
     "spider_queen": spider_queen,
@@ -453,6 +534,7 @@ SKELETONS = {
     "crypt_guardian": crypt_guardian,
     "fallen_priest": fallen_priest,
     "stone_walker": stone_walker,
+    "bone_dragon": bone_dragon,
 }
 bones, extra = SKELETONS[NAME]()
 
@@ -473,7 +555,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
+JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_dragon")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
@@ -607,6 +689,37 @@ for p, k in zip(me.polygons, keep):
         faces.append([idx[0], idx[1], idx[2], face_color(p)])
         if surface_kind is not None:
             surface_kind.append(kind_of(idx, p.normal))
+# 骨龍：TRELLIS 沒看到的地方貼圖是黑的（腿內側、身體接縫），嘴裡以外的黑面改成相鄰面的平均色
+if NAME == "bone_dragon":
+    def too_dark(c):
+        return max(c >> 16, (c >> 8) & 255, c & 255) < 28
+
+    def in_mouth(f):
+        c = sum((co[i] for i in f[:3]), Vector()) / 3
+        return abs(c.x) < 0.2 and c.y < -0.02 and -0.12 < c.z < 0.1
+
+    edge_faces = {}
+    for n, f in enumerate(faces):
+        for a, b in ((f[0], f[1]), (f[1], f[2]), (f[2], f[0])):
+            edge_faces.setdefault((min(a, b), max(a, b)), []).append(n)
+    around = [[] for _ in faces]
+    for ns in edge_faces.values():
+        for n in ns:
+            around[n] += [m for m in ns if m != n]
+    todo = {n for n, f in enumerate(faces) if too_dark(f[3]) and not in_mouth(f)}
+    print("黑面", len(todo))
+    for _ in range(12):
+        done = {}
+        for n in todo:
+            near = [faces[m][3] for m in around[n] if m not in todo]
+            if near:
+                r, g, b = (sum((c >> shift) & 255 for c in near) // len(near) for shift in (16, 8, 0))
+                done[n] = r << 16 | g << 8 | b
+        for n, c in done.items():
+            faces[n][3] = c
+        todo -= set(done)
+        if not todo:
+            break
 data = {
     "joints": {name: G(a) for name, _, a, _, _ in bones},
     "tips": {name: G(b) for name, _, _, b, _ in bones},

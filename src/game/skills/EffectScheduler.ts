@@ -19,6 +19,8 @@ export interface Zone {
   ticksLeft: number;
   /** 跟著施放者移動（劍刃旋舞） */
   followCaster: boolean;
+  /** 不和同一個施放者的其他區域重疊 */
+  exclusive: boolean;
   effects: readonly EffectDef[];
 }
 
@@ -49,32 +51,54 @@ export class EffectScheduler implements EffectSchedulerPort {
 
   spawnZone(def: ZoneEffectDef, ctx: EffectContext): void {
     const duration = rankValue(def.duration, ctx.rank);
+    const radius = def.radius * (1 + ctx.mods.aoeRadius);
+    const position = def.exclusive ? this.freeSpot(ctx, radius) : ctx.origin;
+    if (!position) return;
     this.zones.push({
       id: this.nextId++,
-      ctx: { ...ctx },
-      position: ctx.origin,
-      radius: def.radius * (1 + ctx.mods.aoeRadius),
+      ctx: { ...ctx, origin: position },
+      position,
+      radius,
       remaining: duration,
       interval: def.interval,
       timer: 0,
       ticksLeft: Math.max(1, Math.round(duration / def.interval)),
       followCaster: def.followCaster,
+      exclusive: def.exclusive,
       effects: def.effects,
     });
+  }
+
+  /** 不和同一個施放者其他區域重疊的位置：原本的落點可以就用，否則就近找；都不行回傳 null */
+  private freeSpot(ctx: EffectContext, radius: number): Vec2 | null {
+    const free = (p: Vec2) => this.zones.every((z) => !z.exclusive || z.ctx.caster !== ctx.caster || Math.hypot(z.position.x - p.x, z.position.y - p.y) >= z.radius + radius);
+    if (free(ctx.origin)) return ctx.origin;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const angle = this.rng.range(0, Math.PI * 2);
+      const r = radius * (1 + this.rng.next() * 3);
+      const p = vec2(ctx.origin.x + Math.cos(angle) * r, ctx.origin.y + Math.sin(angle) * r);
+      if (this.nav.isWalkableAt(p.x, p.y) && free(p)) return p;
+    }
+    return null;
   }
 
   schedule(def: DelayedEffectDef, ctx: EffectContext): void {
     // 連射這類「從施放者發射的投射物」跟著施放者；落點類固定在地面
     const followCaster = def.scatter === 0 && def.effects.every((e) => e.type === 'projectile') && def.delay === 0;
+    const placed: Vec2[] = [];
     for (let i = 0; i < def.repeat; i++) {
       const spin = (def.spinDeg * i * Math.PI) / 180;
       const c = Math.cos(spin);
       const s = Math.sin(spin);
       const direction = spin === 0 ? ctx.direction : vec2(ctx.direction.x * c - ctx.direction.y * s, ctx.direction.x * s + ctx.direction.y * c);
+      const center = def.spacing > 0 ? this.inLine(ctx.origin, ctx.direction, (i - (def.repeat - 1) / 2) * def.spacing) : ctx.origin;
+      let position = this.scatter(center, def.scatter);
+      for (let attempt = 0; def.minApart > 0 && attempt < 12 && placed.some((p) => Math.hypot(p.x - position.x, p.y - position.y) < def.minApart); attempt++) position = this.scatter(center, def.scatter);
+      placed.push(position);
       this.pending.push({
         id: this.nextId++,
         ctx: { ...ctx, direction },
-        position: this.scatter(def.spacing > 0 ? this.inLine(ctx.origin, ctx.direction, (i - (def.repeat - 1) / 2) * def.spacing) : ctx.origin, def.scatter),
+        position,
         remaining: def.delay + i * def.interval,
         followCaster,
         effects: def.effects,

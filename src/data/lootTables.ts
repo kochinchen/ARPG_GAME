@@ -48,6 +48,17 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
   },
   {
     // Boss：大量掉落、稀有機率高
+    // 隱藏魔王：一定是 6 件裝備（稀有度和魔王相同），10% 把其中一件換成 5 孔白裝，另外噴 2000～3000 金幣
+    id: 'loot.hidden_boss',
+    rolls: 6,
+    guaranteedItems: 6,
+    entries: [{ kind: 'item', weight: 1 }],
+    rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12, legendary: 2.5, mythic: 0.5 },
+    shards: { chance: 0.6, count: [1, 2] },
+    bonusGold: { amount: [2000, 3000], piles: 6 },
+    fullSocketWhite: 0.1,
+  },
+  {
     id: 'loot.boss',
     rolls: 6,
     entries: [

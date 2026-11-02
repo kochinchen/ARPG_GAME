@@ -132,6 +132,8 @@ function appearance(enemy: EnemyDef, data: DataRegistry, summoners: readonly str
     // 挑戰樓層的中途小王、王座廳的最終魔王（docs/ENDGAME.md）
     const mini = floors.filter((f) => f.miniBosses?.includes(enemy.id)).flatMap((f) => [f.floors[0], f.floors[1]]);
     const throne = floors.filter((f) => f.throne?.enemyId === enemy.id).map((f) => f.floors[0]);
+    const hidden = data.balance.hiddenBoss.bosses.find((b) => b.enemyId === enemy.id);
+    if (hidden) return { appears: `第 ${Math.min(...hidden.floors)}～${Math.max(...hidden.floors)} 層（隱藏魔王，隨機出現）`, firstFloor: Math.min(...hidden.floors) };
     const parts = [
       ...(list.length ? [`第 ${list.join('、')}${open ? '…' : ''} 層（魔王）`] : []),
       ...(mini.length ? [`第 ${Math.min(...mini)}～${Math.max(...mini)} 層（小王）`] : []),

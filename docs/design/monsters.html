@@ -294,6 +294,32 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     </div>
   </section>
 
+  <section id="hidden-boss">
+    <div class="sec-head">
+      <div class="eyebrow">balance.hiddenBoss · bosses.ts（設計者 2026-11-02）</div>
+      <h2>隱藏魔王：萬骸之口</h2>
+      <p>地牢裡死去的士兵與騎士的怨念，把骨頭和盔甲拼成的怪物。身體就是一張巨口，四根觸手的尖端也都是嘴。可以不打，不影響出口，所以上面的魔王表沒有列。另一隻「巨龍」（23、24、26～29 層）的造型還沒做，房間已經預留。</p>
+    </div>
+    <div class="two">
+      <div class="tbl"><table><thead><tr><th>規則</th><th>內容</th></tr></thead><tbody>
+        <tr><td>出現</td><td class="wrap">第 11～14、16～19、21、22 層，每次進入樓層（新樓層或回到上一層）擲 20%；讀檔不重擲</td></tr>
+        <tr><td>隱藏房</td><td class="wrap">11～29 層沒有固定魔王的樓層，都在地圖右上角預留 48×48 格的正方形，平常是實心牆，骰到才打開房間和一條通道。它一定是死路，不會擋到樓梯</td></tr>
+        <tr><td>強度</td><td class="wrap">基礎值同熔岩巨獸（HP 800、傷害 8～13、防禦 35），移速 1.4；照當層的魔王公式計算：11 層 HP 15,812、傷害 33～54；22 層 HP 52,979、傷害 80～131；樓層減傷照魔王</td></tr>
+        <tr><td>屬性</td><td class="wrap">火、冰、雷、毒隨機抽兩種。第一種是眼睛與嘴裡的顏色，第二種是背脊與關節縫的顏色；每次出招從這兩種選一種</td></tr>
+        <tr><td>掉寶</td><td class="wrap">一定 6 件裝備（稀有度同魔王），10% 把其中一件換成 5 孔白裝；另外 2000～3000 金幣；60% 掉 1～2 片飛昇碎片。沒有魂魄，不算進《井誌》</td></tr>
+      </tbody></table></div>
+      <div class="tbl"><table><thead><tr><th>招式</th><th>內容</th></tr></thead><tbody>
+        <tr><td>吞噬拉扯</td><td class="wrap">觸手抓住目標，拉到嘴前（8 格內，冷卻 10 秒）</td></tr>
+        <tr><td>怨念蔓延</td><td class="wrap">留下 4 灘直徑 2.5 格、持續 10 秒、彼此不重疊的屬性腐液；冷卻 30 秒，範圍不隨樓層放大</td></tr>
+        <tr><td>觸手噴吐</td><td class="wrap">往目標周圍連續噴 5 發</td></tr>
+        <tr><td>巨口砸地</td><td class="wrap">周圍傷害並暈眩，有地面提示</td></tr>
+        <tr><td>喚醒亡者</td><td class="wrap">召喚 3 隻骷髏戰士（最多 6 隻）；HP 30% 以下另外召喚重甲骷髏</td></tr>
+        <tr><td>屬性效果</td><td class="wrap">地上的腐液：火焰燃燒、冰柱緩速、電弧、毒泡泡</td></tr>
+        <tr><td>被動</td><td class="wrap">約每 20 秒在腳下留一灘腐液、四張小嘴噴濺周圍；直徑都是 1.5 格、不重疊</td></tr>
+      </tbody></table></div>
+    </div>
+  </section>
+
   <section id="treasure">
     <div class="sec-head">
       <div class="eyebrow">balance.goldWalker · enemies.ts（設計者 2026-11-01）</div>
@@ -665,6 +691,7 @@ const D = {"balance":{"difficulty":{"hpPerFloor":0.2,"damagePerFloor":0.12,"defe
     ['abyss_lord', '深淵魔王', '30、34F 魔王'],
     ['abyss_shade', '深淵分身', '深淵魔王召喚'],
     ['abyss_sovereign', '深淵統御者', '35F 最終魔王'],
+    ['bone_dragon', '萬骸之口', '11～22F 隱藏魔王'],
   ];
   let dir = 'front';
 

@@ -107,6 +107,10 @@ async function bootstrap(): Promise<void> {
   const seed = loaded.status === 'ok' ? loaded.data.meta.runSeed : Date.now() >>> 0;
   const createdAt = loaded.status === 'ok' ? loaded.data.meta.createdAt : new Date().toISOString();
   const world = new GameWorld({ data, floor: 1, commands, events, seed });
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has('hiddenboss')) {
+    world.forceHiddenBoss = true;
+    (window as unknown as { world: GameWorld }).world = world;
+  }
   const saveNotices: string[] = [];
   if (loaded.status === 'ok') {
     if (loaded.failures.length > 0) console.warn('部分存檔無法讀取', loaded.failures);
