@@ -94,6 +94,9 @@ const dirEn = join(dirZh, 'en');
 const zh = parse(dirZh, readdirSync(dirZh).filter((f) => f.endsWith('.md')).sort());
 const en = parse(dirEn, readdirSync(dirEn).filter((f) => f.endsWith('.md')).sort());
 
+// 結尾的簽名：草書字形存成向量，離線也看得到（SIL OFL 字型的外框）
+const signature = JSON.parse(readFileSync(join(root, 'scripts/novel-signature.json'), 'utf8'));
+
 const body = [];
 const toc = [];
 let chapterCount = 0;
@@ -117,7 +120,9 @@ zh.forEach((part, p) => {
     if (refsZh !== refsEn) throw new Error(`${chapter.title} 的引用順序不同：\n中 ${refsZh}\n英 ${refsEn}`);
     chapter.blocks.forEach((block, b) => {
       if (typeof block === 'string') {
-        if (block === 'blank') body.push('<p class="blank"></p>');
+        if (block === 'blank') {
+          body.push(`<div class="sign"><div class="sign-name l-zh">${signature.zh}</div><div class="sign-name l-en">${signature.en}</div><p class="blank"></p></div>`);
+        }
         else if (block.startsWith('panel.')) body.push(panelHtml(block.slice(6)));
         else body.push(pageHtml(block, floor));
         return;

@@ -96,7 +96,7 @@ export class Renderer {
     this.effects = new EffectLayer(projection, this.objectLayer);
     this.interactables = new InteractableLayer(projection, this.objectLayer, data);
     this.setPieces = new SetPieceLayer(projection, this.objectLayer);
-    this.setPieces.rebuild(world.map.setPieces);
+    this.setPieces.rebuild(world.map.setPieces, corpsesOf(world));
     this.devices = new DeviceLayer(projection, this.objectLayer);
     this.corpses = new CorpseLayer(projection);
     this.markers = new FloorMarkersView(projection);
@@ -140,7 +140,7 @@ export class Renderer {
       this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world), world.map.setPieces);
       this.worldLayer.addChildAt(this.tileMap.floor, 0);
       this.syncThreeMap();
-      this.setPieces.rebuild(world.map.setPieces);
+      this.setPieces.rebuild(world.map.setPieces, corpsesOf(world));
       this.markers.rebuild(world.checkpoints.checkpoints);
       this.minimap.destroy();
       this.minimap = this.createMinimap();
@@ -592,6 +592,10 @@ export class Renderer {
 
 /** 依技能標籤選擇攻擊招式（只影響動畫）：重擊 → 上劈、範圍 → 橫斬、其他 → 橫斬與突刺交替 */
 /** 魔王競技場的畫面設定：地圖有競技場、這一層是魔王層時，依魔王選擇配色與佈置 */
+function corpsesOf(world: GameWorld): { position: Vec2; forward: Vec2 }[] {
+  return world.relics.flatMap((r) => (r.seatForward ? [{ position: r.position, forward: r.seatForward }] : []));
+}
+
 function arenaOf(world: GameWorld): ArenaView | undefined {
   const arena = world.map.arena;
   const boss = world.floors.def?.boss?.enemyId;

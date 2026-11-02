@@ -310,6 +310,9 @@ export class InteractableLayer {
     container.position.set(s.x, s.y);
     const glow = new Graphics().ellipse(0, -2, 24, 12).fill({ color: RELIC_COLOR });
     glow.blendMode = 'add';
+    // 屍體本身就是模型（SetPieceLayer），名稱要放高一點才不會擋到她
+    const seated = !!r.seatForward;
+    const labelOffset = seated ? LABEL_OFFSET + 26 : LABEL_OFFSET;
     // 一張攤在地上的舊紙（等角的菱形）
     const icon = new Graphics()
       .poly([0, -9, 13, -3, 0, 3, -13, -3])
@@ -320,13 +323,14 @@ export class InteractableLayer {
       .moveTo(-3, -2)
       .lineTo(6, -5.5)
       .stroke({ color: 0x4a3518, width: 1, alpha: 0.7 });
-    container.addChild(glow, icon);
+    container.addChild(glow);
+    if (!seated) container.addChild(icon);
     this.ground.addChild(container);
 
     const name = this.data.lore.get(r.loreId).object;
     const label = new Text({ text: name, style: { fontFamily: 'serif', fontSize: 12, fill: r.read ? RELIC_READ_COLOR : RELIC_COLOR } });
     label.anchor.set(0.5, 1);
-    label.position.set(s.x, s.y - LABEL_OFFSET);
+    label.position.set(s.x, s.y - labelOffset);
     const width = label.width + LABEL_PAD * 2;
     const height = label.height + LABEL_PAD;
     const labelBack = new Graphics().rect(-width / 2, -label.height - LABEL_PAD / 2, width, height).fill({ color: LOOT_COLORS.labelBack });
@@ -339,7 +343,7 @@ export class InteractableLayer {
       labelBack,
       labelShift: 0,
       chest: null,
-      hit: [{ x: -width / 2, y: -LABEL_OFFSET - label.height - LABEL_PAD / 2, width, height }, ICON_HIT],
+      hit: [{ x: -width / 2, y: -labelOffset - label.height - LABEL_PAD / 2, width, height }, ICON_HIT],
       relic: { glow, label, read: r.read },
     };
     this.views.set(r.id, view);

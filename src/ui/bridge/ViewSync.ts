@@ -1,4 +1,4 @@
-import { buildBook } from '../../data/book';
+import { buildBook, hiddenBookPages } from '../../data/book';
 import { COMBO_KEY_LABELS, type ComboKey } from '../../game/player/PlayerLoadout';
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { GameWorld } from '../../game/GameWorld';
@@ -46,7 +46,8 @@ export class ViewSync {
     });
     events.on('ShopOpened', () => gameView.shopRequest++);
     // 遺物、筆記頁：翻開井誌，停在那一頁
-    const bookPages = buildBook(this.data);
+    const book = buildBook(this.data);
+    const bookPages = [...book, ...hiddenBookPages(this.data, book.length)];
     const openBook = (id: string) => (gameView.notebookPage = bookPages.find((p) => p.sourceId === id)?.number ?? 1);
     events.on('RelicRead', (e) => openBook(e.loreId));
     events.on('NotePageFound', (e) => openBook(e.noteId));

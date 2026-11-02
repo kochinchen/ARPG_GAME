@@ -86,7 +86,10 @@ strong { color: var(--gold); font-weight: 700; }
 .panel .title { font: italic 400 22px/1.4 var(--display); color: var(--gold); margin-bottom: 6px; }
 .chapter .panel .zh { margin-bottom: 10px; }
 :root[data-lang="en"] .chapter .panel .en { margin-bottom: 10px; }
-.blank { margin: 56px 0 0; height: 2.4em; border-bottom: 1px solid var(--muted); }
+.sign { width: min(260px, 70%); margin: 48px 0 0 auto; }
+.sign-name { padding-bottom: 6px; border-bottom: 1px solid var(--muted); text-align: right; color: var(--ink); }
+.sign-name svg { display: inline-block; width: auto; height: 58px; max-width: 100%; vertical-align: bottom; }
+.blank { margin: 0; height: 58px; border-bottom: 1px solid var(--muted); }
 @media (max-width: 480px) {
   body { font-size: 17px; }
   :root[data-lang="en"] body { font-size: 19px; }
