@@ -141,7 +141,7 @@ zh.forEach((part, p) => {
 
 const missing = [...pages.keys(), ...panels.keys()].filter((id) => !used.has(id));
 if (missing.length) throw new Error(`還沒引用：${missing.join('、')}`);
-if (chapterCount !== 41) throw new Error(`應該有 41 章，現在是 ${chapterCount} 章`);
+if (chapterCount !== 44) throw new Error(`應該有 44 章，現在是 ${chapterCount} 章`);
 
 const page = readFileSync(join(root, 'scripts/novel-doc.template.html'), 'utf8')
   .replace('{{TOC}}', () => toc.join('\n'))
