@@ -10,7 +10,7 @@
 
 📘 設計文件（怪物、裝備、成長模擬、組合技、開發歷程、故事與世界觀、小說；含劇透）：https://kochinchen.github.io/ARPG_GAME/design/
 
-📖 小說《井誌》（約 9 萬字、41 章，中英文切換，收錄遊戲裡全部 69 頁與過場；含劇透）：https://kochinchen.github.io/ARPG_GAME/design/novel.html
+📖 小說《井誌》（約 9.5 萬字、44 章，中英文切換，收錄遊戲裡全部 69 頁與過場；含劇透）：https://kochinchen.github.io/ARPG_GAME/design/novel.html
 
 <table>
 <tr>
