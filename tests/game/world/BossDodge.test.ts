@@ -89,4 +89,25 @@ describe('魔王有預警的招式：跑開就躲得掉', () => {
       for (const e of onHit) if (e.type === 'area' || e.type === 'zone') expect(e.radius).toBe(1);
     }
   });
+
+  // 這幾招原本跑多遠都會被打中（設計者 2026-11-03）
+  const NORMAL_DASHES: [string, string, number][] = [
+    ['enemy.horned_brute', 'enemy.horn_charge', 20],
+    ['enemy.burrower', 'enemy.burrow_strike', 25],
+    ['enemy.chain_warden', 'enemy.chain_rush', 25],
+    ['enemy.bone_hound', 'enemy.pounce', 15],
+    ['enemy.shadow_panther', 'enemy.shadow_pounce', 20],
+  ];
+  it.each(NORMAL_DASHES)('一般怪 %s 的 %s：往遠處跑、往旁邊閃都躲得掉', (enemyId, skillId, floor) => {
+    expect(dodge(enemyId, skillId, floor, away)).toBe(false);
+    expect(dodge(enemyId, skillId, floor, sideways)).toBe(false);
+  });
+
+  it.each([...NORMAL_DASHES, ['enemy.hook_claw', 'enemy.hook_rend', 15], ['enemy.void_maw', 'enemy.maw_bite', 30]] as [string, string, number][])('一般怪 %s 的 %s：站著不動還是打得中', (enemyId, skillId, floor) => {
+    expect(dodge(enemyId, skillId, floor, stay)).toBe(true);
+  });
+
+  it.each([['enemy.hook_claw', 'enemy.hook_rend', 15], ['enemy.void_maw', 'enemy.maw_bite', 30]] as [string, string, number][])('一般怪 %s 的近身招 %s：跑開就躲得掉', (enemyId, skillId, floor) => {
+    expect(dodge(enemyId, skillId, floor, away)).toBe(false);
+  });
 });

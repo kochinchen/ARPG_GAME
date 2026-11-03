@@ -3,7 +3,8 @@ import { rankValue, type Element } from '../../../data/schema/common';
 import { nestedEffects, type AreaEffectDef, type EffectDef } from '../../../data/schema/effects';
 import type { EffectContext, IEffect } from './IEffect';
 
-/** 魔王的「主要目標一定命中」：目標離範圍外緣這麼近（格）才算 */
+const BASIC_ATTACK = 'basic.attack';
+/** 魔王普通攻擊的「主要目標一定命中」：目標離範圍外緣這麼近（格）才算 */
 const BOSS_TARGET_SLACK = 0.8;
 
 export class AreaEffect implements IEffect<'area'> {
@@ -43,9 +44,11 @@ export class AreaEffect implements IEffect<'area'> {
       });
     }
     // 主要目標一定命中（近戰揮砍：目標在出招途中稍微移動也不會落空）
-    // 魔王：有地面預警的招式，走出預警就躲得掉，不強制命中；其他招式（普通攻擊）只有目標還在範圍外一點點才算（設計者 2026-11-03）
+    // 怪物的招式跑開就躲得掉，只有普通攻擊保留（魔王的普通攻擊要目標還在範圍外一點點才算）；主角的技能不受影響（設計者 2026-11-03）
     const forced = ctx.target;
-    const canForce = forced?.alive && (!ctx.caster.isBoss || (!ctx.skill.telegraph && distance(forced.position, center) <= radius + BOSS_TARGET_SLACK));
+    const canForce =
+      forced?.alive &&
+      (ctx.caster.faction !== 'enemy' || (ctx.skill.id === BASIC_ATTACK && (!ctx.caster.isBoss || distance(forced.position, center) <= radius + BOSS_TARGET_SLACK)));
     if (def.includeTarget && !def.offsetDeg && forced && canForce && !victims.includes(forced)) victims.unshift(forced);
     for (const target of victims) ctx.run(def.effects, { ...ctx, target, origin: center });
   }

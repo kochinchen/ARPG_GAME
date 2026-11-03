@@ -146,7 +146,7 @@ export const AreaEffectSchema = z.strictObject({
   offsetDeg: z.number().min(-180).max(180).default(0),
   /** 直線範圍：從中心沿施放方向延伸 length 格、寬 width 格的長方形（取代圓 / 扇形；radius 設為 length） */
   line: z.strictObject({ length: z.number().positive(), width: z.number().positive() }).optional(),
-  /** 主要目標一定命中（近戰揮砍：目標在出招途中稍微移動也不會落空） */
+  /** 主要目標一定命中（主角的近戰揮砍：目標在出招途中稍微移動也不會落空）；怪物只有普通攻擊算，其他招式跑開就躲得掉 */
   includeTarget: z.boolean().default(false),
   get effects() {
     return z.array(EffectDefSchema).min(1);
