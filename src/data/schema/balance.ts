@@ -129,6 +129,10 @@ export const BalanceSchema = z.strictObject({
       bossHp: z.tuple([z.number().positive(), z.number().positive()]),
       damage: z.tuple([z.number().positive(), z.number().positive()]),
       skillArea: z.tuple([z.number().positive(), z.number().positive()]),
+      /** 魔王（含中途小王）的範圍倍率，取代 skillArea */
+      bossSkillArea: z.tuple([z.number().positive(), z.number().positive()]),
+      /** 魔王放大後的半徑上限（格）：看招式最大的範圍，整招等比例放大到這裡為止；本來就超過的不放大 */
+      bossSkillAreaCap: z.number().positive(),
       xp: z.number().positive(),
     }),
   }),
@@ -235,7 +239,19 @@ export const BalanceSchema = z.strictObject({
     /** 隱藏房的邊長（Tile） */
     roomSize: z.number().positive(),
     chance: z.number().gt(0).max(1),
-    bosses: z.array(z.strictObject({ enemyId: IdSchema, floors: z.array(z.int().positive()).min(1), elements: z.array(ElementSchema).min(2) })).min(1),
+    bosses: z
+      .array(
+        z.strictObject({
+          enemyId: IdSchema,
+          floors: z.array(z.int().positive()).min(1),
+          elements: z.array(ElementSchema).min(2),
+          /** true：elements 全部都用；false：每次出現抽兩種 */
+          allElements: z.boolean().default(false),
+          /** 每次出現從 stats 抽 count 個抗性，數值在 value 之間（抗性不會是負值） */
+          resists: z.strictObject({ stats: z.array(StatIdSchema).min(1), count: z.int().positive(), value: z.tuple([z.number().nonnegative(), z.number().nonnegative()]) }).optional(),
+        }),
+      )
+      .min(1),
   }),
   champion: z.strictObject({
     hpMultiplier: z.number().positive(),

@@ -311,7 +311,7 @@ const mythic: Def[] = [
       ),
       unique(
         '深淵滿 5 層時展開暗黑領域：受到傷害 -15%、暴擊率 +10%',
-        cond({ buff: { id: 'abyss_lord', atLeast: 5 } }, [
+        cond({ buff: { id: 'abyss_lord', atLeast: 5 }, aura: { look: 'darkDomain', radius: 3 } }, [
           { stat: 'damageReduction', value: 0.15 },
           { stat: 'critChance', value: 0.1 },
         ]),

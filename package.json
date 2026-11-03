@@ -8,6 +8,7 @@
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "package": "npm run typecheck && node scripts/package-portable.mjs",
+    "package:sim": "npm run typecheck && node scripts/package-boss-sim.mjs",
     "docs:models": "node scripts/render-monster-models.mjs",
     "docs:combos": "node scripts/render-combo-doc.mjs",
     "docs:icons": "vite build -c scripts/vite.item-icons.config.ts",

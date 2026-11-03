@@ -6,9 +6,10 @@
  * 4. 壓縮成 release/ARPG-遊戲包-<版本>.zip（系統有 zip 指令時）
  */
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync,readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inlineHtml } from './inline-html.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -22,31 +23,8 @@ console.log('建置中…');
 execFileSync('npx', ['vite', 'build', '-c', 'vite.portable.config.ts', '--logLevel', 'warn'], { cwd: root, stdio: 'inherit' });
 
 // ── 內嵌成單一 HTML ──
-const read = (href) => readFileSync(join(build, href.replace(/^\.\//, '')));
-const html = inline(readFileSync(join(build, 'index.html'), 'utf8'));
+const html = inlineHtml(readFileSync(join(build, 'index.html'), 'utf8'), build);
 if (/src="\.\/assets|href="\.\/assets/.test(html)) throw new Error('仍有未內嵌的檔案');
-
-/** 把 JS、CSS、圖示內嵌進 HTML（用 slice 拼接：程式內容中的 $ 不會被當成替換樣式） */
-function inline(source) {
-  let out = source;
-  const script = /<script type="module" crossorigin src="([^"]+)"><\/script>/.exec(out);
-  if (script) {
-    // 內嵌的程式裡不能出現 </script>，否則 HTML 會提早結束
-    const js = read(script[1]).toString('utf8').replace(/<\/script/gi, '<\\/script');
-    out = out.slice(0, script.index) + `<script type="module">${js}</script>` + out.slice(script.index + script[0].length);
-  }
-  const style = /<link rel="stylesheet" crossorigin href="([^"]+)">/.exec(out);
-  if (style) {
-    const css = read(style[1]).toString('utf8');
-    out = out.slice(0, style.index) + `<style>${css}</style>` + out.slice(style.index + style[0].length);
-  }
-  const icon = /<link rel="icon" href="([^"]+)" \/>/.exec(out);
-  if (icon && existsSync(join(build, icon[1]))) {
-    const data = read(icon[1]).toString('base64');
-    out = out.slice(0, icon.index) + `<link rel="icon" href="data:image/x-icon;base64,${data}" />` + out.slice(icon.index + icon[0].length);
-  }
-  return out;
-}
 
 // ── 遊戲包資料夾 ──
 rmSync(outDir, { recursive: true, force: true });

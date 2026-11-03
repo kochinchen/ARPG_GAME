@@ -237,6 +237,72 @@ export const bossEnemies: EnemyInput[] = [
     ],
   },
   {
+    // 噬界足眼：一般怪物代表口，牠代表眼（設計筆記 art/monsters/abyss_dragon/設計筆記.md）
+    ...BOSS,
+    id: 'enemy.abyss_dragon',
+    name: '噬界足眼',
+    healOnPlayerDeath: 0.15,
+    lore: '第 23～29 層的隱藏魔王，可以不打。超大的血紅眼球，瞳孔是一張圓形的深口，周圍一圈會收合的巨爪；粗腿的腳掌是人手，翅膀尖端都是眼睛，尾巴尖端是一張女性的臉。',
+    leashRange: 30,
+    lootTable: 'loot.abyss_eye',
+    hp: 1100,
+    damage: [10, 16],
+    defense: 40,
+    moveSpeed: 2.2,
+    radius: 0.5,
+    size: 1.6,
+    attackRange: 0.8,
+    attackSpeed: 0.9,
+    ai: 'melee',
+    skills: ['basic.attack', 'enemy.eye_breath', 'enemy.eye_gust', 'enemy.eye_leap', 'enemy.lord_fire_rain'],
+    xp: 800,
+    // 門檻照深淵魔王；外觀：0 爪子張開、1 爪子收合、2 尾巴脫離（AbyssDragonAI 的 phasePoses）
+    phases: [
+      {
+        hpBelow: 0.65,
+        label: '閉眼',
+        look: 1,
+        modifiers: [{ stat: 'damageBonus', value: 0.15 }],
+        skills: ['basic.attack', 'enemy.lord_domain', 'enemy.eye_breath', 'enemy.eye_gust', 'enemy.eye_leap', 'enemy.lord_fire_rain'],
+        clawCycle: { closedFor: 20, openFor: [40, 50], reduction: 0.3, closedBarrage: { skills: ['enemy.tail_flame_burst', 'enemy.tail_frost_nova'], every: 1, range: 14, originBack: 2.5 }, closedLook: 1, openLook: 0 },
+      },
+      {
+        hpBelow: 0.3,
+        label: '萬目齊睜',
+        look: 0,
+        modifiers: [
+          { stat: 'attackSpeed', kind: 'increased', value: 0.25 },
+          { stat: 'moveSpeed', kind: 'increased', value: 0.2 },
+        ],
+        skills: ['basic.attack', 'enemy.lord_domain', 'enemy.eye_gaze', 'enemy.eye_breath', 'enemy.eye_gust', 'enemy.eye_leap', 'enemy.lord_fire_storm'],
+        pause: 5,
+        detach: { enemyId: 'enemy.abyss_tail', stagger: 3, look: 2 },
+      },
+    ],
+  },
+  {
+    // 第三階段脫離的尾巴：打完消失，不掉寶（血量是設計者同意的 440；參考虛空吞噬者精英版，但那個比魔王基礎血量還高）
+    id: 'enemy.abyss_tail',
+    name: '尾巴',
+    family: 'boss',
+    resist: { fire: 0.1 },
+    lore: '從噬界足眼身上脫離的尾巴，尖端是一張女性的臉。會自己爬行、撕咬，追著人輪流丟火焰爆破與冰霜新星。',
+    hp: 440,
+    damage: [8, 13],
+    defense: 30,
+    moveSpeed: 2.6,
+    radius: 0.5,
+    attackRange: 0.7,
+    attackSpeed: 0.8,
+    // 脫離時直接接手本體的目標；detectRange 不超過樓梯口的安全半徑
+    detectRange: 11,
+    leashRange: 40,
+    ai: 'melee',
+    skills: ['basic.attack'],
+    barrage: { skills: ['enemy.tail_flame_burst', 'enemy.tail_frost_nova'], every: 1, range: 10 },
+    xp: 0,
+  },
+  {
     ...BOSS,
     id: 'enemy.abyss_lord',
     name: '深淵魔王',
@@ -278,7 +344,7 @@ export const bossEnemies: EnemyInput[] = [
     name: '深淵統御者',
     lore: '被遺忘在地底深處的古老魔物，擁有無盡的憤怒與無限的空間欲望。四足半身的巨大惡魔，右手巨劍、左手盾牌；盾牌碎裂後轉為狂暴近戰，失去巨劍後魔力暴走。第 35 層的隱藏最終魔王。',
     // 第 35 層套用樓層成長（HP ×7.8、傷害 ×5.08、防禦 ×4.4）後約為：HP 30,000、傷害 86～137、防禦 340（docs/ENDGAME.md 5.1）
-    hp: 3850,
+    hp: 1925,
     damage: [17, 27],
     defense: 77,
     moveSpeed: 2.4,
@@ -454,7 +520,7 @@ const BASE_SKILLS: SkillInput[] = [
     castTime: 1,
     cooldown: 7,
     tags: ['spell', 'area', 'fire'],
-    effects: [{ type: 'delayed', delay: 0.5, repeat: 6, interval: 0.25, scatter: 2.2, effects: [{ type: 'area', radius: 1.2, effects: [hit('fire', 1.2)] }] }],
+    effects: [{ type: 'delayed', delay: 0.5, repeat: 6, interval: 0.25, scatter: 4.5, effects: [{ type: 'area', radius: 1.2, effects: [hit('fire', 1.2)] }] }],
   },
   {
     id: 'enemy.priest_summon',
@@ -541,7 +607,7 @@ const BASE_SKILLS: SkillInput[] = [
     castTime: 1.1,
     cooldown: 7,
     tags: ['spell', 'area', 'fire'],
-    effects: [{ type: 'delayed', delay: 0.6, repeat: 5, interval: 0.3, scatter: 2.5, effects: [{ type: 'area', radius: 1.3, effects: [hit('fire', 1.5)] }] }],
+    effects: [{ type: 'delayed', delay: 0.6, repeat: 5, interval: 0.3, scatter: 4.5, effects: [{ type: 'area', radius: 1.3, effects: [hit('fire', 1.5)] }] }],
   },
   {
     id: 'enemy.lava_spread',
@@ -729,7 +795,7 @@ const BASE_SKILLS: SkillInput[] = [
     castTime: 1,
     cooldown: 7,
     tags: ['spell', 'area', 'lightning'],
-    effects: [{ type: 'delayed', delay: 0.5, repeat: 8, interval: 0.2, scatter: 3.2, effects: [{ type: 'area', radius: 1.1, effects: [hit('lightning', 1.2)] }] }],
+    effects: [{ type: 'delayed', delay: 0.5, repeat: 8, interval: 0.2, scatter: 5, effects: [{ type: 'area', radius: 1.1, effects: [hit('lightning', 1.2)] }] }],
   },
 
   // ── 蜘蛛女王 ──
@@ -828,7 +894,7 @@ const BASE_SKILLS: SkillInput[] = [
     castTime: 1.2,
     cooldown: 9,
     tags: ['spell', 'area', 'fire'],
-    effects: [{ type: 'delayed', delay: 0.5, repeat: 14, interval: 0.2, scatter: 7, effects: [{ type: 'area', radius: 1.3, effects: [hit('fire', 1.1)] }] }],
+    effects: [{ type: 'delayed', delay: 0.5, repeat: 14, interval: 0.2, scatter: 7.5, effects: [{ type: 'area', radius: 1.3, effects: [hit('fire', 1.1)] }] }],
   },
   {
     id: 'enemy.lord_fire_storm',
@@ -839,7 +905,7 @@ const BASE_SKILLS: SkillInput[] = [
     castTime: 1.2,
     cooldown: 7,
     tags: ['spell', 'area', 'fire'],
-    effects: [{ type: 'delayed', delay: 0.5, repeat: 24, interval: 0.15, scatter: 9, effects: [{ type: 'area', radius: 1.3, effects: [hit('fire', 1.1)] }] }],
+    effects: [{ type: 'delayed', delay: 0.5, repeat: 24, interval: 0.15, scatter: 10, effects: [{ type: 'area', radius: 1.3, effects: [hit('fire', 1.1)] }] }],
   },
   {
     id: 'enemy.lord_clones',
@@ -861,7 +927,7 @@ const BASE_SKILLS: SkillInput[] = [
     castTime: 1.5,
     cooldown: 18,
     tags: ['spell', 'area', 'cold'],
-    effects: [{ type: 'zone', radius: 5.5, duration: 12, interval: 0.5, effects: [hit('cold', 0.3), { type: 'status', status: 'slow', duration: 1, magnitude: 0.3 }] }],
+    effects: [{ type: 'zone', look: 'darkDomain', radius: 5.5, duration: 12, interval: 0.5, effects: [hit('cold', 0.3), { type: 'status', status: 'slow', duration: 1, magnitude: 0.3 }] }],
   },
 ];
 
@@ -895,14 +961,16 @@ const meteor = (id: string, name: string, count: number, scatter: number, cooldo
 const volley = (id: string, name: string, element: 'fire' | 'cold', onHit: EffectInput[]): SkillInput => ({
   id,
   name,
-  description: element === 'fire' ? '五顆大火球呈 30° 扇形射出，命中爆炸。' : '五顆冰彈呈 30° 扇形射出，命中緩速並在地上留下冰面。',
+  description: element === 'fire' ? '目標離開魔王 6 格以上才會使用：五顆火球呈 30° 扇形射出，命中爆炸（半徑 1 格）。' : '目標離開魔王 6 格以上才會使用：五顆冰彈呈 30° 扇形射出，命中緩速並在地上留下冰面（半徑 1 格）。',
   targeting: 'direction',
   range: 10,
+  // 只打拉開距離的人：貼身的近戰不會五發全吃（設計者 2026-11-03）；命中範圍固定 1 格，不隨樓層放大
+  minRange: 6,
+  fixedArea: true,
   castTime: 0.9,
   cooldown: 5,
   tags: ['spell', 'projectile', element],
-  // 大型彈體（半徑 1.1 格）：知道角度也不能輕鬆鑽過去
-  effects: [{ type: 'projectile', speed: 7, radius: 1.1, range: 22, count: 5, spreadDeg: 30, onHit }],
+  effects: [{ type: 'projectile', speed: 7, radius: 0.5, range: 22, count: 5, spreadDeg: 30, onHit }],
 });
 const SOVEREIGN_SKILLS: SkillInput[] = [
   {
@@ -959,7 +1027,7 @@ const SOVEREIGN_SKILLS: SkillInput[] = [
   {
     id: 'enemy.sov_charge',
     name: '盾牌衝撞',
-    description: '舉盾蓄力約 1.2 秒，朝玩家衝刺 30 格：路線上寬 10 格的範圍都會被撞飛、暈眩（只有第一階段）。',
+    description: '舉盾蓄力約 1.2 秒，朝玩家衝刺 30 格：路線上寬 7 格的範圍都會被撞飛、暈眩（只有第一階段）。',
     targeting: 'direction',
     range: 30,
     castTime: 2,
@@ -968,7 +1036,7 @@ const SOVEREIGN_SKILLS: SkillInput[] = [
     cooldown: 10,
     tags: ['attack', 'melee', 'heavy'],
     effects: [
-      { type: 'area', radius: 30, line: { length: 30, width: 10 }, effects: [hit('physical', 2.2), { type: 'knockback', distance: 3 }, { type: 'status', status: 'stun', duration: 0.6 }] },
+      { type: 'area', radius: 30, line: { length: 30, width: 7 }, effects: [hit('physical', 2.2), { type: 'knockback', distance: 3 }, { type: 'status', status: 'stun', duration: 0.6 }] },
       { type: 'dash', distance: 30, direction: 'forward' },
     ],
   },
@@ -1027,18 +1095,18 @@ const SOVEREIGN_SKILLS: SkillInput[] = [
     ],
   },
   // ── 第 3 階段：深淵魔化 ──
-  // 火球：命中爆炸（半徑 2.8）並留下 3 秒燃燒地面
+  // 火球：命中爆炸（半徑 1）並留下 3 秒燃燒地面
   volley('enemy.sov_fire_volley', '火彈五連散射', 'fire', [
     hit('fire', 1.8),
-    { type: 'area', radius: 2.8, effects: [hit('fire', 1)] },
-    { type: 'zone', radius: 2.2, duration: 3, interval: 0.5, effects: [hit('fire', 0.3)] },
+    { type: 'area', radius: 1, effects: [hit('fire', 1)] },
+    { type: 'zone', radius: 1, duration: 3, interval: 0.5, effects: [hit('fire', 0.3)] },
   ]),
-  // 冰球：傷害較低，但強力緩速、25% 機率冰凍，並留下 4 秒大片冰面
+  // 冰球：傷害較低，但強力緩速、25% 機率冰凍，並留下 4 秒冰面
   volley('enemy.sov_ice_volley', '冰彈五連散射', 'cold', [
     hit('cold', 1.3),
     { type: 'status', status: 'slow', duration: 3, magnitude: 0.55 },
     { type: 'status', status: 'freeze', duration: 1, chance: 0.25 },
-    { type: 'zone', radius: 2.8, duration: 4, interval: 0.5, effects: [{ type: 'status', status: 'slow', duration: 1, magnitude: 0.5 }] },
+    { type: 'zone', radius: 1, duration: 4, interval: 0.5, effects: [{ type: 'status', status: 'slow', duration: 1, magnitude: 0.5 }] },
   ]),
   meteor('enemy.sov_meteor_storm', '隕石暴雨', 26, 22, 9),
   {
@@ -1097,7 +1165,7 @@ const MAW_SKILLS: SkillInput[] = [
     { type: 'delayed', delay: 0.3, repeat: 4, interval: 0.5, scatter: 7, effects: [{ type: 'zone', radius: 1.25, duration: 10, interval: 0.5, exclusive: true, effects: [hit(element, 0.3), MAW_GROUND[element]] }] },
   ]),
   ...mawSkill({ id: 'enemy.maw_spit', name: '觸手噴吐', targeting: 'ground', range: 8, castTime: 1.1, cooldown: 7 }, ['spell', 'area'], '四張小嘴往目標周圍連續噴 5 發。', (element) => [
-    { type: 'delayed', delay: 0.6, repeat: 5, interval: 0.3, scatter: 2.5, effects: [{ type: 'area', radius: 1.3, effects: [hit(element, 1.5), MAW_BURST[element]] }] },
+    { type: 'delayed', delay: 0.6, repeat: 5, interval: 0.3, scatter: 4, effects: [{ type: 'area', radius: 1.3, effects: [hit(element, 1.5), MAW_BURST[element]] }] },
   ]),
   ...mawSkill({ id: 'enemy.maw_trail', name: '腐蝕足跡', targeting: 'self', range: 1, castTime: 0 }, ['area'], '（被動）約每 20 秒在腳下留下一小灘持續 5 秒的腐液。', (element) => [
     { type: 'zone', radius: 0.75, duration: 5, interval: 0.5, exclusive: true, effects: [hit(element, 0.12), MAW_GROUND[element]] },
@@ -1105,6 +1173,64 @@ const MAW_SKILLS: SkillInput[] = [
   ...mawSkill({ id: 'enemy.maw_vent', name: '觸手噴濺', targeting: 'self', range: 3, castTime: 0 }, ['area'], '（被動）約每 20 秒，四張小嘴噴濺，落在周圍不重疊的 3 處。', (element) => [
     { type: 'delayed', delay: 0.4, repeat: 3, interval: 0.15, scatter: 3, minApart: 1.6, effects: [{ type: 'area', radius: 0.75, effects: [hit(element, 0.6), MAW_BURST[element]] }] },
   ]),
+  // ── 噬界足眼：吐息三選一（SkillExecutor 依 innateElements 選）──
+  ...mawSkill({ id: 'enemy.eye_breath', name: '眼中吐息', targeting: 'enemy', range: 9, castTime: 1.4, impactAt: 0.75, telegraph: true, cooldown: 6, fixedArea: true }, ['spell', 'area'], '從瞳孔的深口沿直線吐息：每次隨機爆炎、冰柱或轟雷。前搖時地上會顯示範圍。', (element) => [
+    { type: 'area', radius: 11, line: { length: 11, width: 3 }, effects: [hit(element, 0.7), MAW_BURST[element]] },
+  ]),
+  ...mawSkill({ id: 'enemy.eye_gaze', name: '萬目凝視', targeting: 'ground', range: 14, castTime: 1, cooldown: 14, fixedArea: true }, ['spell', 'area'], '翅膀上的眼睛一起睜開，在目標周圍落下 8 道光束。傷害不高，但要一直走位。', (element) => [
+    { type: 'delayed', delay: 1.5, repeat: 8, interval: 0.05, scatter: 6, minApart: 1.6, effects: [{ type: 'area', radius: 1.2, effects: [hit(element, 0.45)] }] },
+  ]),
+  {
+    id: 'enemy.eye_gust',
+    name: '翼風',
+    description: '翅膀往前搧，把前方的人擊退 8 格。前搖時地上會顯示範圍。',
+    targeting: 'enemy',
+    range: 5,
+    castTime: 1.2,
+    impactAt: 0.7,
+    telegraph: true,
+    cooldown: 12,
+    fixedArea: true,
+    tags: ['attack', 'area'],
+    effects: [{ type: 'area', radius: 6, angleDeg: 130, effects: [hit('physical', 0.5), { type: 'knockback', distance: 8 }] }],
+  },
+  {
+    id: 'enemy.eye_leap',
+    name: '墜天',
+    description: '跳起消失（打不到），地上的印記追著目標 2.5 秒、鎖定 0.5 秒，然後從天而降。',
+    targeting: 'enemy',
+    range: 14,
+    castTime: 0.7,
+    impactAt: 0.9,
+    cooldown: 18,
+    fixedArea: true,
+    tags: ['attack', 'heavy'],
+    effects: [{ type: 'leap', duration: 3, lockAt: 2.5, followSpeed: 6, radius: 3, effects: [{ type: 'area', radius: 3, effects: [hit('physical', 1.6)] }] }],
+  },
+  // 尾巴的連發（設計者 2026-11-03）：追著主角每秒輪流丟火焰爆破與冰霜新星，樣子和主角的招式相同。
+  // 元素傷害不吃防禦，倍率 0.4 打在有裝備的主角身上約是普攻的 80%；走動就躲得掉，所以不凍結（只緩速）
+  {
+    id: 'enemy.tail_flame_burst',
+    name: '火焰爆破',
+    description: '尾巴的臉朝目標腳下丟出火球，0.8 秒後炸開。',
+    targeting: 'ground',
+    range: 14,
+    castTime: 0,
+    fixedArea: true,
+    tags: ['spell', 'area', 'fire'],
+    effects: [{ type: 'delayed', delay: 0.8, effects: [{ type: 'area', radius: 1.8, effects: [hit('fire', 0.4)] }] }],
+  },
+  {
+    id: 'enemy.tail_frost_nova',
+    name: '冰霜新星',
+    description: '尾巴的臉朝目標滾出巨大冰球，撞到人或牆（或滾完 12 格）時炸開並緩速。',
+    targeting: 'direction',
+    range: 14,
+    castTime: 0,
+    fixedArea: true,
+    tags: ['spell', 'projectile', 'area', 'cold'],
+    effects: [{ type: 'projectile', speed: 4.5, radius: 0.55, range: 12, hitAtEnd: true, onHit: [{ type: 'area', radius: 2.5, effects: [hit('cold', 0.4), { type: 'status', status: 'slow', duration: 1.5, magnitude: 0.3 }] }] }],
+  },
   {
     // 牠走得慢，靠這招把人拉回嘴前
     id: 'enemy.maw_drag',

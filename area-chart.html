@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>敵方範圍圖</title>
+    <style>
+      html, body { margin: 0; background: #16130f; color: #d8cbb4; font: 14px/1.5 sans-serif; }
+      main { max-width: 1280px; margin: 0 auto; padding: 16px; }
+      h1 { margin: 0 0 4px; font-size: 20px; color: #e8c47a; }
+      h2 { margin: 24px 0 8px; font-size: 15px; color: #e8c47a; border-bottom: 1px solid #3a3027; padding-bottom: 4px; }
+      h2 small, .sub { color: #9c8c74; font-size: 12px; font-weight: normal; }
+      .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0; }
+      select, button { padding: 5px 9px; font: 14px sans-serif; color: #d8cbb4; background: #2a231d; border: 1px solid #5a4c3e; border-radius: 3px; }
+      select { max-width: 100%; }
+      button { cursor: pointer; font-variant-numeric: tabular-nums; }
+      button:hover { border-color: #a8875a; }
+      button.on { background: #5a4630; color: #ffe3a8; border-color: #a8875a; }
+      input[type=range] { width: 220px; accent-color: #c8483a; }
+      svg { display: block; width: 100%; height: auto; background: #1b1713; border: 1px solid #3a3027; border-radius: 4px; }
+      .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px 14px; margin: 10px 0; }
+      .facts b { display: block; font-size: 18px; color: #ffe3a8; font-variant-numeric: tabular-nums; }
+      .facts div { color: #9c8c74; font-size: 12px; }
+      .key { display: inline-block; width: 11px; height: 11px; margin-right: 4px; border-radius: 50%; vertical-align: -1px; }
+      .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
+      .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+      .card { padding: 0; text-align: left; background: none; border: 0; color: inherit; cursor: pointer; font: inherit; }
+      .card svg { border-color: #3a3027; }
+      .card:hover svg, .card.on svg { border-color: #e8c47a; }
+      .card span { display: block; padding: 3px 1px 0; font-size: 12px; }
+      .cap { font-size: 12px; text-align: center; padding-top: 2px; font-variant-numeric: tabular-nums; }
+      .bad { color: #f0806a; }
+    </style>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script type="module" src="/src/tools/areaChart/main.ts"></script>
+  </body>
+</html>

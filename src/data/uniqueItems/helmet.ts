@@ -317,7 +317,7 @@ const mythic: Def[] = [
       ),
       unique(
         '暗黑領域：近身 3 格內每有一名敵人，所有傷害 +4%（最多 +20%）',
-        cond({ enemiesWithin: { radius: 3, perEnemy: true, max: 5 } }, [{ stat: 'damageBonus', value: 0.04 }]),
+        cond({ enemiesWithin: { radius: 3, perEnemy: true, max: 5 }, aura: { look: 'darkDomain', radius: 3 } }, [{ stat: 'damageBonus', value: 0.04 }]),
       ),
       unique(
         '深淵覺醒：生命低於 40% 時，攻擊速度 +15%、施法速度 +15%',

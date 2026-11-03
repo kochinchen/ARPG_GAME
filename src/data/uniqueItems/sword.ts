@@ -319,7 +319,7 @@ const mythic: Def[] = [
       ),
       unique(
         '完成 Combo 時展開暗黑領域 4 秒：每 0.5 秒對周圍 2.5 格的敵人造成武器 25% 寒冰傷害並緩速 30%（冷卻 6 秒）',
-        on('comboComplete', [at('self', 'melee', [{ type: 'zone', radius: 2.5, duration: 4, interval: 0.5, effects: [hit('cold', 0.25), status('slow', 1, 0.3)] }])], { cooldown: 6 }),
+        on('comboComplete', [at('self', 'melee', [{ type: 'zone', look: 'darkDomain', radius: 2.5, duration: 4, interval: 0.5, effects: [hit('cold', 0.25), status('slow', 1, 0.3)] }])], { cooldown: 6 }),
       ),
       unique(
         '近戰命中時 12% 機率，深淵分身從目標身後再斬一次（該擊 60% 傷害，冷卻 0.8 秒）',

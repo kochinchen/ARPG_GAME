@@ -138,6 +138,8 @@ export interface FigureModel {
   weaponTip?: V3;
   /** 腳下影子隨站姿（兩腳距離）改變寬度、隨重心前後偏移 */
   dynamicShadow?: boolean;
+  /** 腳下橢圓影子的大小倍率（細長的模型外觀倍率很大，影子不跟著放大） */
+  shadowScale?: number;
   /** 武器尖端所在的關節（預設 handR） */
   weaponJoint?: Joint;
   /**
@@ -160,6 +162,8 @@ export interface FigureModel {
   skin?: SkinMesh;
   /** 魔王階段變化時不再畫的關節（index = 階段；例如第 2 階段盾牌碎裂、第 3 階段巨劍落地） */
   phaseHidden?: readonly (readonly Joint[])[];
+  /** 切換階段後，慢慢過渡到新姿勢的秒數（爪子收合；預設立刻跟上） */
+  phaseBlendTime?: number;
   /** 魔王每個階段的動作（index = 階段；沒有的階段用 poses）：例如盾牌掉了改成雙手持劍 */
   phasePoses?: readonly (PoseSet | undefined)[];
   /** 魔王階段變化時掉在地上、留在場上的物件（index = 階段；模型與相對魔王的位置） */

@@ -6,6 +6,13 @@ export const EnemyFamilySchema = z.enum(['undead', 'beast', 'chitin', 'brute', '
 export type EnemyFamily = z.infer<typeof EnemyFamilySchema>;
 
 /** Boss 的階段：HP 降到 hpBelow 以下時進入（一次性套用 modifiers，並可改用另一組技能） */
+/**
+ * 連發：有目標時每隔 every 秒輪流對目標發動一招，不用施法、不打斷其他動作。
+ * range：目標在幾格內才發；originBack：從身後幾格發出（噬界足眼的尾巴）。
+ */
+export const BarrageSchema = z.strictObject({ skills: z.array(IdSchema).min(1), every: z.number().positive(), range: z.number().positive(), originBack: z.number().nonnegative().default(0) });
+export type Barrage = z.infer<typeof BarrageSchema>;
+
 export const BossPhaseSchema = z.strictObject({
   hpBelow: z.number().gt(0).lt(1),
   /** 顯示在 Boss 血條與畫面上，例如「狂怒」「火焰附魔」 */
@@ -13,6 +20,19 @@ export const BossPhaseSchema = z.strictObject({
   modifiers: z.array(z.strictObject({ stat: StatIdSchema, kind: ModifierKindSchema.default('flat'), value: z.number() })).default([]),
   /** 進入此階段後改用的技能（取代原本的技能；第一個為主要攻擊，其餘依序為特殊技能） */
   skills: z.array(IdSchema).min(1).optional(),
+  /** 進入此階段時模型的外觀（模型的 phasePoses / phaseHidden 的 index；省略 = 階段編號） */
+  look: z.int().nonnegative().optional(),
+  /**
+   * 交替的姿態（噬界足眼的爪子）：進入此階段先收合 closedFor 秒（受到的傷害 −reduction、站著不動、改用 closedSkills，外觀 closedLook），
+   * 再張開 openFor 秒（這個階段的 skills，外觀 openLook），如此交替。
+   */
+  clawCycle: z
+    .strictObject({ closedFor: z.number().positive(), openFor: RangeSchema, reduction: z.number().gt(0).lt(1), closedBarrage: BarrageSchema, closedLook: z.int().nonnegative(), openLook: z.int().nonnegative() })
+    .optional(),
+  /** 進入此階段時停住幾秒（什麼都不做、任何攻擊無效） */
+  pause: z.number().positive().optional(),
+  /** 停住結束後，身上脫離出一隻獨立的怪物（look 是之後的外觀）；牠死掉時本體僵直 stagger 秒，本體死掉時牠一起消失 */
+  detach: z.strictObject({ enemyId: IdSchema, stagger: z.number().positive(), look: z.int().nonnegative() }).optional(),
 });
 export type BossPhase = z.infer<typeof BossPhaseSchema>;
 
@@ -83,6 +103,10 @@ export const EnemyDefSchema = z
   onDeath: z.strictObject({ skill: IdSchema, delay: z.number().positive(), warnRadius: z.number().positive() }).optional(),
   /** 被動技能（見 EnemyPassiveSchema） */
   passives: z.array(EnemyPassiveSchema).default([]),
+  /** 主角死在牠的 leashRange 內時回復最大生命的這個比例（打牠不能只靠死亡硬換；不會退回前一個階段） */
+  healOnPlayerDeath: z.number().gt(0).max(1).optional(),
+  /** 連發（見 BarrageSchema） */
+  barrage: BarrageSchema.optional(),
   /** Boss 的階段變化（依 hpBelow 由高到低） */
   phases: z.array(BossPhaseSchema).default([]),
   /** 怪物圖鑑：分類與介紹 */

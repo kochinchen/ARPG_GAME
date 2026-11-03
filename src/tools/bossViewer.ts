@@ -16,7 +16,7 @@ import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
  */
 
 const params = new URLSearchParams(location.search);
-const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && e.boss)), ...Object.keys(STONE_WALKERS)];
+const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && (e.boss || id === 'enemy.abyss_tail'))), ...Object.keys(STONE_WALKERS)];
 const modelId = ids.includes(`enemy.${params.get('model')}`) ? `enemy.${params.get('model')}` : 'enemy.abyss_sovereign';
 /** ?glow=fire,poison：骨龍的兩種屬性 */
 const glow = params.get('glow')?.split(',') as [GlowElement, GlowElement] | undefined;
@@ -69,7 +69,7 @@ const DIRS: { label: string; facing: Vec2 }[] = [
   { label: '左', facing: vec2(-1, 1) },
   { label: '左下', facing: vec2(0, 1) },
 ];
-const state = { tpose: 0 as 0 | 1 | 2, move: 'idle' as Move, alive: true, dir: 0, spin: false, speed: 1, loop: null as (() => void) | null, phase: 0, zoom: 2.2 };
+const state = { tpose: 0 as 0 | 1 | 2, move: 'idle' as Move, alive: true, dir: 0, spin: false, speed: 1, loop: null as (() => void) | null, phase: 0, zoom: Number(params.get('zoom')) || 2.2 };
 let loopTimer = 0;
 let spinAngle = 0;
 /** 掉在地上的東西（階段變化） */
@@ -213,7 +213,8 @@ button(gDeath, '復活', () => (state.alive = true));
 const gPhase = group('階段');
 const phases = model.phaseHidden?.length ?? 1;
 const PHASE_LABELS = ['持劍與盾', '盾牌落地', '巨劍落地'];
-for (let p = 0; p < phases; p++) button(gPhase, `${p + 1}${modelId === 'enemy.abyss_sovereign' ? ` ${PHASE_LABELS[p]}` : ''}`, () => setPhase(p), () => state.phase === p);
+const EYE_PHASES = ['爪子張開', '爪子收合', '尾巴脫離'];
+for (let p = 0; p < phases; p++) button(gPhase, `${p + 1}${modelId === 'enemy.abyss_sovereign' ? ` ${PHASE_LABELS[p]}` : modelId === 'enemy.abyss_dragon' ? ` ${EYE_PHASES[p]}` : ''}`, () => setPhase(p), () => state.phase === p);
 const gCheck = group('檢查');
 button(gCheck, 'T 字（手臂往兩側伸直）', () => (state.tpose = state.tpose === 1 ? 0 : 1), () => state.tpose === 1);
 button(gCheck, 'T 字＋前臂往前彎 90°', () => (state.tpose = state.tpose === 2 ? 0 : 2), () => state.tpose === 2);

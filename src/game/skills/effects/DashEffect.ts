@@ -13,7 +13,8 @@ export class DashEffect implements IEffect<'dash'> {
   apply(def: DashEffectDef, ctx: EffectContext): void {
     const caster = ctx.caster;
     const target = ctx.target;
-    const forward = target ? directionBetween(caster.position, target.position, ctx.direction) : ctx.direction;
+    // 魔王衝向開始出招時瞄準的方向（和地上的預警一致，看到預警往旁邊跑就躲得掉）；其他怪物出手瞬間才瞄準
+    const forward = target && !caster.isBoss ? directionBetween(caster.position, target.position, ctx.direction) : ctx.direction;
     const direction = def.direction === 'forward' ? forward : scale(forward, -1);
     const stop =
       def.direction === 'forward' && target && !def.passThrough

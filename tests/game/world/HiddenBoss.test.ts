@@ -240,4 +240,39 @@ describe('掉寶', () => {
   });
 });
 
+describe('噬界足眼的掉寶：越深越多', () => {
+  const lootAt = (floor: number) => {
+    const rng = new Rng(9);
+    const nav = NavGrid.fromMap({ rows: ['...'] });
+    return new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => floor, () => 5, () => floor, new EventBus<GameEvents>());
+  };
+  const count = (floor: number) => {
+    const drops = lootAt(floor).roll('loot.abyss_eye');
+    return { items: drops.filter((d) => d.kind === 'item').length, gold: drops.reduce((sum, d) => sum + (d.kind === 'gold' ? d.amount : 0), 0) };
+  };
+
+  it.each([[23, 6, 1], [24, 7, 7 / 6], [26, 9, 1.5], [27, 10, 10 / 6], [28, 11, 11 / 6], [29, 12, 2]])('第 %i 層 %i 件，金幣 ×%f', (floor, items, gold) => {
+    const c = count(floor);
+    expect(c.items).toBe(items);
+    expect(c.gold).toBeGreaterThanOrEqual(Math.floor(2000 * gold));
+    expect(c.gold).toBeLessThanOrEqual(Math.ceil(3000 * gold));
+  });
+
+  it('5 孔白裝：第 23 層約 10%、第 29 層約 25%', () => {
+    const white = (floor: number) => {
+      const system = lootAt(floor);
+      let n = 0;
+      for (let i = 0; i < 1000; i++) {
+        const drops = system.roll('loot.abyss_eye');
+        if (drops.some((d) => d.kind === 'item' && d.item.rarity === 'normal' && d.item.sockets?.max === data.balance.sockets.max.normal)) n++;
+      }
+      return n / 1000;
+    };
+    expect(white(23)).toBeGreaterThan(0.07);
+    expect(white(23)).toBeLessThan(0.14);
+    expect(white(29)).toBeGreaterThan(0.2);
+    expect(white(29)).toBeLessThan(0.3);
+  });
+});
+
 it('地圖 ID 不變', () => expect(world(11).map.id).toBe(generatedMapId(11)));

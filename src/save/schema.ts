@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ElementSchema } from '../data/schema/common';
+import { ElementSchema, StatIdSchema } from '../data/schema/common';
 import { MaterialIdSchema, RaritySchema } from '../data/schema/item';
 import { SkillCategorySchema } from '../data/schema/skill';
 import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
@@ -26,10 +26,11 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v20：讀過的遺物（lore）、聽過的魔王魂魄（souls）。
  * v21：找到的筆記頁（notebook）。
  * v22：本層的隱藏魔王（floor.hiddenBoss）。
+ * v23：隱藏魔王隨機抽到的抗性（floor.hiddenBoss.resists），屬性不再固定兩種（elements）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 22;
+export const SAVE_VERSION = 23;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -145,7 +146,7 @@ export const SaveDataSchema = z.object({
     exitOpen: z.boolean(),
     killed: z.array(nonNegInt),
     /** 本層的隱藏魔王（v22）：讀檔不重擲；沒骰到為 null */
-    hiddenBoss: z.object({ enemyId: z.string(), elements: z.tuple([ElementSchema, ElementSchema]), dead: z.boolean() }).nullable(),
+    hiddenBoss: z.object({ enemyId: z.string(), elements: z.array(ElementSchema).min(2), resists: z.array(z.object({ stat: StatIdSchema, value: z.number() })), dead: z.boolean() }).nullable(),
     /** 本層的屍體（v18）：生成索引、位置、面向（弧度）；外觀由生成索引推導 */
     corpses: z.array(z.object({ index: nonNegInt, x: finite, y: finite, facing: finite })),
     /** 樓層（JSON 的 key 一定是字串）→ 已開啟的寶箱索引 */

@@ -115,11 +115,11 @@ describe('第 35 層：王座廳', () => {
     // 樓梯口與中途存檔點都有商人，離魔王很遠
     expect(w.merchants).toHaveLength(2);
     expect(distance(w.spawnPoint, boss.position)).toBeGreaterThan(40);
-    // 全抗性 30%，HP 約 600,000（原本約 30,000 × 魔王強化 20 倍）
+    // 全抗性 30%，HP 約 300,000（設計者 2026-11-03：原本約 600,000 太高）
     expect(boss.stats.get('fireResist')).toBeCloseTo(0.3);
     expect(boss.stats.get('physicalResist')).toBeCloseTo(0.3);
-    expect(boss.maxHp).toBeGreaterThan(590000);
-    expect(boss.maxHp).toBeLessThan(610000);
+    expect(boss.maxHp).toBeGreaterThan(295000);
+    expect(boss.maxHp).toBeLessThan(305000);
   });
 
   it('擊敗最終魔王 = 已完成隱藏難關；之後第 31 層可以往上', () => {
@@ -171,6 +171,9 @@ describe('深淵統御者：三個階段', () => {
     expect(w.bosses.phaseLabel(boss)).toBe('破盾狂獸');
     expect(boss.stats.get('defense')).toBeCloseTo(defense * 0.8);
     boss.hp = boss.maxHp * 0.2;
+    // 火冰彈幕只打 6 格外的目標：拉開距離
+    w.player.position = vec2(boss.position.x + 9, boss.position.y);
+    w.player.prevPosition = w.player.position;
     run(w, 25);
     expect(w.bosses.phaseLabel(boss)).toBe('深淵魔化');
     expect(boss.stats.get('meleeDamageBonus')).toBeCloseTo(-0.2);

@@ -231,7 +231,7 @@ describe('魔王的範圍技', () => {
     expect(areaOf('enemy.guardian_slam').radius).toBeCloseTo(3.4 * 1.2);
     expect(areaOf('enemy.lord_domain').radius).toBeCloseTo(5.5 * 1.2);
     const barrage = skills.get('enemy.priest_barrage').effects[0] as { scatter: number; effects: { radius: number }[] };
-    expect(barrage.scatter).toBeCloseTo(2.2 * 1.2);
+    expect(barrage.scatter).toBeCloseTo(4.5 * 1.2);
     expect(barrage.effects[0]!.radius).toBeCloseTo(1.2 * 1.2);
     for (const id of ['enemy.guardian_charge', 'enemy.knight_dash', 'enemy.queen_pounce', 'enemy.lord_domain', 'enemy.guardian_quake']) expect(skills.get(id).telegraph, id).toBe(true);
     // 原本的前搖秒數不變

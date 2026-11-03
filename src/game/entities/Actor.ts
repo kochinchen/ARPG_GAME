@@ -1,6 +1,7 @@
 import { vec2, type Vec2 } from '../../core/math/Vec2';
 import type { Element } from '../../data/schema/common';
 import type { DeviceEffectDef, StatusKind } from '../../data/schema/effects';
+import type { Barrage } from '../../data/schema/enemy';
 import type { SkillDef } from '../../data/schema/skill';
 import type { AiBrain } from '../ai/AiBrain';
 import type { StepMods } from '../combo/StepMods';
@@ -34,6 +35,7 @@ export interface ActorInit {
   xpReward?: number;
   /** 特殊技能（普通攻擊以外）的範圍倍率：怪物隨樓層提高；直線招式不受影響 */
   skillArea?: number;
+  skillAreaCap?: number;
   /** 機關（戰術技能佈置的物件）；一般角色為 null */
   device?: DeviceState | null;
 }
@@ -123,8 +125,20 @@ export class Actor {
   readonly summonedBy: ActorId | null;
   /** 隱藏魔王隨機抽到的兩種屬性（第一種是眼睛與嘴，第二種是裂縫）：每次出招從中選一種，改用該屬性的技能（SkillExecutor） */
   innateElements: readonly Element[] | null = null;
+  /** 任何傷害與狀態都無效（噬界足眼尾巴脫離前的停頓、跳到空中時） */
+  untouchable = false;
+  /** 什麼都不做（不移動、不施放、不思考），但還打得到（停頓、僵直） */
+  stasis = false;
+  /** 跳到空中消失：不能被選為目標、不和其他角色碰撞 */
+  vanished = false;
+  /** 連發（見 BarrageSchema）：階段機制開啟時才有，平常用怪物定義的（噬界足眼收合爪子時） */
+  barrage: Barrage | null = null;
+  /** 跳躍的高度（0 = 地上，1 = 看不見了）：Render 用 */
+  air = 0;
   readonly xpReward: number;
   readonly skillArea: number;
+  /** 放大後的半徑上限（格）；只有魔王有 */
+  readonly skillAreaCap: number;
   readonly device: DeviceState | null;
   radius: number;
   /** 外觀大小（Render 依此縮放模型） */
@@ -176,6 +190,7 @@ export class Actor {
     this.summonedBy = init.summonedBy ?? null;
     this.xpReward = init.xpReward ?? 0;
     this.skillArea = init.skillArea ?? 1;
+    this.skillAreaCap = init.skillAreaCap ?? Infinity;
     this.device = init.device ?? null;
     this.skillRanks = new Map(init.skillRanks ?? []);
     this.hp = init.stats.get('maxHp');
@@ -209,7 +224,7 @@ export class Actor {
 
   /** 冰凍、暈眩或浮空：不能移動、施放、思考 */
   get isDisabled(): boolean {
-    return this.hasStatus('freeze') || this.hasStatus('stun') || this.hasStatus('airborne');
+    return this.stasis || this.vanished || this.hasStatus('freeze') || this.hasStatus('stun') || this.hasStatus('airborne');
   }
 
   /** 目前意圖的目標（沒有則 null） */

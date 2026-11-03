@@ -244,7 +244,7 @@ const mythic: Def[] = [
       unique('施放 Combo 第三招時 20% 機率由分身再施放一次', on('cast', [{ type: 'recast' }], { when: FINISHER, chance: 0.2 })),
       unique(
         'Combo 第三招命中時展開暗黑領域 4 秒（半徑 3 格）：每 0.5 秒造成該擊 8% 寒冰傷害並緩速 30%（冷卻 6 秒）',
-        on('hit', [at('target', 'magic', [{ type: 'zone', radius: 3, duration: 4, interval: 0.5, effects: [hit('cold'), status('slow', 1, 0.3)] }], 0.08)], { when: FINISHER, cooldown: 6 }),
+        on('hit', [at('target', 'magic', [{ type: 'zone', look: 'darkDomain', radius: 3, duration: 4, interval: 0.5, effects: [hit('cold'), status('slow', 1, 0.3)] }], 0.08)], { when: FINISHER, cooldown: 6 }),
       ),
       unique('生命低於 50% 時深淵覺醒：所有傷害 +20%、移動速度 +10%', cond({ hpBelow: 0.5 }, [{ stat: 'damageBonus', value: 0.2 }, { stat: 'moveSpeed', modifier: 'increased', value: 0.1 }])),
     ],

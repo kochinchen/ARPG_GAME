@@ -1,6 +1,7 @@
 import type { FigureModel } from './FigureModel';
 import { ABYSS_LORD } from './bosses/AbyssLordAI';
 import { ABYSS_SOVEREIGN } from './bosses/AbyssSovereignAI';
+import { ABYSS_DRAGON, ABYSS_TAIL } from './bosses/AbyssDragonAI';
 import { BONE_DRAGON } from './bosses/BoneDragonAI';
 import { CRYPT_GUARDIAN, FALLEN_KNIGHT, FALLEN_PRIEST, LAVA_BEHEMOTH } from './bosses/HumanoidAI';
 import { CULTIST } from './bosses/RobedBosses';
@@ -26,4 +27,7 @@ export const BOSS_MODELS: Record<string, FigureModel> = {
   'enemy.abyss_sovereign': ABYSS_SOVEREIGN,
   // 隱藏魔王：身體是一張巨口、四根觸手、四隻腳
   'enemy.bone_dragon': BONE_DRAGON,
+  // 隱藏魔王：巨大的眼球、八根花瓣爪、大翅膀；尾巴在第三階段脫離
+  'enemy.abyss_dragon': ABYSS_DRAGON,
+  'enemy.abyss_tail': ABYSS_TAIL,
 };

@@ -309,7 +309,20 @@ export class ThreeSkillFx implements SkillFxListener {
     const id = i.skillId ?? '';
     const p = i.position;
     const r = i.radius;
+    if (id.startsWith('enemy.eye_breath')) {
+      this.breath(p, i.direction, r, i.element ?? null);
+      return true;
+    }
     switch (id) {
+      case 'enemy.eye_leap':
+        this.devastate(p, i.direction);
+        this.shockRing(p, r, 0xffc880);
+        this.dust(p, 30, r * 0.7);
+        return true;
+      case 'enemy.eye_gust':
+        this.coneWave(p, i.direction, r, 0xe8e0c8);
+        this.dust(p, 16, r * 0.5);
+        return true;
       case 'melee.earth_break':
         this.fanQuake(p, i.direction, r, i.angleDeg);
         return true;
@@ -740,6 +753,22 @@ export class ThreeSkillFx implements SkillFxListener {
   }
 
   /** 毀滅重擊：從空中重劈單一目標，四周地面炸開、土塊突出、塵土飛揚 */
+  /** 噬界足眼的吐息：從口中沿直線一路噴出去，依屬性是爆炎、冰柱或轟雷 */
+  private breath(from: Vec2, dir: Vec2, length: number, element: string | null): void {
+    const steps = Math.max(4, Math.round(length / 1.4));
+    for (let k = 1; k <= steps; k++) {
+      const q = vec2(from.x + (dir.x * length * k) / steps, from.y + (dir.y * length * k) / steps);
+      this.later.push({ at: this.time + k * 0.035, run: () => {
+        if (element === 'cold') this.frostBlast(q, 1.1, 1.2);
+        else if (element === 'lightning') this.thunder(q, 0.55, 0.75);
+        else {
+          this.flames(q, 1, 26, 0.55);
+          this.smokePuffs(q, 3, 0.6);
+        }
+      } });
+    }
+  }
+
   private devastate(at: Vec2, dir: Vec2): void {
     this.overheadSlash(at, dir);
     this.later.push({ at: this.time + 0.1, run: () => {

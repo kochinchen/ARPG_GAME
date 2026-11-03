@@ -1,7 +1,7 @@
 import type { Balance } from '../../../data/schema/balance';
 import type { Rng } from '../../../core/Rng';
 import type { Vec2 } from '../../../core/math/Vec2';
-import type { DelayedEffectDef, DeviceEffectDef, EffectDef, EffectType, ZoneEffectDef } from '../../../data/schema/effects';
+import type { DelayedEffectDef, DeviceEffectDef, EffectDef, EffectType, ZoneEffectDef, LeapEffectDef } from '../../../data/schema/effects';
 import type { SkillDef } from '../../../data/schema/skill';
 import type { DamagePipeline } from '../../combat/DamagePipeline';
 import type { StatusEffectSystem } from '../../combat/StatusEffectSystem';
@@ -16,6 +16,7 @@ import type { StepMods } from '../../combo/StepMods';
 export interface EffectSchedulerPort {
   spawnZone(def: ZoneEffectDef, ctx: EffectContext): void;
   schedule(def: DelayedEffectDef, ctx: EffectContext): void;
+  leap(def: LeapEffectDef, ctx: EffectContext): void;
 }
 
 export interface EffectServices {

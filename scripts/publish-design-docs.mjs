@@ -16,6 +16,7 @@ const PAGES = [
   { from: '裝備圖鑑.html', to: 'items.html', title: '裝備圖鑑', text: '六種稀有度、掉落機率、裝備基底、詞綴、傳奇與神話裝備。' },
   { from: '角色成長模擬.html', to: 'growth.html', title: '角色成長模擬', text: '成長表、屬性點與技能點模擬器、三段 Combo 測試、融合試算。' },
   { from: '組合技圖鑑.html', to: 'combos.html', title: '組合技圖鑑', text: 'Q～D 七組連段的組合技規則、所有會觸發的排列與連段試算。' },
+  { from: '敵方範圍圖.html', to: 'ranges.html', title: '敵方範圍圖', text: '敵方範圍招式照實際比例畫出來：選招式與樓層，附主角比例尺與所有招式總覽。' },
   { from: '開發歷程.html', to: 'history.html', title: '開發歷程', text: '開發方法與時間軸。' },
   { from: '故事與世界觀.html', to: 'story.html', title: '故事與世界觀', text: '世界起源、統御者三相、七環編年史、魔王的魂魄與散落的遺物。' },
   { from: '井誌小說.html', to: 'novel.html', title: '井誌（小說）', text: '完整小說：年老的主角一層一層講給孩子聽，收錄《井誌》69 頁與全部過場。' },

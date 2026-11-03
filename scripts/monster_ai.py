@@ -9,6 +9,7 @@ AI 生成的怪物（微軟 TRELLIS 用設計圖四視圖生成的 .glb）→ �
   深淵統御者：art/monsters/abyss_sovereign → src/render/figure/bosses/abyssSovereignAI.json（另有巨劍、盾牌）
   石頭獸（結晶獸四種屬性共用）：art/monsters/stone_walker → src/render/figure/monsters/stoneWalkerAI.json
   骨龍（巨口、四根觸手、四隻腳）：art/monsters/bone_dragon → src/render/figure/bosses/boneDragonAI.json
+  隱藏魔王「眼」（巨大眼球、八根花瓣爪、大翅膀）：art/monsters/abyss_dragon → bosses/abyssDragonAI.json；尾巴另外生成、第三階段脫離：同一個資料夾加第三個參數 tail → bosses/abyssDragonTailAI.json
   熔岩巨獸 / 墮落騎士 / 墓穴守衛 / 墮落神官：art/monsters/<lava_behemoth|fallen_knight|crypt_guardian|fallen_priest> → bosses/<lavaBehemothAI|fallenKnightAI|cryptGuardianAI|fallenPriestAI>.json
 
 輸入：<資料夾>/ai/trellis-1.glb；輸出：<資料夾>/<怪物>-ai.blend（網格 + 骨架 + 權重，可在 Blender 修整）、
@@ -34,13 +35,15 @@ from mathutils import Matrix, Vector
 
 args = sys.argv[sys.argv.index("--") + 1:]
 folder, out_json = args[0], args[1]
-NAME = os.path.basename(os.path.normpath(folder))
+# 第三個參數：同一個資料夾裡另外生成的部位（ai/<部位>.glb），名稱是 <怪物>_<部位>
+PART = args[2] if len(args) > 2 else None
+NAME = os.path.basename(os.path.normpath(folder)) + (f"_{PART}" if PART else "")
 TRIS = 7000
 # 一般怪物同時出現的數量多，面數要少；魔王用預設（骨龍細節多又一次只有一隻，設計者要求加倍）
-TRIS_OF = {"stone_walker": 4500, "bone_dragon": 9000}
+TRIS_OF = {"stone_walker": 4500, "bone_dragon": 9000, "abyss_dragon": 9000, "abyss_dragon_tail": 3200}
 FLOOR_AT = {"stone_walker": -0.378}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
-SPLIT_EDGE = {"bone_dragon": 0.042}
+SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032}
 
 # 生成時多出來、要切掉的部分（Blender 座標、減面前判斷；整個三角形都在範圍內才刪）
 CLEANUP = {
@@ -49,6 +52,118 @@ CLEANUP = {
     # 骨龍：TRELLIS 每邊多生一隻中間的腳（設計是四隻腳），切掉腳掌與小腿
     "bone_dragon": lambda p: 0.05 < p.y < 0.255 and 0.14 < abs(p.x) < 0.31 and p.z < -0.225,
 }
+
+
+def smooth(t):
+    t = max(0.0, min(1.0, t))
+    return t * t * (3 - 2 * t)
+
+
+# ── 眼（abyss_dragon）：四視圖的翅膀畫小、深口只有畫的，在這裡放大、挖深（減面前，三角形才會平均）──
+WING = {"x0": 0.225, "kx": 2.5, "kz": 1.6, "ky": 1.5, "zc": 0.1, "yc": 0.03}
+# 翅膀上的眼睛（左半邊，四視圖的位置）：不跟著翅膀壓扁，整顆等比放大
+WING_EYES = [(0.256, 0.335), (0.479, 0.067), (0.439, -0.007), (0.324, -0.054)]
+WING_EYE_R, WING_EYE_K = 0.05, 1.8
+EYE_CENTER = Vector((0, -0.02, 0.05))
+MOUTH_R, MOUTH_DEPTH = 0.058, 0.1
+# 深口的一圈骨頭（支點在眼球中心，轉動時口緣往外 / 往內移，像吸氣吐氣）；喉嚨深處和眼球表面不動
+MOUTH_BONES = 6
+MOUTH_RING = (0.02, 0.045, 0.1, 0.125)
+
+
+def in_wing(p):
+    # 手掌在 z < -0.22；肩膀的小尖甲在 y < -0.07、|x| < 0.24；翅膀上的眼睛會往前凸
+    return abs(p.x) > WING["x0"] and p.z > -0.1 and (p.y > -0.055 or abs(p.x) > 0.26)
+
+
+def wing_stretch(x, y, z):
+    """左半邊的點（x > 0）→ 放大後的位置"""
+    t = smooth((x - WING["x0"]) / 0.05)
+    return (WING["x0"] + (x - WING["x0"]) * WING["kx"], y + (y - WING["yc"]) * (WING["ky"] - 1) * t, z + (z - WING["zc"]) * (WING["kz"] - 1) * t)
+
+
+def reshape_eye(bm):
+    for v in bm.verts:
+        p = v.co
+        # 瞳孔的深口：往內凹成漏斗（牙齒在外圈不動）
+        r = math.hypot(p.x, p.z - EYE_CENTER.z)
+        if p.y < -0.08 and r < MOUTH_R:
+            p.y += MOUTH_DEPTH * smooth(1 - r / MOUTH_R)
+        if not in_wing(p):
+            continue
+        sx = 1 if p.x > 0 else -1
+        x, y, z = abs(p.x), p.y, p.z
+        nx, ny, nz = wing_stretch(x, y, z)
+        for ex, ez in WING_EYES:
+            d = math.hypot(x - ex, z - ez)
+            w = smooth(1.35 - d / WING_EYE_R)
+            if w > 0:
+                cx, _, cz = wing_stretch(ex, y, ez)
+                nx += (cx + (x - ex) * WING_EYE_K - nx) * w
+                nz += (cz + (z - ez) * WING_EYE_K - nz) * w
+                break
+        p.x, p.y, p.z = sx * nx, ny, nz
+
+
+def refine_wing_eyes(bm):
+    """翅膀眼睛的瞳孔縫那一帶切細：一個三角形一個顏色，三角形太大畫不出直的黑縫"""
+    w, h = WING_EYE_DISC * SLIT_W * 1.8, WING_EYE_DISC * SLIT_H * 1.1
+    for _ in range(4):
+        edges = []
+        for e in bm.edges:
+            if e.calc_length() <= 0.01:
+                continue
+            m = (e.verts[0].co + e.verts[1].co) / 2
+            if any(abs(abs(m.x) - cx) < w and abs(m.z - cz) < h for cx, cz in WING_EYE_CENTERS):
+                edges.append(e)
+        if not edges:
+            break
+        bmesh.ops.subdivide_edges(bm, edges=edges, cuts=1, use_grid_fill=False)
+        bmesh.ops.triangulate(bm, faces=bm.faces)
+
+
+WING_EYE_CENTERS = [(wing_stretch(ex, 0, ez)[0], wing_stretch(ex, 0, ez)[2]) for ex, ez in WING_EYES]
+# 畫出來的眼球半徑；瞳孔黑縫：直立的橄欖形（半寬、半高，相對眼球半徑）
+WING_EYE_DISC = 0.045 * WING_EYE_K * 0.62
+SLIT_W, SLIT_H = 0.2, 0.9
+# 切細（切長邊之後）
+AFTER_SPLIT = {"abyss_dragon": refine_wing_eyes}
+# 減面前改形狀
+RESHAPE = {"abyss_dragon": reshape_eye}
+# 尾巴：中段重複成 TAIL_COPIES 段（每段自己封口、互相重疊一點，彎曲時不會破洞），總長約 3 倍；再整體縮到接在本體上的大小
+TAIL_BAND = (-0.34, -0.06)
+TAIL_COPIES = 6
+TAIL_OVERLAP = 0.012
+TAIL_SCALE = 0.5
+TAIL_SECTIONS = []
+
+
+def lengthen_tail(bm):
+    a, b = TAIL_BAND
+    for y in (a, b):
+        geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+        res = bmesh.ops.bisect_plane(bm, geom=geom, dist=1e-4, plane_co=(0, y, 0), plane_no=(0, 1, 0))
+        cut_edges = [e for e in res["geom_cut"] if isinstance(e, bmesh.types.BMEdge)]
+        bmesh.ops.split_edges(bm, edges=cut_edges)
+    L = b - a - TAIL_OVERLAP
+    band = [f for f in bm.faces if a < f.calc_center_median().y < b]
+    stump_verts = {v for f in bm.faces if f.calc_center_median().y <= a for v in f.verts}
+    for v in stump_verts:
+        v.co.y -= L * (TAIL_COPIES - 1)
+    for i in range(1, TAIL_COPIES):
+        dup = bmesh.ops.duplicate(bm, geom=band)
+        verts = [g for g in dup["geom"] if isinstance(g, bmesh.types.BMVert)]
+        bmesh.ops.translate(bm, verts=verts, vec=(0, -L * i, 0))
+    # 每段封口（封口的面沒有貼圖，在裡面看不到）
+    bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
+    for v in bm.verts:
+        v.co *= TAIL_SCALE
+    # 每段的範圍（從本體接上的斷口 → 臉）：骨架用
+    TAIL_SECTIONS[:] = [(a - L * (TAIL_COPIES - 1)) * TAIL_SCALE] + [(a - L * i + L) * TAIL_SCALE for i in range(TAIL_COPIES - 1, -1, -1)]
+
+
+# 減面後改形狀（切開的部位減面後才複製，面數才算得準）
+AFTER_DECIMATE = {"abyss_dragon_tail": lengthen_tail}
 
 
 def to_int(r, g, b):
@@ -78,6 +193,9 @@ def load(path, tris, name, cut=None):
         # 骨龍：切掉多餘的腳留下的開口補起來，否則從旁邊看得到身體裡面（補的面沒有貼圖，下面當黑面處理）
         if name.startswith("bone_dragon"):
             bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
+    base = name[:-3] if name.endswith("_ai") else name
+    if base in RESHAPE:
+        RESHAPE[base](bm)
     bm.to_mesh(obj.data)
     bm.free()
     for o in bpy.context.selected_objects:
@@ -87,7 +205,13 @@ def load(path, tris, name, cut=None):
     dec = obj.modifiers.new("dec", "DECIMATE")
     dec.ratio = min(1.0, tris / len(obj.data.polygons))
     bpy.ops.object.modifier_apply(modifier=dec.name)
-    split = next((v for k, v in SPLIT_EDGE.items() if name.startswith(k)), None)
+    if base in AFTER_DECIMATE:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        AFTER_DECIMATE[base](bm)
+        bm.to_mesh(obj.data)
+        bm.free()
+    split = SPLIT_EDGE.get(base)
     if split:
         bm = bmesh.new()
         bm.from_mesh(obj.data)
@@ -97,6 +221,8 @@ def load(path, tris, name, cut=None):
                 break
             bmesh.ops.subdivide_edges(bm, edges=long_edges, cuts=1, use_grid_fill=False)
             bmesh.ops.triangulate(bm, faces=bm.faces)
+        if base in AFTER_SPLIT:
+            AFTER_SPLIT[base](bm)
         bm.to_mesh(obj.data)
         bm.free()
     bpy.ops.object.mode_set(mode="EDIT")
@@ -129,7 +255,7 @@ def load(path, tris, name, cut=None):
 
 # ── 1、2. 匯入、減面、顏色 ──
 bpy.ops.wm.read_factory_settings(use_empty=True)
-src, face_color = load(os.path.join(folder, "ai", "trellis-1.glb"), TRIS_OF.get(NAME, TRIS), f"{NAME}_ai", CLEANUP.get(NAME))
+src, face_color = load(os.path.join(folder, "ai", f"{PART or 'trellis-1'}.glb"), TRIS_OF.get(NAME, TRIS), f"{NAME}_ai", CLEANUP.get(NAME))
 me = src.data
 # 石頭獸：拳頭比腳底低約 3 公分（單圖生成的誤差），壓平到腳底的高度，否則腳會浮在地上
 if NAME in FLOOR_AT:
@@ -369,6 +495,58 @@ def bone_dragon():
     return spine + sides(side), {}
 
 
+def abyss_dragon():
+    """眼：骨盆 → 背甲（chest）→ 眼球（head）；眼球周圍八根爪（ex_claw?a 根部、ex_claw?b 爪尖，掛在眼球上，收合時往前合起來）；兩腿的腳掌是人手（ex_toe 是手指）；翅膀放大後的翼骨"""
+    bones = [
+        ("root", None, V((0, 0.03, -0.10)), V((0, 0.03, -0.02)), 0.1),
+        ("chest", "root", V((0, 0.05, -0.02)), V((0, 0.05, 0.2)), 0.12),
+        ("head", "chest", V((0, -0.02, 0.05)), V((0, -0.16, 0.05)), 0.1),
+    ]
+    # 爪：根部 → 中段 → 爪尖（中段放在爪的中心）
+    def claw(n, root, mid, tip):
+        return chain([f"ex_claw{n}a", f"ex_claw{n}b"], "head", [V(root), snap(V(mid), 0.05), V(tip)], [0.06, 0.03])
+
+    bones += claw("T", (0, 0.0, 0.2), (0, -0.12, 0.31), (0, -0.274, 0.291))
+    bones += claw("B", (0, -0.04, -0.07), (0, -0.14, -0.11), (0.003, -0.292, -0.019))
+
+    def side(s, m):
+        out = claw(f"U{s}", tuple(m(V((0.12, -0.03, 0.12)))), tuple(m(V((0.19, -0.15, 0.16)))), tuple(m(V((0.148, -0.31, 0.104)))))
+        out += claw(f"D{s}", tuple(m(V((0.12, -0.03, -0.01)))), tuple(m(V((0.2, -0.13, -0.04)))), tuple(m(V((0.15, -0.29, 0.01)))))
+        # 上方兩根往後彎（TRELLIS 把四視圖的爪尖畫到背甲上方）
+        out += claw(f"R{s}", tuple(m(V((0.1, 0.0, 0.18)))), tuple(m(V((0.12, 0.07, 0.3)))), tuple(m(V((0.08, 0.16, 0.31)))))
+        # 腿：髖 → 膝 → 踝 → 手指根 → 指尖
+        out += chain([f"thigh{s}", f"shin{s}", f"foot{s}", f"ex_toe{s}"], "root",
+                     [m(V((0.15, 0.03, -0.10))), m(V((0.16, 0.03, -0.21))), m(V((0.17, 0.03, -0.29))), m(V((0.18, -0.09, -0.345))), m(V((0.18, -0.19, -0.36)))],
+                     [0.09, 0.08, 0.07, 0.04])
+        # 翅膀：肩胛 → 翼肘（頂端的眼睛）；翼肘伸出翼指撐住翼膜（ex_wing?3～5 跟著翼肘）
+        elbow = m(V(wing_stretch(0.256, 0.04, 0.335)))
+        out.append((f"ex_wing{s}1", "chest", m(V((0.2, 0.04, 0.14))), elbow, 0.03))
+        out.append((f"ex_wing{s}2", f"ex_wing{s}1", elbow, m(V(wing_stretch(0.49, 0.04, 0.07))), 0.02))
+        for k, (ex, ez) in enumerate(WING_EYES[2:] + [(0.405, -0.03)]):
+            out.append((f"ex_wing{s}{k + 3}", f"ex_wing{s}2", elbow, m(V(wing_stretch(ex, 0.04, ez))), 0.02))
+        return out
+
+    for i in range(MOUTH_BONES):
+        a = 2 * math.pi * i / MOUTH_BONES
+        bones.append((f"ex_mouth{i}", "head", EYE_CENTER.copy(), V((math.cos(a) * 0.08, -0.17, EYE_CENTER.z + math.sin(a) * 0.08)), 0.01))
+    return bones + sides(side), {}
+
+
+def abyss_dragon_tail():
+    """眼的尾巴：從斷口到臉一節一節（ex_tail1～N、最後是臉 ex_tailHead），每節是一段重複的甲殼；root 是斷口。遊戲端第三階段脫離時，反過來由臉帶頭爬行"""
+    sec = TAIL_SECTIONS
+    y0 = sec[0]
+    ax = lambda y: V((0, y, 0))
+    bones = [("root", None, ax(y0), ax(y0 + 0.02), 0.08)]
+    names = [f"ex_tail{i + 1}" for i in range(len(sec) - 1)]
+    points = [ax(y0 + 0.02)] + [ax(y) for y in sec[1:]]
+    # 第一節從斷口開始，最後一節是臉
+    bones += chain(names, "root", points, [0.05] * len(names))
+    top = max(c.y for c in co)
+    bones.append(("ex_tailHead", names[-1], ax(sec[-1]), ax(top), 0.09))
+    return bones, {"tailSections": [round(y, 5) for y in sec]}
+
+
 # 另外生成的獨立物件（<資料夾>/ai/<名稱>.glb → 不綁骨架的網格，遊戲端掛在關節上或掉在地上）：名稱 → 三角形數
 PROPS = {"abyss_sovereign": {"sword": 1500, "shield": 2500}}
 
@@ -520,10 +698,46 @@ def bone_dragon_zone(p, bone):
 
 
 ZONES["bone_dragon"] = bone_dragon_zone
+
+
+def abyss_dragon_zone(p, bone):
+    """眼球表面只跟眼球；爪在眼球外面；翅膀區只跟翼骨（靠近身體的地方和背甲混合）；腳不帶動背甲；深口的骨頭另外算（mouth_weights）"""
+    if bone.startswith("ex_mouth"):
+        return False
+    side_mark = re.search(r"[LR]$|[UDR][LR]", bone)
+    if bone.startswith(("ex_", "thigh", "shin", "foot")) and bone[-1] in "LR" or re.match(r"ex_claw[UDR][LR]", bone) or re.match(r"ex_wing[LR]", bone):
+        s = re.search(r"([LR])\d*[ab]?$", bone)
+        if s and (p.x > 0) != (s.group(1) == "L"):
+            return False
+    ax = abs(p.x)
+    # 手掌最遠到 |x| = 0.33；比那裡更外面的一定是翅膀（最下面那顆眼睛比手腕還低）
+    wing_area = ax > 0.34 or (ax > WING["x0"] and p.z > -0.2 and (p.y > -0.08 or ax > 0.26))
+    if bone.startswith("ex_wing"):
+        return wing_area
+    if wing_area and (ax > WING["x0"] + 0.045 or bone.startswith("ex_claw")):
+        return False
+    in_eye = (p - EYE_CENTER).length < 0.165 and p.y < 0.02
+    if bone.startswith("ex_claw"):
+        # 背後的尖甲不跟爪；只有上方往後彎的兩根（R）能到背後
+        return not in_eye and (p.y < 0.04 or (bone.startswith("ex_clawR") and p.z > 0.2))
+    # 眼球前半、眼球外面的是爪的肉，不跟背甲
+    if bone in ("chest", "root") and p.y < -0.05 and not in_eye and p.z > -0.13 and not wing_area:
+        return False
+    if bone == "head":
+        return p.y < 0.05 and p.z > -0.13 and ax < 0.2
+    if re.match(r"(thigh|shin|foot|ex_toe)", bone):
+        return p.z < -0.13
+    return True
+
+
+ZONES["abyss_dragon"] = abyss_dragon_zone
 # 分開的部位（joined(三角形三個頂點的主要骨頭, 三個頂點的權重) → 可以留下嗎）：跨到不相連部位的三角形在動作時會被拉長，輸出時拿掉
 JOINED = {n: limbs_joined for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
 # 骨龍：嘴裡的東西碰到上顎的三角形，張嘴時會被拉成長條
 JOINED["bone_dragon"] = lambda bones, ws: not {"head", "jaw"} <= bones
+
+# 眼：爪碰到翅膀的三角形，收合時會被拉成長條
+JOINED["abyss_dragon"] = lambda bones, ws: not (any(b.startswith("ex_claw") for b in bones) and any(b.startswith("ex_wing") for b in bones))
 
 SKELETONS = {
     "spider_queen": spider_queen,
@@ -535,6 +749,8 @@ SKELETONS = {
     "fallen_priest": fallen_priest,
     "stone_walker": stone_walker,
     "bone_dragon": bone_dragon,
+    "abyss_dragon": abyss_dragon,
+    "abyss_dragon_tail": abyss_dragon_tail,
 }
 bones, extra = SKELETONS[NAME]()
 
@@ -555,7 +771,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_dragon")}
+JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_dragon", "abyss_dragon")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
@@ -571,6 +787,20 @@ for c in co:
     ws = [(n, math.exp(-(dd - d[0][0]) / soft)) for dd, n in near]
     tot = sum(w for _, w in ws)
     weights.append([[n, round(w / tot, 3)] for n, w in ws if w / tot > 0.02])
+
+# 眼：深口的口緣跟著一圈骨頭，依角度混合相鄰兩根（喉嚨深處與眼球表面維持跟眼球）
+if NAME == "abyss_dragon":
+    r0, r1, r2, r3 = MOUTH_RING
+    for i, c in enumerate(co):
+        r = math.hypot(c.x, c.z - EYE_CENTER.z)
+        if c.y > -0.04 or r >= r3 or r <= r0 or (c - EYE_CENTER).length > 0.165:
+            continue
+        s = smooth((r - r0) / (r1 - r0)) * smooth((r3 - r) / (r3 - r2))
+        at = (math.atan2(c.z - EYE_CENTER.z, c.x) / (2 * math.pi) % 1) * MOUTH_BONES
+        k = int(at) % MOUTH_BONES
+        f = at - int(at)
+        ws = [[f"ex_mouth{k}", s * (1 - f)], [f"ex_mouth{(k + 1) % MOUTH_BONES}", s * f], ["head", 1 - s]]
+        weights[i] = [[n, round(w, 3)] for n, w in ws if w > 0.02]
 
 # ── 存成可編輯的 .blend：骨架 + 頂點群組 ──
 arm_data = bpy.data.armatures.new(f"{NAME}_rig")
@@ -689,6 +919,31 @@ for p, k in zip(me.polygons, keep):
         faces.append([idx[0], idx[1], idx[2], face_color(p)])
         if surface_kind is not None:
             surface_kind.append(kind_of(idx, p.normal))
+# 眼：TRELLIS 把翅膀尖端的眼睛糊成寶石，照位置畫上血紅眼球與直立的黑色瞳孔縫（正反兩面都畫）
+if NAME == "abyss_dragon":
+    def f_center(f):
+        return sum((co[i] for i in f[:3]), Vector()) / 3
+
+    def reddish(c):
+        r, g, b = c >> 16, (c >> 8) & 255, c & 255
+        return r > 110 and r > g * 1.7 and r > b * 1.7
+
+    for s in (1, -1):
+        for cx, cz in WING_EYE_CENTERS:
+            # 中心對齊模型上紅色的那一塊（貼圖上的位置和估計的差一點）
+            near = [c for c in map(f_center, (f for f in faces if reddish(f[3]))) if c.x * s > 0 and math.hypot(abs(c.x) - cx, c.z - cz) < WING_EYE_DISC]
+            if len(near) >= 6:
+                cx, cz = sum(abs(c.x) for c in near) / len(near), sum(c.z for c in near) / len(near)
+            for f in faces:
+                c = f_center(f)
+                if c.x * s <= 0:
+                    continue
+                dx, dz = abs(c.x) - cx, c.z - cz
+                d = math.hypot(dx, dz) / WING_EYE_DISC
+                if d < 1:
+                    u = dz / (WING_EYE_DISC * SLIT_H)
+                    slit = abs(u) < 1 and abs(dx) < WING_EYE_DISC * SLIT_W * (1 - u * u)
+                    f[3] = 0x0a0204 if slit else (0xe02418 if d < 0.6 else 0xa8140e)
 # 骨龍：TRELLIS 沒看到的地方貼圖是黑的（腿內側、身體接縫），嘴裡以外的黑面改成相鄰面的平均色
 if NAME == "bone_dragon":
     def too_dark(c):
@@ -769,13 +1024,13 @@ cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
 sc.collection.objects.link(cam)
 sc.camera = cam
 cam.data.type = "ORTHO"
-cam.data.ortho_scale = 1.1
+cam.data.ortho_scale = {"abyss_dragon": 2.2, "abyss_dragon_tail": 1.5}.get(NAME, 1.1)
 prev = os.path.join(folder, "ai", "preview")
 os.makedirs(prev, exist_ok=True)
 for n, loc, rot in [("top", (0, 0, 3), (0, 0, 0)), ("front", (0, -3, 0), (math.pi / 2, 0, 0)), ("side", (3, 0, 0), (math.pi / 2, 0, math.pi / 2)),
                     ("under", (0, 0, -3), (math.pi, 0, 0))]:
     cam.location, cam.rotation_euler = loc, rot
-    sc.render.filepath = os.path.join(prev, f"bones-{n}.png")
+    sc.render.filepath = os.path.join(prev, f"{PART + '-' if PART else ''}bones-{n}.png")
     bpy.ops.render.render(write_still=True)
 me.materials.clear()
 for m in saved:

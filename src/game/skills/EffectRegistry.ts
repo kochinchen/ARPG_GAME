@@ -7,6 +7,7 @@ import { DelayedEffect } from './effects/DelayedEffect';
 import { DeviceEffect } from './effects/DeviceEffect';
 import type { EffectContext, IEffect } from './effects/IEffect';
 import { KnockbackEffect } from './effects/KnockbackEffect';
+import { LeapEffect } from './effects/LeapEffect';
 import { ProjectileEffect } from './effects/ProjectileEffect';
 import { StatusEffect } from './effects/StatusEffect';
 import { SummonEffect } from './effects/SummonEffect';
@@ -31,6 +32,7 @@ export class EffectRegistry {
     delayed: new DelayedEffect(),
     summon: new SummonEffect(),
     device: new DeviceEffect(),
+    leap: new LeapEffect(),
   };
 
   apply(def: EffectDef, ctx: EffectContext): void {

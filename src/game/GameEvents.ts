@@ -108,7 +108,16 @@ export interface GameEvents {
   /** 攻擊被盾牌格擋（prevented = 擋下的傷害） */
   AttackBlocked: { targetId: ActorId; sourceId: ActorId | null; prevented: number; position: Vec2 };
   /** Boss 進入下一個階段（phase 從 1 開始） */
-  BossPhaseChanged: { actorId: ActorId; name: string; phase: number; label: string };
+  /** look：模型的外觀（phasePoses / phaseHidden 的 index） */
+  BossPhaseChanged: { actorId: ActorId; name: string; phase: number; label: string; look: number };
+  /** 魔王的外觀改變（爪子張開 / 收合、尾巴脫離） */
+  BossLookChanged: { actorId: ActorId; look: number };
+  /** 主角死在附近，魔王回血（EnemyDef.healOnPlayerDeath） */
+  BossFedOnDeath: { actorId: ActorId; position: Vec2; amount: number };
+  /** 連發丟出一招（畫面畫飛向落點的特效）：origin 發出的位置、point 目標位置、impactIn 幾秒後炸開 */
+  BarrageFired: { actorId: ActorId; skillId: string; origin: Vec2; point: Vec2; direction: Vec2; impactIn: number };
+  /** 跳到空中：地上出現印記（噬界足眼） */
+  ActorLeapt: { actorId: ActorId; duration: number; radius: number };
   /** 進入某一層（含第一次進入遊戲） */
   FloorEntered: { floor: number; mapId: string };
   /** kind 與 CheckpointSystem 的 CheckpointKind 相同（不 import，避免循環依賴） */

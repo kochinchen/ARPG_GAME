@@ -22,14 +22,14 @@ export class TargetingService {
   /** 目標存在、活著、且與 source 敵對才回傳 */
   getValidTarget(source: Actor, id: ActorId): Actor | null {
     const target = this.getActor(id);
-    if (!target || !target.alive || !this.isHostile(source.faction, target.faction)) return null;
+    if (!target || !target.alive || target.vanished || !this.isHostile(source.faction, target.faction)) return null;
     return target;
   }
 
   /** 以 center 為圓心、半徑 radius 內（含目標自身半徑）所有活著的敵對角色 */
   hostilesWithin(source: Actor, center: Vec2, radius: number): Actor[] {
     return this.actors.filter(
-      (a) => a.alive && this.isHostile(source.faction, a.faction) && distance(a.position, center) <= radius + a.radius,
+      (a) => a.alive && !a.vanished && this.isHostile(source.faction, a.faction) && distance(a.position, center) <= radius + a.radius,
     );
   }
 
@@ -38,7 +38,7 @@ export class TargetingService {
     let best: Actor | null = null;
     let bestDistance = Infinity;
     for (const actor of this.actors) {
-      if (!actor.alive || !this.isHostile(source.faction, actor.faction)) continue;
+      if (!actor.alive || actor.vanished || !this.isHostile(source.faction, actor.faction)) continue;
       const d = distance(actor.position, source.position) - actor.radius;
       if (d <= range && d < bestDistance) {
         best = actor;
@@ -53,7 +53,7 @@ export class TargetingService {
     let best: Actor | null = null;
     let bestDistance = Infinity;
     for (const actor of this.actors) {
-      if (!actor.alive || !this.isHostile(source.faction, actor.faction)) continue;
+      if (!actor.alive || actor.vanished || !this.isHostile(source.faction, actor.faction)) continue;
       const d = distance(actor.position, worldPos);
       if (d <= actor.radius + PICK_TOLERANCE && d < bestDistance) {
         best = actor;

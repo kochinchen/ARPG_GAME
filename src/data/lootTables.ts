@@ -59,6 +59,18 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     fullSocketWhite: 0.1,
   },
   {
+    // 噬界足眼：同上，但越深越多（設計者 2026-11-03）：23 層 6 件 → 29 層 12 件，金幣同比例，5 孔白裝 10% → 25%
+    id: 'loot.abyss_eye',
+    rolls: 6,
+    guaranteedItems: 6,
+    entries: [{ kind: 'item', weight: 1 }],
+    rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12, legendary: 2.5, mythic: 0.5 },
+    shards: { chance: 0.6, count: [1, 2] },
+    bonusGold: { amount: [2000, 3000], piles: 6 },
+    fullSocketWhite: 0.1,
+    deeper: { fromFloor: 23, toFloor: 29, extraItems: 6, goldMultiplier: 2, fullSocketWhite: 0.25 },
+  },
+  {
     id: 'loot.boss',
     rolls: 6,
     entries: [

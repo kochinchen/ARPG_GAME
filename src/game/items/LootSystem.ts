@@ -42,9 +42,14 @@ export class LootSystem {
     const table = this.data.lootTables.get(tableId);
     const drops: GroundContent[] = [];
     const rarityWeights = this.rarityWeights(table);
-    for (let i = 0; i < table.rolls; i++) {
+    // 越深掉越多：0 = 表上的數量，1 = 最多
+    const { deeper } = table;
+    const depth = deeper ? Math.min(1, Math.max(0, (this.floor() - deeper.fromFloor) / (deeper.toFloor - deeper.fromFloor))) : 0;
+    const extraItems = deeper ? Math.round(deeper.extraItems * depth) : 0;
+    const guaranteedItems = table.guaranteedItems + extraItems;
+    for (let i = 0; i < table.rolls + extraItems; i++) {
       const kind =
-        i < table.guaranteedItems ? 'item' : i < table.guaranteedItems + table.guaranteedPotions ? 'potion' : this.rng.weighted(table.entries).kind;
+        i < guaranteedItems ? 'item' : i < guaranteedItems + table.guaranteedPotions ? 'potion' : this.rng.weighted(table.entries).kind;
       switch (kind) {
         case 'nothing':
           break;
@@ -60,14 +65,15 @@ export class LootSystem {
       }
     }
     // 隱藏魔王：其中一件換成孔數全滿的白裝
-    if (table.fullSocketWhite && this.rng.chance(table.fullSocketWhite)) {
+    const whiteChance = table.fullSocketWhite && deeper ? table.fullSocketWhite + (deeper.fullSocketWhite - table.fullSocketWhite) * depth : table.fullSocketWhite;
+    if (whiteChance && this.rng.chance(whiteChance)) {
       const index = drops.findIndex((d) => d.kind === 'item');
       if (index >= 0) drops[index] = { kind: 'item', item: this.generator.generateFullSocketWhite(this.itemLevel()) };
     }
     // 隱藏魔王：額外的金幣
     if (table.bonusGold) {
       const { amount, piles } = table.bonusGold;
-      const total = this.rng.int(amount[0], amount[1]);
+      const total = Math.round(this.rng.int(amount[0], amount[1]) * (deeper ? 1 + (deeper.goldMultiplier - 1) * depth : 1));
       for (let i = 0; i < piles; i++) drops.push({ kind: 'gold', amount: Math.floor(total / piles) + (i < total % piles ? 1 : 0) });
     }
     // 魔王：飛昇碎片

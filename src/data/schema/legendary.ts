@@ -156,6 +156,8 @@ export const ItemMechanicSchema = z.discriminatedUnion('type', [
     noEnemiesWithin: z.number().positive().optional(),
     buff: BuffCheckSchema.optional(),
     stats: z.array(StatModSchema).min(1),
+    /** 條件成立時畫在主角腳下、跟著走的外觀（只是外觀，沒有傷害）：darkDomain = 暗黑領域 */
+    aura: z.strictObject({ look: z.enum(['darkDomain']), radius: z.number().positive() }).optional(),
   }),
 ]);
 export type ItemMechanic = z.infer<typeof ItemMechanicSchema>;

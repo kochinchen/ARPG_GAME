@@ -13,10 +13,10 @@ export class SeparationSystem {
   update(actors: readonly Actor[]): void {
     for (let i = 0; i < actors.length; i++) {
       const a = actors[i]!;
-      if (!a.alive) continue;
+      if (!a.alive || a.vanished) continue;
       for (let j = i + 1; j < actors.length; j++) {
         const b = actors[j]!;
-        if (!b.alive) continue;
+        if (!b.alive || b.vanished) continue;
         const minDistance = a.radius + b.radius;
         const d = distance(a.position, b.position);
         if (d >= minDistance) continue;

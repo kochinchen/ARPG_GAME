@@ -91,7 +91,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     // 前期怪物數量加成：第 1～5 層 +20%，之後逐層遞減，第 30 層起為 0（第 30 層以後的數量不變）
     earlyDensityBoost: { bonus: 0.2, fullUntil: 5, fadeTo: 30 },
     // 怪物強化：一般怪 / 精英 HP ×1～8、魔王 HP ×1～20、攻擊 ×1～4、特殊技能範圍 ×1.5～3（第 1 → 35 層逐層提高）；經驗 ×0.7
-    monsterBoost: { toFloor: 35, hp: [1, 8], bossHp: [1, 20], damage: [1, 4], skillArea: [1.5, 3], xp: 0.7 },
+    // 魔王的範圍另外算 ×1～1.5、放大後最多 8 格（設計者 2026-11-03：魔王原本 ×1.5～3 太大，一般怪與精英不變）
+    monsterBoost: { toFloor: 35, hp: [1, 8], bossHp: [1, 20], damage: [1, 4], skillArea: [1.5, 3], bossSkillArea: [1, 1.5], bossSkillAreaCap: 8, xp: 0.7 },
   },
   floor: {
     // 樓梯口與出口：大於最遠的偵測距離（骷髏王 9），上下樓時附近一定沒有怪物
@@ -161,7 +162,17 @@ export const balance: z.input<typeof BalanceSchema> = {
     roomFloors: [11, 12, 13, 14, 16, 17, 18, 19, 21, 22, 23, 24, 26, 27, 28, 29],
     roomSize: 48,
     chance: 0.2,
-    bosses: [{ enemyId: 'enemy.bone_dragon', floors: [11, 12, 13, 14, 16, 17, 18, 19, 21, 22], elements: ['fire', 'cold', 'lightning', 'poison'] }],
+    bosses: [
+      { enemyId: 'enemy.bone_dragon', floors: [11, 12, 13, 14, 16, 17, 18, 19, 21, 22], elements: ['fire', 'cold', 'lightning', 'poison'] },
+      {
+        enemyId: 'enemy.abyss_dragon',
+        floors: [23, 24, 26, 27, 28, 29],
+        // 吐息每次隨機爆炎、冰柱或轟雷
+        elements: ['fire', 'cold', 'lightning'],
+        allElements: true,
+        resists: { stats: ['poisonResist', 'fireResist', 'coldResist', 'lightningResist', 'knockbackResist', 'physicalResist'], count: 3, value: [0.1, 0.3] },
+      },
+    ],
   },
   goldWalker: {
     enemies: ['enemy.ember_walker', 'enemy.frost_walker', 'enemy.storm_walker', 'enemy.venom_walker'],

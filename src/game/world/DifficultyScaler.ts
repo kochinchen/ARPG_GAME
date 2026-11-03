@@ -8,6 +8,10 @@ export interface FloorScaling {
   damage: number;
   /** 怪物特殊技能的範圍倍率（普通攻擊與直線招式不受影響） */
   skillArea: number;
+  /** 魔王的範圍倍率 */
+  bossSkillArea: number;
+  /** 魔王放大後的半徑上限（格） */
+  bossSkillAreaCap: number;
   defense: number;
   xp: number;
   density: number;
@@ -27,6 +31,8 @@ export function scaleForFloor(floor: number, difficulty: Balance['difficulty']):
     bossHp: hp * lerp(boost.bossHp),
     damage: (1 + difficulty.damagePerFloor * n) * lerp(boost.damage),
     skillArea: lerp(boost.skillArea),
+    bossSkillArea: lerp(boost.bossSkillArea),
+    bossSkillAreaCap: boost.bossSkillAreaCap,
     defense: 1 + difficulty.defensePerFloor * n,
     xp: (1 + difficulty.xpPerFloor * n) * boost.xp,
     density: Math.min(difficulty.maxDensityMultiplier, 1 + difficulty.densityPerFloor * n) * (1 + earlyBoost(floor, difficulty.earlyDensityBoost)),

@@ -191,7 +191,7 @@ export class DataRegistry {
       }
     }
     for (const enemy of enemies.all) {
-      for (const skillId of [...enemy.skills, ...enemy.phases.flatMap((p) => p.skills ?? []), ...enemy.passives.map((p) => p.skill), ...(enemy.onDeath ? [enemy.onDeath.skill] : [])]) {
+      for (const skillId of [...enemy.skills, ...enemy.phases.flatMap((p) => p.skills ?? []), ...enemy.passives.map((p) => p.skill), ...(enemy.barrage?.skills ?? []), ...enemy.phases.flatMap((p) => p.clawCycle?.closedBarrage.skills ?? []), ...(enemy.onDeath ? [enemy.onDeath.skill] : [])]) {
         if (!skills.has(skillId)) problems.push(`enemy '${enemy.id}' 引用不存在的 skill '${skillId}'`);
       }
       if (enemy.lootTable !== undefined && !lootTables.has(enemy.lootTable)) {

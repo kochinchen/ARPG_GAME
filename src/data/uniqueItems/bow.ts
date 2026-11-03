@@ -309,7 +309,7 @@ export const bowItems: Def[] = [
       unique('施放遠程技能時 12% 機率，深淵分身以相同目標再施放一次（冷卻 1 秒）', on('cast', [{ type: 'recast' }], { when: RANGED, chance: 0.12, cooldown: 1 })),
       unique(
         '生命低於 40% 時受到攻擊，展開暗黑領域（冷卻 15 秒）：周圍 3 格、6 秒，每 0.5 秒造成武器 20% 寒冰傷害並緩速 30%；領域存在期間受到傷害 -10%',
-        on('hurt', [at('self', 'ranged', [{ type: 'zone', radius: 3, duration: 6, interval: 0.5, effects: [hit('cold', 0.2), status('slow', 1, 0.3)] }]), buff('abyss_domain', '暗黑領域', 1, 6, [{ stat: 'damageReduction', value: 0.1 }])], { hpBelow: 0.4, cooldown: 15 }),
+        on('hurt', [at('self', 'ranged', [{ type: 'zone', look: 'darkDomain', radius: 3, duration: 6, interval: 0.5, effects: [hit('cold', 0.2), status('slow', 1, 0.3)] }]), buff('abyss_domain', '暗黑領域', 1, 6, [{ stat: 'damageReduction', value: 0.1 }])], { hpBelow: 0.4, cooldown: 15 }),
       ),
     ],
   },

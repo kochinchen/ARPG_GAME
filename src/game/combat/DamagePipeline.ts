@@ -27,6 +27,21 @@ const RESIST: Record<Exclude<Element, 'physical'>, StatId> = {
   poison: 'poisonResist',
 };
 
+/** 防禦 / 抗性 / 減傷之後剩下的傷害比例（魔王模擬器的技能表也用它預估傷害） */
+export function mitigationMultiplier(target: Actor, element: Element, armorPenetration: number, balance: Balance): number {
+  // 抗性 0～上限；弱化從有效抗性直接減掉（魔抗 50% − 20% = 30%），可以減到負數（抗性 0 − 25% = 多受 25%）
+  const expose = target.statuses.find((s) => s.kind === 'expose');
+  const resist = (stat: StatId) => Math.min(balance.combat.maxResist, Math.max(0, target.stats.get(stat)));
+  let multiplier: number;
+  if (element === 'physical') {
+    const defense = target.stats.get('defense') * (1 - Math.min(1, Math.max(0, armorPenetration)));
+    multiplier = (1 - defenseMitigation(defense, balance.combat.defenseConstant)) * (1 - (resist('physicalResist') - (expose?.physicalMagnitude ?? 0)));
+  } else {
+    multiplier = 1 - (resist(RESIST[element]) - (expose && EXPOSED.has(element) ? expose.magnitude : 0));
+  }
+  return multiplier * (1 - Math.min(MAX_DAMAGE_REDUCTION, Math.max(0, target.stats.get('damageReduction'))));
+}
+
 /**
  * 所有傷害的唯一入口。
  *   閃避 → 基礎傷害 → 傷害加成 → 標記 → 暴擊 → 防禦 + 物理減傷（物理）/ 抗性（元素）→ 減傷 → 防禦姿態 → 格擋 → 取整 → 扣血
@@ -43,7 +58,7 @@ export class DamagePipeline implements DamageDealer {
 
   apply(request: DamageRequest): DamageResult | null {
     const { source, target } = request;
-    if (!target.alive || target.hp <= 0) return null;
+    if (!target.alive || target.hp <= 0 || target.untouchable) return null;
     const isDot = request.isDot === true;
 
     // 閃避：完全躲開（持續傷害、反擊與荊棘不能閃避）
@@ -65,17 +80,7 @@ export class DamagePipeline implements DamageDealer {
     const isCrit = this.rng.chance(critChance);
     if (isCrit) amount *= this.balance.combat.critMultiplier + target.stats.get('critDamageTaken') + (source?.stats.get('critDamageBonus') ?? 0);
 
-    // 抗性 0～上限；弱化從有效抗性直接減掉（魔抗 50% − 20% = 30%），可以減到負數（抗性 0 − 25% = 多受 25%）
-    const expose = target.statuses.find((s) => s.kind === 'expose');
-    const resist = (stat: StatId) => Math.min(this.balance.combat.maxResist, Math.max(0, target.stats.get(stat)));
-    if (request.element === 'physical') {
-      const defense = target.stats.get('defense') * (1 - Math.min(1, Math.max(0, request.armorPenetration ?? 0)));
-      amount *= 1 - defenseMitigation(defense, this.balance.combat.defenseConstant);
-      amount *= 1 - (resist('physicalResist') - (expose?.physicalMagnitude ?? 0));
-    } else {
-      amount *= 1 - (resist(RESIST[request.element]) - (expose && EXPOSED.has(request.element) ? expose.magnitude : 0));
-    }
-    amount *= 1 - Math.min(MAX_DAMAGE_REDUCTION, Math.max(0, target.stats.get('damageReduction')));
+    amount *= mitigationMultiplier(target, request.element, request.armorPenetration ?? 0, this.balance);
     if (!isDot) {
       const guard = this.statuses.consume(target, 'guard');
       if (guard) amount *= 1 - guard.magnitude;

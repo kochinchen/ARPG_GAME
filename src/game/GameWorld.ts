@@ -65,7 +65,7 @@ import { CheckpointSystem } from './world/CheckpointSystem';
 import { floorResistFor, scaleForFloor, type FloorScaling } from './world/DifficultyScaler';
 import { FloorManager, mapIdForFloor } from './world/FloorManager';
 import { canAscend, descendKind, selectableFloors } from './world/Endgame';
-import type { Element } from '../data/schema/common';
+import type { Element, StatId } from '../data/schema/common';
 import { generateMap, generatedMapId, generateThroneMap, openHiddenRoom } from './world/MapGenerator';
 import { placeSetPieces, setPieceSpot } from './world/SetPieces';
 import { bookQuarter, buildBook, type BookPage } from '../data/book';
@@ -132,7 +132,10 @@ export interface FloorRestore {
 /** 這一層的隱藏魔王：魔王、抽到的兩種屬性（順序決定上色）、是否已被打倒 */
 export interface HiddenBossState {
   enemyId: string;
-  elements: [Element, Element];
+  /** 每次出招從中抽一種（萬骸之口抽兩種並決定上色；噬界足眼是吐息的三種） */
+  elements: Element[];
+  /** 這次隨機抽到的抗性（再和樓層減傷疊加） */
+  resists: { stat: StatId; value: number }[];
   dead: boolean;
 }
 
@@ -319,9 +322,9 @@ export class GameWorld {
     this.devices = new DeviceSystem(this.actors, this.targeting, this.nav, this.events, data.balance.devices, () => this.nextActorId++);
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
-    this.bosses = new BossSystem(data, this.events);
+    this.bosses = new BossSystem(data, this.events, new Rng(options.seed).fork('boss-routine'), (id) => this.targeting.getActor(id) ?? null, (boss, enemyId) => this.spawnDetached(boss, enemyId));
     // 被動技能的時間差：獨立的亂數序列（不影響其他系統的亂數順序，也不必存檔）
-    this.passives = new PassiveSkillSystem(data, executor, new Rng(options.seed).fork('passives'));
+    this.passives = new PassiveSkillSystem(data, executor, new Rng(options.seed).fork('passives'), this.events);
 
     const p = data.balance.player;
     const start = markerPoint(this.map, MAP_TILES.spawn)!;
@@ -564,7 +567,12 @@ export class GameWorld {
     const pool = [...boss.elements];
     const first = pool.splice(rng.int(0, pool.length - 1), 1)[0]!;
     const second = pool[rng.int(0, pool.length - 1)]!;
-    return { enemyId: boss.enemyId, elements: [first, second], dead: false };
+    const resists: HiddenBossState['resists'] = [];
+    if (boss.resists) {
+      const stats = [...boss.resists.stats];
+      for (let i = 0; i < boss.resists.count; i++) resists.push({ stat: stats.splice(rng.int(0, stats.length - 1), 1)[0]!, value: rng.range(boss.resists.value[0], boss.resists.value[1]) });
+    }
+    return { enemyId: boss.enemyId, elements: boss.allElements ? [...boss.elements] : [first, second], resists, dead: false };
   }
 
   /** 打開隱藏房並放魔王（一般怪物、寶箱都已經照封閉的地圖放好，所以有沒有魔王，這些東西的位置都一樣） */
@@ -579,6 +587,7 @@ export class GameWorld {
     actor.innateElements = state.elements;
     const resist = floorResistFor(floor, true, this.data.balance.elite.floorResist);
     applyFloorResist(actor, { physical: resist, elemental: resist });
+    for (const r of state.resists) actor.stats.addModifier({ stat: r.stat, kind: 'flat', value: r.value, source: 'hidden-boss-resist' });
     this.addActor(actor);
     this.hiddenBossActor = actor.id;
     // 不算進開出口的擊殺數：可以不打
@@ -1134,6 +1143,22 @@ export class GameWorld {
     }
   }
 
+  /** 魔王身上脫離出來的怪物（噬界足眼的尾巴）：和魔王同樣的樓層倍率與減傷，不給經驗、不掉寶、不算進開出口的擊殺數 */
+  private spawnDetached(boss: Actor, enemyId: string): Actor | null {
+    const def = this.data.enemies.get(enemyId);
+    const floor = Math.max(1, this.floors.floor);
+    const behind = vec2(boss.position.x - boss.facing.x * 1.6, boss.position.y - boss.facing.y * 1.6);
+    const position = this.nav.isClearAt(behind, def.radius) ? behind : boss.position;
+    const tail = this.enemyFactory.create(def, this.nextActorId++, position, { ...scaleForFloor(floor, this.data.balance.difficulty), xp: 0 }, undefined, boss.id);
+    const resist = floorResistFor(floor, true, this.data.balance.elite.floorResist);
+    applyFloorResist(tail, { physical: resist, elemental: resist });
+    if (tail.ai && boss.ai?.targetId != null) {
+      tail.ai.targetId = boss.ai.targetId;
+      tail.ai.state = 'chase';
+    }
+    return this.addActor(tail);
+  }
+
   /** 固定地圖模式：地圖內擺放的怪物與寶箱 */
   private loadFixedMap(): void {
     this.resetLevel(this.map);
@@ -1144,6 +1169,18 @@ export class GameWorld {
     for (const chest of this.map.chests) {
       this.chests.push({ kind: 'chest', id: this.nextInteractableId++, position: vec2(...chest.at), lootTable: chest.lootTable, opened: false });
     }
+  }
+
+  /** 開發工具（魔王模擬器）：放一隻怪物，倍率與樓層減傷比照第 floor 層（enterFloor 的魔王規則）；隱藏魔王要給 innateElements */
+  spawnScaledEnemy(enemyId: string, floor: number, position: Vec2, innateElements: readonly Element[] | null = null): Actor {
+    const def = this.data.enemies.get(enemyId);
+    const actor = this.enemyFactory.create(def, this.nextActorId++, position, scaleForFloor(floor, this.data.balance.difficulty));
+    if (def.boss) {
+      const resist = def.fixedResist ?? floorResistFor(floor, true, this.data.balance.elite.floorResist);
+      applyFloorResist(actor, { physical: resist, elemental: resist });
+    }
+    actor.innateElements = innateElements;
+    return this.addActor(actor);
   }
 
   /** 換地圖並清空本層所有實體；玩家回到樓梯口（陣列就地清空，其他系統持有的參考仍有效） */
@@ -1562,7 +1599,7 @@ export class GameWorld {
     this.regen.update(this.actors, dt);
     this.statuses.update(this.actors, dt, this.pipeline);
     this.itemEffects.update(dt);
-    this.bosses.update(this.actors);
+    this.bosses.update(this.actors, dt);
     this.passives.update(this.actors, dt);
     this.ai.update(this.actors, dt);
     this.combos.update(this.actors);

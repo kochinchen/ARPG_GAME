@@ -48,6 +48,11 @@ const ZOOM_EASE = 12;
 const PROXY_HALF_WIDTH = 40;
 
 export class Renderer {
+  /** 開發工具（魔王模擬器）：把範圍畫在地上 */
+  set rangePreview(preview: EffectLayer['rangePreview']) {
+    this.effects.rangePreview = preview;
+  }
+
   /** 顯示頭盔（選單的畫面設定；關掉時主角露出臉與頭髮） */
   showHelmet = true;
   private readonly heroPreview = new HeroPreviewView();
@@ -160,15 +165,16 @@ export class Renderer {
         const motion = this.motionFor(attacker, skill.tags);
         this.actorViews.get(e.actorId)?.attack(e.impactIn, motion.kind, motion.variant);
         // 衝鋒類（先位移再攻擊）：範圍畫在落點（目標位置）；同一招有多個範圍（例如裂地的分支）時每個都畫
-        const dashes = skill.effects.some((effect) => effect.type === 'dash');
-        const center = skill.targeting === 'ground' || dashes ? e.point : attacker.position;
+        const dash = skill.effects.find((effect) => effect.type === 'dash');
+        const center = skill.targeting === 'ground' ? e.point : dash ? dashLanding(attacker, dash.distance, e.point, e.direction, e.targetId === null ? null : world.targeting.getActor(e.targetId)) : attacker.position;
         const active = () => attacker.alive && attacker.cast?.skill.id === skill.id;
         for (const area of skill.effects) {
           if (area.type !== 'area' && area.type !== 'zone') continue;
           const direction = area.type === 'area' && area.offsetDeg ? rotate(e.direction, area.offsetDeg) : e.direction;
           // 直線範圍從施放者腳下延伸（衝鋒也是：先標出整條衝撞路線）
           const line = area.type === 'area' ? area.line : undefined;
-          this.effects.spawnTelegraph(line ? attacker.position : center, rankValue(area.radius, attacker.cast?.rank ?? 1), direction, area.type === 'area' ? (area.angleDeg ?? 360) : 360, e.impactIn, active, line);
+          // 怪物的範圍隨樓層放大（aoeRadius）：預警要和實際打到的範圍一樣大
+          this.effects.spawnTelegraph(line ? attacker.position : center, rankValue(area.radius, attacker.cast?.rank ?? 1) * (1 + (attacker.cast?.mods.aoeRadius ?? 0)), direction, area.type === 'area' ? (area.angleDeg ?? 360) : 360, e.impactIn, active, line);
         }
         return;
       }
@@ -179,6 +185,14 @@ export class Renderer {
       if (e.targetId === null || motion.variant === 'shoot' || motion.variant === 'staff') return;
       const dir = sub(projection.toScreen(e.point), projection.toScreen(attacker.position));
       this.actorViews.get(e.actorId)?.lunge(dir);
+    });
+    // 連發（噬界足眼的尾巴）：尾巴甩一下，畫飛向落點的特效
+    world.events.on('BarrageFired', (e) => {
+      this.effects.cast({ skillId: originalSkillId(e.skillId), caster: e.origin, point: e.point, direction: e.direction, impactIn: e.impactIn });
+      const attacker = world.targeting.getActor(e.actorId);
+      if (!attacker) return;
+      const motion = this.motionFor(attacker, data.skills.get(e.skillId).tags);
+      this.actorViews.get(e.actorId)?.attack(BARRAGE_MOTION, motion.kind, motion.variant);
     });
     // 死亡技能（結晶獸的晶核碎裂）：地上先顯示範圍，填滿時發動
     world.events.on('ActorDied', (e) => {
@@ -222,6 +236,7 @@ export class Renderer {
     });
     const say = (position: Vec2, text: string, color: number) =>
       this.floatingText.spawnText(projection.toScreen(position), text, color);
+    world.events.on('BossFedOnDeath', (e) => say(e.position, `吞噬魂魄 +${Math.round(e.amount)}`, PALETTE.healText));
     world.events.on('GoldPickedUp', (e) => say(e.position, `+${e.amount} 金幣`, PALETTE.marker));
     world.events.on('PotionPickedUp', (e) => say(e.position, `+${e.count} 藥水`, PALETTE.healText));
     world.events.on('PickupFailed', (e) => say(world.player.position, e.reason === 'potionCap' ? '藥水已達上限' : '背包已滿', PALETTE.manaText));
@@ -264,12 +279,18 @@ export class Renderer {
       const text = (Object.entries(e.gained) as [MaterialId, number][]).map(([id, n]) => `+${n} ${MATERIAL_LABELS[id]}`).join('  ');
       say(world.player.position, text, 0x7ad8ff);
     });
+    world.events.on('BossLookChanged', (e) => this.actorViews.get(e.actorId)?.setPhase(e.look));
+    // 跳到空中：地上的印記跟著目標，填滿時落下
+    world.events.on('ActorLeapt', (e) => {
+      const follow = () => world.scheduler.leapMark(e.actorId);
+      this.effects.spawnTelegraph(follow() ?? vec2(0, 0), e.radius, { x: 1, y: 0 }, 360, e.duration, () => follow() !== null, undefined, follow);
+    });
     world.events.on('BossPhaseChanged', (e) => {
       const boss = world.targeting.getActor(e.actorId);
       if (!boss) return;
       this.floatingText.spawnText(projection.toScreen(boss.position), `${e.name}：${e.label}！`, PALETTE.critText, 22);
       // 外觀跟著階段改變（盾牌碎裂、巨劍落地），掉下來的東西留在場上記錄戰鬥歷程
-      this.actorViews.get(e.actorId)?.setPhase(e.phase);
+      this.actorViews.get(e.actorId)?.setPhase(e.look);
       const model = MONSTER_MODELS[boss.defId ?? ''];
       const drop = model?.phaseDrops?.[e.phase];
       if (model && drop) {
@@ -419,7 +440,8 @@ export class Renderer {
     this.interactables.setHovered(this.hoveredInteractable);
     this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000, this.world.waypoints, this.world.relics, this.world.stashChests, this.world.stashNear);
     this.markers.update(this.app.ticker.lastTime);
-    this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending);
+    const auraRadius = this.world.itemEffects.activeAuraRadius;
+    this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending, auraRadius === null ? null : { position: playerPos, radius: auraRadius });
     this.floatingText.update(dt);
     this.soulWisps.update(dt);
     this.heroPreview.update(dt);
@@ -599,6 +621,14 @@ function corpsesOf(world: GameWorld): { position: Vec2; forward: Vec2 }[] {
   return world.relics.flatMap((r) => (r.seatForward ? [{ position: r.position, forward: r.seatForward }] : []));
 }
 
+/** 衝鋒的落點（前搖預警畫在這裡）：衝完全程，或停在目標前方 */
+function dashLanding(attacker: Actor, dashDistance: number, point: Vec2, direction: Vec2, target: Actor | null | undefined): Vec2 {
+  const toPoint = Math.hypot(point.x - attacker.position.x, point.y - attacker.position.y);
+  const stop = target ? Math.max(0, toPoint - attacker.radius - target.radius - 0.3) : toPoint;
+  const moved = Math.min(dashDistance, stop);
+  return vec2(attacker.position.x + direction.x * moved, attacker.position.y + direction.y * moved);
+}
+
 function arenaOf(world: GameWorld): ArenaView | undefined {
   const arena = world.map.arena;
   const boss = world.floors.def?.boss?.enemyId;
@@ -621,7 +651,7 @@ function castExtras(skill: SkillDef, from: Vec2, target: Vec2 | undefined, dir: 
   return out;
 }
 
-export const BIG_IMPACTS = new Set(['magic.meteor', 'magic.absolute_zero', 'melee.devastator', 'melee.earth_break', 'magic.storm_core']);
+export const BIG_IMPACTS = new Set(['magic.meteor', 'magic.absolute_zero', 'melee.devastator', 'melee.earth_break', 'magic.storm_core', 'enemy.eye_leap']);
 
 /** 範圍效果的外觀：依技能與元素選擇爆炸、冰刺、落雷、震波、斬擊… */
 /** 裝備效果的物理特效用稀有度色（神話紅、傳奇橘）；元素效果維持元素色 */
@@ -630,12 +660,16 @@ export function itemFxColor(skillId: string, element: string | null): number | n
   return skillId.includes('mythic.') ? 0xff4a3a : 0xff9a3c;
 }
 
+/** 連發每一發的出手動作秒數 */
+const BARRAGE_MOTION = 0.3;
+
 /** 各招專屬的命中特效（沒有列出的依元素 / 標籤 / 範圍決定） */
 const SKILL_FX: Record<string, ImpactKind> = {
   'melee.heavy_slash': 'cleave',
   'melee.armor_break': 'sunder',
   'melee.earth_break': 'shockwave',
   'melee.devastator': 'crater',
+  'enemy.eye_leap': 'crater',
   'melee.quick_slash': 'slash',
   'melee.shield_bash': 'shieldBash',
   'melee.blade_dance': 'whirl',

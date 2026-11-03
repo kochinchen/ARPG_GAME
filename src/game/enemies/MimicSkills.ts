@@ -9,8 +9,13 @@ import type { Actor } from '../entities/Actor';
 export const MIMIC_PREFIX = 'mimic.';
 const MAX_RANK = 5;
 
+/** 數值另外設定、樣子和主角招式相同的怪物技能 */
+const SAME_LOOK: Readonly<Record<string, string>> = { 'enemy.tail_flame_burst': 'magic.flame_burst', 'enemy.tail_frost_nova': 'magic.frost_nova' };
+
 /** 怪物版技能對應的主角技能 ID（畫面沿用主角的特效）；其他技能原樣回傳 */
 export function originalSkillId(skillId: string): string {
+  const look = SAME_LOOK[skillId];
+  if (look) return look;
   return skillId.startsWith(MIMIC_PREFIX) ? skillId.slice(MIMIC_PREFIX.length) : skillId;
 }
 

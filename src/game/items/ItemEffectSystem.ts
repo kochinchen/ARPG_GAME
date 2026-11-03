@@ -336,6 +336,15 @@ export class ItemEffectSystem {
     this.player.stats.removeBySource(`buff:${id}`);
   }
 
+  /** 目前條件成立的外觀裡最大的範圍（Render 畫在主角腳下）；沒有為 null。同時穿兩件只畫一個 */
+  get activeAuraRadius(): number | null {
+    let radius: number | null = null;
+    for (const { key, mechanic: m } of this.active) {
+      if (m.type === 'conditional' && m.aura && (this.applied.get(key) ?? 0) > 0) radius = Math.max(radius ?? 0, m.aura.radius);
+    }
+    return radius;
+  }
+
   private updateConditionals(): void {
     const p = this.player;
     for (const { key, mechanic: m } of this.active) {

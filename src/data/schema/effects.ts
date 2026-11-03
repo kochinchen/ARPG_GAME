@@ -174,6 +174,8 @@ export const ZoneEffectSchema = z.strictObject({
   followCaster: z.boolean().default(false),
   /** 不和同一個施放者的其他 exclusive 區域重疊：落點重疊時就近換位置，找不到就不放 */
   exclusive: z.boolean().default(false),
+  /** 區域的外觀（省略 = 依元素）：darkDomain = 暗黑領域（黑底紅圈、漂出骷髏），魔王與裝備共用 */
+  look: z.enum(['darkDomain']).optional(),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },
@@ -193,6 +195,22 @@ export const DelayedEffectSchema = z.strictObject({
   spacing: z.number().nonnegative().default(0),
   /** > 0：這一次的落點彼此至少相隔幾格（找不到就放在能找到的最遠處） */
   minApart: z.number().nonnegative().default(0),
+  get effects() {
+    return z.array(EffectDefSchema).min(1);
+  },
+});
+
+/**
+ * 跳起消失（打不到），地上的印記追著目標，lockAt 秒後鎖定不動，duration 秒時從天而降，在印記中心執行 effects。
+ * radius 是印記的半徑（只影響顯示）。
+ */
+export const LeapEffectSchema = z.strictObject({
+  type: z.literal('leap'),
+  duration: z.number().positive(),
+  lockAt: z.number().positive(),
+  /** 印記追目標的速度（格 / 秒） */
+  followSpeed: z.number().positive(),
+  radius: z.number().positive(),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },
@@ -271,6 +289,7 @@ export const EffectDefSchema = z.discriminatedUnion('type', [
   DelayedEffectSchema,
   SummonEffectSchema,
   DeviceEffectSchema,
+  LeapEffectSchema,
 ]);
 
 export type DamageEffectDef = z.infer<typeof DamageEffectSchema>;
@@ -298,5 +317,6 @@ export function nestedEffects(e: EffectDef): readonly EffectDef[] {
 export type ChainEffectDef = z.infer<typeof ChainEffectSchema>;
 export type ZoneEffectDef = z.infer<typeof ZoneEffectSchema>;
 export type DelayedEffectDef = z.infer<typeof DelayedEffectSchema>;
+export type LeapEffectDef = z.infer<typeof LeapEffectSchema>;
 export type EffectDef = z.infer<typeof EffectDefSchema>;
 export type EffectType = EffectDef['type'];

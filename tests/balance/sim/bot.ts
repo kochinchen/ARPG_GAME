@@ -236,7 +236,7 @@ export class Bot {
       const cast = e.cast;
       if (!cast || cast.fired || !cast.skill.telegraph) continue;
       if (cast.elapsed < p.reaction) continue;
-      const reach = skillReach(cast.skill) * e.skillArea + player.radius + 0.4;
+      const reach = skillReach(cast.skill) * (1 + cast.mods.aoeRadius) + player.radius + 0.4;
       const fromCaster = dist(e.position, player.position);
       const fromPoint = dist(cast.point, player.position);
       if (Math.min(fromCaster, fromPoint) > reach) continue;

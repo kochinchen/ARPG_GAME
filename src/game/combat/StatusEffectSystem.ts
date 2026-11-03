@@ -46,6 +46,7 @@ export class StatusEffectSystem {
   }
 
   apply(target: Actor, kind: StatusKind, duration: number, magnitude: number, source: Actor | null, physicalMagnitude = 0, skillId?: string, maxStacks = 1, burnScaling: 'spell' | 'attack' = 'spell'): void {
+    if (target.untouchable) return;
     if (!target.alive || duration <= 0) return;
     if (kind === 'freeze' && target.isBoss) {
       kind = 'slow';

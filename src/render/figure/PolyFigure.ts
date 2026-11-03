@@ -138,6 +138,8 @@ export class PolyFigure {
   private outfit: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string>; skinColors?: ReadonlyMap<number, number> }) | null = null;
   /** 不畫的關節（魔王階段變化：盾牌碎裂、巨劍落地） */
   private hidden: ReadonlySet<Joint> = new Set();
+  /** 切換階段後還要慢慢過渡幾秒（模型的 phaseBlendTime） */
+  private phaseBlend = 0;
   /** 目前階段的動作（魔王的 phasePoses；沒有時是模型的 poses） */
   private poses: FigureModel['poses'];
   /** 腳下影子（相對腳底，px；模型有 dynamicShadow 時才有）：中心與水平半徑 */
@@ -173,6 +175,7 @@ export class PolyFigure {
   setPhase(phase: number): void {
     this.hidden = new Set(this.model.phaseHidden?.[phase] ?? []);
     this.poses = this.model.phasePoses?.[phase] ?? this.model.poses;
+    this.phaseBlend = this.model.phaseBlendTime ?? 0;
   }
 
   /** 是否剛開始待機怒吼（讀取後清除） */
@@ -207,7 +210,8 @@ export class PolyFigure {
     this.hitTime = Math.max(0, this.hitTime - dt);
     const target = this.targetPose(state, dt, walking);
     // 動作（攻擊 / 施法 / 死亡過程）直接用時間軸的姿勢，其他狀態平滑過渡
-    const k = this.action || (this.death && this.poses.deathKeys) ? 1 : Math.min(1, dt * 14);
+    this.phaseBlend = Math.max(0, this.phaseBlend - dt);
+    const k = this.action || (this.death && this.poses.deathKeys) ? 1 : Math.min(1, dt * (this.phaseBlend > 0 ? 3 : 14));
     this.current = lerpPose(this.current, target, k);
     this.draw(yawFor(state.facing), state.facing);
   }

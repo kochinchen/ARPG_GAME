@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>魔王模擬器</title>
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #16130f; color: #d8cbb4; font: 13px/1.45 sans-serif; }
+      #game { position: fixed; left: 0; top: 0; bottom: 0; right: 520px; }
+      #game canvas { display: block; }
+      #hint { position: fixed; left: 12px; bottom: 10px; color: #9c8c74; pointer-events: none; }
+      #panel { position: fixed; right: 0; top: 0; bottom: 0; width: 520px; box-sizing: border-box; padding: 10px 12px 24px; overflow-y: auto; background: #1f1a15; border-left: 1px solid #3a3027; }
+      h2 { margin: 14px 0 5px; font-size: 13px; color: #e8c47a; border-bottom: 1px solid #3a3027; padding-bottom: 3px; }
+      h2 small { color: #9c8c74; font-weight: normal; }
+      .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+      .row label { display: flex; align-items: center; gap: 4px; color: #9c8c74; }
+      select, input, button { padding: 3px 6px; font: 13px sans-serif; color: #d8cbb4; background: #2a231d; border: 1px solid #5a4c3e; border-radius: 3px; }
+      input[type=number] { width: 54px; }
+      button { cursor: pointer; }
+      button:hover { border-color: #a8875a; }
+      button.on { background: #5a4630; color: #ffe3a8; border-color: #a8875a; }
+      button:disabled { opacity: 0.45; cursor: default; }
+      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 8px; margin-top: 6px; }
+      .stats div { color: #9c8c74; font-size: 12px; }
+      .stats b { display: block; color: #d8cbb4; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+      .tiles b { color: #ffe3a8; font-size: 15px; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+      th { text-align: left; color: #9c8c74; font-weight: normal; border-bottom: 1px solid #3a3027; padding: 2px 4px; white-space: nowrap; }
+      td { padding: 3px 4px; border-bottom: 1px solid #2c251e; vertical-align: top; }
+      th.n, td.n { text-align: right; }
+      tr.off td { opacity: 0.42; }
+      td.now, th.now { background: #33291d; color: #ffe3a8; }
+      #enemyInfo td.sub { white-space: nowrap; }
+      .tabs { display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid #3a3027; padding-bottom: 6px; }
+      .hidden { display: none; }
+      #areaAll { font-size: 11px; }
+      #areaAll th, #areaAll td { padding: 2px 3px; }
+      #areaAll tbody tr { cursor: pointer; }
+      #areaAll tbody tr:hover td { background: #2a231d; }
+      #areaAll tr.picked td { background: #33291d; }
+      td.noEscape { color: #f0806a; }
+      td.blanket { color: #f0806a; background: #3a1c18; }
+      td.dim { color: #4f463a; }
+      .key { display: inline-block; width: 10px; height: 10px; margin-right: 3px; border-radius: 50%; vertical-align: -1px; }
+      .sub { color: #9c8c74; font-size: 11px; }
+      .bad { color: #f0806a; }
+      .warn { color: #e8b45a; }
+      .crit { color: #ffd060; font-weight: 600; }
+      .e-physical { color: #cfc4b2; } .e-fire { color: #f08a4a; } .e-cold { color: #7ac4f0; } .e-lightning { color: #d8d060; } .e-poison { color: #8fd060; }
+      #log { max-height: 220px; overflow-y: auto; }
+      .empty { color: #9c8c74; padding: 6px 2px; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="hint">左鍵點地板移動（按住持續走）・滾輪縮放・主角不攻擊、不會倒下</div>
+    <div id="panel"></div>
+    <script type="module" src="/src/tools/bossSim/main.ts"></script>
+  </body>
+</html>

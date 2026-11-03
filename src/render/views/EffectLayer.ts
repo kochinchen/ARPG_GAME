@@ -7,6 +7,7 @@ import type { PendingEffect, Zone } from '../../game/skills/EffectScheduler';
 import { originalSkillId } from '../../game/enemies/MimicSkills';
 import { firstElement } from '../../game/skills/effects/AreaEffect';
 import { ELEMENT_COLORS } from '../palette';
+import { DarkDomainFx } from './fx/DarkDomainFx';
 import { ImpactFx, type ImpactInput } from './fx/ImpactFx';
 import { drawProjectile, projectileArt, specialArt, type ProjectileArt } from './fx/ProjectileArt';
 
@@ -83,6 +84,15 @@ const CHAIN_FLASH_TIME = 0.25;
 /** 地面持續區域（火牆、毒池…）與延遲效果（隕星、落雷的預警）的光：離地高度（px） */
 const ZONE_GLOW_HEIGHT = 20;
 
+/** 魔王模擬器的範圍預覽：一個圈 */
+export interface RangeRing {
+  radius: number;
+  angleDeg: number;
+  color: number;
+  width: number;
+  fill: number;
+}
+
 /** 前搖提示：範圍外框 + 由中心往外填滿，填滿的瞬間命中 */
 interface Telegraph {
   graphics: Graphics;
@@ -92,6 +102,8 @@ interface Telegraph {
   center: Vec2;
   /** 施放被打斷（暈眩、冰凍、死亡）時提早移除 */
   active: () => boolean;
+  /** 範圍跟著移動（噬界足眼的印記） */
+  follow?: () => Vec2 | null;
 }
 
 /**
@@ -107,6 +119,11 @@ export class EffectLayer {
   private readonly zoneViews = new Map<number, Graphics>();
   /** 區域生成時的畫面位置（跟著施放者移動的區域用來算位移） */
   private readonly zoneOrigins = new Map<number, { x: number; y: number }>();
+  private readonly domains = new Map<number, DarkDomainFx>();
+  /** 暗黑領域結束了，骷髏還在漂 */
+  private readonly fadingDomains: DarkDomainFx[] = [];
+  /** 裝備條件成立時，主角腳下的暗黑領域 */
+  private playerDomain: { fx: DarkDomainFx; radius: number } | null = null;
   private readonly pendingViews = new Map<number, Graphics>();
   private readonly flashes: { id: number; position: Vec2; color: number; age: number; duration: number; strength: number; radius: number }[] = [];
   private flashId = 0;
@@ -116,6 +133,9 @@ export class EffectLayer {
   readonly glows: FxGlow[] = [];
   /** 這一幀飛行中的投射物 */
   readonly flying: FxFlying[] = [];
+  /** 開發工具（魔王模擬器）：把範圍畫在地上；null = 不畫 */
+  rangePreview: { center: Vec2; direction: Vec2; rings: readonly RangeRing[] } | null = null;
+  private readonly rangeGraphics = new Graphics();
   /** Three.js 畫法的技能特效（Renderer 在 Three.js 畫法時設定） */
   listener: SkillFxListener | null = null;
 
@@ -126,6 +146,7 @@ export class EffectLayer {
   ) {
     this.fx = new ImpactFx(projection);
     this.ground.addChild(this.fx.ground);
+    this.ground.addChild(this.rangeGraphics);
   }
 
   /** 畫面震動（Renderer 加在 World 圖層的位移上） */
@@ -154,11 +175,13 @@ export class EffectLayer {
     active: () => boolean,
     /** 直線範圍（長方形）：從 center 沿 direction 延伸 */
     line?: { length: number; width: number },
+    /** 範圍跟著移動（噬界足眼的印記）；回傳 null 時留在原地 */
+    follow?: () => Vec2 | null,
   ): void {
     const graphics = new Graphics();
     this.ground.addChild(graphics);
     const outline = line ? rectangle(center, direction, line.length, line.width) : sector(center, radius, direction, angleDeg);
-    this.telegraphs.push({ graphics, age: 0, duration, outline, center, active });
+    this.telegraphs.push({ graphics, age: 0, duration, outline, center, active, ...(follow ? { follow } : {}) });
   }
 
   /** 連鎖閃電：多股分岔、抖動的電弧 */
@@ -175,6 +198,8 @@ export class EffectLayer {
     alpha: number,
     zones: readonly Zone[],
     pending: readonly PendingEffect[],
+    /** 主角腳下的暗黑領域（裝備的條件效果）；沒有為 null */
+    playerAura: { position: Vec2; radius: number } | null = null,
   ): void {
     // 上層特效（粒子、爆發）畫在角色之上
     if (!this.fx.top.parent && this.objectLayer.parent) this.objectLayer.parent.addChildAt(this.fx.top, this.objectLayer.parent.getChildIndex(this.objectLayer) + 1);
@@ -187,9 +212,10 @@ export class EffectLayer {
         continue;
       }
       const t = tg.age / tg.duration;
+      const at = tg.follow?.() ?? tg.center;
       const toScreen = (k: number) =>
         tg.outline.flatMap((p) => {
-          const s = this.projection.toScreen(vec2(tg.center.x + (p.x - tg.center.x) * k, tg.center.y + (p.y - tg.center.y) * k));
+          const s = this.projection.toScreen(vec2(at.x + (p.x - tg.center.x) * k, at.y + (p.y - tg.center.y) * k));
           return [s.x, s.y];
         });
       tg.graphics
@@ -202,7 +228,9 @@ export class EffectLayer {
     }
     this.glows.length = 0;
     this.flying.length = 0;
-    this.syncZones(zones);
+    this.syncPlayerDomain(playerAura, dt);
+    this.drawRangePreview();
+    this.syncZones(zones, dt);
     this.syncPending(pending);
     this.syncProjectiles(projectiles, alpha, dt);
     this.fx.update(dt);
@@ -220,10 +248,14 @@ export class EffectLayer {
   }
 
   /** 地面持續區域：半透明圓，閃爍表示仍在作用 */
-  private syncZones(zones: readonly Zone[]): void {
+  private syncZones(zones: readonly Zone[], dt: number): void {
     const seen = new Set<number>();
     for (const zone of zones) {
       seen.add(zone.id);
+      if (zone.look === 'darkDomain') {
+        this.syncDomain(zone, dt);
+        continue;
+      }
       let g = this.zoneViews.get(zone.id);
       if (!g) {
         const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
@@ -255,6 +287,54 @@ export class EffectLayer {
       this.zoneViews.delete(id);
       this.zoneOrigins.delete(id);
     }
+    for (const [id, domain] of this.domains) {
+      if (seen.has(id)) continue;
+      this.domains.delete(id);
+      this.fadingDomains.push(domain);
+    }
+    for (let i = this.fadingDomains.length - 1; i >= 0; i--) {
+      if (!this.fadingDomains[i]!.drain(dt)) this.fadingDomains.splice(i, 1);
+    }
+  }
+
+  private drawRangePreview(): void {
+    const g = this.rangeGraphics.clear();
+    const preview = this.rangePreview;
+    if (!preview) return;
+    for (const ring of preview.rings) {
+      const points = sector(preview.center, ring.radius, preview.direction, ring.angleDeg).flatMap((p) => {
+        const s = this.projection.toScreen(p);
+        return [s.x, s.y];
+      });
+      g.poly(points);
+      if (ring.fill > 0) g.fill({ color: ring.color, alpha: ring.fill });
+      g.stroke({ color: ring.color, width: ring.width, alpha: 0.95 });
+    }
+  }
+
+  private syncPlayerDomain(aura: { position: Vec2; radius: number } | null, dt: number): void {
+    if (this.playerDomain && this.playerDomain.radius !== aura?.radius) {
+      this.fadingDomains.push(this.playerDomain.fx);
+      this.playerDomain = null;
+    }
+    if (!aura) return;
+    this.playerDomain ??= { fx: this.createDomain(aura.position, aura.radius), radius: aura.radius };
+    this.playerDomain.fx.moveTo(this.projection.toScreen(aura.position));
+    this.playerDomain.fx.update(dt, Infinity, performance.now() / 1000);
+  }
+
+  private createDomain(position: Vec2, radius: number): DarkDomainFx {
+    return new DarkDomainFx(this.outline(position, radius), this.projection.toScreen(position), Math.PI * radius * radius, this.ground, this.fx.top);
+  }
+
+  /** 暗黑領域：黑底紅圈、漂出骷髏；不發光（領域是暗的） */
+  private syncDomain(zone: Zone, dt: number): void {
+    let domain = this.domains.get(zone.id);
+    if (!domain) {
+      domain = this.createDomain(zone.position, zone.radius);
+      this.domains.set(zone.id, domain);
+    }
+    domain.update(dt, zone.remaining, performance.now() / 1000);
   }
 
   /** 延遲效果的預警：落點顯示虛線圈 */

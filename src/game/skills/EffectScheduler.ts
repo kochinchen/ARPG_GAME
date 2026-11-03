@@ -1,7 +1,7 @@
 import type { Rng } from '../../core/Rng';
 import { vec2, type Vec2 } from '../../core/math/Vec2';
 import { rankValue } from '../../data/schema/common';
-import type { DelayedEffectDef, EffectDef, ZoneEffectDef } from '../../data/schema/effects';
+import type { DelayedEffectDef, EffectDef, LeapEffectDef, ZoneEffectDef } from '../../data/schema/effects';
 import type { NavGrid } from '../movement/NavGrid';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { EffectContext, EffectSchedulerPort } from './effects/IEffect';
@@ -21,6 +21,8 @@ export interface Zone {
   followCaster: boolean;
   /** 不和同一個施放者的其他區域重疊 */
   exclusive: boolean;
+  /** 外觀（Render 用） */
+  look?: ZoneEffectDef['look'];
   effects: readonly EffectDef[];
 }
 
@@ -35,12 +37,26 @@ export interface PendingEffect {
   effects: readonly EffectDef[];
 }
 
+/** 跳到空中的角色（噬界足眼）：mark 是地上的印記，lockAt 之前追著目標 */
+export interface Leap {
+  ctx: EffectContext;
+  def: LeapEffectDef;
+  targetId: number | null;
+  mark: Vec2;
+  elapsed: number;
+}
+
+/** 跳起 / 落下的秒數：跳起後角色看不見，落下時才又出現 */
+const LEAP_RISE = 0.35;
+const LEAP_FALL = 0.3;
+
 /**
- * 管理需要「之後」才發生的效果：延遲觸發與地面持續區域。
+ * 管理需要「之後」才發生的效果：延遲觸發、地面持續區域、跳到空中再落下。
  */
 export class EffectScheduler implements EffectSchedulerPort {
   readonly zones: Zone[] = [];
   readonly pending: PendingEffect[] = [];
+  readonly leaps: Leap[] = [];
   private nextId = 1;
 
   constructor(
@@ -65,6 +81,7 @@ export class EffectScheduler implements EffectSchedulerPort {
       ticksLeft: Math.max(1, Math.round(duration / def.interval)),
       followCaster: def.followCaster,
       exclusive: def.exclusive,
+      ...(def.look ? { look: def.look } : {}),
       effects: def.effects,
     });
   }
@@ -106,13 +123,61 @@ export class EffectScheduler implements EffectSchedulerPort {
     }
   }
 
+  leap(def: LeapEffectDef, ctx: EffectContext): void {
+    const caster = ctx.caster;
+    caster.vanished = true;
+    caster.untouchable = true;
+    caster.cast = null;
+    caster.intent = null;
+    caster.path = [];
+    this.leaps.push({ ctx, def, targetId: ctx.target?.id ?? caster.ai?.targetId ?? null, mark: ctx.target?.position ?? caster.position, elapsed: 0 });
+    ctx.services.events.emit('ActorLeapt', { actorId: caster.id, duration: def.duration, radius: def.radius });
+  }
+
+  /** 這個角色地上的印記（沒有在跳就是 null） */
+  leapMark(actorId: number): Vec2 | null {
+    return this.leaps.find((l) => l.ctx.caster.id === actorId)?.mark ?? null;
+  }
+
   /** 換樓層時清除所有地面區域與延遲效果 */
   clear(): void {
     this.zones.length = 0;
     this.pending.length = 0;
+    this.leaps.length = 0;
+  }
+
+  private updateLeaps(dt: number): void {
+    for (let i = this.leaps.length - 1; i >= 0; i--) {
+      const leap = this.leaps[i]!;
+      const { ctx, def } = leap;
+      const caster = ctx.caster;
+      leap.elapsed += dt;
+      if (leap.elapsed < def.lockAt && leap.targetId !== null) {
+        const target = this.targeting.getValidTarget(caster, leap.targetId);
+        if (target) {
+          const dx = target.position.x - leap.mark.x;
+          const dy = target.position.y - leap.mark.y;
+          const d = Math.hypot(dx, dy);
+          const step = Math.min(d, def.followSpeed * dt);
+          if (d > 1e-6) leap.mark = vec2(leap.mark.x + (dx / d) * step, leap.mark.y + (dy / d) * step);
+        }
+      }
+      const remaining = def.duration - leap.elapsed;
+      caster.air = Math.min(1, Math.min(leap.elapsed / LEAP_RISE, remaining / LEAP_FALL));
+      // 跳起之後角色就在印記正上方（落下時位置就對了）
+      if (leap.elapsed >= LEAP_RISE) caster.position = leap.mark;
+      if (remaining > 0) continue;
+      this.leaps.splice(i, 1);
+      caster.air = 0;
+      caster.vanished = false;
+      caster.untouchable = false;
+      const landed = { ...ctx, origin: leap.mark, target: null };
+      landed.run(def.effects, landed);
+    }
   }
 
   update(dt: number): void {
+    this.updateLeaps(dt);
     for (let i = 0; i < this.pending.length; ) {
       const p = this.pending[i]!;
       p.remaining -= dt;

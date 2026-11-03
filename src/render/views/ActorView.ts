@@ -22,6 +22,8 @@ const BAR_Y = -66;
 const LUNGE_DISTANCE = 7;
 /** 浮空時身體被挑起的高度（像素） */
 const AIRBORNE_LIFT = 30;
+/** 跳到空中時畫面上移動的高度（像素） */
+const AIR_HEIGHT = 700;
 const LUNGE_DURATION = 0.15;
 /** 超過這個速度（px / 秒）視為在移動（播放跑步動作） */
 const MOVING_SPEED = 8;
@@ -110,7 +112,7 @@ export class ActorView {
 
     this.dynamicShadow = model.dynamicShadow ?? false;
     const shadow = (this.shadow = new Graphics());
-    if (!this.dynamicShadow) shadow.ellipse(0, 0, px, px / 2).fill({ color: PALETTE.shadow, alpha: 0.45 });
+    if (!this.dynamicShadow) shadow.ellipse(0, 0, px * (model.shadowScale ?? 1), (px * (model.shadowScale ?? 1)) / 2).fill({ color: PALETTE.shadow, alpha: 0.45 });
     this.facingMark.circle(0, 0, 3).fill({ color: PALETTE.marker });
     this.nameLabel = new Text({
       text: [actor.name, ...resistLines(actor)].join('\n'),
@@ -173,18 +175,22 @@ export class ActorView {
     this.figure.setOutfit(parts);
   }
 
-  /** 切換 Three.js 畫法（null = 回到 Pixi）：Three.js 有真正的影子，腳下的橢圓影子不畫 */
+  /**
+   * 切換 Three.js 畫法（null = 回到 Pixi）。Three.js 的影子只有燭光與火把照得到的地方才有，
+   * 所以怪物腳下留著橢圓影子（畫在地面層、角色底下），離主角遠也站得住地；主角就在燭光正下方，不必另外畫。
+   */
   setThree(world: ThreeWorld | null): void {
     if (!!world === !!this.three) return;
     this.three?.dispose();
     this.three = world?.createFigure(this.isPlayer ? GPU_SKINNING.player : GPU_SKINNING.others) ?? null;
     this.figure.sink = this.three;
-    this.shadow.visible = !this.three;
+    this.shadow.visible = !this.three || !this.isPlayer;
     const under = [...(this.gear ? [this.gear.back] : []), this.aura, this.facingMark];
-    if (this.three) this.ground.addChild(...under);
+    if (this.three) this.ground.addChild(this.shadow, ...under);
     else {
-      // 回到 Pixi：放回影子與身體之間（原本的順序）
-      let at = this.container.getChildIndex(this.shadow) + 1;
+      // 回到 Pixi：放回最底層，其他依原本的順序疊在影子與身體之間
+      this.container.addChildAt(this.shadow, 0);
+      let at = 1;
       for (const c of under) this.container.addChildAt(c, at++);
     }
   }
@@ -223,6 +229,8 @@ export class ActorView {
     const s = this.projection.toScreen(position);
     this.container.position.set(s.x, s.y);
     this.container.zIndex = this.projection.depth(position);
+    // 跳到空中：看不見了，要等落下
+    if (actor.air >= 1) visible = false;
     this.container.visible = visible;
     this.ground.position.set(s.x, s.y);
     this.ground.visible = visible;
@@ -252,7 +260,9 @@ export class ActorView {
     // 浮空：身體往上挑起，影子留在地面
     const liftTarget = actor.alive && actor.hasStatus('airborne') ? AIRBORNE_LIFT : 0;
     this.lift += (liftTarget - this.lift) * Math.min(1, dt * 14);
+    if (actor.air > 0) this.lift = actor.air * AIR_HEIGHT;
     this.body.position.set(this.lungeDir.x * k, this.lungeDir.y * k - this.lift);
+    if (this.three && !this.isPlayer) this.shadow.visible = actor.alive;
     const fp = this.dynamicShadow ? this.figure.shadow : null;
     if (fp) this.shadow.clear().ellipse(fp.x + this.body.position.x, fp.y + this.body.position.y + this.lift, fp.rx, fp.rx / 2).fill({ color: 0x000000, alpha: 0.35 });
     this.body.alpha = this.hovered ? 0.85 : 1;

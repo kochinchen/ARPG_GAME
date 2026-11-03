@@ -93,7 +93,8 @@ export class ChaseState implements IAiState {
           : skill.targeting === 'self'
             ? (skill.range ?? 0) + self.radius + target.radius
             : skillReach(self, skill) + target.radius;
-      if (distance(self.position, target.position) <= reach) return id;
+      const gap = distance(self.position, target.position);
+      if (gap <= reach && gap >= (skill.minRange ?? 0)) return id;
     }
     return null;
   }

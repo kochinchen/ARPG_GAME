@@ -271,8 +271,15 @@ const v21ToV22: Migration = (v21) => {
   return !floor || 'hiddenBoss' in floor ? v21 : { ...v21, floor: { ...floor, hiddenBoss: null } };
 };
 
+/** v22 → v23：隱藏魔王隨機抽到的抗性（舊存檔的魔王沒有） */
+const v22ToV23: Migration = (v22) => {
+  const floor = v22.floor as Record<string, unknown> | undefined;
+  const boss = floor?.hiddenBoss as Record<string, unknown> | null | undefined;
+  return !boss || 'resists' in boss ? v22 : { ...v22, floor: { ...floor, hiddenBoss: { ...boss, resists: [] } } };
+};
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22, v22ToV23];
 
 export class MigrationError extends Error {}
 

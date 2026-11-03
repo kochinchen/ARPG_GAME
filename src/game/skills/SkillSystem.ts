@@ -145,7 +145,8 @@ export class SkillSystem {
     const empower = empowerKind ? this.statuses.consume(actor, empowerKind) : null;
     if (empower) mods = { ...mods, damage: mods.damage + empower.magnitude };
     // 怪物的特殊技能範圍隨樓層放大（普通攻擊不變；直線範圍不看 aoeRadius）
-    if (actor.skillArea !== 1 && skill.id !== BASIC_ATTACK && !skill.fixedArea) mods = { ...mods, aoeRadius: (1 + mods.aoeRadius) * actor.skillArea - 1 };
+    const areaScale = skillAreaScale(actor, skill, rank);
+    if (areaScale !== 1) mods = { ...mods, aoeRadius: (1 + mods.aoeRadius) * areaScale - 1 };
 
     actor.mana -= cost;
     if (skill.cooldown > 0) actor.cooldowns.set(skill.id, skill.cooldown);
@@ -210,6 +211,20 @@ export class SkillSystem {
 }
 
 /** 對單一敵人施放的有效距離（從雙方邊緣算起，不含目標半徑） */
+/**
+ * 怪物特殊技能的範圍倍率（普通攻擊、固定範圍的招式是 1）：整招等比例放大；魔王的招式裡最大的範圍放大到 skillAreaCap 為止。
+ * 直線範圍不看 aoeRadius，也不算在內。
+ */
+export function skillAreaScale(actor: Actor, skill: SkillDef, rank: number): number {
+  if (actor.skillArea === 1 || skill.id === BASIC_ATTACK || skill.fixedArea) return 1;
+  let largest = 0;
+  for (const e of flattenEffects(skill.effects)) {
+    if ((e.type === 'area' && !e.line) || e.type === 'zone') largest = Math.max(largest, e.type === 'area' ? rankValue(e.radius, rank) : e.radius);
+  }
+  if (largest === 0) return actor.skillArea;
+  return Math.max(1, Math.min(actor.skillArea, actor.skillAreaCap / largest));
+}
+
 export function skillReach(actor: Actor, skill: SkillDef): number {
   return castRange(actor, skill) + actor.radius;
 }

@@ -67,6 +67,8 @@ export const SkillDefSchema = z
     useAttackSpeed: z.boolean().default(false),
     /** 施放距離（Tile）；省略時使用角色的 attackRange（近戰） */
     range: z.number().positive().optional(),
+    /** 怪物 AI：目標比這個距離近時不用這一招（Tile；遠程彈幕不打貼身的人） */
+    minRange: z.number().positive().optional(),
     effects: z.array(EffectDefSchema).default([]),
     // ---- 被動技能 ----
     passive: z.array(PassiveBonusSchema).default([]),
