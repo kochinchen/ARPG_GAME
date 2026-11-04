@@ -186,8 +186,16 @@ export class ActorView {
     this.figure.sink = this.three;
     this.shadow.visible = !this.three || !this.isPlayer;
     const under = [...(this.gear ? [this.gear.back] : []), this.aura, this.facingMark];
-    if (this.three) this.ground.addChild(this.shadow, ...under);
-    else {
+    // 武器在身後的光芒也要比 Three.js 的角色先畫，才會被身體擋住（Pixi 畫的東西都蓋在 Three.js 的角色上面）
+    const glowBack = this.weaponGlow?.back;
+    if (this.three) {
+      this.ground.addChild(this.shadow, ...under);
+      if (glowBack) this.ground.addChild(glowBack);
+    } else {
+      if (glowBack) {
+        this.body.addChildAt(glowBack, 0);
+        glowBack.position.set(0, 0);
+      }
       // 回到 Pixi：放回最底層，其他依原本的順序疊在影子與身體之間
       this.container.addChildAt(this.shadow, 0);
       let at = 1;
@@ -262,6 +270,8 @@ export class ActorView {
     this.lift += (liftTarget - this.lift) * Math.min(1, dt * 14);
     if (actor.air > 0) this.lift = actor.air * AIR_HEIGHT;
     this.body.position.set(this.lungeDir.x * k, this.lungeDir.y * k - this.lift);
+    // Three.js 畫法時光芒在地面層，要跟著身體的位移
+    if (this.three) this.weaponGlow?.back.position.copyFrom(this.body.position);
     if (this.three && !this.isPlayer) this.shadow.visible = actor.alive;
     const fp = this.dynamicShadow ? this.figure.shadow : null;
     if (fp) this.shadow.clear().ellipse(fp.x + this.body.position.x, fp.y + this.body.position.y + this.lift, fp.rx, fp.rx / 2).fill({ color: 0x000000, alpha: 0.35 });

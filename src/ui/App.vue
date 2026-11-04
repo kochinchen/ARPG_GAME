@@ -394,20 +394,6 @@ onBeforeUnmount(() => {
       <SkillTreePanel v-if="open.skills" :view="gameView.skillTree" @close="open.skills = false" />
     </div>
     <ShopPanel v-if="shopOpen" :view="gameView.shop" @close="shopOpen = false" @tab="(t) => (shopTab = t)" />
-    <StashPanel
-      v-if="stashOpen && gameView.stash.cells.length > 0"
-      :view="gameView.stash"
-      :holding="gameView.inventory.held !== null"
-      :touch="touchMode"
-      :selected="selected"
-      :dev-available="devAvailable"
-      @close="stashOpen = false"
-      @hover="onHover"
-      @select="(target) => (selected = target)"
-      @grab="onGrab"
-      @quick="onQuick"
-      @page="(first) => (stashFrom = first)"
-    />
     <InventoryPanel
       v-if="open.inventory"
       :view="gameView.inventory"
@@ -422,6 +408,20 @@ onBeforeUnmount(() => {
       @select="(target) => (selected = target)"
       @grab="onGrab"
       @quick="onQuick"
+    />
+    <StashPanel
+      v-if="stashOpen && gameView.stash.cells.length > 0"
+      :view="gameView.stash"
+      :holding="gameView.inventory.held !== null"
+      :touch="touchMode"
+      :selected="selected"
+      :dev-available="devAvailable"
+      @close="stashOpen = false"
+      @hover="onHover"
+      @select="(target) => (selected = target)"
+      @grab="onGrab"
+      @quick="onQuick"
+      @page="(first) => (stashFrom = first)"
     />
   </div>
 

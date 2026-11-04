@@ -126,8 +126,8 @@ async function clearAll() {
 <style scoped>
 .panel {
   position: absolute;
-  /* 視窗較窄時，背包旁的角色預覽框會蓋到這裡：倉庫要在上層，格子和按鈕才點得到 */
-  z-index: 2;
+  /* 觸控版面：DOM 排在背包後面（視窗較窄時才不會被角色預覽框蓋住），但顯示在左欄 */
+  order: -1;
   top: 12px;
   left: 12px;
   width: min(320px, calc(100vw - 32px));
