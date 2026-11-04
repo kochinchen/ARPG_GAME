@@ -105,7 +105,7 @@ try {
       const xs = [...mx, ...hx.map((v) => v + dx)];
       const ys = [...ysOf(mon), ...ysOf(hero)];
       const [x0, x1, y0, y1] = [Math.min(...xs) - 8, Math.max(...xs) + 8, Math.min(...ys) - 8, Math.max(...ys) + 14];
-      const shadowR = (r / HERO_RADIUS) * 12 * (model.visualScale ?? 1);
+      const shadowR = (r / HERO_RADIUS) * 12 * (model.visualScale ?? 1) * (model.shadowScale ?? 1);
       const shadows =
         `<ellipse cx="0" cy="0" rx="${shadowR.toFixed(1)}" ry="${(shadowR * 0.45).toFixed(1)}" fill="#000" fill-opacity=".35"/>` +
         `<ellipse cx="${(dx + (Math.max(...hx) + Math.min(...hx)) / 2).toFixed(1)}" cy="0" rx="12" ry="5" fill="#000" fill-opacity=".35"/>`;

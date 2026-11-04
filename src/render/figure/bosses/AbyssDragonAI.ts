@@ -281,7 +281,8 @@ function reversedTail(): AiMonsterData {
     parents,
     verts: tail.verts.map(flip),
     weights: (tail.weights as [string, number][][]).map((list) => list.map(([b, w]) => [rename(b), w])),
-    faces: tail.faces.map((f) => [f[0]!, f[2]!, f[1]!, f[3]!]),
+    // 轉 180° 不是鏡射，面的方向不變（頂點順序不能反過來，否則只畫背對鏡頭的面，看到模型內側）
+    faces: tail.faces,
   };
 }
 
