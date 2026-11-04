@@ -52,6 +52,7 @@ const CREATURE_LABELS: Record<string, string> = {
   acid_beetle: '酸液甲蟲',
   hatchling_spider: '孵化蜘蛛',
   hook_claw: '鉤爪蟲',
+  bone_hand: '骸手爬行者',
   horned_brute: '角甲巨獸',
   molten_brute: '熔顎巨獸',
   quake_beast: '震地獸',

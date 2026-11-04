@@ -13,6 +13,23 @@ export type EnemyFamily = z.infer<typeof EnemyFamilySchema>;
 export const BarrageSchema = z.strictObject({ skills: z.array(IdSchema).min(1), every: z.number().positive(), range: z.number().positive(), originBack: z.number().nonnegative().default(0) });
 export type Barrage = z.infer<typeof BarrageSchema>;
 
+/**
+ * 成對的魔王（奪界雙手）：共用一個名字、血條分兩段，兩隻都倒下才掉一份 lootTable。
+ * 每隔 every 秒一起出招（moves 輪流）：先以 +gatherSpeed 的速度趕到目標周圍的站位（distance 格外、彼此隔 spreadDeg 度），最多 gatherFor 秒，再同時施放。
+ * 任何一隻進入 stopAtPhase 階段就不再一起出招；alternate 的招式一隻放了，另一隻要等冷卻的一半。
+ */
+export const BossPairSchema = z.strictObject({
+  partner: IdSchema,
+  lootTable: IdSchema,
+  every: RangeSchema,
+  gatherFor: z.number().positive(),
+  gatherSpeed: z.number().positive(),
+  stopAtPhase: z.int().positive(),
+  moves: z.array(z.strictObject({ skill: IdSchema, spreadDeg: z.number().positive().max(180), distance: z.number().positive() })).min(1),
+  alternate: z.array(IdSchema).default([]),
+});
+export type BossPair = z.infer<typeof BossPairSchema>;
+
 export const BossPhaseSchema = z.strictObject({
   hpBelow: z.number().gt(0).lt(1),
   /** 顯示在 Boss 血條與畫面上，例如「狂怒」「火焰附魔」 */
@@ -107,6 +124,8 @@ export const EnemyDefSchema = z
   healOnPlayerDeath: z.number().gt(0).max(1).optional(),
   /** 連發（見 BarrageSchema） */
   barrage: BarrageSchema.optional(),
+  /** 成對的魔王（見 BossPairSchema） */
+  pair: BossPairSchema.optional(),
   /** Boss 的階段變化（依 hpBelow 由高到低） */
   phases: z.array(BossPhaseSchema).default([]),
   /** 怪物圖鑑：分類與介紹 */

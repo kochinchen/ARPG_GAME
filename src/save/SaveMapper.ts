@@ -299,11 +299,12 @@ export function toItem(saved: SavedItem): ItemInstance {
 }
 
 export function toCore(saved: SavedCore): CoreInstance {
-  const { element, pure, brand, ...rest } = clone(saved);
+  const { element, pure, brand, mark, ...rest } = clone(saved);
   return {
     ...rest,
     ...(element === undefined ? {} : { element }),
     ...(pure === undefined ? {} : { pure }),
+    ...(mark === undefined ? {} : { mark }),
     ...(brand === undefined ? {} : { brand: brand.roll === undefined ? { legendaryId: brand.legendaryId, line: brand.line } : { legendaryId: brand.legendaryId, line: brand.line, roll: brand.roll } }),
   };
 }

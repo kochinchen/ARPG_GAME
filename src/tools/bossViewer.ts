@@ -2,9 +2,10 @@ import { IsoProjection } from '../core/math/IsoProjection';
 import { vec2, type Vec2 } from '../core/math/Vec2';
 import { enemies } from '../data/enemies';
 import { BOSS_MODELS } from '../render/figure/Bosses';
-import { figureScale, type AttackVariant, type FigureModel } from '../render/figure/FigureModel';
+import { figureScale, finalPhase, type AttackVariant, type FigureModel } from '../render/figure/FigureModel';
 import { PolyFigure, type FigureState } from '../render/figure/PolyFigure';
 import { boneDragonLook, type GlowElement } from '../render/figure/bosses/BoneDragonAI';
+import { BONE_HAND } from '../render/figure/BoneHand';
 import { STONE_WALKERS } from '../render/figure/StoneWalkers';
 import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
 
@@ -16,11 +17,11 @@ import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
  */
 
 const params = new URLSearchParams(location.search);
-const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && (e.boss || id === 'enemy.abyss_tail'))), ...Object.keys(STONE_WALKERS)];
+const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && (e.boss || id === 'enemy.abyss_tail'))), ...Object.keys(STONE_WALKERS), 'enemy.bone_hand'];
 const modelId = ids.includes(`enemy.${params.get('model')}`) ? `enemy.${params.get('model')}` : 'enemy.abyss_sovereign';
 /** ?glow=fire,poison：骨龍的兩種屬性 */
 const glow = params.get('glow')?.split(',') as [GlowElement, GlowElement] | undefined;
-const baseModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId]!;
+const baseModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : modelId === 'enemy.bone_hand' ? BONE_HAND : BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId]!;
 /** ?bones=1：蒙皮網格每個面依權重最大的骨頭上色（手臂 = 黃 / 橘 / 紅、鎖骨 = 白，其他依名稱），檢查分區 */
 const BONE_COLORS: Record<string, number> = { upperArm: 0xffe040, forearm: 0xff8a20, hand: 0xff3030, ex_fingers: 0xff40c0, ex_clav: 0xffffff };
 const model: FigureModel =
@@ -208,7 +209,8 @@ loopSel.onchange = () => {
 };
 gLoop.append(loopSel);
 const gDeath = group('生死');
-button(gDeath, '倒地', () => ((state.alive = false), (state.loop = null), (loopSel.value = '')), () => !state.alive);
+// 和遊戲一樣：倒下時已經走完所有階段
+button(gDeath, '倒地', () => (setPhase(finalPhase(model)), (state.alive = false), (state.loop = null), (loopSel.value = '')), () => !state.alive);
 button(gDeath, '復活', () => (state.alive = true));
 const gPhase = group('階段');
 const phases = model.phaseHidden?.length ?? 1;

@@ -1004,6 +1004,29 @@ const creatureSkills: SkillInput[] = [
     ],
   },
   {
+    id: 'enemy.bone_hand_slam',
+    name: '骸掌拍地',
+    description: '骸手爬行者舉起手掌往前拍地，前方扇形傷害並短暫緩速。前搖時地上會顯示範圍。',
+    targeting: 'enemy',
+    range: 1.6,
+    castTime: 1.1,
+    impactAt: 0.7,
+    telegraph: true,
+    cooldown: 6,
+    tags: ['attack', 'melee', 'area', 'heavy'],
+    effects: [
+      {
+        type: 'area',
+        radius: 2.2,
+        angleDeg: 100,
+        effects: [
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1.5 },
+          { type: 'status', status: 'slow', duration: 1.5, magnitude: 0.3 },
+        ],
+      },
+    ],
+  },
+  {
     id: 'enemy.hook_rend',
     name: '鉤爪撕裂',
     description: '鉤爪蟲連續撕裂兩次並破甲。',

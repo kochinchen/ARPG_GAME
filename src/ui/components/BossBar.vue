@@ -11,10 +11,17 @@ const pct = computed(() => Math.max(0, Math.min(100, (props.boss.hp / props.boss
     <div class="name">
       {{ boss.name }}<span v-if="boss.phaseLabel" class="enraged">第 {{ boss.phase + 1 }} 階段 · {{ boss.phaseLabel }}</span>
     </div>
-    <div class="bar">
+    <div v-if="boss.segments" class="pair">
+      <div v-for="(s, i) in boss.segments" :key="i" class="bar">
+        <div class="fill" :class="{ enraged: boss.phase > 0 }" :style="{ width: `${Math.max(0, Math.min(100, (s.hp / s.max) * 100))}%` }" />
+        <span class="text">{{ Math.ceil(Math.max(0, s.hp)) }} / {{ Math.round(s.max) }}</span>
+      </div>
+    </div>
+    <div v-else class="bar">
       <div class="fill" :class="{ enraged: boss.phase > 0 }" :style="{ width: `${pct}%` }" />
       <span class="text">{{ Math.ceil(boss.hp) }} / {{ Math.round(boss.max) }}</span>
     </div>
+    <div v-if="boss.resists" class="resists">本次抗性　{{ boss.resists }}</div>
   </div>
 </template>
 
@@ -33,13 +40,20 @@ const pct = computed(() => Math.max(0, Math.min(100, (props.boss.hp / props.boss
   color: #ff9b6b;
   text-shadow: 0 2px 4px #000;
 }
-.enraged {
+.name .enraged {
   margin-left: 8px;
   padding: 0 6px;
   font: 11px/1.6 sans-serif;
   letter-spacing: 0;
   color: #fff;
   background: #b02a1e;
+}
+.pair {
+  display: flex;
+  gap: 4px;
+}
+.pair .bar {
+  flex: 1;
 }
 .bar {
   position: relative;
@@ -54,6 +68,12 @@ const pct = computed(() => Math.max(0, Math.min(100, (props.boss.hp / props.boss
 }
 .fill.enraged {
   background: linear-gradient(#ff5a3a, #9a2010);
+}
+.resists {
+  margin-top: 3px;
+  font: 12px/1.4 sans-serif;
+  color: #f0d9a0;
+  text-shadow: 0 1px 2px #000;
 }
 .text {
   position: absolute;

@@ -160,6 +160,17 @@ export const cores: Input = {
       },
     },
   ],
+  // 奪取之手（設計者 2026-11-04）：奪界雙手掉的橘核。吸血硬上限的例外，設計者同意；可以和其他來源堆疊
+  marks: [
+    {
+      id: 'mark.seizing_hand',
+      name: '奪取之手',
+      lines: [
+        { stat: 'lifeSteal', value: [0.002, 0.006] },
+        { stat: 'manaSteal', value: [0.002, 0.006] },
+      ],
+    },
+  ],
   shared: [
     inc('core.shared.max_hp', 'maxHp', [0.03, 0.06]),
     inc('core.shared.defense', 'defense', [0.04, 0.08]),

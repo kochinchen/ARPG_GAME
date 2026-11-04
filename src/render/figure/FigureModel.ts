@@ -170,6 +170,9 @@ export interface FigureModel {
   phaseDrops?: readonly ({ model: FigureModel; offset: [number, number] } | null)[];
 }
 
+/** 魔王倒下時的階段：走完所有階段才會死，所以是最後一個（手被打壞、尾巴脫離、盾與劍掉了，屍體也不再有這些東西） */
+export const finalPhase = (model: FigureModel): number => Math.max(0, (model.phaseHidden?.length ?? 1) - 1);
+
 /** 招式：劍 / 斧的橫斬、突刺、上劈；弓的拉弓射擊；法杖的舉杖施法 */
 export type AttackVariant = 'slash' | 'thrust' | 'overhead' | 'shoot' | 'staff';
 

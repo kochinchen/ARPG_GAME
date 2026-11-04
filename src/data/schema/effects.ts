@@ -127,6 +127,8 @@ export const ProjectileEffectSchema = z.strictObject({
   aimAssistDeg: z.number().nonnegative().default(0),
   /** 飛完全程（沒撞到東西）時也在終點觸發 onHit（在地上滾的冰球） */
   hitAtEnd: z.boolean().default(false),
+  /** 從身體前方幾格發射（奪界雙手的指尖） */
+  originForward: z.number().nonnegative().default(0),
   /** 投射物的外觀（省略 = 依技能與元素）：spider = 爬行的毒蛛 */
   look: z.enum(['spider']).optional(),
   get onHit() {
@@ -216,6 +218,12 @@ export const LeapEffectSchema = z.strictObject({
   },
 });
 
+/** 奪取：目標（主角）裝備的技能隨機一個在 duration 秒內不能用 */
+export const SealEffectSchema = z.strictObject({
+  type: z.literal('seal'),
+  duration: RankNumberSchema,
+});
+
 /** 在施放者周圍召喚怪物（Boss 用）。召喚物不給經驗、不掉寶，也不計入樓層擊殺數 */
 export const SummonEffectSchema = z.strictObject({
   type: z.literal('summon'),
@@ -288,6 +296,7 @@ export const EffectDefSchema = z.discriminatedUnion('type', [
   ZoneEffectSchema,
   DelayedEffectSchema,
   SummonEffectSchema,
+  SealEffectSchema,
   DeviceEffectSchema,
   LeapEffectSchema,
 ]);
@@ -299,6 +308,7 @@ export type DashEffectDef = z.infer<typeof DashEffectSchema>;
 export type ProjectileEffectDef = z.infer<typeof ProjectileEffectSchema>;
 export type AreaEffectDef = z.infer<typeof AreaEffectSchema>;
 export type SummonEffectDef = z.infer<typeof SummonEffectSchema>;
+export type SealEffectDef = z.infer<typeof SealEffectSchema>;
 export type DeviceEffectDef = z.infer<typeof DeviceEffectSchema>;
 
 /** 一個效果底下的巢狀效果（投射物 onHit、位移 onPath、機關的各種觸發、其他的 effects） */

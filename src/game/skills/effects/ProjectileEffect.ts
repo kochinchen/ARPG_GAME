@@ -21,7 +21,7 @@ export class ProjectileEffect implements IEffect<'projectile'> {
       const offset = count === 1 ? 0 : ring ? (spread * i) / count : -spread / 2 + (spread * i) / (count - 1);
       const direction = rotate(base, offset);
       // 從施放者（或分裂來源）身體邊緣發射
-      const start = add(ctx.origin, scale(direction, (ctx.spawnFrom ?? ctx.caster).radius));
+      const start = add(ctx.origin, scale(direction, (ctx.spawnFrom ?? ctx.caster).radius + def.originForward));
       ctx.services.spawnProjectile({
         caster: ctx.caster,
         skill: ctx.skill,

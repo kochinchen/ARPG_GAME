@@ -115,9 +115,9 @@ describe('第 35 層：王座廳', () => {
     // 樓梯口與中途存檔點都有商人，離魔王很遠
     expect(w.merchants).toHaveLength(2);
     expect(distance(w.spawnPoint, boss.position)).toBeGreaterThan(40);
-    // 全抗性 30%，HP 約 300,000（設計者 2026-11-03：原本約 600,000 太高）
-    expect(boss.stats.get('fireResist')).toBeCloseTo(0.3);
-    expect(boss.stats.get('physicalResist')).toBeCloseTo(0.3);
+    // 全抗性 18%，HP 約 300,000（設計者 2026-11-03：原本約 600,000 太高）
+    expect(boss.stats.get('fireResist')).toBeCloseTo(0.18);
+    expect(boss.stats.get('physicalResist')).toBeCloseTo(0.18);
     expect(boss.maxHp).toBeGreaterThan(295000);
     expect(boss.maxHp).toBeLessThan(305000);
   });

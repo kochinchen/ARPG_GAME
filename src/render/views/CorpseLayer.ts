@@ -2,7 +2,7 @@ import { Container } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
 import type { Vec2 } from '../../core/math/Vec2';
 import type { Corpse } from '../../game/GameWorld';
-import { figureScale } from '../figure/FigureModel';
+import { figureScale, finalPhase } from '../figure/FigureModel';
 import { DEFAULT_MONSTER_MODEL, MONSTER_MODELS } from '../figure/Monsters';
 import { PolyFigure, type FigureState } from '../figure/PolyFigure';
 import type { ThreeFigure, ThreeWorld } from '../three/ThreeWorld';
@@ -70,6 +70,7 @@ export class CorpseLayer {
   private create(corpse: Corpse): View {
     const model = MONSTER_MODELS[corpse.defId] ?? DEFAULT_MONSTER_MODEL;
     const figure = new PolyFigure(model, figureScale(model, corpse.visualRadius));
+    figure.setPhase(finalPhase(model));
     const container = new Container();
     const s = this.projection.toScreen(corpse.position);
     container.position.set(s.x, s.y);

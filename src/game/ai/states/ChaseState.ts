@@ -38,6 +38,10 @@ export class ChaseState implements IAiState {
   private act(ctx: AiContext, target: Actor | null): void {
     const { self, brain } = ctx;
     if (brain.targetId === null || self.cast) return;
+    if (brain.gatherAt) {
+      this.gather(ctx, brain.gatherAt);
+      return;
+    }
     if (target && this.retreat(ctx, target)) return;
     if (brain.waiting) {
       this.holdStation(ctx);
@@ -59,6 +63,12 @@ export class ChaseState implements IAiState {
       return;
     }
     self.intent = { skillId: brain.skillId, targetId: brain.targetId, point: self.position, hold: true, approach };
+  }
+
+  /** 一起出招前趕往站位：不出手 */
+  private gather({ self, pathfinder }: AiContext, spot: Vec2): void {
+    self.intent = null;
+    if (!self.isMoving && distance(self.position, spot) > STATION_SLACK) self.path = pathfinder.findPath(self.position, spot, self.radius);
   }
 
   /** 等候補位：不出手，走到外圈的站位停下 */

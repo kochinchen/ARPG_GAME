@@ -74,6 +74,10 @@ export function coreExtraTexts(core: CoreInstance, data: Data, bonus = 1): { sec
         ? `印記（${b.def.name}）：${formatValue(b.line.stat, b.line.modifier, (core.brand!.roll ?? b.line.value[1]) * f * bonus, true)} ${STAT_LABELS[b.line.stat]}`
         : `印記（${b.def.name}）：${b.line.text} × ${+(f * bonus).toFixed(3)}`;
   }
+  if (core.mark && data.cores.marks.has(core.mark.id)) {
+    const def = data.cores.marks.get(core.mark.id);
+    brand = `印記（${def.name}）：${def.lines.map((line, i) => `${formatValue(line.stat, 'flat', (core.mark!.rolls[i] ?? line.value[0]) * bonus, true)} ${STAT_LABELS[line.stat]}`).join('、')}`;
+  }
   return { secondary, brand };
 }
 

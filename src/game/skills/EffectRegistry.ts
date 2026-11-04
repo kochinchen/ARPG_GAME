@@ -10,6 +10,7 @@ import { KnockbackEffect } from './effects/KnockbackEffect';
 import { LeapEffect } from './effects/LeapEffect';
 import { ProjectileEffect } from './effects/ProjectileEffect';
 import { StatusEffect } from './effects/StatusEffect';
+import { SealEffect } from './effects/SealEffect';
 import { SummonEffect } from './effects/SummonEffect';
 import { ZoneEffect } from './effects/ZoneEffect';
 
@@ -31,6 +32,7 @@ export class EffectRegistry {
     zone: new ZoneEffect(),
     delayed: new DelayedEffect(),
     summon: new SummonEffect(),
+    seal: new SealEffect(),
     device: new DeviceEffect(),
     leap: new LeapEffect(),
   };

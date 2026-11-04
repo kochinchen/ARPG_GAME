@@ -138,7 +138,7 @@ export class ItemGenerator {
 
   /** 孔數全滿的白裝（隱藏魔王）：一定是可鑲嵌的部位 */
   /** 這個稀有度的裝備（物品等級太低、還沒有可掉落的設計時，create 會降一級） */
-  generateOfRarity(itemLevel: number, rarity: 'legendary' | 'mythic'): ItemInstance {
+  generateOfRarity(itemLevel: number, rarity: 'rare' | 'epic' | 'legendary' | 'mythic'): ItemInstance {
     return this.generate(itemLevel, { normal: 0, magic: 0, rare: 0, epic: 0, legendary: 0, mythic: 0, [rarity]: 1 });
   }
 

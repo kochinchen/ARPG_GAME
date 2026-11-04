@@ -62,7 +62,7 @@ import { PlayerProgress } from './progression/PlayerProgress';
 import { RegenSystem } from './stats/RegenSystem';
 import { StatBlock } from './stats/StatBlock';
 import { CheckpointSystem } from './world/CheckpointSystem';
-import { floorResistFor, scaleForFloor, type FloorScaling } from './world/DifficultyScaler';
+import { floorResistFor, hiddenBossResistFor, scaleForFloor, type FloorScaling } from './world/DifficultyScaler';
 import { FloorManager, mapIdForFloor } from './world/FloorManager';
 import { canAscend, descendKind, selectableFloors } from './world/Endgame';
 import type { Element, StatId } from '../data/schema/common';
@@ -70,6 +70,7 @@ import { generateMap, generatedMapId, generateThroneMap, openHiddenRoom } from '
 import { placeSetPieces, setPieceSpot } from './world/SetPieces';
 import { bookQuarter, buildBook, type BookPage } from '../data/book';
 import { notePageInChest } from './world/Notebook';
+import { BossPairSystem } from './enemies/BossPairSystem';
 import { fuse } from './items/FusionResolver';
 import { coreName } from './items/CoreDescriber';
 import type { CoreInstance } from './items/CoreInstance';
@@ -256,6 +257,7 @@ export class GameWorld {
   private champion: { actorId: number } | null = null;
   /** 這一層的隱藏魔王（存檔內容）；這次沒有骰到為 null */
   hiddenBoss: HiddenBossState | null = null;
+  readonly bossPairs: BossPairSystem;
   private hiddenBossActor: number | null = null;
   /** 開發用：每次進入有隱藏房的樓層都出現（網址 ?hiddenboss） */
   forceHiddenBoss = false;
@@ -304,6 +306,7 @@ export class GameWorld {
       scheduler: this.scheduler,
       categoryTraits: data.balance.skillCategories,
       summon: (caster, enemyId, count, maxAlive) => this.summon(caster, enemyId, count, maxAlive),
+      sealSkill: (target, duration) => this.sealSkill(target, duration),
       placeDevice: (def, ctx) => this.devices.place(def, ctx),
       spawnProjectile: (p) => {
         this.projectiles.push({ ...p, id: this.nextProjectileId++ });
@@ -323,6 +326,7 @@ export class GameWorld {
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
     this.bosses = new BossSystem(data, this.events, new Rng(options.seed).fork('boss-routine'), (id) => this.targeting.getActor(id) ?? null, (boss, enemyId) => this.spawnDetached(boss, enemyId));
+    this.bossPairs = new BossPairSystem(data, this.events, new Rng(options.seed).fork('boss-pair'), this.nav, this.actors, (actor) => this.bosses.phaseOf(actor));
     // 被動技能的時間差：獨立的亂數序列（不影響其他系統的亂數順序，也不必存檔）
     this.passives = new PassiveSkillSystem(data, executor, new Rng(options.seed).fork('passives'), this.events);
 
@@ -472,7 +476,7 @@ export class GameWorld {
     });
     // 魔王第一次倒下：魂魄飄出，說出那個人的真相（每個存檔一次；中途小王與召喚物沒有）
     this.events.on('ActorDied', (e) => {
-      if (e.faction !== 'enemy' || !e.boss || e.miniBoss || e.summoned || e.actorId === this.hiddenBossActor) return;
+      if (e.faction !== 'enemy' || !e.boss || e.miniBoss || e.summoned || e.actorId === this.hiddenBossActor || (e.defId !== null && this.data.enemies.has(e.defId) && this.data.enemies.get(e.defId).pair)) return;
       const soul = this.data.souls.all.find((s) => s.floor === this.floors.floor);
       if (!soul || this.progress.souls.has(soul.id)) return;
       const found = this.bookFound();
@@ -503,7 +507,10 @@ export class GameWorld {
     // 首領被擊敗：原地出現首領寶箱
     this.events.on('ActorDied', (e) => {
       if (this.champion !== null && e.actorId === this.champion.actorId) this.placeChampionChest(e.position);
-      if (this.hiddenBoss && e.actorId === this.hiddenBossActor) this.hiddenBoss.dead = true;
+      if (this.hiddenBoss && e.actorId === this.hiddenBossActor && !this.data.enemies.get(this.hiddenBoss.enemyId).pair) this.hiddenBoss.dead = true;
+    });
+    this.events.on('BossPairDefeated', () => {
+      if (this.hiddenBoss) this.hiddenBoss.dead = true;
     });
     this.events.on('ChestOpened', (e) => {
       const chest = this.chests.find((c) => c.id === e.chestId);
@@ -569,8 +576,9 @@ export class GameWorld {
     const second = pool[rng.int(0, pool.length - 1)]!;
     const resists: HiddenBossState['resists'] = [];
     if (boss.resists) {
+      const value = hiddenBossResistFor(floor, this.data.balance.elite.floorResist);
       const stats = [...boss.resists.stats];
-      for (let i = 0; i < boss.resists.count; i++) resists.push({ stat: stats.splice(rng.int(0, stats.length - 1), 1)[0]!, value: rng.range(boss.resists.value[0], boss.resists.value[1]) });
+      for (let i = 0; i < boss.resists.count; i++) resists.push({ stat: stats.splice(rng.int(0, stats.length - 1), 1)[0]!, value });
     }
     return { enemyId: boss.enemyId, elements: boss.allElements ? [...boss.elements] : [first, second], resists, dead: false };
   }
@@ -583,15 +591,36 @@ export class GameWorld {
     this.checkpoints.addBossGate(this.spotNear(vec2(room.door[0], room.door[1]), 0, 0.5));
     if (state.dead) return;
     const def = this.data.enemies.get(state.enemyId);
-    const actor = this.enemyFactory.create(def, this.nextActorId++, this.spotNear(vec2(room.x, room.y), 0, Math.min(0.8, def.radius * def.size)), scaling);
-    actor.innateElements = state.elements;
-    const resist = floorResistFor(floor, true, this.data.balance.elite.floorResist);
-    applyFloorResist(actor, { physical: resist, elemental: resist });
-    for (const r of state.resists) actor.stats.addModifier({ stat: r.stat, kind: 'flat', value: r.value, source: 'hidden-boss-resist' });
-    this.addActor(actor);
-    this.hiddenBossActor = actor.id;
-    // 不算進開出口的擊殺數：可以不打
-    this.floors.excludeFromClear(actor.id);
+    const place = (id: string, center: Vec2): Actor => {
+      const d = this.data.enemies.get(id);
+      const actor = this.enemyFactory.create(d, this.nextActorId++, this.spotNear(center, 0, Math.min(0.8, d.radius * d.size)), scaling);
+      actor.innateElements = state.elements;
+      const resist = hiddenBossResistFor(floor, this.data.balance.elite.floorResist);
+      applyFloorResist(actor, { physical: resist, elemental: resist });
+      for (const r of state.resists) actor.stats.addModifier({ stat: r.stat, kind: 'flat', value: r.value, source: 'hidden-boss-resist' });
+      this.addActor(actor);
+      // 不算進開出口的擊殺數：可以不打
+      this.floors.excludeFromClear(actor.id);
+      return actor;
+    };
+    // 成對的魔王：另一隻站在旁邊
+    this.hiddenBossActor = place(state.enemyId, def.pair ? vec2(room.x - 3, room.y) : vec2(room.x, room.y)).id;
+    if (def.pair) place(def.pair.partner, vec2(room.x + 3, room.y));
+  }
+
+  /** 奪取：主角裝備的技能隨機一個暫時不能用（已經在冷卻更久的不算）；普通攻擊不會被奪走 */
+  private sealSkill(target: Actor, duration: number): void {
+    if (target !== this.player) return;
+    const pool = [...new Set(this.loadout.combos.flat())].filter((id): id is string => id !== null && (target.cooldowns.get(id) ?? 0) < duration);
+    if (pool.length === 0) return;
+    const skillId = this.rngStreams.effects.pick(pool);
+    target.cooldowns.set(skillId, duration);
+    this.events.emit('SkillSealed', { actorId: target.id, position: target.position, skillId, duration });
+  }
+
+  /** 這個魔王這次隨機抽到的抗性（不是隱藏魔王，或這隻不抽抗性：空） */
+  randomResistsOf(actor: Actor): readonly { stat: StatId; value: number }[] {
+    return actor.id === this.hiddenBossActor ? (this.hiddenBoss?.resists ?? []) : [];
   }
 
   /** 這件遺物在固定場景裡的位置（沒有對應的場景：null） */
@@ -1150,7 +1179,7 @@ export class GameWorld {
     const behind = vec2(boss.position.x - boss.facing.x * 1.6, boss.position.y - boss.facing.y * 1.6);
     const position = this.nav.isClearAt(behind, def.radius) ? behind : boss.position;
     const tail = this.enemyFactory.create(def, this.nextActorId++, position, { ...scaleForFloor(floor, this.data.balance.difficulty), xp: 0 }, undefined, boss.id);
-    const resist = floorResistFor(floor, true, this.data.balance.elite.floorResist);
+    const resist = hiddenBossResistFor(floor, this.data.balance.elite.floorResist);
     applyFloorResist(tail, { physical: resist, elemental: resist });
     if (tail.ai && boss.ai?.targetId != null) {
       tail.ai.targetId = boss.ai.targetId;
@@ -1176,7 +1205,9 @@ export class GameWorld {
     const def = this.data.enemies.get(enemyId);
     const actor = this.enemyFactory.create(def, this.nextActorId++, position, scaleForFloor(floor, this.data.balance.difficulty));
     if (def.boss) {
-      const resist = def.fixedResist ?? floorResistFor(floor, true, this.data.balance.elite.floorResist);
+      const floorResist = this.data.balance.elite.floorResist;
+      const hidden = this.data.balance.hiddenBoss.bosses.some((b) => b.enemyId === enemyId);
+      const resist = def.fixedResist ?? (hidden ? hiddenBossResistFor(floor, floorResist) : floorResistFor(floor, true, floorResist));
       applyFloorResist(actor, { physical: resist, elemental: resist });
     }
     actor.innateElements = innateElements;
@@ -1200,6 +1231,7 @@ export class GameWorld {
     this.waypoints = [];
     this.scheduler.clear();
     this.bosses.clear();
+    this.bossPairs.clear();
     this.passives.clear();
     this.combos.cancel(this.player);
     this.interaction.clear();
@@ -1602,6 +1634,8 @@ export class GameWorld {
     this.bosses.update(this.actors, dt);
     this.passives.update(this.actors, dt);
     this.ai.update(this.actors, dt);
+    // 放在 AI 之後：一起出招的意圖才不會被 AI 蓋掉
+    this.bossPairs.update(dt);
     this.combos.update(this.actors);
     this.skills.update(this.actors, dt);
     this.movement.update(this.actors, dt);

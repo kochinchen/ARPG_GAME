@@ -9,7 +9,7 @@ import type { GameCommand } from '../../../src/game/Commands';
 import type { GameEvents } from '../../../src/game/GameEvents';
 import { GameWorld } from '../../../src/game/GameWorld';
 import { EnemyFactory } from '../../../src/game/enemies/EnemyFactory';
-import { floorResistFor } from '../../../src/game/world/DifficultyScaler';
+import { floorResistFor, hiddenBossResistFor } from '../../../src/game/world/DifficultyScaler';
 import { NavGrid } from '../../../src/game/movement/NavGrid';
 import { SpawnSystem } from '../../../src/game/world/SpawnSystem';
 import { SaveMapper } from '../../../src/save/SaveMapper';
@@ -137,13 +137,21 @@ describe('精英 / Boss 的樓層減傷', () => {
   // 屬性減傷以火焰抗性檢查（扣掉怪物天生的火焰抗性，例如熔岩巨獸）
   const elemental = (a: { defId: string | null; stats: { get(s: 'physicalResist' | 'fireResist'): number } }) => Math.round((a.stats.get('fireResist') - (data.enemies.get(a.defId!).resist.fire ?? 0)) * 1e6) / 1e6;
 
-  it('第 10 層起才有，逐層增加，最高 40%；Boss 成長較快', () => {
+  it('第 10 層起才有，逐層增加，最高 24%；Boss 成長較快', () => {
     expect(floorResistFor(9, false, resist)).toBe(0);
-    expect(floorResistFor(10, false, resist)).toBeCloseTo(0.015);
-    expect(floorResistFor(10, true, resist)).toBeCloseTo(0.02);
-    expect(floorResistFor(20, false, resist)).toBeCloseTo(0.165);
-    expect(floorResistFor(29, true, resist)).toBeCloseTo(0.4);
-    expect(floorResistFor(99, false, resist)).toBeCloseTo(0.4);
+    expect(floorResistFor(10, false, resist)).toBeCloseTo(0.009);
+    expect(floorResistFor(10, true, resist)).toBeCloseTo(0.012);
+    expect(floorResistFor(20, false, resist)).toBeCloseTo(0.099);
+    expect(floorResistFor(26, true, resist)).toBeCloseTo(0.204);
+    expect(floorResistFor(29, true, resist)).toBeCloseTo(0.24);
+    expect(floorResistFor(99, false, resist)).toBeCloseTo(0.24);
+  });
+
+  it('隱藏魔王不打折：第 26 層 34%，最高 40%', () => {
+    expect(hiddenBossResistFor(9, resist)).toBe(0);
+    expect(hiddenBossResistFor(26, resist)).toBeCloseTo(0.34);
+    expect(hiddenBossResistFor(29, resist)).toBeCloseTo(0.4);
+    expect(hiddenBossResistFor(99, resist)).toBeCloseTo(0.4);
   });
 
   it('第 9 層的精英沒有減傷；第 12 層的精英隨機帶物理或屬性其一，一般怪沒有', () => {

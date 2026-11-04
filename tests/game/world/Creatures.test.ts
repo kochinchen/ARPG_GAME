@@ -32,6 +32,7 @@ const CREATURE_IDS = [
   'enemy.acid_beetle',
   'enemy.hatchling_spider',
   'enemy.hook_claw',
+  'enemy.bone_hand',
   'enemy.horned_brute',
   'enemy.molten_brute',
   'enemy.quake_beast',

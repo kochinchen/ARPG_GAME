@@ -27,10 +27,11 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v21：找到的筆記頁（notebook）。
  * v22：本層的隱藏魔王（floor.hiddenBoss）。
  * v23：隱藏魔王隨機抽到的抗性（floor.hiddenBoss.resists），屬性不再固定兩種（elements）。
+ * v24：魔王專屬印記的熔核（core.mark，舊存檔沒有這種核）。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 23;
+export const SAVE_VERSION = 24;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -52,6 +53,7 @@ export const CoreInstanceSchema = z.object({
   main: z.object({ weapon: coreSlots, helmet: coreSlots, armor: coreSlots, gloves: coreSlots, boots: coreSlots, shield: coreSlots }),
   secondary: coreSlots,
   brand: z.object({ legendaryId: z.string(), line: nonNegInt, roll: finite.optional() }).optional(),
+  mark: z.object({ id: z.string(), rolls: z.array(finite) }).optional(),
 });
 
 export const ItemInstanceSchema = z.object({

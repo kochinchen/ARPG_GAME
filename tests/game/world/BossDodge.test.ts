@@ -103,11 +103,11 @@ describe('魔王有預警的招式：跑開就躲得掉', () => {
     expect(dodge(enemyId, skillId, floor, sideways)).toBe(false);
   });
 
-  it.each([...NORMAL_DASHES, ['enemy.hook_claw', 'enemy.hook_rend', 15], ['enemy.void_maw', 'enemy.maw_bite', 30]] as [string, string, number][])('一般怪 %s 的 %s：站著不動還是打得中', (enemyId, skillId, floor) => {
+  it.each([...NORMAL_DASHES, ['enemy.hook_claw', 'enemy.hook_rend', 15], ['enemy.bone_hand', 'enemy.bone_hand_slam', 15], ['enemy.void_maw', 'enemy.maw_bite', 30]] as [string, string, number][])('一般怪 %s 的 %s：站著不動還是打得中', (enemyId, skillId, floor) => {
     expect(dodge(enemyId, skillId, floor, stay)).toBe(true);
   });
 
-  it.each([['enemy.hook_claw', 'enemy.hook_rend', 15], ['enemy.void_maw', 'enemy.maw_bite', 30]] as [string, string, number][])('一般怪 %s 的近身招 %s：跑開就躲得掉', (enemyId, skillId, floor) => {
+  it.each([['enemy.hook_claw', 'enemy.hook_rend', 15], ['enemy.bone_hand', 'enemy.bone_hand_slam', 15], ['enemy.void_maw', 'enemy.maw_bite', 30]] as [string, string, number][])('一般怪 %s 的近身招 %s：跑開就躲得掉', (enemyId, skillId, floor) => {
     expect(dodge(enemyId, skillId, floor, away)).toBe(false);
   });
 });

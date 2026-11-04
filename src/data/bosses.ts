@@ -15,6 +15,58 @@ type SkillInput = z.input<typeof SkillDefSchema>;
 /** 魔王共通：不會因為被拉遠而放棄（Boss 戰不應該靠脫戰重置） */
 const BOSS = { leashRange: 60, detectRange: 9, lootTable: 'loot.boss', boss: true, family: 'boss' } as const;
 
+/**
+ * 奪界雙手（設計筆記 art/monsters/abyss_hand/設計筆記.md）：一左一右兩隻，共用名字、血條分兩段，兩隻都倒下才掉一份寶。
+ * 只有數值與模型左右相反，其他完全相同。門檻照噬界足眼；外觀：0、1 手都在，2 手被打壞（AbyssHandAI 的 phaseHidden）。
+ */
+function handPair(id: string, partner: string) {
+  return [
+    {
+      ...BOSS,
+      id,
+      name: '奪界雙手',
+      lore: '第 9～14 層的隱藏魔王，可以不打。兩隻一對的爬行骷髏手臂，一左一右：上手臂橫躺當身體，蜘蛛腳撐著，手肘的關節是一顆血紅的眼睛，垂直的下手臂頂端是手掌。兩隻都倒下才算打贏。',
+      leashRange: 30,
+      // 不是每隻各掉一份：兩隻都倒下才掉 pair.lootTable
+      lootTable: undefined,
+      hp: 350,
+      damage: [6, 10] as [number, number],
+      defense: 25,
+      moveSpeed: 1.9,
+      radius: 0.5,
+      size: 1.6,
+      attackRange: 1,
+      attackSpeed: 1,
+      ai: 'melee' as const,
+      skills: ['enemy.hand_slam', 'enemy.hand_grip', 'enemy.hand_bones', 'enemy.hand_frost'],
+      xp: 200,
+      pair: {
+        partner,
+        lootTable: 'loot.abyss_hand',
+        every: [13, 18] as [number, number],
+        gatherFor: 2.5,
+        gatherSpeed: 1.2,
+        stopAtPhase: 2,
+        moves: [
+          { skill: 'enemy.hand_clap', spreadDeg: 180, distance: 5 },
+          { skill: 'enemy.hand_cross', spreadDeg: 90, distance: 6 },
+        ],
+        alternate: ['enemy.hand_frost'],
+      },
+      phases: [
+        { hpBelow: 0.65, label: '五指張開', modifiers: [{ stat: 'damageBonus' as const, value: 0.15 }] },
+        {
+          hpBelow: 0.3,
+          label: '斷掌',
+          modifiers: [{ stat: 'moveSpeed' as const, kind: 'increased' as const, value: 0.3 }],
+          skills: ['enemy.hand_stab', 'enemy.hand_eye_frost'],
+          pause: 1.5,
+        },
+      ],
+    },
+  ];
+}
+
 export const bossEnemies: EnemyInput[] = [
   {
     ...BOSS,
@@ -200,7 +252,7 @@ export const bossEnemies: EnemyInput[] = [
     ...BOSS,
     id: 'enemy.bone_dragon',
     name: '萬骸之口',
-    lore: '地牢裡死去的士兵與騎士的怨念聚在一起，把骨頭和盔甲拼成的怪物。身體就是一張巨口，嘴裡塞滿骷髏；四根觸手的尖端也都是嘴。行動緩慢，但會把人拉進嘴裡、喚醒亡者，吐出的東西每次都可能是另一種屬性。第 11～22 層的隱藏魔王，可以不打。',
+    lore: '地牢裡死去的士兵與騎士的怨念聚在一起，把骨頭和盔甲拼成的怪物。身體就是一張巨口，嘴裡塞滿骷髏；四根觸手的尖端也都是嘴。行動緩慢，但會把人拉進嘴裡、喚醒亡者，吐出的東西每次都可能是另一種屬性。第 16～22 層的隱藏魔王，可以不打。',
     // 牠待在自己的房間：離開房間就走回中央
     leashRange: 30,
     lootTable: 'loot.hidden_boss',
@@ -280,6 +332,8 @@ export const bossEnemies: EnemyInput[] = [
       },
     ],
   },
+  ...handPair('enemy.abyss_hand', 'enemy.abyss_hand_r'),
+  ...handPair('enemy.abyss_hand_r', 'enemy.abyss_hand'),
   {
     // 第三階段脫離的尾巴：打完消失，不掉寶（血量是設計者同意的 440；參考虛空吞噬者精英版，但那個比魔王基礎血量還高）
     id: 'enemy.abyss_tail',
@@ -353,8 +407,8 @@ export const bossEnemies: EnemyInput[] = [
     attackRange: 0.9,
     attackSpeed: 0.8,
     ai: 'melee',
-    // 全抗性固定 30%（取代魔王的樓層減傷）
-    fixedResist: 0.3,
+    // 全抗性固定 18%（取代魔王的樓層減傷；設計者 2026-11-04 隨一般魔王打六折）
+    fixedResist: 0.18,
     // 第 1 階段：重裝統御者（盾＋劍）
     skills: ['enemy.sov_claw', 'enemy.sov_meteor', 'enemy.sov_charge', 'enemy.sov_cleave', 'enemy.sov_sweep', 'enemy.sov_stomp'],
     xp: 2400,
@@ -428,7 +482,138 @@ const hit = (element: 'physical' | 'fire' | 'cold' | 'lightning' | 'poison', mul
   hits,
 });
 
+/** 中毒 + 冰寒的爆炸（奪界雙手唯一的魔法） */
+const HAND_FROST_BLAST: EffectInput = {
+  type: 'area',
+  radius: 2.2,
+  effects: [
+    { type: 'damage', element: 'cold', scaling: 'spell', multiplier: 0.75 },
+    { type: 'status', status: 'poison', duration: 4, magnitude: 0.5 },
+    { type: 'status', status: 'slow', duration: 2, magnitude: 0.3 },
+  ],
+};
+
 const BASE_SKILLS: SkillInput[] = [
+  // ── 奪界雙手 ──
+  {
+    id: 'enemy.hand_slam',
+    name: '拍地',
+    description: '走近之後下手臂往下拍地，往前打出一道地震波。',
+    targeting: 'enemy',
+    range: 3,
+    castTime: 1.2,
+    impactAt: 0.7,
+    telegraph: true,
+    cooldown: 1.6,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [{ type: 'area', radius: 7, line: { length: 7, width: 2 }, effects: [hit('physical', 1.2), { type: 'status', status: 'slow', duration: 1, magnitude: 0.3 }] }],
+  },
+  {
+    id: 'enemy.hand_clap',
+    name: '雙掌合擊',
+    description: '兩隻隔著目標同時拍，範圍從兩邊往中間夾。離開兩隻之間就躲得掉。',
+    targeting: 'ground',
+    range: 20,
+    castTime: 1.4,
+    impactAt: 0.8,
+    telegraph: true,
+    tags: ['attack', 'melee', 'area'],
+    effects: [{ type: 'area', radius: 6, line: { length: 6, width: 2.6 }, effects: [hit('physical', 0.9), { type: 'status', status: 'stun', duration: 0.6 }] }],
+  },
+  {
+    id: 'enemy.hand_cross',
+    name: '交叉地震',
+    description: '兩隻從不同方向各打一道地震波，交會處兩道都打得到。站到兩道波的空隙。',
+    targeting: 'ground',
+    range: 20,
+    castTime: 1.5,
+    impactAt: 0.8,
+    telegraph: true,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [{ type: 'area', radius: 14, line: { length: 14, width: 1.8 }, effects: [hit('physical', 0.95)] }],
+  },
+  {
+    id: 'enemy.hand_grip',
+    name: '奪取之握',
+    description: '手臂往前伸長抓人，抓到就奪走一個技能 5 秒。看到伸手就側閃。',
+    targeting: 'enemy',
+    range: 5,
+    castTime: 1.1,
+    impactAt: 0.75,
+    telegraph: true,
+    cooldown: 9,
+    tags: ['attack', 'melee'],
+    effects: [{ type: 'area', radius: 5.5, line: { length: 5.5, width: 1.4 }, effects: [hit('physical', 1), { type: 'seal', duration: 5 }] }],
+  },
+  {
+    id: 'enemy.hand_bones',
+    name: '指骨飛射',
+    description: '五根指骨射出去插在地上，碰到會受傷、被緩速，封住走位。',
+    targeting: 'enemy',
+    range: 8,
+    minRange: 2.5,
+    castTime: 0.9,
+    impactAt: 0.8,
+    telegraph: true,
+    cooldown: 11,
+    tags: ['attack', 'projectile'],
+    effects: [
+      {
+        type: 'projectile',
+        speed: 11,
+        radius: 0.3,
+        range: 7,
+        count: 5,
+        spreadDeg: 60,
+        hitAtEnd: true,
+        onHit: [
+          { type: 'area', radius: 0.8, effects: [hit('physical', 0.6)] },
+          { type: 'zone', radius: 1, duration: 6, interval: 0.6, effects: [hit('physical', 0.2), { type: 'status', status: 'slow', duration: 1, magnitude: 0.4 }] },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'enemy.hand_frost',
+    name: '毒冰球',
+    description: '手臂伸直平行地面、五指張開，出現範圍判定，1.5 秒後每個指尖射出一顆在地上滾的毒冰球。',
+    targeting: 'enemy',
+    range: 9,
+    minRange: 2.5,
+    castTime: 1.5,
+    impactAt: 0.98,
+    telegraph: true,
+    cooldown: 14,
+    tags: ['spell', 'projectile', 'area', 'cold', 'poison'],
+    effects: [{ type: 'projectile', speed: 4.5, radius: 0.55, range: 12, count: 5, spreadDeg: 44, originForward: 2, hitAtEnd: true, onHit: [HAND_FROST_BLAST] }],
+  },
+  {
+    id: 'enemy.hand_stab',
+    name: '腳刺',
+    description: '手被打壞之後，前腳舉起來往前刺。',
+    targeting: 'enemy',
+    range: 2,
+    castTime: 0.9,
+    impactAt: 0.7,
+    telegraph: true,
+    cooldown: 1.2,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [{ type: 'area', radius: 2.4, angleDeg: 110, effects: [hit('physical', 1)] }],
+  },
+  {
+    id: 'enemy.hand_eye_frost',
+    name: '眼噴毒冰球',
+    description: '手被打壞之後，改從手肘的眼睛噴出毒冰球。',
+    targeting: 'enemy',
+    range: 10,
+    castTime: 1.2,
+    impactAt: 0.95,
+    telegraph: true,
+    cooldown: 5,
+    tags: ['spell', 'projectile', 'area', 'cold', 'poison'],
+    effects: [{ type: 'projectile', speed: 5, radius: 0.55, range: 12, count: 3, spreadDeg: 30, originForward: 0.6, hitAtEnd: true, onHit: [HAND_FROST_BLAST] }],
+  },
+
   // ── 墓穴守衛 ──
   {
     id: 'enemy.guardian_summon',

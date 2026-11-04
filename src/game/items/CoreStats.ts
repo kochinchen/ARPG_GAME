@@ -107,6 +107,7 @@ export function coreEffects(sockets: readonly SocketedCore[], data: Data): CoreE
   // matched = 有提供這一組的同核鑲滿裝備（部位 → 孔數）：每件讓上限多 孔數 × matchCapPerSocket 份
   const groups = new Map<string, { line: CoreLine; element: CoreElement | undefined; total: number; matched: Map<CoreSlot, number> }>();
   const brands = new Map<string, { def: LegendaryDef; line: LegendaryDef['lines'][number]; count: number; rolls: number[]; matched: Map<CoreSlot, number> }>();
+  const marks = new Map<string, { name: string; stat: StatId; single: number; total: number; matched: Map<CoreSlot, number> }>();
   const copiesOf = (matched: Map<CoreSlot, number>) => bodyCap + [...matched.values()].reduce((sum, holes) => sum + holes * matchCapPerSocket, 0);
 
   let current: { slot: CoreSlot; holes: number } = { slot: 'weapon', holes: 0 };
@@ -139,6 +140,16 @@ export function coreEffects(sockets: readonly SocketedCore[], data: Data): CoreE
       if (brand.line.type === 'stat') b.rolls.push((core.brand!.roll ?? brand.line.value[1]) * bonus);
       brands.set(key, b);
     }
+    if (core.mark && data.cores.marks.has(core.mark.id)) {
+      const def = data.cores.marks.get(core.mark.id);
+      def.lines.forEach((line, i) => {
+        const key = `${def.id}:${line.stat}`;
+        const m = marks.get(key) ?? { name: def.name, stat: line.stat, single: line.value[1], total: 0, matched: new Map<CoreSlot, number>() };
+        if (matchedHoles > 0) m.matched.set(slot, matchedHoles);
+        m.total += (core.mark!.rolls[i] ?? line.value[0]) * bonus;
+        marks.set(key, m);
+      });
+    }
   }
 
   const result: CoreEffects = { stats: [], mechanics: [], capped: [] };
@@ -169,6 +180,12 @@ export function coreEffects(sockets: readonly SocketedCore[], data: Data): CoreE
     } else {
       b.line.mechanics.forEach((m, j) => result.mechanics.push({ key: `brand:${key}:${j}`, mechanic: scaleMechanic(m, factor) }));
     }
+  }
+  // 魔王專屬的印記：同一條全身合計 ≤ 最高值 × 份數
+  for (const m of marks.values()) {
+    const cap = m.single * copiesOf(m.matched);
+    if (m.total > cap + 1e-9) result.capped.push(m.name);
+    result.stats.push({ stat: m.stat, kind: 'flat', value: Math.min(m.total, cap) });
   }
   return result;
 }

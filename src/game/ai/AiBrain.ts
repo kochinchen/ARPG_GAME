@@ -37,6 +37,8 @@ export interface AiBrain {
   rallied: boolean;
   /** 集體戰術分配的站位（SquadTactics）；null = 直接追目標 */
   slot: Vec2 | null;
+  /** 成對的魔王一起出招前：趕到這個站位，到了也不出手，等 BossPairSystem 發動；null = 沒有 */
+  gatherAt: Vec2 | null;
   /** 貼身的近戰已達上限：在外圈等候補位，不出手 */
   waiting: boolean;
   /** 閒置時在出生點附近走動：距離下次走動的秒數 */
@@ -72,6 +74,7 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     alertTimer: 0,
     rallied: false,
     slot: null,
+    gatherAt: null,
     waiting: false,
   };
 }

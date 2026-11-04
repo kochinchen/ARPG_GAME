@@ -62,6 +62,15 @@ describe('吸血 / 吸魔硬上限', () => {
     for (const line of data.cores.lines.all) expect(JSON.stringify(line), line.id).not.toMatch(/lifeSteal|manaSteal|manaOnHit|manaRegen|hpOfDamage/);
   });
 
+  it('唯一的例外：奪界雙手的「奪取之手」印記 0.2～0.6%（設計者 2026-11-04 同意，可以堆疊）', () => {
+    const steal = data.cores.marks.all.filter((m) => m.lines.some((l) => STEAL.has(l.stat)));
+    expect(steal.map((m) => m.id)).toEqual(['mark.seizing_hand']);
+    expect(steal[0]!.lines).toEqual([
+      { stat: 'lifeSteal', value: [0.002, 0.006] },
+      { stat: 'manaSteal', value: [0.002, 0.006] },
+    ]);
+  });
+
   it('舊物品（數值超過上限）以上限計算', () => {
     const old = { uid: 'x', baseId: 'ring.gold', rarity: 'epic' as const, itemLevel: 40, quality: 0.6, affixes: [{ id: 'strong.bloodthirst', rolls: [0.05] }] };
     expect(itemStats(old, data).affixes[0]!.value).toBe(STEAL_CAP.perSource);

@@ -48,7 +48,15 @@ function earlyBoost(floor: number, b: Balance['difficulty']['earlyDensityBoost']
 
 /** 精英 / Boss 的樓層減傷比例（未達起始樓層為 0） */
 export function floorResistFor(floor: number, isBoss: boolean, config: EliteConfig['floorResist']): number {
+  return grownResist(floor, isBoss ? config.perFloor.boss : config.perFloor.elite, config) * config.normalScale;
+}
+
+/** 隱藏魔王的樓層減傷比例：比一般魔王高，不打折 */
+export function hiddenBossResistFor(floor: number, config: EliteConfig['floorResist']): number {
+  return grownResist(floor, config.perFloor.boss, config);
+}
+
+function grownResist(floor: number, perFloor: number, config: EliteConfig['floorResist']): number {
   const floors = floor - config.minFloor + 1;
-  if (floors <= 0) return 0;
-  return Math.min(config.max, (isBoss ? config.perFloor.boss : config.perFloor.elite) * floors);
+  return floors <= 0 ? 0 : Math.min(config.max, perFloor * floors);
 }

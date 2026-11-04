@@ -3,6 +3,7 @@ import { COMBO_KEY_LABELS, type ComboKey } from '../../game/player/PlayerLoadout
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { GameWorld } from '../../game/GameWorld';
 import type { ActorId } from '../../game/entities/Actor';
+import { STAT_LABELS } from '../../game/items/ItemDescriber';
 import { buildCharacterView, characterSignature } from './CharacterView';
 import { gameView, type ComboBarView, type SkillSlotView } from './GameViewStore';
 import { buildInventoryView, buildStashView } from './InventoryView';
@@ -231,12 +232,23 @@ export class ViewSync {
       gameView.boss = null;
       return;
     }
-    const view = gameView.boss ?? (gameView.boss = { name: '', hp: 0, max: 1, phase: 0, phaseLabel: null });
+    const view = gameView.boss ?? (gameView.boss = { name: '', hp: 0, max: 1, phase: 0, phaseLabel: null, resists: '', segments: null });
     view.name = boss.name;
     view.hp = boss.hp;
     view.max = boss.maxHp;
     view.phase = world.bosses.phaseOf(boss);
     view.phaseLabel = world.bosses.phaseLabel(boss);
+    // 成對的魔王：血條分兩段（左右固定；倒下的那段是空的）
+    const pair = boss.defId !== null && this.data.enemies.has(boss.defId) ? this.data.enemies.get(boss.defId).pair : undefined;
+    if (pair) {
+      const other = world.bossPairs.partnerOf(boss);
+      const mine = { hp: boss.hp, max: boss.maxHp };
+      const theirs = other ? { hp: other.hp, max: other.maxHp } : { hp: 0, max: boss.maxHp };
+      view.segments = boss.defId! < pair.partner ? [mine, theirs] : [theirs, mine];
+    } else {
+      view.segments = null;
+    }
+    view.resists = world.randomResistsOf(boss).map((r) => `${STAT_LABELS[r.stat]} +${Math.round(r.value * 100)}%`).join('　');
   }
 
   private showBanner(floor: number): void {

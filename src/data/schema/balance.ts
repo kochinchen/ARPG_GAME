@@ -248,7 +248,8 @@ export const BalanceSchema = z.strictObject({
           /** true：elements 全部都用；false：每次出現抽兩種 */
           allElements: z.boolean().default(false),
           /** 每次出現從 stats 抽 count 個抗性，數值在 value 之間（抗性不會是負值） */
-          resists: z.strictObject({ stats: z.array(StatIdSchema).min(1), count: z.int().positive(), value: z.tuple([z.number().nonnegative(), z.number().nonnegative()]) }).optional(),
+          // 每個抽到的抗性 = 當層隱藏魔王的樓層減傷，疊加在樓層減傷上
+          resists: z.strictObject({ stats: z.array(StatIdSchema).min(1), count: z.int().positive() }).optional(),
         }),
       )
       .min(1),

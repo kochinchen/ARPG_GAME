@@ -109,7 +109,7 @@ try {
   const categoryOrder = ['melee', 'ranged', 'magic', 'utility'];
 
   const skillDefs = data.skills.all
-    .filter((s) => index.get(s.id))
+    .filter((s) => s.tree && index.get(s.id))
     .sort((a, b) => categoryOrder.indexOf(a.tree.category) - categoryOrder.indexOf(b.tree.category) || a.tree.branch.localeCompare(b.tree.branch) || a.tree.tier - b.tree.tier);
   const skillIdx = new Map(skillDefs.map((s, i) => [s.id, i]));
 

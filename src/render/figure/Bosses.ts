@@ -1,3 +1,4 @@
+import { ABYSS_HAND, ABYSS_HAND_R } from './bosses/AbyssHandAI';
 import type { FigureModel } from './FigureModel';
 import { ABYSS_LORD } from './bosses/AbyssLordAI';
 import { ABYSS_SOVEREIGN } from './bosses/AbyssSovereignAI';
@@ -30,4 +31,7 @@ export const BOSS_MODELS: Record<string, FigureModel> = {
   // 隱藏魔王：巨大的眼球、八根花瓣爪、大翅膀；尾巴在第三階段脫離
   'enemy.abyss_dragon': ABYSS_DRAGON,
   'enemy.abyss_tail': ABYSS_TAIL,
+  // 隱藏魔王：一左一右的爬行骷髏手臂，第三階段手被打壞
+  'enemy.abyss_hand': ABYSS_HAND,
+  'enemy.abyss_hand_r': ABYSS_HAND_R,
 };

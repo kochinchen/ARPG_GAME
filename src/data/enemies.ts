@@ -342,6 +342,25 @@ export const enemies: z.input<typeof EnemyDefSchema>[] = [
     lootTable: 'loot.skeleton',
     xp: 26,
   },
+  {
+    // 蜘蛛腳爬行的骷髏手：預警後往前拍地，離開扇形就躲得掉
+    id: 'enemy.bone_hand',
+    name: '骸手爬行者',
+    family: 'undead',
+    lore: '不知道是誰的手臂，長了一圈蜘蛛腳。掌心朝下的那一下，比看起來重得多。',
+    hp: 46,
+    damage: atk(5, 8),
+    defense: 14,
+    moveSpeed: 2.9,
+    radius: 0.38,
+    attackRange: 0.5,
+    attackSpeed: 0.95,
+    detectRange: 7,
+    ai: 'melee',
+    skills: ['basic.attack', 'enemy.bone_hand_slam'],
+    lootTable: 'loot.skeleton',
+    xp: 30,
+  },
 
   // ── 巨獸系：慢、硬、重擊（都有前搖） ──
   {

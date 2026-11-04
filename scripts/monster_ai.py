@@ -10,6 +10,8 @@ AI 生成的怪物（微軟 TRELLIS 用設計圖四視圖生成的 .glb）→ �
   石頭獸（結晶獸四種屬性共用）：art/monsters/stone_walker → src/render/figure/monsters/stoneWalkerAI.json
   骨龍（巨口、四根觸手、四隻腳）：art/monsters/bone_dragon → src/render/figure/bosses/boneDragonAI.json
   隱藏魔王「眼」（巨大眼球、八根花瓣爪、大翅膀）：art/monsters/abyss_dragon → bosses/abyssDragonAI.json；尾巴另外生成、第三階段脫離：同一個資料夾加第三個參數 tail → bosses/abyssDragonTailAI.json
+  骸手爬行者（小怪：骷髏手臂當頭、每邊 9 隻蜘蛛腳）：art/monsters/bone_hand → src/render/figure/monsters/boneHandAI.json
+  隱藏魔王「手」（爬行的骷髏手臂，一左一右）：身體 art/monsters/abyss_hand → bosses/abyssHandAI.json；前臂與手掌另外生成、第三階段打壞：加第三個參數 hand → bosses/abyssHandForearmAI.json
   熔岩巨獸 / 墮落騎士 / 墓穴守衛 / 墮落神官：art/monsters/<lava_behemoth|fallen_knight|crypt_guardian|fallen_priest> → bosses/<lavaBehemothAI|fallenKnightAI|cryptGuardianAI|fallenPriestAI>.json
 
 輸入：<資料夾>/ai/trellis-1.glb；輸出：<資料夾>/<怪物>-ai.blend（網格 + 骨架 + 權重，可在 Blender 修整）、
@@ -40,10 +42,10 @@ PART = args[2] if len(args) > 2 else None
 NAME = os.path.basename(os.path.normpath(folder)) + (f"_{PART}" if PART else "")
 TRIS = 7000
 # 一般怪物同時出現的數量多，面數要少；魔王用預設（骨龍細節多又一次只有一隻，設計者要求加倍）
-TRIS_OF = {"stone_walker": 4500, "bone_dragon": 9000, "abyss_dragon": 9000, "abyss_dragon_tail": 3200}
+TRIS_OF = {"stone_walker": 4500, "bone_hand": 4500, "bone_dragon": 9000, "abyss_dragon": 9000, "abyss_dragon_tail": 3200, "abyss_hand": 7000, "abyss_hand_hand": 4800}
 FLOOR_AT = {"stone_walker": -0.378}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
-SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032}
+SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032, "abyss_hand": 0.04, "abyss_hand_hand": 0.032}
 
 # 生成時多出來、要切掉的部分（Blender 座標、減面前判斷；整個三角形都在範圍內才刪）
 CLEANUP = {
@@ -51,6 +53,8 @@ CLEANUP = {
     "abyss_sovereign": lambda p: p.y < -0.33 and abs(p.x) < 0.1 and p.z > -0.42,
     # 骨龍：TRELLIS 每邊多生一隻中間的腳（設計是四隻腳），切掉腳掌與小腿
     "bone_dragon": lambda p: 0.05 < p.y < 0.255 and 0.14 < abs(p.x) < 0.31 and p.z < -0.225,
+    # 手：TRELLIS 每邊生成 6 隻腳（設計是 4 隻），切掉前後第二隻
+    "abyss_hand": lambda p: abs(p.x) > HAND_LEG_CUT_X and any(abs(p.y - y) < 0.052 for y in HAND_CUT_LEGS),
 }
 
 
@@ -129,7 +133,70 @@ SLIT_W, SLIT_H = 0.2, 0.9
 # 切細（切長邊之後）
 AFTER_SPLIT = {"abyss_dragon": refine_wing_eyes}
 # 減面前改形狀
-RESHAPE = {"abyss_dragon": reshape_eye}
+def reshape_bone_hand(bm):
+    """骸手爬行者：模型的手掌朝 +Y、眼睛朝 -Y，轉 180° 讓手掌朝前（往下拍時掌心才會向地）；兩段浮空的拇指往手掌靠上"""
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(math.pi, 3, "Z"))
+    seen = set()
+    for v in bm.verts:
+        if v in seen:
+            continue
+        stack, island = [v], []
+        seen.add(v)
+        while stack:
+            x = stack.pop()
+            island.append(x)
+            for e in x.link_edges:
+                w = e.other_vert(x)
+                if w not in seen:
+                    seen.add(w)
+                    stack.append(w)
+        if len(island) < 500:
+            for x in island:
+                x.co.y -= 0.055
+
+
+# ── 手（abyss_hand）：TRELLIS 把腳生成直直往下，這裡往外、往前後張開成蜘蛛腳（減面前，三角形才會平均）──
+HAND_LEG_CUT_X = 0.11
+HAND_CUT_LEGS = (-0.157, 0.157)
+# 留下的四隻腳（左半邊）：前後位置、往前後張開的角度（負 = 往前）
+HAND_LEGS = [(-0.27, -38), (-0.05, -13), (0.06, 13), (0.27, 38)]
+HAND_LEG_OUT = math.radians(30)
+HAND_HIP = (0.085, 0.1)
+HAND_EYE = Vector((0, -0.31, 0.1))
+HAND_EYE_R = 0.205
+
+
+def hand_leg_move(x, y, z, cy, yaw, k=1.0):
+    """左半邊的點（x > 0）→ 張開後的位置；k = 張開的比例（靠近身體的地方漸變）"""
+    hx, hz = HAND_HIP
+    a, b = HAND_LEG_OUT * k, math.radians(yaw) * k
+    dx, dz = x - hx, z - hz
+    # 繞髖往外翻
+    nx, nz = dx * math.cos(a) - dz * math.sin(a), dx * math.sin(a) + dz * math.cos(a)
+    # 繞髖往前後張開
+    dy = y - cy
+    return hx + nx * math.cos(b) - dy * math.sin(b), cy + nx * math.sin(b) + dy * math.cos(b), hz + nz
+
+
+def reshape_hand_body(bm):
+    for v in bm.verts:
+        p = v.co
+        ax = abs(p.x)
+        if ax < HAND_HIP[0] or p.z > 0.2 or (p - HAND_EYE).length < HAND_EYE_R:
+            continue
+        leg = next(((cy, yaw) for cy, yaw in HAND_LEGS if abs(p.y - cy) < 0.058), None)
+        if not leg:
+            continue
+        nx, ny, nz = hand_leg_move(ax, p.y, p.z, leg[0], leg[1], smooth((ax - HAND_HIP[0]) / 0.08))
+        p.x, p.y, p.z = nx if p.x > 0 else -nx, ny, nz
+
+
+def reshape_hand_arm(bm):
+    """前臂與手掌：模型的掌心朝 -X，轉 90° 讓掌心朝前（-Y）"""
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(math.pi / 2, 3, "Z"))
+
+
+RESHAPE = {"abyss_dragon": reshape_eye, "bone_hand": reshape_bone_hand, "abyss_hand": reshape_hand_body, "abyss_hand_hand": reshape_hand_arm}
 # 尾巴：中段重複成 TAIL_COPIES 段（每段自己封口、互相重疊一點，彎曲時不會破洞），總長約 3 倍；再整體縮到接在本體上的大小
 TAIL_BAND = (-0.34, -0.06)
 TAIL_COPIES = 6
@@ -191,7 +258,7 @@ def load(path, tris, name, cut=None):
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(cut(v.co) for v in f.verts)], context="FACES")
         bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
         # 骨龍：切掉多餘的腳留下的開口補起來，否則從旁邊看得到身體裡面（補的面沒有貼圖，下面當黑面處理）
-        if name.startswith("bone_dragon"):
+        if name.startswith(("bone_dragon", "abyss_hand")):
             bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
     base = name[:-3] if name.endswith("_ai") else name
     if base in RESHAPE:
@@ -466,6 +533,42 @@ def stone_walker():
     ), {}
 
 
+def bone_hand():
+    """骸手爬行者：身體是一顆骨球（後面是眼睛），手臂從身體前方斜往前上、手掌朝前；每邊 9 隻腳。座標是轉 180° 之後的（手掌朝 -Y）"""
+    spine = [
+        ("root", None, V((0, 0.0, -0.1)), V((0, -0.14, -0.12)), 0.06),
+        ("ex_ball", "root", V((0, 0.06, -0.08)), V((0, 0.2, -0.05)), 0.095),
+        ("ex_arm", "root", V((0, 0.03, -0.06)), V((0, -0.085, 0.135)), 0.05),
+        ("ex_palm", "ex_arm", V((0, -0.09, 0.14)), V((0, -0.42, 0.15)), 0.09),
+        ("ex_fingCa", "ex_palm", V((0, -0.25, 0.26)), V((0, -0.33, 0.41)), 0.03),
+        ("ex_fingCb", "ex_fingCa", V((0, -0.33, 0.41)), V((0, -0.443, 0.35)), 0.025),
+    ]
+    # 腳（左，由前到後）：髖 → 膝 → 腳尖；最後兩隻短、腳尖不著地
+    legs = [
+        [(0.05, -0.17, -0.12), (0.07, -0.25, -0.17), (0.082, -0.405, -0.413)],
+        [(0.06, -0.17, -0.12), (0.11, -0.24, -0.17), (0.165, -0.37, -0.41)],
+        [(0.08, -0.12, -0.11), (0.15, -0.176, -0.16), (0.228, -0.272, -0.4)],
+        [(0.08, -0.06, -0.1), (0.175, -0.07, -0.09), (0.318, -0.105, -0.413)],
+        [(0.08, 0.015, -0.1), (0.17, 0.015, -0.1), (0.322, 0.014, -0.413)],
+        [(0.08, 0.09, -0.1), (0.17, 0.105, -0.08), (0.322, 0.14, -0.413)],
+        [(0.08, 0.15, -0.1), (0.142, 0.2, -0.08), (0.28, 0.3, -0.4)],
+        [(0.06, 0.24, -0.1), (0.105, 0.311, -0.08), (0.163, 0.46, -0.27)],
+        [(0.05, 0.3, -0.09), (0.093, 0.393, -0.08), (0.09, 0.505, -0.26)],
+    ]
+
+    def side(s, m):
+        out = []
+        for n, pts in (("I", [(0.07, -0.24, 0.26), (0.085, -0.32, 0.4), (0.085, -0.42, 0.33)]), ("O", [(0.125, -0.2, 0.22), (0.175, -0.235, 0.34), (0.194, -0.363, 0.2)])):
+            out += chain([f"ex_fing{n}{s}a", f"ex_fing{n}{s}b"], "ex_palm", [m(V(p)) for p in pts], [0.03, 0.025])
+        out += chain([f"ex_thumb{s}"], "ex_palm", [m(V((0.215, -0.155, 0.4))), m(V((0.18, -0.19, 0.285)))], [0.04])
+        for i, leg in enumerate(legs):
+            n = f"ex_leg{s}{i + 1}"
+            out += chain([n + "a", n + "b"], "root", [m(V(p)) for p in leg], [0.035, 0.025])
+        return out
+
+    return spine + sides(side), {"legs": len(legs)}
+
+
 def bone_dragon():
     """骨龍：身體就是一張巨口。上顎（head）掛在背上、下顎（jaw）掛在骨盆，兩根骨頭在嘴的最後方分開；肩背兩側各兩根觸手（A 上、B 下），四隻腳"""
     spine = [
@@ -545,6 +648,49 @@ def abyss_dragon_tail():
     top = max(c.y for c in co)
     bones.append(("ex_tailHead", names[-1], ax(sec[-1]), ax(top), 0.09))
     return bones, {"tailSections": [round(y, 5) for y in sec]}
+
+
+def abyss_hand():
+    """手的身體：上手臂（root）、手肘的眼睛（ex_eye）、四對蜘蛛腳（ex_leg?1～4a 髖 → 膝、b 膝 → 腳尖）；前臂接在手肘上（遊戲端合併）"""
+    bones = [
+        ("root", None, V((0, 0.0, 0.13)), V((0, 0.3, 0.13)), 0.09),
+        ("ex_ball", "root", V((0, 0.33, 0.13)), V((0, 0.5, 0.13)), 0.08),
+        ("ex_eye", "root", V(tuple(HAND_EYE)), V((0, -0.5, HAND_EYE.z)), 0.17),
+    ]
+
+    def side(s, m):
+        out = []
+        for i, (cy, yaw) in enumerate(HAND_LEGS):
+            hip = V((HAND_HIP[0], cy, 0.12))
+            knee = V(hand_leg_move(0.225, cy, -0.02, cy, yaw))
+            tip = V(hand_leg_move(0.23, cy, -0.354, cy, yaw))
+            n = f"ex_leg{s}{i + 1}"
+            out += chain([n + "a", n + "b"], "root", [m(hip), m(knee), m(tip)], [0.045, 0.035])
+        return out
+
+    return bones + sides(side), {"legs": len(HAND_LEGS)}
+
+
+def abyss_hand_hand():
+    """前臂與手掌（掌心朝 -Y）：ex_arm 手肘 → 手腕、ex_palm 手腕 → 指根、五根手指各三節（ex_fing1～5a、b、c，從 +X 到 -X）"""
+    bones = [
+        ("root", None, V((0, 0, -0.5)), V((0, 0, -0.44)), 0.05),
+        ("ex_arm", "root", V((0, 0, -0.44)), V((0, 0, -0.02)), 0.075),
+        ("ex_palm", "ex_arm", V((0, 0, -0.02)), V((0, 0, 0.17)), 0.09),
+    ]
+    # 模型的 y → -x：指根 → 指尖
+    fingers = [
+        ((0.144, 0.0, 0.043), (0.273, -0.02, 0.216)),
+        ((0.1, 0.0, 0.187), (0.187, -0.03, 0.431)),
+        ((0.009, 0.0, 0.187), (-0.009, -0.03, 0.495)),
+        ((-0.063, 0.0, 0.187), (-0.178, -0.03, 0.425)),
+        ((-0.109, 0.0, 0.086), (-0.264, -0.02, 0.236)),
+    ]
+    for i, (a, b) in enumerate(fingers):
+        a, b = V(a), V(b)
+        n = f"ex_fing{i + 1}"
+        bones += chain([n + "a", n + "b", n + "c"], "ex_palm", [snap(a, 0.05), snap(a.lerp(b, 0.36), 0.04), snap(a.lerp(b, 0.68), 0.04), b], [0.035, 0.03, 0.025])
+    return bones, {}
 
 
 # 另外生成的獨立物件（<資料夾>/ai/<名稱>.glb → 不綁骨架的網格，遊戲端掛在關節上或掉在地上）：名稱 → 三角形數
@@ -731,6 +877,21 @@ def abyss_dragon_zone(p, bone):
 
 
 ZONES["abyss_dragon"] = abyss_dragon_zone
+
+
+def abyss_hand_zone(p, bone):
+    """手：眼睛整顆跟 ex_eye；腳只帶動身體外側、同一邊"""
+    in_eye = (p - HAND_EYE).length < HAND_EYE_R
+    if bone == "ex_eye":
+        return in_eye
+    if in_eye:
+        return False
+    if bone.startswith("ex_leg"):
+        return abs(p.x) > HAND_HIP[0] and (p.x > 0) == (bone[6] == "L")
+    return True
+
+
+ZONES["abyss_hand"] = abyss_hand_zone
 # 分開的部位（joined(三角形三個頂點的主要骨頭, 三個頂點的權重) → 可以留下嗎）：跨到不相連部位的三角形在動作時會被拉長，輸出時拿掉
 JOINED = {n: limbs_joined for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
 # 骨龍：嘴裡的東西碰到上顎的三角形，張嘴時會被拉成長條
@@ -748,9 +909,12 @@ SKELETONS = {
     "crypt_guardian": crypt_guardian,
     "fallen_priest": fallen_priest,
     "stone_walker": stone_walker,
+    "bone_hand": bone_hand,
     "bone_dragon": bone_dragon,
     "abyss_dragon": abyss_dragon,
     "abyss_dragon_tail": abyss_dragon_tail,
+    "abyss_hand": abyss_hand,
+    "abyss_hand_hand": abyss_hand_hand,
 }
 bones, extra = SKELETONS[NAME]()
 
@@ -771,7 +935,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_dragon", "abyss_dragon")}
+JOINT_SOFT = {n: 0.04 for n in ("abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
@@ -1024,7 +1188,7 @@ cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
 sc.collection.objects.link(cam)
 sc.camera = cam
 cam.data.type = "ORTHO"
-cam.data.ortho_scale = {"abyss_dragon": 2.2, "abyss_dragon_tail": 1.5}.get(NAME, 1.1)
+cam.data.ortho_scale = {"abyss_dragon": 2.2, "abyss_dragon_tail": 1.5, "abyss_hand": 1.3}.get(NAME, 1.1)
 prev = os.path.join(folder, "ai", "preview")
 os.makedirs(prev, exist_ok=True)
 for n, loc, rot in [("top", (0, 0, 3), (0, 0, 0)), ("front", (0, -3, 0), (math.pi / 2, 0, 0)), ("side", (3, 0, 0), (math.pi / 2, 0, math.pi / 2)),

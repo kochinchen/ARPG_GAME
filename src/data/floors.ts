@@ -39,6 +39,7 @@ const CREATURES: FloorInput['monsterPool'] = [
   { enemyId: 'enemy.poison_spitter', weight: 2.5, minFloor: 12 },
   { enemyId: 'enemy.hook_claw', weight: 2.5, minFloor: 13 },
   { enemyId: 'enemy.horned_brute', weight: 1.2, minFloor: 13 },
+  { enemyId: 'enemy.bone_hand', weight: 2.5, minFloor: 14 },
   { enemyId: 'enemy.fire_crawler', weight: 2.5, minFloor: 15 },
   { enemyId: 'enemy.molten_brute', weight: 1.2, minFloor: 15 },
   { enemyId: 'enemy.frost_sporeling', weight: 2.5, minFloor: 16 },

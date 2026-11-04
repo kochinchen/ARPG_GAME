@@ -40,10 +40,17 @@ describe('噬界足眼', () => {
     expect(resists).toHaveLength(3);
     expect(new Set(resists.map((r) => r.stat)).size).toBe(3);
     for (const r of resists) {
-      expect(r.value).toBeGreaterThanOrEqual(0.1);
-      expect(r.value).toBeLessThanOrEqual(0.3);
+      // 第 23 層：和當層隱藏魔王的樓層減傷相同
+      expect(r.value).toBeCloseTo(0.28);
     }
     expect(data.enemies.get('enemy.abyss_dragon').phases.map((p) => p.hpBelow)).toEqual([0.65, 0.3]);
+    // 樓層減傷不打折，抽到的再疊上去；抗性總上限在 DamagePipeline
+    const drawn = (stat: 'physicalResist' | 'knockbackResist') => resists.find((r) => r.stat === stat)?.value ?? 0;
+    expect(boss.stats.get('physicalResist')).toBeCloseTo(0.28 + drawn('physicalResist'));
+    expect(boss.stats.get('knockbackResist')).toBeCloseTo(drawn('knockbackResist'));
+    // 魔王血條顯示抽到的抗性；玩家不是隱藏魔王，沒有
+    expect(w.randomResistsOf(boss)).toEqual(resists);
+    expect(w.randomResistsOf(w.player)).toEqual([]);
   });
 
   it('第二階段：爪子收合 20 秒（減傷 30%、站著不動、尾巴連發），張開 40～50 秒，如此交替', () => {

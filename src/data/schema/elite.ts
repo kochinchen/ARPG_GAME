@@ -30,12 +30,13 @@ export const EliteConfigSchema = z.strictObject({
   lootTable: IdSchema,
   /**
    * 樓層減傷：第 minFloor 層起，精英隨機帶「物理減傷」或「屬性減傷」其一，Boss 兩種都有。
-   * 數值 = 每層成長 × (樓層 − minFloor + 1)，上限 max。
+   * 數值 = 每層成長 × (樓層 − minFloor + 1)，上限 max，再 × normalScale；隱藏魔王不乘 normalScale。
    */
   floorResist: z.strictObject({
     minFloor: z.int().positive(),
     perFloor: z.strictObject({ elite: z.number().nonnegative(), boss: z.number().nonnegative() }),
     max: z.number().min(0).max(1),
+    normalScale: z.number().gt(0).max(1),
   }),
 });
 export type EliteConfig = z.infer<typeof EliteConfigSchema>;

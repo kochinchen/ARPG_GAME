@@ -143,7 +143,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     xpMultiplier: 3.5,
     radiusMultiplier: 1.2,
     lootTable: 'loot.elite',
-    floorResist: { minFloor: 10, perFloor: { elite: 0.015, boss: 0.02 }, max: 0.4 },
+    // 精英與魔王只拿 normalScale 倍（設計者 2026-11-04，減 40%）；隱藏魔王拿全部
+    floorResist: { minFloor: 10, perFloor: { elite: 0.015, boss: 0.02 }, max: 0.4, normalScale: 0.6 },
   },
   // 每層的首領：比精英（HP ×3、傷害 ×1.8）強一截、體型 ×1.5；出口的安全範圍是 12 格，首領站在 16 格外
   // 《井誌》每收集滿 1/4 的獎勵（設計者 2026-11-01）：1/4 隨機橘核、2/4 橘裝武器、3/4 橘裝鎧甲、4/4 額外屬性點
@@ -159,19 +160,21 @@ export const balance: z.input<typeof BalanceSchema> = {
   // 隱藏魔王（設計者 2026-11-02）：11～29 層沒有固定魔王的樓層都預留一間正方形隱藏房（右上角、平常是實心牆，邊長和 F30 的競技場一樣）。
   // 每次進入樓層 chance 機率打開；可以不打、不影響出口。elements：每次出現隨機抽兩種，決定發光區塊與招式的屬性。
   hiddenBoss: {
-    roomFloors: [11, 12, 13, 14, 16, 17, 18, 19, 21, 22, 23, 24, 26, 27, 28, 29],
+    roomFloors: [9, 11, 12, 13, 14, 16, 17, 18, 19, 21, 22, 23, 24, 26, 27, 28, 29],
     roomSize: 48,
     chance: 0.2,
     bosses: [
-      { enemyId: 'enemy.bone_dragon', floors: [11, 12, 13, 14, 16, 17, 18, 19, 21, 22], elements: ['fire', 'cold', 'lightning', 'poison'] },
+      { enemyId: 'enemy.bone_dragon', floors: [16, 17, 18, 19, 21, 22], elements: ['fire', 'cold', 'lightning', 'poison'] },
       {
         enemyId: 'enemy.abyss_dragon',
         floors: [23, 24, 26, 27, 28, 29],
         // 吐息每次隨機爆炎、冰柱或轟雷
         elements: ['fire', 'cold', 'lightning'],
         allElements: true,
-        resists: { stats: ['poisonResist', 'fireResist', 'coldResist', 'lightningResist', 'knockbackResist', 'physicalResist'], count: 3, value: [0.1, 0.3] },
+        resists: { stats: ['poisonResist', 'fireResist', 'coldResist', 'lightningResist', 'knockbackResist', 'physicalResist'], count: 3 },
       },
+      // 奪界雙手：兩隻一對（EnemyDef.pair）；三隻分成三段：手 9～14 → 口 16～22 → 眼 23～29（設計者 2026-11-04）
+      { enemyId: 'enemy.abyss_hand', floors: [9, 11, 12, 13, 14], elements: ['cold', 'poison'], allElements: true },
     ],
   },
   goldWalker: {

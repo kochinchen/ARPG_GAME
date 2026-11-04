@@ -32,7 +32,7 @@ export function coreTypeColor(type: CoreTypeId, element?: CoreElement): number {
 }
 
 type Pt = [number, number];
-type GemSource = Pick<CoreInstance, 'types' | 'tier' | 'rarity'> & Partial<Pick<CoreInstance, 'element' | 'brand'>>;
+type GemSource = Pick<CoreInstance, 'types' | 'tier' | 'rarity'> & Partial<Pick<CoreInstance, 'element' | 'brand' | 'mark'>>;
 
 export interface CoreGem {
   /** 腰圍外框（核色） */
@@ -190,7 +190,7 @@ export function coreGem(core: GemSource): CoreGem {
     edge: hsl(h, Math.min(1, s), 0.04),
     sparkles: SPARKS.slice(0, Math.min(SPARKS.length, core.tier)),
     glyph: glyphFor(core.types[0]!),
-    brand: core.brand ? corners[0]! : null,
+    brand: core.brand || core.mark ? corners[0]! : null,
   };
 }
 
@@ -241,7 +241,7 @@ export function coreSvg(core: GemSource, id = 'core'): string {
 const cache = new Map<string, string>();
 /** 熔核圖示（data URI；同一種外觀只畫一次） */
 export function coreIcon(core: GemSource): string {
-  const key = `${core.types.join('+')}|${core.tier}|${core.rarity}|${core.element ?? ''}|${core.brand ? 1 : 0}`;
+  const key = `${core.types.join('+')}|${core.tier}|${core.rarity}|${core.element ?? ''}|${core.brand || core.mark ? 1 : 0}`;
   let uri = cache.get(key);
   if (!uri) {
     uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(coreSvg(core))}`;

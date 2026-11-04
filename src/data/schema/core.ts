@@ -82,9 +82,21 @@ export const CoreTypeDefSchema = z.strictObject({
 export type CoreTypeDef = z.infer<typeof CoreTypeDefSchema>;
 export type CoreTypeId = CoreTypeDef['id'];
 
+/**
+ * 魔王專屬的印記（奪取之手）：只會出現在指定掉落的熔核上，不來自傳奇裝備、不打印記的折扣。
+ * 每一條在 value 範圍內各自擲骰；全身合計上限 = 最高值 × 份數（和一般印記相同）。
+ */
+export const CoreMarkSchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  lines: z.array(z.strictObject({ stat: StatIdSchema, value: z.tuple([z.number().positive(), z.number().positive()]) })).min(1),
+});
+export type CoreMark = z.infer<typeof CoreMarkSchema>;
+
 export const CoreDataSchema = z.strictObject({
   types: z.array(CoreTypeDefSchema).min(1),
   /** 通用副屬性池（任何核種都可能抽到） */
   shared: z.array(CoreLineSchema).min(1),
+  marks: z.array(CoreMarkSchema).default([]),
 });
 export type CoreData = z.infer<typeof CoreDataSchema>;

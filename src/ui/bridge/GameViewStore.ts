@@ -76,7 +76,7 @@ export const gameView = reactive({
   /** 裝備圖鑑：拿到過的 'base:<ID>'、'legendary:<ID>' */
   collection: [] as string[],
   /** 畫面上方的 Boss 血條；phase 0 = 初始階段 */
-  boss: null as { name: string; hp: number; max: number; phase: number; phaseLabel: string | null } | null,
+  boss: null as { name: string; hp: number; max: number; phase: number; phaseLabel: string | null; resists: string; segments: { hp: number; max: number }[] | null } | null,
   /** 進入新樓層時顯示幾秒的橫幅 */
   floorBanner: null as number | null,
   /** 倒地中顯示的倒數秒數；存活為 null */

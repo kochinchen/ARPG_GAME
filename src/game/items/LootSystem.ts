@@ -5,7 +5,15 @@ import type { LootTableDef } from '../../data/schema/loot';
 import type { GroundContent } from '../entities/Interactable';
 import type { GameEventBus } from '../GameEvents';
 import type { NavGrid } from '../movement/NavGrid';
+import { fuse } from './FusionResolver';
 import type { ItemGenerator } from './ItemGenerator';
+
+/** 保底：高於或等於這個稀有度都算 */
+const RARITY_ORDER = ['normal', 'magic', 'rare', 'epic', 'legendary', 'mythic'];
+/** 魔王印記的數值：亂數的次方（越大越容易擲到低的） */
+const MARK_SKEW = { shallow: 2, deep: 0.5 };
+/** 融合要用到的資料 */
+type FuseData = Parameters<typeof fuse>[2];
 
 /** 掉落物散開的最大距離（Tile） */
 const SCATTER_RADIUS = 1.1;
@@ -15,7 +23,7 @@ const SCATTER_RADIUS = 1.1;
  */
 export class LootSystem {
   constructor(
-    private readonly data: Pick<DataRegistry, 'enemies' | 'lootTables' | 'balance'>,
+    private readonly data: Pick<DataRegistry, 'enemies' | 'lootTables' | 'balance'> & FuseData,
     private readonly rng: Rng,
     private readonly generator: ItemGenerator,
     private readonly nav: NavGrid,
@@ -35,6 +43,7 @@ export class LootSystem {
       if (this.data.enemies.get(e.defId).treasure) this.dropGoldBurst(e.position);
     });
     events.on('ChestOpened', (e) => this.drop(e.lootTable, e.position));
+    events.on('BossPairDefeated', (e) => this.drop(e.lootTable, e.position));
   }
 
   /** 擲骰但不生成（測試分布用） */
@@ -73,11 +82,15 @@ export class LootSystem {
     // 隱藏魔王：保底稀有度（在白裝之後，白裝換第一件、保底換最後一件，不會互相蓋掉）
     if (table.atLeast) {
       const items = drops.filter((d) => d.kind === 'item');
-      const lucky = items.some((d) => d.item.rarity === 'mythic' || d.item.rarity === table.atLeast);
+      const lucky = items.some((d) => RARITY_ORDER.indexOf(d.item.rarity) >= RARITY_ORDER.indexOf(table.atLeast!));
       if (!lucky && items.length > 0) {
         const index = drops.lastIndexOf(items[items.length - 1]!);
         drops[index] = { kind: 'item', item: this.generator.generateOfRarity(this.itemLevel(), table.atLeast) };
       }
+    }
+    // 隱藏魔王：有機會多幾顆熔核
+    for (const entry of table.cores) {
+      if (this.rng.chance(entry.chance)) drops.push({ kind: 'core', core: this.rollCore(entry, depth) });
     }
     // 隱藏魔王：額外的金幣
     if (table.bonusGold) {
@@ -104,6 +117,30 @@ export class LootSystem {
       legendary: w.legendary * bonus.legendary,
       mythic: w.mythic * bonus.mythic,
     };
+  }
+
+  /** 純核：四件同種類走正常的融合（紫 = 三紫一黃，橘 = 四紫）；戒指、護身符不能融合，重擲。depth：0 = 最淺、1 = 最深 */
+  private rollCore(entry: LootTableDef['cores'][number], depth: number) {
+    const kindOf = (item: { baseId: string }) => {
+      const base = this.data.items.get(item.baseId);
+      return base.weaponType ?? base.slot;
+    };
+    const ofKind = (rarity: 'epic' | 'rare', kind: string | null) => {
+      for (;;) {
+        const item = this.generator.generateOfRarity(this.itemLevel(), rarity);
+        const k = kindOf(item);
+        if (kind ? k === kind : k !== 'ring' && k !== 'amulet') return item;
+      }
+    };
+    const first = ofKind('epic', null);
+    const kind = kindOf(first);
+    const core = fuse([first, ofKind('epic', kind), ofKind('epic', kind), ofKind(entry.rarity === 'epic' ? 'rare' : 'epic', kind)], [], this.data, this.rng, this.generator.newUid());
+    if (entry.mark) {
+      // 越深越容易擲到高的：平均值從範圍的 1/3 升到 2/3
+      const skew = MARK_SKEW.shallow + (MARK_SKEW.deep - MARK_SKEW.shallow) * depth;
+      core.mark = { id: entry.mark, rolls: this.data.cores.marks.get(entry.mark).lines.map((l) => l.value[0] + (l.value[1] - l.value[0]) * this.rng.next() ** skew) };
+    }
+    return core;
   }
 
   drop(tableId: string, position: Vec2): void {

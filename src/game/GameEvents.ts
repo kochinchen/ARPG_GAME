@@ -114,6 +114,10 @@ export interface GameEvents {
   BossLookChanged: { actorId: ActorId; look: number };
   /** 主角死在附近，魔王回血（EnemyDef.healOnPlayerDeath） */
   BossFedOnDeath: { actorId: ActorId; position: Vec2; amount: number };
+  /** 成對的魔王兩隻都倒下了（掉寶） */
+  BossPairDefeated: { position: Vec2; lootTable: string };
+  /** 主角的技能被奪走（暫時不能用） */
+  SkillSealed: { actorId: ActorId; position: Vec2; skillId: string; duration: number };
   /** 連發丟出一招（畫面畫飛向落點的特效）：origin 發出的位置、point 目標位置、impactIn 幾秒後炸開 */
   BarrageFired: { actorId: ActorId; skillId: string; origin: Vec2; point: Vec2; direction: Vec2; impactIn: number };
   /** 跳到空中：地上出現印記（噬界足眼） */

@@ -101,8 +101,8 @@ describe('隱藏房', () => {
   }, 240_000);
 
   it('有沒有魔王，一般怪物與寶箱的位置都一樣', () => {
-    const a = world(12, 5, false);
-    const b = world(12, 5, true);
+    const a = world(17, 5, false);
+    const b = world(17, 5, true);
     expect(bossOf(a)).toBeUndefined();
     expect(bossOf(b)).toBeDefined();
     expect(b.chests.map((c) => c.position)).toEqual(a.chests.map((c) => c.position));
@@ -126,7 +126,7 @@ describe('隱藏魔王', () => {
   });
 
   it('站在房間中央、抽到兩種不同屬性，不算進開出口的擊殺數', () => {
-    const w = world(11, 2, true);
+    const w = world(16, 2, true);
     const boss = bossOf(w)!;
     const room = w.map.hiddenRoom!;
     expect(Math.hypot(boss.position.x - room.x, boss.position.y - room.y)).toBeLessThan(1);
@@ -150,10 +150,10 @@ describe('隱藏魔王', () => {
       SaveMapper.restore(next, repairSave(save, data));
       return next;
     };
-    let none = world(11, 1, false);
-    for (let seed = 2; bossOf(none); seed++) none = world(11, seed, false);
+    let none = world(16, 1, false);
+    for (let seed = 2; bossOf(none); seed++) none = world(16, seed, false);
     expect(bossOf(reload(none))).toBeUndefined();
-    const w = world(11, 2, true);
+    const w = world(16, 2, true);
     const elements = [...bossOf(w)!.innateElements!];
     const again = reload(w);
     expect(bossOf(again)!.innateElements).toEqual(elements);
@@ -166,7 +166,7 @@ describe('隱藏魔王', () => {
   });
 
   it('招式：每次出招只有一種屬性，且一定是抽到的屬性', () => {
-    const w = world(11, 2, true);
+    const w = world(16, 2, true);
     const boss = bossOf(w)!;
     boss.innateElements = ['cold', 'poison'];
     const seen = new Set<string>();
@@ -218,10 +218,10 @@ describe('掉寶', () => {
   const loot = () => {
     const rng = new Rng(9);
     const nav = NavGrid.fromMap({ rows: ['...'] });
-    return new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => 11, () => 3, () => 11, new EventBus<GameEvents>());
+    return new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => 16, () => 3, () => 16, new EventBus<GameEvents>());
   };
 
-  it('第 11 層：一定 6 件裝備，另外 2000～3000 金幣；約 10% 有一件 5 孔白裝', () => {
+  it('第 16 層：一定 6 件裝備，另外 2000～3000 金幣；約 10% 有一件 5 孔白裝', () => {
     const system = loot();
     let white = 0;
     const N = 1000;
@@ -247,7 +247,7 @@ describe('萬骸之口的掉寶：越深越多，但不如噬界足眼', () => {
     return new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => floor, () => 3, () => floor, new EventBus<GameEvents>());
   };
 
-  it.each([[11, 6], [13, 7], [16, 7], [17, 8], [19, 8], [21, 9], [22, 9]])('第 %i 層 %i 件', (floor, items) => {
+  it.each([[16, 6], [17, 7], [18, 7], [19, 8], [21, 9], [22, 9]])('第 %i 層 %i 件', (floor, items) => {
     const drops = lootAt(floor).roll('loot.hidden_boss');
     expect(drops.filter((d) => d.kind === 'item').length).toBe(items);
   });
@@ -276,10 +276,10 @@ describe('保底稀有度', () => {
     return Array.from({ length: 500 }, () => system.roll(table).flatMap((d) => (d.kind === 'item' ? [d.item] : [])));
   };
 
-  it.each([11, 16, 22])('萬骸之口第 %i 層：每次至少一件橘裝以上，件數不變', (floor) => {
+  it.each([16, 19, 22])('萬骸之口第 %i 層：每次至少一件橘裝以上，件數不變', (floor) => {
     for (const items of rolls('loot.hidden_boss', floor)) {
       expect(items.some((it) => it.rarity === 'legendary' || it.rarity === 'mythic')).toBe(true);
-      expect(items).toHaveLength(6 + Math.round((3 * (floor - 11)) / 11));
+      expect(items).toHaveLength(6 + Math.round((3 * (floor - 16)) / 6));
     }
   });
 

@@ -28,12 +28,17 @@ export const LootTableDefSchema = z.strictObject({
   /** 這個機率把其中一件裝備換成孔數全滿的白裝（隱藏魔王） */
   fullSocketWhite: z.number().gt(0).max(1).optional(),
   /** 保底（隱藏魔王）：掉落裡至少一件這個稀有度以上；沒有就把最後一件換掉，件數不變 */
-  atLeast: z.enum(['legendary', 'mythic']).optional(),
+  atLeast: z.enum(['epic', 'legendary', 'mythic']).optional(),
   /**
    * 越深掉越多（隱藏魔王）：fromFloor 是表上的數量，到 toFloor 線性增加：
    * 多 extraItems 件必掉的裝備、額外金幣 × goldMultiplier、孔數全滿白裝的機率變成 fullSocketWhite
    */
-  deeper: z.strictObject({ fromFloor: z.int().positive(), toFloor: z.int().positive(), extraItems: z.int().positive(), goldMultiplier: z.number().gt(1), fullSocketWhite: z.number().gt(0).max(1) }).optional(),
+  /**
+   * 各自擲骰，這個機率多掉一顆這個稀有度的純核（四件同種類的裝備走正常的融合，核階和玩家融出來的相同）。
+   * mark：帶魔王專屬的印記；數值越深越容易擲到高的（deeper 的樓層範圍）
+   */
+  cores: z.array(z.strictObject({ chance: z.number().gt(0).max(1), rarity: z.enum(['epic', 'legendary']), mark: z.string().optional() })).default([]),
+  deeper: z.strictObject({ fromFloor: z.int().positive(), toFloor: z.int().positive(), extraItems: z.int().positive(), goldMultiplier: z.number().min(1), fullSocketWhite: z.number().gt(0).max(1) }).optional(),
 });
 
 export type LootTableDef = z.infer<typeof LootTableDefSchema>;

@@ -35,6 +35,8 @@ export interface CoreInstance {
   secondary: CoreRoll[];
   /** 印記：投入的橘武器的強屬性（◆），數值 × brand.valueMultiplier */
   brand?: { legendaryId: string; line: number; roll?: number };
+  /** 魔王專屬的印記：data/cores.ts 的 marks；rolls 是每一條擲到的數值 */
+  mark?: { id: string; rolls: number[] };
 }
 
 /** 裝備上的孔：max 是目前的孔數（鑿孔增加），cores 是已鑲入的熔核（數量 ≤ max，其餘為空孔） */

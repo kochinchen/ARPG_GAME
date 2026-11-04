@@ -77,6 +77,9 @@ function walk(effects: readonly EffectDef[], count: number, caster: Actor, targe
       case 'status':
         if (e.target === 'target' && STATUS_NAMES[e.status]) info.extras.push(`${STATUS_NAMES[e.status]} ${rankValue(e.duration, 1)} 秒`);
         break;
+      case 'seal':
+        info.extras.push(`奪取一個技能 ${rankValue(e.duration, 1)} 秒`);
+        break;
       case 'summon':
         info.extras.push(`召喚 ${data.enemies.get(e.enemyId).name} ×${e.count}`);
         break;

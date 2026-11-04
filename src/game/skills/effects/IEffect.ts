@@ -30,6 +30,8 @@ export interface EffectServices {
   spawnProjectile: (projectile: Omit<Projectile, 'id'>) => void;
   /** 在施放者周圍召喚怪物（由 GameWorld 建立實體） */
   summon: (caster: Actor, enemyId: string, count: number, maxAlive: number) => void;
+  /** 奪取：主角的一個技能暫時不能用（由 GameWorld 依裝備的技能挑選） */
+  sealSkill: (target: Actor, duration: number) => void;
   /** 佈置機關（DeviceSystem） */
   placeDevice: (def: DeviceEffectDef, ctx: EffectContext) => void;
   /** 近戰 / 遠程 / 魔法的共通倍率（吸血） */

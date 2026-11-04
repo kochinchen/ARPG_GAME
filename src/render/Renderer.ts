@@ -169,6 +169,8 @@ export class Renderer {
         const center = skill.targeting === 'ground' ? e.point : dash ? dashLanding(attacker, dash.distance, e.point, e.direction, e.targetId === null ? null : world.targeting.getActor(e.targetId)) : attacker.position;
         const active = () => attacker.alive && attacker.cast?.skill.id === skill.id;
         for (const area of skill.effects) {
+          // 投射物：畫出飛行的扇形範圍（奪界雙手）
+          if (area.type === 'projectile') this.effects.spawnTelegraph(attacker.position, area.range + area.originForward, e.direction, Math.max(rankValue(area.spreadDeg, 1) + 12, 16), e.impactIn, active);
           if (area.type !== 'area' && area.type !== 'zone') continue;
           const direction = area.type === 'area' && area.offsetDeg ? rotate(e.direction, area.offsetDeg) : e.direction;
           // 直線範圍從施放者腳下延伸（衝鋒也是：先標出整條衝撞路線）
@@ -236,6 +238,7 @@ export class Renderer {
     });
     const say = (position: Vec2, text: string, color: number) =>
       this.floatingText.spawnText(projection.toScreen(position), text, color);
+    world.events.on('SkillSealed', (e) => say(e.position, `${data.skills.get(e.skillId).name} 被奪走`, PALETTE.critText));
     world.events.on('BossFedOnDeath', (e) => say(e.position, `吞噬魂魄 +${Math.round(e.amount)}`, PALETTE.healText));
     world.events.on('GoldPickedUp', (e) => say(e.position, `+${e.amount} 金幣`, PALETTE.marker));
     world.events.on('PotionPickedUp', (e) => say(e.position, `+${e.count} 藥水`, PALETTE.healText));

@@ -18,7 +18,7 @@ import { MapDefSchema, type MapDef } from './schema/map';
 import { ComboRuleSchema, isRangeSequenceValid, type ComboRuleDef } from './schema/combo';
 import { EliteAffixDefSchema, type EliteAffixDef } from './schema/elite';
 import { LegendaryDefSchema, type LegendaryDef, type SkillFilter } from './schema/legendary';
-import { CORE_SLOTS, CoreDataSchema, type CoreLine, type CoreTypeDef } from './schema/core';
+import { CORE_SLOTS, CoreDataSchema, type CoreLine, type CoreMark, type CoreTypeDef } from './schema/core';
 import { WeaponTypeSchema } from './schema/item';
 import { checkComboTags, flattenEffects } from './skillAnalysis';
 import { findMarker, reachableTiles } from './mapAnalysis';
@@ -51,6 +51,7 @@ export interface CoreTables {
   types: DataTable<CoreTypeDef>;
   lines: DataTable<CoreLine>;
   shared: readonly CoreLine[];
+  marks: DataTable<CoreMark>;
 }
 
 /** 熔核不可出現的屬性：吸血 / 吸魔（吸取硬上限守則）、回魔（由 Support 被動負責） */
@@ -348,7 +349,7 @@ function parseTable<T extends { id: string }>(
 function parseCores(value: unknown, problems: string[]): CoreTables {
   const data = parseOne('cores', CoreDataSchema, value, problems);
   const types = new DataTable<CoreTypeDef>('coreType', []);
-  if (!data) return { types, lines: new DataTable<CoreLine>('coreLine', []), shared: [] };
+  if (!data) return { types, lines: new DataTable<CoreLine>('coreLine', []), shared: [], marks: new DataTable<CoreMark>('coreMark', []) };
   const typeIds = new Set<string>();
   const lines: CoreLine[] = [];
   const lineIds = new Set<string>();
@@ -383,7 +384,7 @@ function parseCores(value: unknown, problems: string[]): CoreTables {
     if (n !== 1) problems.push(`防具部位 '${slot}' 應剛好對應一種啟用的護核（目前 ${n} 種）`);
   }
   for (const line of data.shared) addLine(line, 'shared');
-  return { types: new DataTable('coreType', data.types), lines: new DataTable('coreLine', lines), shared: data.shared };
+  return { types: new DataTable('coreType', data.types), lines: new DataTable('coreLine', lines), shared: data.shared, marks: new DataTable<CoreMark>('coreMark', data.marks) };
 }
 
 function describeId(value: unknown): string {

@@ -49,7 +49,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
   {
     // Boss：大量掉落、稀有機率高
     // 隱藏魔王：一定是 6 件裝備（稀有度和魔王相同），10% 把其中一件換成 5 孔白裝，另外噴 2000～3000 金幣
-    // 越深越多，但不如噬界足眼（設計者 2026-11-04）：11 層 6 件 → 22 層 9 件，金幣 ×1.5，5 孔白裝 10% → 15%；至少一件橘裝以上
+    // 越深越多，但不如噬界足眼（設計者 2026-11-04）：16 層 6 件 → 22 層 9 件，金幣 ×1.5，5 孔白裝 10% → 15%；至少一件橘裝以上
     id: 'loot.hidden_boss',
     rolls: 6,
     guaranteedItems: 6,
@@ -59,7 +59,24 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     bonusGold: { amount: [2000, 3000], piles: 6 },
     fullSocketWhite: 0.1,
     atLeast: 'legendary',
-    deeper: { fromFloor: 11, toFloor: 22, extraItems: 3, goldMultiplier: 1.5, fullSocketWhite: 0.15 },
+    deeper: { fromFloor: 16, toFloor: 22, extraItems: 3, goldMultiplier: 1.5, fullSocketWhite: 0.15 },
+  },
+  {
+    // 奪界雙手：兩隻都倒下才掉一份（設計者 2026-11-04）：9 層 4 件 → 14 層 6 件，至少一件紫裝，另有機會掉一顆紫色純核，低機率掉帶「奪取之手」印記的橘色純核
+    id: 'loot.abyss_hand',
+    rolls: 4,
+    guaranteedItems: 4,
+    entries: [{ kind: 'item', weight: 1 }],
+    rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12, legendary: 2.5, mythic: 0.5 },
+    shards: { chance: 0.6, count: [1, 2] },
+    bonusGold: { amount: [1000, 1500], piles: 5 },
+    fullSocketWhite: 0.1,
+    atLeast: 'epic',
+    deeper: { fromFloor: 9, toFloor: 14, extraItems: 2, goldMultiplier: 1, fullSocketWhite: 0.1 },
+    cores: [
+      { chance: 0.25, rarity: 'epic' },
+      { chance: 0.03, rarity: 'legendary', mark: 'mark.seizing_hand' },
+    ],
   },
   {
     // 噬界足眼：同上，但越深越多（設計者 2026-11-03）：23 層 6 件 → 29 層 12 件，金幣同比例，5 孔白裝 10% → 25%；至少一件紅裝（2026-11-04）

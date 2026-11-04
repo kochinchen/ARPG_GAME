@@ -278,8 +278,11 @@ const v22ToV23: Migration = (v22) => {
   return !boss || 'resists' in boss ? v22 : { ...v22, floor: { ...floor, hiddenBoss: { ...boss, resists: [] } } };
 };
 
+/** v23 → v24：熔核多一個可有可無的魔王印記（舊存檔沒有，不用轉換） */
+const v23ToV24: Migration = (v23) => v23;
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22, v22ToV23];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22, v22ToV23, v23ToV24];
 
 export class MigrationError extends Error {}
 
