@@ -70,6 +70,15 @@ export class LootSystem {
       const index = drops.findIndex((d) => d.kind === 'item');
       if (index >= 0) drops[index] = { kind: 'item', item: this.generator.generateFullSocketWhite(this.itemLevel()) };
     }
+    // 隱藏魔王：保底稀有度（在白裝之後，白裝換第一件、保底換最後一件，不會互相蓋掉）
+    if (table.atLeast) {
+      const items = drops.filter((d) => d.kind === 'item');
+      const lucky = items.some((d) => d.item.rarity === 'mythic' || d.item.rarity === table.atLeast);
+      if (!lucky && items.length > 0) {
+        const index = drops.lastIndexOf(items[items.length - 1]!);
+        drops[index] = { kind: 'item', item: this.generator.generateOfRarity(this.itemLevel(), table.atLeast) };
+      }
+    }
     // 隱藏魔王：額外的金幣
     if (table.bonusGold) {
       const { amount, piles } = table.bonusGold;

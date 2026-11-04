@@ -49,6 +49,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
   {
     // Boss：大量掉落、稀有機率高
     // 隱藏魔王：一定是 6 件裝備（稀有度和魔王相同），10% 把其中一件換成 5 孔白裝，另外噴 2000～3000 金幣
+    // 越深越多，但不如噬界足眼（設計者 2026-11-04）：11 層 6 件 → 22 層 9 件，金幣 ×1.5，5 孔白裝 10% → 15%；至少一件橘裝以上
     id: 'loot.hidden_boss',
     rolls: 6,
     guaranteedItems: 6,
@@ -57,9 +58,11 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     shards: { chance: 0.6, count: [1, 2] },
     bonusGold: { amount: [2000, 3000], piles: 6 },
     fullSocketWhite: 0.1,
+    atLeast: 'legendary',
+    deeper: { fromFloor: 11, toFloor: 22, extraItems: 3, goldMultiplier: 1.5, fullSocketWhite: 0.15 },
   },
   {
-    // 噬界足眼：同上，但越深越多（設計者 2026-11-03）：23 層 6 件 → 29 層 12 件，金幣同比例，5 孔白裝 10% → 25%
+    // 噬界足眼：同上，但越深越多（設計者 2026-11-03）：23 層 6 件 → 29 層 12 件，金幣同比例，5 孔白裝 10% → 25%；至少一件紅裝（2026-11-04）
     id: 'loot.abyss_eye',
     rolls: 6,
     guaranteedItems: 6,
@@ -68,6 +71,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     shards: { chance: 0.6, count: [1, 2] },
     bonusGold: { amount: [2000, 3000], piles: 6 },
     fullSocketWhite: 0.1,
+    atLeast: 'mythic',
     deeper: { fromFloor: 23, toFloor: 29, extraItems: 6, goldMultiplier: 2, fullSocketWhite: 0.25 },
   },
   {

@@ -218,10 +218,10 @@ describe('掉寶', () => {
   const loot = () => {
     const rng = new Rng(9);
     const nav = NavGrid.fromMap({ rows: ['...'] });
-    return new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => 15, () => 3, () => 15, new EventBus<GameEvents>());
+    return new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => 11, () => 3, () => 11, new EventBus<GameEvents>());
   };
 
-  it('一定 6 件裝備，另外 2000～3000 金幣；約 10% 有一件 5 孔白裝', () => {
+  it('第 11 層：一定 6 件裝備，另外 2000～3000 金幣；約 10% 有一件 5 孔白裝', () => {
     const system = loot();
     let white = 0;
     const N = 1000;
@@ -237,6 +237,63 @@ describe('掉寶', () => {
     }
     expect(white / N).toBeGreaterThan(0.07);
     expect(white / N).toBeLessThan(0.14);
+  });
+});
+
+describe('萬骸之口的掉寶：越深越多，但不如噬界足眼', () => {
+  const lootAt = (floor: number) => {
+    const rng = new Rng(9);
+    const nav = NavGrid.fromMap({ rows: ['...'] });
+    return new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => floor, () => 3, () => floor, new EventBus<GameEvents>());
+  };
+
+  it.each([[11, 6], [13, 7], [16, 7], [17, 8], [19, 8], [21, 9], [22, 9]])('第 %i 層 %i 件', (floor, items) => {
+    const drops = lootAt(floor).roll('loot.hidden_boss');
+    expect(drops.filter((d) => d.kind === 'item').length).toBe(items);
+  });
+
+  it('第 22 層：金幣 ×1.5、5 孔白裝約 15%', () => {
+    const system = lootAt(22);
+    let white = 0;
+    const N = 1000;
+    for (let i = 0; i < N; i++) {
+      const drops = system.roll('loot.hidden_boss');
+      const gold = drops.reduce((sum, d) => sum + (d.kind === 'gold' ? d.amount : 0), 0);
+      expect(gold).toBeGreaterThanOrEqual(3000);
+      expect(gold).toBeLessThanOrEqual(4500);
+      if (drops.some((d) => d.kind === 'item' && d.item.rarity === 'normal' && d.item.sockets?.max === data.balance.sockets.max.normal)) white++;
+    }
+    expect(white / N).toBeGreaterThan(0.11);
+    expect(white / N).toBeLessThan(0.19);
+  });
+});
+
+describe('保底稀有度', () => {
+  const rolls = (table: string, floor: number) => {
+    const rng = new Rng(21);
+    const nav = NavGrid.fromMap({ rows: ['...'] });
+    const system = new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => floor, () => 3, () => floor, new EventBus<GameEvents>());
+    return Array.from({ length: 500 }, () => system.roll(table).flatMap((d) => (d.kind === 'item' ? [d.item] : [])));
+  };
+
+  it.each([11, 16, 22])('萬骸之口第 %i 層：每次至少一件橘裝以上，件數不變', (floor) => {
+    for (const items of rolls('loot.hidden_boss', floor)) {
+      expect(items.some((it) => it.rarity === 'legendary' || it.rarity === 'mythic')).toBe(true);
+      expect(items).toHaveLength(6 + Math.round((3 * (floor - 11)) / 11));
+    }
+  });
+
+  it.each([23, 26, 29])('噬界足眼第 %i 層：每次至少一件紅裝，件數不變', (floor) => {
+    for (const items of rolls('loot.abyss_eye', floor)) {
+      expect(items.some((it) => it.rarity === 'mythic')).toBe(true);
+      expect(items).toHaveLength(6 + (floor - 23));
+    }
+  });
+
+  it('5 孔白裝和保底可以同時出現', () => {
+    const both = rolls('loot.hidden_boss', 22).filter((items) => items.some((it) => it.rarity === 'normal' && it.sockets?.max === data.balance.sockets.max.normal));
+    expect(both.length).toBeGreaterThan(0);
+    for (const items of both) expect(items.some((it) => it.rarity === 'legendary' || it.rarity === 'mythic')).toBe(true);
   });
 });
 

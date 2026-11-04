@@ -27,6 +27,8 @@ export const LootTableDefSchema = z.strictObject({
   bonusGold: z.strictObject({ amount: RangeSchema, piles: z.int().positive() }).optional(),
   /** 這個機率把其中一件裝備換成孔數全滿的白裝（隱藏魔王） */
   fullSocketWhite: z.number().gt(0).max(1).optional(),
+  /** 保底（隱藏魔王）：掉落裡至少一件這個稀有度以上；沒有就把最後一件換掉，件數不變 */
+  atLeast: z.enum(['legendary', 'mythic']).optional(),
   /**
    * 越深掉越多（隱藏魔王）：fromFloor 是表上的數量，到 toFloor 線性增加：
    * 多 extraItems 件必掉的裝備、額外金幣 × goldMultiplier、孔數全滿白裝的機率變成 fullSocketWhite
