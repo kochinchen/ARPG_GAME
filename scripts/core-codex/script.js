@@ -22,9 +22,9 @@
     const w = s.dropWeights[r];
     const total = w.reduce((a, b) => a + b, 0);
     const drop = w.length > 1 ? w.map((x) => pct(x / total)).join(' / ') : '0 孔（要鑿）';
-    return `<tr><td class="rowh rar r-${r}">${SHORT[r]}</td><td class="n">${s.max[r]}</td><td class="n">${s.max[r] === 0 ? '不能打孔' : drop}</td><td class="n">${s.max[r] === 0 ? '—' : '×' + +(1 + s.max[r] * s.matchBonus).toFixed(2)}</td></tr>`;
+    return `<tr><td class="rowh rar r-${r}">${SHORT[r]}</td><td class="n">${s.max[r]}</td><td class="n">${s.max[r] === 0 ? '不能打孔' : drop}</td><td class="n">${s.max[r] < 2 ? '—' : '×' + +(1 + s.max[r] * s.matchBonus).toFixed(2)}</td></tr>`;
   }).join('')}</tbody>`;
-  $('socketNote').textContent = `可以鑲的部位：武器、頭盔、衣裝、手套、鞋子、盾牌（盾牌只能配劍、斧）。熔核不看裝備稀有度，白裝也能打造成符合自己需求的強裝。同核加成：一件裝備的孔都鑲滿、每顆核種相同（混核要兩個核種都相同），那件裝備上的熔核數值 ×（1 + 孔數 × ${Math.round(s.matchBonus * 100)}%）（固定數值的屬性如穿透 +1 不乘）。鑲在武器的熔核另外依核階加武器傷害 ${s.weaponDamage.map((v, i) => `T${i + 1} +${Math.round(v * 100)}%`).join('、')}（和裝備主倍率相加，法杖放大法術強度；同核加成也乘，不受全身上限），白裝 5 顆 T5 同核 = +${Math.round(s.weaponDamage[4] * 5 * (1 + 5 * s.matchBonus) * 100)}%。全身上限：同一條屬性所有熔核合計，最多是「一顆 T5 橘核最高值」的 ${s.bodyCap} 倍；每件同核鑲滿、而且有提供這條屬性的裝備，再多「孔數 × ${s.matchCapPerSocket}」倍（白裝 5 孔 +${5 * s.matchCapPerSocket}、紫裝 2 孔 +${2 * s.matchCapPerSocket}）。印記同理（以單顆為準），超過的部分不生效。`;
+  $('socketNote').textContent = `可以鑲的部位：武器、頭盔、衣裝、手套、鞋子、盾牌（盾牌只能配劍、斧）。熔核不看裝備稀有度，白裝也能打造成符合自己需求的強裝。同核加成：一件裝備的孔鑿到上限（白 5、藍 4、黃 3、紫 2；橘只有 1 孔，沒有加成）、全部鑲滿、每顆核種相同（混核要兩個核種都相同），那件裝備上的熔核數值 ×（1 + 孔數 × ${Math.round(s.matchBonus * 100)}%）（固定數值的屬性如穿透 +1 不乘）。鑲在武器的熔核另外依核階加武器傷害 ${s.weaponDamage.map((v, i) => `T${i + 1} +${Math.round(v * 100)}%`).join('、')}（和裝備主倍率相加，法杖放大法術強度；同核加成也乘，不受全身上限），白裝 5 顆 T5 同核 = +${Math.round(s.weaponDamage[4] * 5 * (1 + 5 * s.matchBonus) * 100)}%。全身上限：同一條屬性所有熔核合計，最多是「一顆 T5 橘核最高值」的 ${s.bodyCap} 倍；每件同核鑲滿、而且有提供這條屬性的裝備，再多「孔數 × ${s.matchCapPerSocket}」倍（白裝 5 孔 +${5 * s.matchCapPerSocket}、紫裝 2 孔 +${2 * s.matchCapPerSocket}）。印記同理（以單顆為準），超過的部分不生效。`;
 
   // 核階、核色
   const f = C.fusion;

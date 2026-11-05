@@ -39,7 +39,7 @@ export function itemStats(item: ItemInstance, data: Pick<DataRegistry, 'items' |
   const legendary = item.legendaryId !== undefined && data.legendaries.has(item.legendaryId) ? data.legendaries.get(item.legendaryId) : null;
   const quality = item.quality ?? 0;
   const mainTarget = mainTargetOf(base);
-  const coreDamage = base.slot === 'weapon' ? socketsWeaponDamage(item.sockets, data.balance) : 0;
+  const coreDamage = base.slot === 'weapon' ? socketsWeaponDamage(item, data.balance) : 0;
   // 基礎攻防乘（主倍率 + 熔核武器傷害）；飾品的詞綴只乘主倍率
   const mult = 1 + quality + coreDamage;
   const baseStats: Partial<Record<StatId, number>> = { ...base.baseStats };

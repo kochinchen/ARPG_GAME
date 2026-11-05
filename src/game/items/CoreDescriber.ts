@@ -107,9 +107,10 @@ export function describeCore(core: CoreInstance, data: Data): CoreDescription {
   };
 }
 
-/** 「同核加成：一件裝備的孔都鑲滿同一種熔核，數值 +孔數 × 10%」 */
+/** 同核加成的說明文字 */
 export function matchBonusText(data: Pick<DataRegistry, 'balance'>): string {
-  return `同核加成：一件裝備的孔都鑲滿同一種熔核，數值 +孔數 × ${Math.round(data.balance.sockets.matchBonus * 100)}%`;
+  const { max, matchBonus } = data.balance.sockets;
+  return `同核加成：裝備的孔鑿到上限（白 ${max.normal}、藍 ${max.magic}、黃 ${max.rare}、紫 ${max.epic}）並鑲滿同一種熔核，數值 +孔數 × ${Math.round(matchBonus * 100)}%；只有 ${max.legendary} 孔的橘裝沒有加成`;
 }
 
 /** 裝備的孔位列：已鑲入的熔核（在這個部位的效果）與空孔 */
@@ -118,7 +119,7 @@ export function socketLines(item: ItemInstance, data: Data & Pick<DataRegistry, 
   if (!sockets || sockets.max === 0) return [];
   const base = data.items.get(item.baseId);
   const slot = base.slot as CoreSlot;
-  const bonus = socketBonus(sockets, data.balance);
+  const bonus = socketBonus(item, data.balance);
   const damageLabel = mainTargetOf(base) === 'spellPower' ? '法術強度' : '武器傷害';
   const lines: { text: string; rarity: CoreInstance['rarity'] | null }[] = sockets.cores.map((core) => {
     const { secondary, brand } = coreExtraTexts(core, data, bonus);

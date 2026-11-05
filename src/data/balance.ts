@@ -282,7 +282,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     bodyCap: 1.5,
     maxCores: 30,
     // 熔核不看裝備稀有度（2026-10-23 設計者定案）：白裝 5 孔可以打造成符合自己需求的強裝
-    // 同核加成：孔都鑲滿、每顆核種相同 → 這件裝備上的熔核數值 ×（1 + 孔數 × matchBonus）
+    // 同核加成：孔鑿到稀有度上限（max，至少 2 孔；設計者 2026-11-05）、全部鑲滿、每顆核種相同 → 這件裝備上的熔核數值 ×（1 + 孔數 × matchBonus）
     matchBonus: 0.1,
     // 同核鑲滿的裝備也放寬全身上限：它提供的屬性，上限多「孔數 × 0.5 顆」（白裝 5 孔 +2.5 顆；其他配法維持 bodyCap 1.5 顆；2026-10-23）
     matchCapPerSocket: 0.5,

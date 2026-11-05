@@ -10,7 +10,7 @@ import { STAT_LABELS } from './ItemDescriber';
 /**
  * 熔核的數值（v0.5.0，SPEC §1.3、§1.6、§2.3）。純函式：
  * - 每條屬性 = T1 範圍擲骰 × 核階倍率（T5 有 t5Value 時改用它）× 核色倍率（core.power）；混核的主屬性再 × mixedMultiplier；
- *   再 × 同核加成（孔都鑲滿、核種相同時 1 + 孔數 × matchBonus；固定數值的屬性如穿透 +1 不乘）
+ *   再 × 同核加成（孔鑿到稀有度上限且至少 2 孔、都鑲滿、核種相同時 1 + 孔數 × matchBonus；固定數值的屬性如穿透 +1 不乘）
  * - 鑲在武器：另外依核階給武器傷害 +%（weaponDamage，也乘同核加成），由 ItemStats 加到主倍率上
  * - 全身上限：同一條屬性全身合計 ≤ 一顆 T5 橘核的最高值 ×（bodyCap ＋ 有提供這條的每件同核鑲滿裝備 孔數 × matchCapPerSocket）；
  *   印記同理（單顆為準）；超過的部分不生效

@@ -339,6 +339,7 @@ const tooltipStyle = computed(() => ({
 }));
 const heldStyle = computed(() => ({ left: `${pointer.value.x}px`, top: `${pointer.value.y}px` }));
 const heldHint = computed(() => {
+  if (stashOpen.value && gameView.inventory.held?.kind === 'core') return '點有空孔的裝備鑲入 · 點倉庫的格子放進去 · 點背包放下';
   if (stashOpen.value) return dragOrigin.value ? '放到背包格、裝備欄或倉庫' : '點倉庫的格子放進去 · 點背包 / 裝備欄放下';
   if (dragOrigin.value) return '放到背包格、裝備欄、拆解區或商人';
   if (gameView.inventory.held?.kind === 'core') return '點有空孔的裝備鑲入 · 點背包放下 · 點地面丟棄';

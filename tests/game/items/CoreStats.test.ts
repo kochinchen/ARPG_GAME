@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gameData } from '../../../src/data';
 import { DataRegistry } from '../../../src/data/DataRegistry';
 import type { CoreSlot } from '../../../src/data/schema/core';
+import type { Rarity } from '../../../src/data/schema/item';
 import type { CoreInstance, CoreRoll } from '../../../src/game/items/CoreInstance';
 import { coreEffects, coreLineMax, coreLineValue } from '../../../src/game/items/CoreStats';
 import { coreWeaponDamage, socketBonus } from '../../../src/game/items/SocketBonus';
@@ -188,16 +189,25 @@ describe('裝備上的熔核', () => {
     expect([helmetOf('normal'), helmetOf('magic'), helmetOf('rare'), helmetOf('epic'), helmetOf('legendary')].map((v) => +v.toFixed(3))).toEqual([1, 1, 1, 1, 1]);
   });
 
-  it('同核加成：孔都鑲滿、核種相同 → 1 + 孔數 × 10%；沒鑲滿、核種不同時沒有', () => {
+  it('同核加成：孔鑿到稀有度上限、都鑲滿、核種相同 → 1 + 孔數 × 10%；否則沒有（橘裝 1 孔也沒有）', () => {
     const sharp = core({ types: ['sharp'] });
     const mixed = core({ types: ['sharp', 'heavy'] });
-    close(socketBonus({ max: 5, cores: [sharp, sharp, { ...sharp, tier: 5 }, sharp, sharp] }, data.balance), 1.5);
-    close(socketBonus({ max: 2, cores: [sharp, sharp] }, data.balance), 1.2);
-    expect(socketBonus({ max: 3, cores: [sharp, sharp] }, data.balance)).toBe(1);
-    expect(socketBonus({ max: 2, cores: [sharp, mixed] }, data.balance)).toBe(1);
-    // 混核：兩個核種都相同（順序不拘）才算
-    close(socketBonus({ max: 2, cores: [mixed, { ...mixed, types: ['heavy', 'sharp'] }] }, data.balance), 1.2);
-    expect(socketBonus(undefined, data.balance)).toBe(1);
+    const on = (rarity: Rarity, max: number, cores: CoreInstance[]) => socketBonus({ rarity, sockets: { max, cores } }, data.balance);
+    close(on('normal', 5, [sharp, sharp, { ...sharp, tier: 5 }, sharp, sharp]), 1.5);
+    close(on('magic', 4, [sharp, sharp, sharp, sharp]), 1.4);
+    close(on('rare', 3, [sharp, sharp, sharp]), 1.3);
+    close(on('epic', 2, [sharp, sharp]), 1.2);
+    // 孔沒鑲滿、核種不同：沒有加成
+    expect(on('epic', 3, [sharp, sharp])).toBe(1);
+    expect(on('epic', 2, [sharp, mixed])).toBe(1);
+    // 混核：兩個核種都相同才算（順序不拘）
+    close(on('epic', 2, [mixed, { ...mixed, types: ['heavy', 'sharp'] }]), 1.2);
+    // 孔沒鑿到稀有度的上限：鑲滿了也沒有加成（白裝只鑿 2 孔、1 孔）
+    expect(on('normal', 2, [sharp, sharp])).toBe(1);
+    expect(on('normal', 1, [sharp])).toBe(1);
+    // 橘裝上限 1 孔：一顆核不算同核
+    expect(on('legendary', 1, [sharp])).toBe(1);
+    expect(socketBonus({ rarity: 'normal' }, data.balance)).toBe(1);
   });
 
   it('同核加成乘在熔核數值上（固定數值的穿透不乘）', () => {

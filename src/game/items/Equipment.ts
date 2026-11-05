@@ -50,7 +50,7 @@ export class Equipment {
   socketedCores(): SocketedCore[] {
     return CORE_SLOTS.flatMap((slot) => {
       const item = this.slots.get(slot);
-      const bonus = socketBonus(item?.sockets, this.data.balance);
+      const bonus = item ? socketBonus(item, this.data.balance) : 1;
       const matchedHoles = bonus > 1 ? item!.sockets!.max : 0;
       return (item?.sockets?.cores ?? []).map((core) => ({ slot, core, bonus, matchedHoles }));
     });

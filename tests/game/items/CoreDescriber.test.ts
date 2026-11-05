@@ -60,8 +60,8 @@ describe('熔核說明', () => {
       { text: '◆ 銳核 T1：+6% 施法速度、+9% 生命上限', rarity: 'epic' },
       { text: '◇ 空孔', rarity: null },
     ]);
-    // 孔都鑲滿同一種核：同核加成 1 + 2 × 10%
-    const full = { ...item, sockets: { max: 2, cores: [item.sockets!.cores[0]!, { ...item.sockets!.cores[0]!, uid: 'c2', tier: 3 }] } };
+    // 紫裝孔鑿滿（2 孔）、都鑲同一種核：同核加成 1 + 2 × 10%
+    const full = { ...item, rarity: 'epic' as const, sockets: { max: 2, cores: [item.sockets!.cores[0]!, { ...item.sockets!.cores[0]!, uid: 'c2', tier: 3 }] } };
     expect(socketLines(full, data).map((l) => l.text)).toEqual([
       '◆ 銳核 T1：+7.2% 施法速度、+10.8% 生命上限',
       '◆ 銳核 T3：+9.5% 施法速度、+14.3% 生命上限',
@@ -69,7 +69,7 @@ describe('熔核說明', () => {
     ]);
     // 武器（法杖寫成法術強度）
     const staff = data.items.all.find((b) => b.weaponType === 'staff')!.id;
-    expect(socketLines({ ...item, baseId: staff, sockets: { max: 1, cores: [core({ main: { ...EMPTY } , secondary: [] })] } }, data)[0]!.text).toBe('◆ 銳核 T1：+18% 法術強度');
+    expect(socketLines({ ...item, baseId: staff, sockets: { max: 1, cores: [core({ main: { ...EMPTY } , secondary: [] })] } }, data)[0]!.text).toBe('◆ 銳核 T1：+16% 法術強度');
     expect(socketLines({ ...item, sockets: undefined } as never, data)).toEqual([]);
   });
 });
