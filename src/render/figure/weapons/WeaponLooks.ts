@@ -6,6 +6,7 @@ import { refine } from '../Facets';
 import { apply, jointRotation, placeMesh, stretchMeshes, type Mesh, type V3 } from '../Poly3D';
 import { SWORD_CANT } from '../heroine/HeroineWeapon';
 import type { WeaponMount } from '../PolyFigure';
+import type { Joint } from '../FigureModel';
 import {
   ABYSS,
   ANCIENT,
@@ -132,6 +133,9 @@ function bowLook(s: BowOptions): RawLook {
   };
 }
 
+/** 法杖的握點在杖身從下算起的比例 */
+const STAFF_GRIP = 2 / 3;
+
 function staffLook(s: StaffOptions): RawLook {
   // 杖頭（杖身末端以外的零件：套環、寶珠、尖角）以杖身末端為中心放大
   const styled = s.style ? styledStaff({ ...s, style: s.style }) : null;
@@ -142,7 +146,17 @@ function staffLook(s: StaffOptions): RawLook {
   const k = styled ? STAFF_HEAD_SCALE * 1.35 : STAFF_HEAD_SCALE;
   const meshes = st.meshes.map((m) => (isHead(m) ? { ...m, verts: m.verts.map((v) => scaleAround(v, end, k)) } : m));
   const focus = scaleAround(st.focus, end, k);
-  return { meshes, tip: focus, axis: [[0, -s.length * 0.55, 0], focus], focus, ...(styled ? { badge: styled.badge } : {}) };
+  // 握點：杖身從下（杖尾，+Y）算起 2/3 的位置（設計者 2026-11-07；原本握在杖尾附近）
+  const bottom = Math.max(...meshes.flatMap((m) => m.verts.map((v) => v[1])));
+  const grip = bottom - (bottom - end[1]) * STAFF_GRIP;
+  const g = (v: V3): V3 => [v[0], v[1] - grip, v[2]];
+  return {
+    meshes: meshes.map((m) => ({ ...m, verts: m.verts.map(g) })),
+    tip: g(focus),
+    axis: [g([0, -s.length * 0.55, 0]), g(focus)],
+    focus: g(focus),
+    ...(styled ? { badge: { ...styled.badge, at: g(styled.badge.at) } } : {}),
+  };
 }
 
 
@@ -350,12 +364,29 @@ function build(spec: Spec, emblem?: Emblem): WeaponLook {
  * 平常拿武器的方式（攻擊時轉回 HOLD 的角度）：劍尖朝前下；斧柄朝前、斧刃朝下（2026-10-18 設計者回饋：原本斧刃朝上；
  * 這組角度讓斧柄方向與原本相同，只繞斧柄轉半圈）；法杖杖頭往前傾、往外偏（杖頭放大 2 倍後不擋臉）；弓直立在身前（上弓臂朝前、弓背朝外）。
  */
-const REST: Partial<Record<WeaponType, V3>> = { axe: [2.26, -3.04, 0.11], staff: [0.35, 0, 0.3], bow: [0.8, 0, 0] };
+const REST: Partial<Record<WeaponType, V3>> = { axe: [2.26, -3.04, 0.11], bow: [0.8, 0, 0] };
+/**
+ * 法杖（設計者 2026-11-07）：手肘彎成直角、前臂水平往前（手往前推一點、略往外，杖頭不擋臉），杖身直立、杖頭朝上
+ * （直立的角度由 PolyFigure 依目前的手臂算，所以身體前傾、呼吸時杖還是直的）
+ */
+const REST_ARM: Partial<Record<WeaponType, Partial<Record<Joint, V3>>>> = {
+  // 上臂往前抬一點、往外轉（手往前推、杖頭不擋臉），前臂維持水平往前
+  staff: { upperArmR: [-0.5, -0.35, -0.1], forearmR: [-Math.PI / 2 + 0.5, 0, 0], handR: [0, 0, 0] },
+};
 
 /** 造型 → 掛到角色手上的資料（PolyFigure.setWeapon） */
 export function mountFor(look: WeaponLook): WeaponMount {
   const rest = REST[look.kind];
-  return { joint: look.hand === 'left' ? 'weaponL' : 'weapon', meshes: look.meshes, tip: look.tip, axis: look.axis, ...(look.focus ? { focus: look.focus } : {}), ...(rest ? { rest } : {}) };
+  const restArm = REST_ARM[look.kind];
+  return {
+    joint: look.hand === 'left' ? 'weaponL' : 'weapon',
+    meshes: look.meshes,
+    tip: look.tip,
+    axis: look.axis,
+    ...(look.focus ? { focus: look.focus } : {}),
+    ...(rest ? { rest } : {}),
+    ...(restArm ? { restArm, upright: true } : {}),
+  };
 }
 
 /** 預覽用：'bow:5'（種類:階級）或傳奇 ID */

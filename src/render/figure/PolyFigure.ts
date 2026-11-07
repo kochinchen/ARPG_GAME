@@ -3,6 +3,7 @@ import type { Vec2 } from '../../core/math/Vec2';
 import { IDLE_ROAR_OFFSET, lerpPose, samplePoses, skinVerts, solveJoints, type AttackVariant, type FigureModel, type Joint, type JointFrames, type Pose } from './FigureModel';
 import { FacetMesh } from './FacetMesh';
 import { apply, dot, faceNormal, jointRotation, normalize, rotY, type M3, type Mesh, type V3 } from './Poly3D';
+import { restPose } from './WeaponRest';
 
 /** 模型單位 → 畫面像素（45° 等角：地面 2:1，垂直略為縮短） */
 const SCALE = 0.95;
@@ -42,6 +43,10 @@ export interface WeaponMount {
   focus?: V3;
   /** 不攻擊時（待機、走路、受傷）武器關節額外轉的角度：斧頭橫拿、弓直立在身前；攻擊時漸漸轉回 */
   rest?: V3;
+  /** 不攻擊時手臂的角度（取代動作原本的角度）：法杖要手肘彎成直角、前臂往前 */
+  restArm?: Partial<Record<Joint, V3>>;
+  /** 不攻擊時武器沿 axis（尾 → 頭）直立朝上：依目前的手臂算武器關節的角度 */
+  upright?: boolean;
 }
 
 type ScreenPoint = { x: number; y: number };
@@ -274,11 +279,7 @@ export class PolyFigure {
 
   /** 平常拿武器的角度（WeaponMount.rest）疊加到武器關節 */
   private withRest(pose: Pose): Pose {
-    const rest = this.mount?.rest;
-    if (!rest) return pose;
-    const joint = this.mount!.joint;
-    const b = pose.angles[joint] ?? [0, 0, 0];
-    return { ...pose, angles: { ...pose.angles, [joint]: [b[0] + rest[0], b[1] + rest[1], b[2] + rest[2]] } };
+    return this.mount ? restPose(this.model, pose, this.mount) : pose;
   }
 
   /**

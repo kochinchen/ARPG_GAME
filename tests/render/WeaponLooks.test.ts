@@ -69,7 +69,7 @@ describe('手上的武器造型', () => {
     for (const [kind, set] of reds) expect(set.size, kind).toBe(6);
   });
 
-  it('平常拿法：劍照握點角度；斧柄朝前、斧刃朝下；法杖前傾、弓直立（攻擊時轉回）', () => {
+  it('平常拿法：劍照握點角度；斧柄朝前、斧刃朝下；法杖直立（見 StaffHold.test）、弓直立（攻擊時轉回）', () => {
     expect(mountFor(tierLook('sword', 3)).rest).toBeUndefined();
     // 待機姿勢下斧頭的世界方向：斧柄（握點空間 -Y）朝前、斧刃（+Z）朝下
     const rest = mountFor(tierLook('axe', 3)).rest!;
@@ -81,7 +81,7 @@ describe('手上的武器造型', () => {
     const edge = apply(m, apply(hold, [0, 0, 1]));
     expect(haft[2]).toBeGreaterThan(0.9);
     expect(edge[1]).toBeLessThan(-0.9);
-    expect(mountFor(tierLook('staff', 3)).rest![0]).toBeGreaterThan(0);
+    expect(mountFor(tierLook('staff', 3))).toMatchObject({ upright: true, restArm: expect.any(Object) });
     expect(mountFor(tierLook('bow', 3))).toMatchObject({ joint: 'weaponL', rest: [expect.any(Number), 0, 0] });
   });
 });
