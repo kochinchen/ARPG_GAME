@@ -93,6 +93,8 @@ export interface SkillIntent {
   stationary?: boolean;
   /** 目標不在範圍內時走向這個點而不是目標本身（怪物的包圍站位）；到了還打不到就直接走向目標 */
   approach?: Vec2 | undefined;
+  /** 預判射擊（怪物）：投射物瞄準目標沿著路線「飛到時會到的位置」的比例，0～1 */
+  lead?: number;
 }
 
 /** 施放中的技能：施放時間結束前不能移動或施放其他技能 */
@@ -143,6 +145,8 @@ export class Actor {
   radius: number;
   /** 外觀大小（Render 依此縮放模型） */
   readonly visualRadius: number;
+  /** 外觀倍率（食屍鬼吃屍體變大）；碰撞半徑不變 */
+  growth = 1;
 
   position: Vec2;
   /** 上一個 Tick 的位置，Render 用來插值 */

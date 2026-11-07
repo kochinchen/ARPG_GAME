@@ -1,7 +1,21 @@
 import type { Vec2 } from '../../core/math/Vec2';
 import type { ActorId } from '../entities/ActorTypes';
 
-export type AiStateName = 'idle' | 'chase' | 'return';
+export type AiStateName = 'idle' | 'chase' | 'return' | 'call' | 'flee' | 'errand';
+
+/** 特殊行為（EnemyDef.tactics） */
+export type EnemyTactic = 'potion' | 'devour' | 'raise';
+
+/** AI 看得到的屍體（GameWorld.corpses） */
+export interface CorpseView {
+  readonly defId: string;
+  readonly position: Vec2;
+}
+
+/** 離開戰鬥去做的事：撿藥水、吃屍體、復活屍體（ErrandState） */
+export type Errand =
+  | { kind: 'potion'; itemId: number; position: Vec2 }
+  | { kind: 'devour' | 'raise'; corpse: CorpseView; position: Vec2; timer: number };
 
 /**
  * 掛在 Actor 上的 AI 資料（只存狀態，行為在 states/）。
@@ -41,8 +55,42 @@ export interface AiBrain {
   gatherAt: Vec2 | null;
   /** 貼身的近戰已達上限：在外圈等候補位，不出手 */
   waiting: boolean;
+  /** 遊擊正在繞到目標背後的站位：先走過去，到了才出手 */
+  flanking: boolean;
   /** 閒置時在出生點附近走動：距離下次走動的秒數 */
   wanderTimer: number;
+  /** 生成時屬於哪一群（size = 生成時的隻數，含讀檔前已擊殺的）；null = 不屬於任何一群 */
+  pack: { id: number; size: number } | null;
+  /** 這一群已經派過傳令兵、或是被叫來支援的（不再派傳令兵，避免一路叫到整張地圖） */
+  packCalled: boolean;
+  /** 傳令兵：依序要去叫的群（pack id），叫完回來打 callTargetId */
+  callPacks: number[];
+  callTargetId: ActorId | null;
+  /** 正在閃避投射物的剩餘秒數（期間不追擊、不出手） */
+  dodgeTimer: number;
+  /** 距離下次能對投射物反應的秒數 */
+  dodgeCooldown: number;
+  /** 會的特殊行為（撿藥水、吃屍體、復活） */
+  tactics: readonly EnemyTactic[];
+  /** 正在做的事（ErrandState）；null = 沒有 */
+  errand: Errand | null;
+  /** 已經喝過地上的藥水（每隻一次） */
+  drankPotion: boolean;
+  /** 吃過幾具屍體 */
+  eats: number;
+  /** 復活過幾具屍體、距離下次能復活的秒數 */
+  raises: number;
+  raiseCooldown: number;
+  /** 已經擲過誘敵（每隻一次） */
+  lureRolled: boolean;
+  /** 誘敵：逃往的位置與剩下的秒數 */
+  fleeTo: Vec2 | null;
+  fleeTimer: number;
+  /** 躲地上的範圍傷害累積的秒數；超過 patience 就硬闖 braveTimer 秒 */
+  hazardTime: number;
+  braveTimer: number;
+  /** 距離下次找藥水 / 屍體的秒數（不要每個 Tick 都掃一遍地上） */
+  scanTimer: number;
 }
 
 export interface BrainOptions {
@@ -51,6 +99,7 @@ export interface BrainOptions {
   skills: readonly string[];
   keepDistance?: number;
   solitary?: boolean;
+  tactics?: readonly EnemyTactic[];
 }
 
 export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
@@ -76,5 +125,24 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     slot: null,
     gatherAt: null,
     waiting: false,
+    flanking: false,
+    pack: null,
+    packCalled: false,
+    callPacks: [],
+    callTargetId: null,
+    dodgeTimer: 0,
+    dodgeCooldown: 0,
+    tactics: options.tactics ?? [],
+    errand: null,
+    drankPotion: false,
+    eats: 0,
+    raises: 0,
+    raiseCooldown: 0,
+    lureRolled: false,
+    fleeTo: null,
+    fleeTimer: 0,
+    hazardTime: 0,
+    braveTimer: 0,
+    scanTimer: 0,
   };
 }

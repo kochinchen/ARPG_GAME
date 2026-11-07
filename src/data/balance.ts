@@ -129,12 +129,30 @@ export const balance: z.input<typeof BalanceSchema> = {
     alertDelay: [0.3, 0.6],
     surroundRange: 6,
     maxEngaged: 6,
-    gapDegrees: 70,
+    // 整圈包圍、不留缺口（設計者 2026-11-07）
+    gapDegrees: 0,
     minSlots: 4,
     flankSpeed: 3.2,
     waitDistance: 2.5,
     backlineOffset: 1.5,
     reassignInterval: 0.5,
+    // 閃避投射物（設計者 2026-11-07）：第 1 層 20%、第 30 層起 45%；慢的怪來不及閃
+    dodge: { chance: [0.2, 0.45], maxFloor: 30, lookahead: 0.6, cooldown: 1.5, margin: 0.25 },
+    // 求援（設計者 2026-11-07）：一群被打掉超過一半，派一隻去叫 30 格內最多兩群閒置的怪
+    reinforce: { casualtyRatio: 0.5, callRange: 30, maxPacks: 2, reachDistance: 4 },
+    // 以下五項（設計者 2026-11-07）
+    // 躲開地上的範圍傷害：路線繞開主角的火海、毒池，站在裡面就走出來；猶豫超過 patience 秒就硬闖 brave 秒
+    avoidZones: { margin: 0.4, pathCost: 6, patience: 2.5, brave: 3 },
+    // 預判射擊：瞄準主角沿著目前路線「箭飛到時會到的位置」；第 1 層只算 40%、第 30 層起算滿
+    leadShot: { lead: [0.4, 1], maxFloor: 30, maxTime: 1.5 },
+    // 誘敵：血量低於 hpBelow 時擲一次 chance，往 range 格內另一群閒置的怪逃（不叫醒牠們），到了或 maxTime 秒後回頭打
+    lure: { hpBelow: 0.3, chance: 0.5, range: 20, maxTime: 6, arriveDistance: 3 },
+    // 撿藥水：會撿的怪血量低於 hpBelow、range 格內地上有藥水，就跑去撿、當場喝掉回復最大 HP 的 heal（每隻一次）
+    potion: { hpBelow: 0.35, range: 8, heal: 0.4 },
+    // 吃屍體（食屍鬼）：血量低於 hpBelow、range 格內有屍體就去吃 duration 秒，回復 heal，每次體型 + grow、傷害 + damage（最多 maxEats 次）
+    devour: { hpBelow: 0.8, range: 6, duration: 1.5, heal: 0.35, grow: 0.15, damage: 0.15, maxEats: 2 },
+    // 復活（骷髏法師）：range 格內有不死族的屍體就施法 duration 秒，讓牠以 hp 的血量站起來（不給經驗、不掉寶、不再留屍體）；冷卻 cooldown 秒、每隻最多 max 次
+    raise: { range: 7, duration: 1.2, hp: 0.5, cooldown: 10, max: 3 },
   },
   elite: {
     minFloor: 3,

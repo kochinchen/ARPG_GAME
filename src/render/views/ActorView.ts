@@ -270,6 +270,8 @@ export class ActorView {
     this.lift += (liftTarget - this.lift) * Math.min(1, dt * 14);
     if (actor.air > 0) this.lift = actor.air * AIR_HEIGHT;
     this.body.position.set(this.lungeDir.x * k, this.lungeDir.y * k - this.lift);
+    // 食屍鬼吃屍體變大
+    if (this.body.scale.x !== actor.growth) this.body.scale.set(actor.growth);
     // Three.js 畫法時光芒在地面層，要跟著身體的位移
     if (this.three) this.weaponGlow?.back.position.copyFrom(this.body.position);
     if (this.three && !this.isPlayer) this.shadow.visible = actor.alive;
@@ -281,7 +283,7 @@ export class ActorView {
     this.container.alpha = actor.alive ? 1 : 0.6;
     this.ground.alpha = this.container.alpha;
     this.facingMark.visible = actor.alive;
-    this.three?.place(position, { x: this.body.position.x, y: this.body.position.y + this.lift }, this.lift, this.body.tint, this.container.alpha * this.body.alpha, true);
+    this.three?.place(position, { x: this.body.position.x, y: this.body.position.y + this.lift }, this.lift, this.body.tint, this.container.alpha * this.body.alpha, true, actor.growth);
 
     // 精英怪的名稱（含詞綴）一直顯示
     this.nameLabel.visible = actor.alive && this.isEnemy && (this.hovered || this.isElite);

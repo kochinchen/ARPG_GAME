@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">120</b> 多個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1108</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1281</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -628,6 +628,21 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
           </div>
         </div>
       </div>
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">11/7</span><span class="name">怪物 AI<br>閃避、求援與搶資源</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">閃避、繞後、求援</span><span class="hash mono">11/7</span></div>
+            <p>追擊中的怪會閃開飛來的投射物（第 1 層 20%、第 30 層 45%，慢的怪與近距離射擊閃不掉，連射只閃得掉第一發）。包圍不再留缺口給主角，快的怪從側面繞到背後才出手。一群被打掉超過一半，最遠的一隻喊「求援！」跑去叫 30 格內最多兩群閒置的怪；主角要注意離開戰場的那一隻，打倒牠就叫不到。</p>
+            <p class="why">群的編號由生成計畫推導，不用改存檔；派過與被叫來的群不再往外叫，不會一路把整張地圖叫過來。閃避看「閃不閃得出投射物的寬度」，速度慢的怪自然閃不掉，不需要另外設定每種怪。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">躲範圍傷害、預判射擊、誘敵、撿藥水、處理屍體</span><span class="hash mono">11/7</span></div>
+            <p>怪物的路線繞開主角的火海、毒池，主角站在裡面時會在邊緣猶豫一下才硬闖。弓手與法師預判主角沿著路線會走到的位置（深層更準），直線跑會中箭。血少的怪會往另一群閒置的怪逃，把追來的主角帶進去；人形的怪會搶地上的藥水喝。食屍鬼吃屍體回血變大，骷髏法師讓不死族的屍體站起來。</p>
+            <p class="why">撿藥水、吃屍體、復活由怪物資料的 tactics 決定哪些怪會，數值都在 balance.enemyTactics；繞路用尋路的額外距離，繞不過去就照走，不會卡住。復活的怪算召喚物，不給經驗也不掉寶，不能拿來刷。</p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -637,7 +652,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <h2>測試數量隨 Milestone 累積</h2>
       <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 11/1 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1108">
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1281">
       <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.7%"></div><span class="val mono">28</span></div>
       <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.0%"></div><span class="val mono">52</span></div>
       <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:7.8%"></div><span class="val mono">81</span></div>
@@ -646,8 +661,8 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.2%"></div><span class="val mono">137</span></div>
       <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.3%"></div><span class="val mono">179</span></div>
       <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:25.1%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1108</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1108 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個）。</p>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1281</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1281 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個；閃避、繞後與求援 7 個；躲範圍傷害、預判射擊、誘敵、撿藥水與處理屍體 11 個）。</p>
     </div>
   </section>
 

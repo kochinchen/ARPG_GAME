@@ -1,7 +1,8 @@
 import { add, distance, normalize, scale, sub, type Vec2 } from '../../../core/math/Vec2';
 import type { Actor } from '../../entities/Actor';
 import { skillReach } from '../../skills/SkillSystem';
-import type { AiContext, IAiState } from '../IAiState';
+import { pickErrand, pickLure } from '../Errands';
+import { findPathFor, type AiContext, type IAiState } from '../IAiState';
 
 /** 後退時一次拉開的距離（Tile） */
 const RETREAT_STEP = 3;
@@ -15,6 +16,9 @@ const STATION_SLACK = 0.4;
  * - 特殊技能冷卻結束、目標在範圍內時優先使用
  * - 遠程怪（keepDistance > 0）被貼近時先後退，再繼續攻擊；每次後退之間至少出手一次
  * - 集體戰術（SquadTactics）分配了站位時：近戰走向站位包圍、後排在出手之間走回前排後方、等候補位的不出手
+ * - 正在閃避投射物 / 走出地上的範圍傷害（AiSystem）時不追擊、不出手；被指定為傳令兵時改去求援（CallState）
+ * - 血少時去撿藥水、吃屍體，或施法復活屍體（ErrandState）；或往另一群閒置的怪逃（FleeState，誘敵）
+ * - 投射物預判目標的走位（SkillIntent.lead，隨樓層）
  */
 export class ChaseState implements IAiState {
   readonly name = 'chase' as const;
@@ -30,6 +34,20 @@ export class ChaseState implements IAiState {
     const { self, brain, targeting } = ctx;
     const target = brain.targetId === null ? null : targeting.getValidTarget(self, brain.targetId);
     if (!target) return 'return' as const;
+    if (brain.callPacks.length > 0) return 'call' as const;
+    if (!self.cast) {
+      // 血少時撿藥水、吃屍體、復活屍體；沒有可做的事才考慮誘敵
+      const errand = pickErrand(ctx);
+      if (errand) {
+        brain.errand = errand;
+        return 'errand' as const;
+      }
+      const lure = pickLure(ctx);
+      if (lure) {
+        brain.fleeTo = lure;
+        return 'flee' as const;
+      }
+    }
     if (brain.angerTimer <= 0 && distance(self.position, brain.home) > brain.leashRange) return 'return' as const;
     this.act(ctx, target);
     return null;
@@ -37,7 +55,7 @@ export class ChaseState implements IAiState {
 
   private act(ctx: AiContext, target: Actor | null): void {
     const { self, brain } = ctx;
-    if (brain.targetId === null || self.cast) return;
+    if (brain.targetId === null || self.cast || brain.dodgeTimer > 0) return;
     if (brain.gatherAt) {
       this.gather(ctx, brain.gatherAt);
       return;
@@ -47,12 +65,16 @@ export class ChaseState implements IAiState {
       this.holdStation(ctx);
       return;
     }
+    if (brain.flanking && brain.slot) {
+      this.flank(ctx, brain.slot);
+      return;
+    }
     if (target && this.toBackline(ctx)) return;
     if (target) {
       const special = this.readySpecial(ctx, target);
       if (special) {
         // 地面技能瞄準目標目前的位置（前搖期間玩家可以走出範圍）
-        self.intent = { skillId: special, targetId: target.id, point: target.position, hold: false };
+        self.intent = { skillId: special, targetId: target.id, point: target.position, hold: false, lead: ctx.lead };
         return;
       }
     }
@@ -60,29 +82,42 @@ export class ChaseState implements IAiState {
     const approach = brain.slot ?? undefined;
     if (self.intent?.targetId === brain.targetId && self.intent.skillId === brain.skillId) {
       self.intent.approach = approach;
+      self.intent.lead = ctx.lead;
       return;
     }
-    self.intent = { skillId: brain.skillId, targetId: brain.targetId, point: self.position, hold: true, approach };
+    self.intent = { skillId: brain.skillId, targetId: brain.targetId, point: self.position, hold: true, approach, lead: ctx.lead };
   }
 
   /** 一起出招前趕往站位：不出手 */
-  private gather({ self, pathfinder }: AiContext, spot: Vec2): void {
+  private gather(ctx: AiContext, spot: Vec2): void {
+    const { self } = ctx;
     self.intent = null;
-    if (!self.isMoving && distance(self.position, spot) > STATION_SLACK) self.path = pathfinder.findPath(self.position, spot, self.radius);
+    if (!self.isMoving && distance(self.position, spot) > STATION_SLACK) self.path = findPathFor(ctx, spot);
   }
 
   /** 等候補位：不出手，走到外圈的站位停下 */
-  private holdStation({ self, brain, pathfinder }: AiContext): void {
+  private holdStation(ctx: AiContext): void {
+    const { self, brain } = ctx;
     self.intent = null;
     if (!brain.slot || self.isMoving || distance(self.position, brain.slot) <= STATION_SLACK) return;
-    self.path = pathfinder.findPath(self.position, brain.slot, self.radius);
+    self.path = findPathFor(ctx, brain.slot);
+  }
+
+  /** 遊擊繞到背後：不出手，走向站位（站位每次重新分配都會往前繞，路徑跟著更新） */
+  private flank(ctx: AiContext, slot: Vec2): void {
+    const { self } = ctx;
+    self.intent = null;
+    const end = self.path[self.path.length - 1];
+    if (distance(self.position, slot) <= STATION_SLACK || (end && distance(end, slot) <= STATION_SLACK)) return;
+    self.path = findPathFor(ctx, slot);
   }
 
   /** 後排離站位太遠：出手之間走回前排後方（與後退共用「至少出手一次才再移動」）。回傳是否正在移動 */
-  private toBackline({ self, brain, pathfinder }: AiContext): boolean {
+  private toBackline(ctx: AiContext): boolean {
+    const { self, brain } = ctx;
     if (brain.keepDistance <= 0 || !brain.slot || brain.retreating) return false;
     if (distance(self.position, brain.slot) <= BACKLINE_SLACK || self.castCount === brain.castsAtRetreat) return false;
-    const path = pathfinder.findPath(self.position, brain.slot, self.radius);
+    const path = findPathFor(ctx, brain.slot);
     if (path.length === 0) return false;
     self.intent = null;
     self.path = path;
@@ -110,7 +145,8 @@ export class ChaseState implements IAiState {
   }
 
   /** 遠程怪被貼近：往遠離目標的方向走一段。回傳是否正在後退 */
-  private retreat({ self, brain, pathfinder, nav }: AiContext, target: Actor): boolean {
+  private retreat(ctx: AiContext, target: Actor): boolean {
+    const { self, brain, nav } = ctx;
     if (brain.keepDistance <= 0) return false;
     if (brain.retreating) {
       if (self.isMoving) return true;
@@ -123,7 +159,7 @@ export class ChaseState implements IAiState {
     const direction: Vec2 = away.x === 0 && away.y === 0 ? self.facing : normalize(away);
     const destination = add(self.position, scale(direction, RETREAT_STEP));
     if (!nav.isClearAt(destination, self.radius)) return false; // 退無可退：留在原地攻擊
-    const path = pathfinder.findPath(self.position, destination, self.radius);
+    const path = findPathFor(ctx, destination);
     if (path.length === 0) return false;
     self.intent = null;
     self.path = path;

@@ -182,6 +182,8 @@ export class GameWorld {
   readonly chests: Chest[] = [];
   /** 本層的屍體（換樓層時清空） */
   readonly corpses: Corpse[] = [];
+  /** 怪物尋路繞開主角放在地上的區域（每個 Tick 更新 hazards） */
+  private readonly pathfinder: Pathfinder;
   readonly player: Actor;
   readonly loadout: PlayerLoadout;
   readonly potions: PotionBelt;
@@ -291,7 +293,8 @@ export class GameWorld {
       fusion: new Rng(options.seed).fork('fusion'),
     };
     this.rngStreams = streams;
-    const pathfinder = new Pathfinder(this.nav);
+    const pathfinder = (this.pathfinder = new Pathfinder(this.nav));
+    pathfinder.hazardCost = data.balance.enemyTactics.avoidZones.pathCost;
     this.targeting = new TargetingService(this.actors);
     this.statuses = new StatusEffectSystem(this.events, data.balance.combat.maxControlResist);
     this.pipeline = new DamagePipeline(data.balance, streams.combat, this.events, this.statuses);
@@ -319,9 +322,10 @@ export class GameWorld {
     this.comboSlotLevels = data.balance.player.comboSlotLevels;
     this.comboKeyLevels = data.balance.player.comboKeyLevels;
     this.skills = new SkillSystem(data.skills, this.targeting, pathfinder, executor, this.events, data.balance.skillCategories, this.statuses);
+    this.skills.leadMaxTime = data.balance.enemyTactics.leadShot.maxTime;
     this.projectileSystem = new ProjectileSystem(this.nav, this.targeting, executor);
     // 閒置走動用獨立的亂數：不影響其他系統（掉寶、戰鬥）的亂數順序
-    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, data.skills, streams.ai, data.balance.devices, data.balance.enemyTactics, this.events);
+    this.ai = new AiSystem(this.targeting, this.nav, pathfinder, data.skills, streams.ai, data.balance.devices, data.balance.enemyTactics, this.events, data.enemies);
     this.devices = new DeviceSystem(this.actors, this.targeting, this.nav, this.events, data.balance.devices, () => this.nextActorId++);
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
@@ -499,6 +503,22 @@ export class GameWorld {
         restored: false,
       });
     });
+    // 怪物喝掉地上的藥水：藥水消失（一疊只少一瓶）
+    this.events.on('EnemyDrankPotion', (e) => {
+      const i = this.groundItems.findIndex((g) => g.id === e.itemId);
+      const item = this.groundItems[i];
+      if (!item || item.content.kind !== 'potion') return;
+      if (item.content.count > 1) item.content.count--;
+      else this.groundItems.splice(i, 1);
+    });
+    // 屍體被吃掉 / 復活：從地上移除；復活的在原地站起來
+    this.events.on('CorpseConsumed', (e) => {
+      const i = this.corpses.indexOf(e.corpse as Corpse);
+      if (i < 0) return;
+      const [corpse] = this.corpses.splice(i, 1);
+      const caster = this.targeting.getActor(e.actorId);
+      if (e.kind === 'raise' && corpse && caster) this.raiseCorpse(caster, corpse);
+    });
     // 死亡技能（結晶獸的晶核碎裂）
     this.events.on('ActorDied', (e) => {
       const actor = this.targeting.getActor(e.actorId);
@@ -651,6 +671,7 @@ export class GameWorld {
   enterFloor(floor: number, restore?: FloorRestore): void {
     const def = this.floors.defFor(floor);
     this.resetLevel(this.mapFor(floor));
+    this.ai.floor = floor;
     // 魔王層：通往競技場的路上、競技場外面一點的地方有魔王門前的存檔點（王座廳整層都是競技場，沒有）
     const gate = def.throne ? null : this.bossGatePosition();
     if (gate) this.checkpoints.addBossGate(gate);
@@ -706,6 +727,9 @@ export class GameWorld {
     const mimics = plan.map((request) =>
       rollMimic(this.data.enemies.get(request.enemyId), floor, request.eliteAffixes !== undefined, this.data.skills, this.data.balance.enemyMimic, mimicRng),
     );
+    // 每一群生成時的隻數（含已擊殺的）：求援看「被打掉幾成」
+    const packSizes = new Map<number, number>();
+    for (const request of plan) if (request.pack !== undefined) packSizes.set(request.pack, (packSizes.get(request.pack) ?? 0) + 1);
     const spawnedIds: [number, number][] = [];
     /** 每個生成索引的外觀（讀檔還原屍體用） */
     const looks = new Map<number, { defId: string; visualRadius: number }>();
@@ -721,6 +745,7 @@ export class GameWorld {
       if (eliteSpec) applyFloorResist(enemy, resists[index]!);
       const mimic = mimics[index];
       if (mimic) teachMimic(enemy, mimic);
+      if (enemy.ai && request.pack !== undefined) enemy.ai.pack = { id: request.pack, size: packSizes.get(request.pack)! };
       const actor = this.addActor(enemy);
       spawnedIds.push([actor.id, index]);
     });
@@ -1170,6 +1195,22 @@ export class GameWorld {
       this.addActor(minion);
       spawned++;
     }
+  }
+
+  /** 骷髏法師復活屍體：同一種怪在屍體的位置站起來，血量 raise.hp；算召喚物（不給經驗、不掉寶、不留屍體、不算擊殺數） */
+  private raiseCorpse(caster: Actor, corpse: Corpse): void {
+    const def = this.data.enemies.get(corpse.defId);
+    const scaling = scaleForFloor(Math.max(1, this.floors.floor), this.data.balance.difficulty);
+    const radius = def.radius;
+    const position = this.nav.isClearAt(corpse.position, radius) ? corpse.position : this.spotNear(corpse.position, 0, radius);
+    const raised = this.enemyFactory.create(def, this.nextActorId++, position, { ...scaling, xp: 0 }, undefined, caster.id);
+    raised.hp = raised.maxHp * this.data.balance.enemyTactics.raise.hp;
+    raised.facing = corpse.facing;
+    if (raised.ai && caster.ai?.targetId != null) {
+      raised.ai.targetId = caster.ai.targetId;
+      raised.ai.state = 'chase';
+    }
+    this.addActor(raised);
   }
 
   /** 魔王身上脫離出來的怪物（噬界足眼的尾巴）：和魔王同樣的樓層倍率與減傷，不給經驗、不掉寶、不算進開出口的擊殺數 */
@@ -1633,7 +1674,9 @@ export class GameWorld {
     this.itemEffects.update(dt);
     this.bosses.update(this.actors, dt);
     this.passives.update(this.actors, dt);
-    this.ai.update(this.actors, dt);
+    // 怪物要繞開的區域：主角（與召喚物）放在地上的持續區域，跟著施放者走的（劍刃旋舞）不算
+    this.pathfinder.hazards = this.scheduler.zones.filter((z) => z.ctx.caster.faction === 'player' && !z.followCaster);
+    this.ai.update(this.actors, dt, this.projectiles, this);
     // 放在 AI 之後：一起出招的意圖才不會被 AI 蓋掉
     this.bossPairs.update(dt);
     this.combos.update(this.actors);

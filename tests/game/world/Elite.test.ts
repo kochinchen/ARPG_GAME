@@ -51,7 +51,7 @@ describe('精英怪出現規則', () => {
       pool: data.eliteAffixes.all,
       rng: new Rng(123),
     });
-    expect(withElites.map(({ enemyId, position }) => ({ enemyId, position }))).toEqual(plain);
+    expect(withElites.map(({ enemyId, position, pack }) => ({ enemyId, position, pack }))).toEqual(plain);
     expect(withElites.some((r) => r.eliteAffixes)).toBe(true);
   });
 

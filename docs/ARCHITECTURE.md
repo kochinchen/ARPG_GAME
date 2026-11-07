@@ -606,7 +606,11 @@ Summon 召喚系已移除
 
 ### 怪物的集體戰術與習得技能（設計者 2026-10-30）
 
-- `ai/SquadTactics.ts`（`balance.enemyTactics`）：發現敵人時 `rally` 叫醒附近看得到的閒置同伴（`AiBrain.alertTargetId`，只傳一層，發 `EnemyAlerted`）；每 0.5 秒依目標分組分配站位 `AiBrain.slot`——近戰從正面往兩邊排開、背後留缺口、快怪拿兩側，超過 `maxEngaged` 的 `waiting` 在外圈不出手；後排站在前排後方。只決定站位，追擊仍由 `ChaseState` 設 `SkillIntent.approach`、`SkillSystem` 走過去。魔王不參與
+- `ai/SquadTactics.ts`（`balance.enemyTactics`）：發現敵人時 `rally` 叫醒附近看得到的閒置同伴（`AiBrain.alertTargetId`，只傳一層，發 `EnemyAlerted`）；每 0.5 秒依目標分組分配站位 `AiBrain.slot`——近戰從正面往兩邊排開（`gapDegrees` 0 = 整圈）、快怪（遊擊）拿背後的站位並設 `flanking`，站位在另一邊時先給側面的中繼點、繞到前不出手，超過 `maxEngaged` 的 `waiting` 在外圈不出手；後排站在前排後方。求援（`reinforce`，設計者 2026-11-07）：生成時記錄每一群（`AiBrain.pack`，由 `SpawnRequest.pack` 與生成計畫推導，不存檔），一群被打掉超過一半就指定一隻當傳令兵（`callPacks`），`ChaseState` 轉成 `CallState` 跑去叫最多兩群閒置的怪（發 `EnemyCalling`）；派過與被叫來的群標 `packCalled`，不會連鎖。閃避（`dodge`）在 `AiSystem` 對追擊中的怪檢查投射物的飛行線，閃得出投射物寬度才閃（`dodgeTimer` 期間 `ChaseState` 不出手，發 `EnemyDodged`）。只決定站位，追擊仍由 `ChaseState` 設 `SkillIntent.approach`、`SkillSystem` 走過去。魔王不參與
+- 進階行為（`balance.enemyTactics`，設計者 2026-11-07）：
+  - 躲範圍傷害（`avoidZones`）：`GameWorld` 每個 Tick 把主角方的持續區域放進 `Pathfinder.hazards`；怪物尋路（`findPath(..., avoid)`、`IAiState.findPathFor`、`SkillSystem.approach`）每經過一格區域多算 `pathCost`；`AiSystem.avoidZones` 讓站在區域裡的怪走到邊緣外，在區域附近累積 `patience` 秒就 `braveTimer` 硬闖。
+  - 預判射擊（`leadShot`）：`ChaseState` 在意圖上設 `SkillIntent.lead`（隨樓層），`SkillSystem.leadPoint` 沿目標的路徑推算投射物飛到時的位置。
+  - 誘敵、撿藥水、吃屍體、復活：`ai/Errands.ts` 決定（`pickErrand` / `pickLure`），`FleeState`、`ErrandState` 執行；哪些怪會由 `EnemyDef.tactics` 決定。地上的藥水與屍體由 `GameWorld` 當 `AiSurroundings` 傳入；`EnemyDrankPotion`、`CorpseConsumed` 由 `GameWorld` 移除藥水 / 屍體，復活的怪以召喚物生成（`raiseCorpse`）。吃屍體變大是 `Actor.growth`（只影響外觀）
 - 怪物版主角技能：`data/mimicSkills.ts` 由近戰 / 遠程 / 法術樹產生 `mimic.<原 ID>`（傷害 ×0.6、不耗魔、冷卻與前搖放慢、法術強度改用怪物傷害）；`enemies/MimicSkills.ts` 在生成時依樓層擲骰（每個生成索引固定擲兩次，讀檔不變），學會的招式排在特殊技能最前面。Render 以 `originalSkillId` 沿用主角的特效，施放時頭上顯示招式名稱
 
 ### 鑲嵌與融合（v0.5.0，規格：`release/設計文件/版更討論/v0.5.0_鑲嵌與融合/`）

@@ -93,6 +93,8 @@ function skinBuffer(g: SkinGeometry): THREE.BufferGeometry {
 
 export class ThreeFigure implements TriangleSink {
   readonly group = new THREE.Group();
+  /** 外觀倍率（食屍鬼吃屍體變大） */
+  private scale = 1;
   private readonly geometry = new THREE.BufferGeometry();
   private readonly material = figureMaterial();
   private positions = new Float32Array(0);
@@ -204,9 +206,13 @@ export class ThreeFigure implements TriangleSink {
    * 放到腳底的位置。offset：前衝的畫面位移（px）；lift：浮空高度（px）；
    * tint：狀態顏色（冰凍、燃燒…）；alpha：倒地、滑鼠移上時的透明度。
    */
-  place(position: Vec2, offset: Vec2, lift: number, tint: number, alpha: number, visible: boolean): void {
+  place(position: Vec2, offset: Vec2, lift: number, tint: number, alpha: number, visible: boolean, scale = 1): void {
     this.group.visible = visible;
     if (!visible) return;
+    if (scale !== this.scale) {
+      this.scale = scale;
+      this.group.scale.copy(FIGURE_SCALE).multiplyScalar(scale);
+    }
     const d = this.projection.toWorld(offset);
     this.group.position.set(position.x + d.x, lift / PX_PER_HEIGHT, position.y + d.y);
     this.material.color.copy(colorOf(tint));

@@ -14,6 +14,8 @@ export interface SpawnRequest {
   position: Vec2;
   /** 精英怪的詞綴 ID（一般怪物為 undefined） */
   eliteAffixes?: string[];
+  /** 第幾群（同一群一起生成；求援時以群為單位） */
+  pack?: number;
 }
 
 /** 精英怪設定：每群的隊長有 chance 機率成為精英，從 pool 抽 count 個不重複的詞綴 */
@@ -70,7 +72,7 @@ export class SpawnSystem {
       for (let i = 0; i < size; i++) {
         const position = i === 0 ? center : this.near(center, zones);
         if (!position) continue;
-        const request: SpawnRequest = { enemyId: this.rng.weighted(floor.monsterPool).enemyId, position };
+        const request: SpawnRequest = { enemyId: this.rng.weighted(floor.monsterPool).enemyId, position, pack: packCenters.length - 1 };
         if (i === 0 && elite) {
           const affixes = rollElite(elite);
           if (affixes) request.eliteAffixes = affixes;

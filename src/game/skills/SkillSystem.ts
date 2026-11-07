@@ -36,6 +36,9 @@ export class SkillSystem {
   /** 傳奇 / 神話裝備的施放加成（GameWorld 設定） */
   modsHook: ModsHook | null = null;
 
+  /** 預判射擊最多預判幾秒（balance.enemyTactics.leadShot.maxTime；GameWorld 設定） */
+  leadMaxTime = Infinity;
+
   constructor(
     private readonly skills: DataTable<SkillDef>,
     private readonly targeting: TargetingService,
@@ -111,7 +114,7 @@ export class SkillSystem {
           return;
         }
         targetId = target.id;
-        point = target.position;
+        point = intent.lead ? this.leadPoint(actor, target, skill, intent.lead) : target.position;
         break;
       }
       case 'ground': {
@@ -203,9 +206,31 @@ export class SkillSystem {
     this.executor.execute(actor, cast.skill, cast.rank, target, origin, cast.direction, cast.mods);
   }
 
+  /**
+   * 預判射擊：投射物技能瞄準目標沿著目前路線、在「出手 + 飛行」這段時間後會到的位置（乘上 lead 比例）。
+   * 目標沒有在走（站著、施法中）就瞄準目前位置；改變方向就躲得掉。
+   */
+  private leadPoint(actor: Actor, target: Actor, skill: SkillDef, lead: number): Vec2 {
+    const projectile = skill.effects.find((e) => e.type === 'projectile');
+    if (!projectile || projectile.type !== 'projectile' || target.path.length === 0 || target.cast) return target.position;
+    const windup = this.castDuration(skill, actor) * skill.impactAt;
+    const time = Math.min(this.leadMaxTime, windup + distance(actor.position, target.position) / projectile.speed);
+    let left = target.moveSpeed * time * lead;
+    let at = target.position;
+    for (const waypoint of target.path) {
+      const d = distance(at, waypoint);
+      if (d >= left) return add(at, scale(sub(waypoint, at), left / d));
+      left -= d;
+      at = waypoint;
+    }
+    return at;
+  }
+
   private approach(actor: Actor, destination: Vec2): void {
     if (actor.repathCooldown > 0 && actor.path.length > 0) return;
-    actor.path = this.pathfinder.findPath(actor.position, destination, actor.radius);
+    // 怪物繞開主角放在地上的區域（猶豫太久就硬闖：braveTimer）
+    const avoid = actor.faction === 'enemy' && !actor.isBoss && !!actor.ai && actor.ai.braveTimer <= 0;
+    actor.path = this.pathfinder.findPath(actor.position, destination, actor.radius, avoid);
     actor.repathCooldown = REPATH_INTERVAL;
   }
 }

@@ -92,6 +92,8 @@ export const EnemyDefSchema = z
    * 第一個技能為主要攻擊；其餘為特殊技能（應有冷卻），冷卻結束且目標在範圍內時優先使用。
    */
   skills: z.array(IdSchema).default([]),
+  /** 特殊行為（balance.enemyTactics）：potion = 血少時撿地上的藥水喝；devour = 吃屍體回血變大；raise = 讓不死族的屍體站起來 */
+  tactics: z.array(z.enum(['potion', 'devour', 'raise'])).default([]),
   lootTable: IdSchema.optional(),
   xp: z.number().nonnegative(),
   /** Boss：冰凍改為強力緩速 */

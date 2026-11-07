@@ -4,6 +4,7 @@ import type { Vec2 } from '../core/math/Vec2';
 import type { ComboCastInfo } from './combo/StepMods';
 import type { Element } from '../data/schema/common';
 import type { ActorId, Faction } from './entities/Actor';
+import type { CorpseView } from './ai/AiBrain';
 import type { SkillCategory } from '../data/schema/skill';
 import type { StatusKind } from '../data/schema/effects';
 import type { EquipmentSlot } from './items/ItemInstance';
@@ -63,6 +64,16 @@ export interface GameEvents {
   ComboInterrupted: { step: number };
   /** 怪物發現敵人並招呼同伴（Render 在頭上顯示「!」）；allies：叫醒了幾隻 */
   EnemyAlerted: { actorId: ActorId; allies: number };
+  /** 怪物往旁邊閃開投射物 */
+  EnemyDodged: { actorId: ActorId };
+  /** 一群怪被打掉超過一半：這隻去叫其他群支援（Render 在頭上顯示「求援」；打倒牠就叫不到） */
+  EnemyCalling: { actorId: ActorId; packs: number };
+  /** 怪物離開戰鬥去撿藥水 / 吃屍體 / 復活屍體（Render 在頭上顯示） */
+  EnemyErrand: { actorId: ActorId; kind: 'potion' | 'devour' | 'raise' };
+  /** 怪物喝掉地上的藥水（GameWorld 把藥水從地上移除） */
+  EnemyDrankPotion: { actorId: ActorId; itemId: number; healed: number };
+  /** 屍體被吃掉 / 復活（GameWorld 移除屍體；復活的生成新的怪） */
+  CorpseConsumed: { actorId: ActorId; corpse: CorpseView; kind: 'devour' | 'raise' };
   ActorDamaged: {
     targetId: ActorId;
     sourceId: ActorId | null;

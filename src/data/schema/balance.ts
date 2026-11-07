@@ -188,11 +188,11 @@ export const BalanceSchema = z.strictObject({
     surroundRange: z.number().positive(),
     /** 同時貼身攻擊同一個目標的近戰上限；其餘在外圈等候補位 */
     maxEngaged: z.int().positive(),
-    /** 圍師必闕：包圍時在目標背後留下的缺口（度） */
+    /** 包圍時在目標背後留下的缺口（度）；0 = 整圈包圍（設計者 2026-11-07 拿掉圍師必闕） */
     gapDegrees: z.number().min(0).max(180),
     /** 站位間距至少照這麼多個站位平分（怪少時不會一下子散到背後） */
     minSlots: z.int().min(2),
-    /** 移動速度至少這麼快的近戰怪當遊擊，拿兩側與背後的站位 */
+    /** 移動速度至少這麼快的近戰怪當遊擊：拿背後的站位，繞過目標的側面過去 */
     flankSpeed: z.number().positive(),
     /** 等候補位的怪站在攻擊站位外這麼遠（Tile） */
     waitDistance: z.number().nonnegative(),
@@ -200,6 +200,85 @@ export const BalanceSchema = z.strictObject({
     backlineOffset: z.number().nonnegative(),
     /** 每隔幾秒重新分配站位（太頻繁會抖動） */
     reassignInterval: z.number().positive(),
+    /** 閃避飛來的投射物：追擊中的怪物看到會打中自己的投射物時，往旁邊閃開（魔王不閃） */
+    dodge: z.strictObject({
+      /** 閃避機率：第 1 層～第 maxFloor 層之間線性增加 */
+      chance: RangeSchema,
+      maxFloor: z.int().positive(),
+      /** 投射物這麼多秒內會打到才反應 */
+      lookahead: z.number().positive(),
+      /** 每次反應（不論有沒有閃）之後，這麼多秒內不再反應 */
+      cooldown: z.number().nonnegative(),
+      /** 閃到投射物邊緣外再多這麼遠（Tile） */
+      margin: z.number().nonnegative(),
+    }),
+    /** 求援：一群怪被打掉超過 casualtyRatio，派一隻去叫附近閒置的其他群（最多 maxPacks 群） */
+    reinforce: z.strictObject({
+      casualtyRatio: z.number().min(0).max(1),
+      /** 離傳令兵這個距離內的群才會被叫（Tile） */
+      callRange: z.number().positive(),
+      maxPacks: z.int().positive(),
+      /** 走到離那一群這麼近就叫醒牠們（Tile） */
+      reachDistance: z.number().positive(),
+    }),
+    /** 躲開地上的範圍傷害（主角的火海、毒池）：路線繞開，站在裡面就走出來（魔王不躲） */
+    avoidZones: z.strictObject({
+      /** 走到區域邊緣外再多這麼遠（Tile） */
+      margin: z.number().nonnegative(),
+      /** 尋路時每經過一格區域多算這麼多格的距離（繞路不超過這麼遠就繞） */
+      pathCost: z.number().nonnegative(),
+      /** 累積躲了這麼多秒還是過不去，就不管區域硬闖 */
+      patience: z.number().positive(),
+      /** 硬闖持續的秒數 */
+      brave: z.number().positive(),
+    }),
+    /** 預判射擊：投射物瞄準目標沿著目前路線「飛到時會到的位置」（魔王不預判） */
+    leadShot: z.strictObject({
+      /** 預判的比例（0 = 瞄準目前位置、1 = 完全預判）：第 1 層～第 maxFloor 層之間線性增加 */
+      lead: RangeSchema,
+      maxFloor: z.int().positive(),
+      /** 最多預判幾秒後的位置 */
+      maxTime: z.number().positive(),
+    }),
+    /** 誘敵：血少的怪往另一群閒置的怪逃，把追來的主角帶進去（不叫醒牠們） */
+    lure: z.strictObject({
+      hpBelow: z.number().gt(0).lt(1),
+      /** 每隻怪只擲一次 */
+      chance: z.number().min(0).max(1),
+      /** 這個距離內的群才會被當成逃跑的方向（Tile） */
+      range: z.number().positive(),
+      maxTime: z.number().positive(),
+      /** 離那一群這麼近就算到了，回頭打（Tile） */
+      arriveDistance: z.number().positive(),
+    }),
+    /** 撿藥水（tactics 有 potion 的怪）：血少時跑去撿地上的藥水、當場喝掉，主角就撿不到了 */
+    potion: z.strictObject({
+      hpBelow: z.number().gt(0).lt(1),
+      range: z.number().positive(),
+      /** 回復最大 HP 的比例 */
+      heal: z.number().gt(0).max(1),
+    }),
+    /** 吃屍體（tactics 有 devour 的怪）：回血、變大、傷害提高 */
+    devour: z.strictObject({
+      hpBelow: z.number().gt(0).max(1),
+      range: z.number().positive(),
+      duration: z.number().positive(),
+      heal: z.number().gt(0).max(1),
+      /** 每吃一次體型增加的比例 */
+      grow: z.number().nonnegative(),
+      /** 每吃一次傷害增加的比例 */
+      damage: z.number().nonnegative(),
+      maxEats: z.int().positive(),
+    }),
+    /** 復活（tactics 有 raise 的怪）：讓不死族的屍體站起來 */
+    raise: z.strictObject({
+      range: z.number().positive(),
+      duration: z.number().positive(),
+      /** 站起來時的血量比例 */
+      hp: z.number().gt(0).max(1),
+      cooldown: z.number().positive(),
+      max: z.int().positive(),
+    }),
   }),
   /** 精英怪（每群隊長）的共通強化 */
   elite: EliteConfigSchema,

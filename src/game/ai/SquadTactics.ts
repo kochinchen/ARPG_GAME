@@ -8,10 +8,11 @@ import type { NavGrid } from '../movement/NavGrid';
 /**
  * 怪物的集體戰術（參考孫子兵法）。只決定「站哪裡、要不要出手」，追擊與攻擊仍由 ChaseState / SkillSystem 執行。
  * - 呼朋引伴：發現敵人時叫醒附近看得到的閒置同伴（只傳一層）
- * - 包圍：近戰怪在目標四周分配站位，從怪物來的那一側往兩邊排開；快的怪（遊擊）拿兩側與背後
- * - 圍師必闕：目標背後留一個缺口，主角永遠有退路
+ * - 包圍：近戰怪在目標四周分配站位，從怪物來的那一側往兩邊排開；快的怪（遊擊）拿背後，從側面繞過去
+ * - 背後的缺口由 gapDegrees 決定（目前 0 = 整圈包圍，設計者 2026-11-07）
  * - 同時貼身的近戰有上限，其餘在外圈等候補位
  * - 後排（遠程、法師）站在前排後方
+ * - 求援：一群被打掉超過 casualtyRatio，派一隻（離目標最遠的）去叫附近閒置的其他群（CallState）
  * 魔王不參與（有自己的階段與技能）。
  */
 export class SquadTactics {
@@ -56,11 +57,13 @@ export class SquadTactics {
       if (!brain) continue;
       brain.slot = null;
       brain.waiting = false;
+      brain.flanking = false;
       if (!actor.alive || actor.isBoss || actor.faction !== 'enemy' || brain.state !== 'chase' || brain.targetId === null) continue;
       const group = groups.get(brain.targetId);
       if (group) group.push(actor);
       else groups.set(brain.targetId, [actor]);
     }
+    this.reinforce(actors, byId);
     const fronts = new Map<ActorId, number>();
     for (const [targetId, members] of groups) {
       const target = byId.get(targetId);
@@ -97,21 +100,77 @@ export class SquadTactics {
     return frontAngle;
   }
 
-  /** 從正面往兩邊排開站位；先讓前排挑最近的，遊擊（快的怪）拿剩下的兩側與背後 */
+  /**
+   * 從正面往兩邊排開站位：前排（慢的）挑靠正面的站位、各取最近的；遊擊（快的）拿剩下靠背後的。
+   * 站位在另一邊（差超過 FLANK_TURN）的遊擊先走到側面的中繼點，每次重新分配再往前繞，不會從目標身上穿過去。
+   */
   private surround(target: Actor, engaged: Actor[], frontAngle: number): void {
     const { gapDegrees, minSlots, flankSpeed } = this.config;
-    const arc = Math.PI * 2 - (gapDegrees * Math.PI) / 180;
-    const spacing = arc / Math.max(engaged.length - 1, minSlots - 1);
-    const free = engaged.map((_, i) => frontAngle + (i - (engaged.length - 1) / 2) * spacing);
-    const ordered = [...engaged.filter((m) => m.moveSpeed < flankSpeed), ...engaged.filter((m) => m.moveSpeed >= flankSpeed)];
-    for (const m of ordered) {
-      const offset = sub(m.position, target.position);
-      const current = Math.atan2(offset.y, offset.x);
-      let best = 0;
-      for (let i = 1; i < free.length; i++) if (angleGap(free[i]!, current) < angleGap(free[best]!, current)) best = i;
-      const angle = free.splice(best, 1)[0]!;
-      const r = target.radius + m.radius + m.stats.get('attackRange') * 0.6;
-      this.assign(m, add(target.position, vec2(Math.cos(angle) * r, Math.sin(angle) * r)));
+    const gap = (gapDegrees * Math.PI) / 180;
+    // 整圈包圍時頭尾不能重疊：平分成 n 份；留缺口時頭尾是缺口的兩邊
+    const spacing = gap === 0 ? (Math.PI * 2) / Math.max(engaged.length, minSlots) : (Math.PI * 2 - gap) / Math.max(engaged.length - 1, minSlots - 1);
+    const slots = engaged.map((_, i) => frontAngle + (i - (engaged.length - 1) / 2) * spacing);
+    slots.sort((a, b) => angleGap(a, frontAngle) - angleGap(b, frontAngle));
+    const front = engaged.filter((m) => m.moveSpeed < flankSpeed);
+    const flank = engaged.filter((m) => m.moveSpeed >= flankSpeed);
+    const pools = [slots.slice(0, front.length), slots.slice(front.length)];
+    [front, flank].forEach((group, g) => {
+      const free = pools[g]!;
+      for (const m of group) {
+        const offset = sub(m.position, target.position);
+        const current = Math.atan2(offset.y, offset.x);
+        let best = 0;
+        for (let i = 1; i < free.length; i++) if (angleGap(free[i]!, current) < angleGap(free[best]!, current)) best = i;
+        const angle = free.splice(best, 1)[0]!;
+        const r = target.radius + m.radius + m.stats.get('attackRange') * 0.6;
+        const turn = signedAngle(angle, current);
+        // 繞過去：先到目前方向往站位那一側轉 FLANK_TURN 的地方，半徑稍大（不貼著目標）
+        const via = Math.abs(turn) > FLANK_TURN ? current + Math.sign(turn) * FLANK_TURN : angle;
+        const radius = via === angle ? r : r + FLANK_WIDEN;
+        this.assign(m, add(target.position, vec2(Math.cos(via) * radius, Math.sin(via) * radius)));
+        // 遊擊離自己的站位還差一段角度：先繞過去，不在正面就出手
+        if (g === 1 && m.ai!.slot && angleGap(angle, current) > FLANK_ARRIVED) m.ai!.flanking = true;
+      }
+    });
+  }
+
+  /**
+   * 求援：有成員在追擊、生成時的隻數被打掉超過 casualtyRatio 的群，派一隻去叫 callRange 內最多 maxPacks 群閒置的怪。
+   * 已經派過、或是被叫來的群不再派（不會一路叫到整張地圖）。
+   */
+  private reinforce(actors: readonly Actor[], byId: Map<ActorId, Actor>): void {
+    const { casualtyRatio, callRange, maxPacks } = this.config.reinforce;
+    const packs = new Map<number, Actor[]>();
+    for (const a of actors) {
+      const pack = a.ai?.pack;
+      if (!pack || !a.alive || a.isBoss) continue;
+      const list = packs.get(pack.id);
+      if (list) list.push(a);
+      else packs.set(pack.id, [a]);
+    }
+    for (const [id, members] of packs) {
+      const lead = members[0]!.ai!;
+      if (lead.packCalled || members.length >= lead.pack!.size * (1 - casualtyRatio)) continue;
+      const fighting = members.filter((m) => m.ai!.state === 'chase' && m.ai!.targetId !== null && m.moveSpeed > 0);
+      if (fighting.length === 0) continue;
+      // 離目標最遠的去求援（最不會被攔下）
+      const away = (m: Actor) => {
+        const target = byId.get(m.ai!.targetId!);
+        return target ? distance(m.position, target.position) : 0;
+      };
+      const messenger = fighting.reduce((a, b) => (away(b) > away(a) ? b : a));
+      const candidates: { id: number; d: number }[] = [];
+      for (const [otherId, others] of packs) {
+        if (otherId === id || others[0]!.ai!.packCalled) continue;
+        if (!others.every((o) => o.ai!.state === 'idle' && o.ai!.alertTargetId === null)) continue;
+        const d = Math.min(...others.map((o) => distance(o.position, messenger.position)));
+        if (d <= callRange) candidates.push({ id: otherId, d });
+      }
+      for (const m of members) m.ai!.packCalled = true;
+      if (candidates.length === 0) continue;
+      candidates.sort((a, b) => a.d - b.d);
+      messenger.ai!.callPacks = candidates.slice(0, maxPacks).map((c) => c.id);
+      messenger.ai!.callTargetId = messenger.ai!.targetId;
     }
   }
 
@@ -128,6 +187,21 @@ export class SquadTactics {
   private assign(m: Actor, point: Vec2): void {
     if (this.nav.isClearAt(point, m.radius)) m.ai!.slot = point;
   }
+}
+
+/** 遊擊的站位和目前方向差超過這個角度就先繞到側面（弧度） */
+const FLANK_TURN = Math.PI / 2;
+/** 遊擊和站位的角度差在這之內就算繞到了，開始出手（弧度） */
+const FLANK_ARRIVED = Math.PI / 6;
+/** 繞路時的中繼點比站位離目標再遠這麼多（Tile） */
+const FLANK_WIDEN = 1;
+
+/** 從 from 轉到 to 的角度（-π～π，正 = 逆時針） */
+function signedAngle(to: number, from: number): number {
+  let d = (to - from) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
 }
 
 /** 兩個角度相差多少（0～π） */

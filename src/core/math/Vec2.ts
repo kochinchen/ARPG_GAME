@@ -11,6 +11,7 @@ export const ZERO: Vec2 = vec2(0, 0);
 export const add = (a: Vec2, b: Vec2): Vec2 => vec2(a.x + b.x, a.y + b.y);
 export const sub = (a: Vec2, b: Vec2): Vec2 => vec2(a.x - b.x, a.y - b.y);
 export const scale = (a: Vec2, s: number): Vec2 => vec2(a.x * s, a.y * s);
+export const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
 export const length = (a: Vec2): number => Math.hypot(a.x, a.y);
 /** 旋轉 deg 度（World 座標，順時針為正 y 方向） */
 export const rotate = (a: Vec2, deg: number): Vec2 => {

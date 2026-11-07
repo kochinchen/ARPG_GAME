@@ -326,6 +326,21 @@ export class Renderer {
       const actor = world.targeting.getActor(e.actorId);
       if (actor) say(actor.position, '!', PALETTE.critText);
     });
+    // 傳令兵離開戰場去叫援兵：頭上顯示「求援」，打倒牠就叫不到
+    world.events.on('EnemyCalling', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (actor) say(actor.position, '求援！', PALETTE.critText);
+    });
+    // 撿藥水 / 吃屍體 / 復活屍體：頭上提示，主角可以搶先或打斷
+    const errandText = { potion: '藥水！', devour: '啃食…', raise: '起來吧…' } as const;
+    world.events.on('EnemyErrand', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (actor) say(actor.position, errandText[e.kind], PALETTE.critText);
+    });
+    world.events.on('EnemyDrankPotion', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (actor && e.healed > 0) say(actor.position, `+${Math.round(e.healed)}`, PALETTE.healText);
+    });
     world.events.on('StatusTriggered', (e) => {
       const actor = world.targeting.getActor(e.actorId);
       if (!actor) return;
