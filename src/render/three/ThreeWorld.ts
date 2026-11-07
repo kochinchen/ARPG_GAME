@@ -70,6 +70,27 @@ export const GPU_SKINNING = { player: true, others: true };
  * - CPU：PolyFigure 每幀交出三角形（TriangleSink），這裡寫進 GPU 的頂點緩衝。
  * - GPU 蒙皮（gpu = true）：外觀改變時才收到靜止網格（skin），之後每幀只更新骨頭矩陣，頂點由顯示卡計算。
  */
+/** 共用的蒙皮網格：模型 → 外觀 id → 網格（見 PolyFigure 的 share） */
+const SHARED_SKINS = new WeakMap<object, Map<string, THREE.BufferGeometry>>();
+const SHARED_GEOMETRIES = new WeakSet<THREE.BufferGeometry>();
+
+function skinBuffer(g: SkinGeometry): THREE.BufferGeometry {
+  const n = g.colors.length;
+  const rgb = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const c = colorOf(g.colors[i]!);
+    rgb[i * 3] = c.r;
+    rgb[i * 3 + 1] = c.g;
+    rgb[i * 3 + 2] = c.b;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(g.positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(rgb, 3));
+  geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(g.joints, 4));
+  geometry.setAttribute('skinWeight', new THREE.BufferAttribute(g.weights, 4));
+  return geometry;
+}
+
 export class ThreeFigure implements TriangleSink {
   readonly group = new THREE.Group();
   private readonly geometry = new THREE.BufferGeometry();
@@ -83,7 +104,7 @@ export class ThreeFigure implements TriangleSink {
   private skinKey: readonly unknown[] | null = null;
   /** GPU 蒙皮的網格換過：包圍球要重算 */
   private boundsStale = true;
-  skin?: (key: readonly unknown[], build: () => SkinGeometry, bones: Float32Array) => void;
+  skin?: (key: readonly unknown[], build: () => SkinGeometry, bones: Float32Array, share?: { owner: object; id: string }) => void;
 
   constructor(
     private readonly projection: IsoProjection,
@@ -96,7 +117,7 @@ export class ThreeFigure implements TriangleSink {
   ) {
     this.group.scale.copy(FIGURE_SCALE);
     if (gpu) {
-      this.skin = (key, build, bones) => this.updateSkin(key, build, bones);
+      this.skin = (key, build, bones, share) => this.updateSkin(key, build, bones, share);
       return;
     }
     const mesh = new THREE.Mesh(this.geometry, this.material);
@@ -112,11 +133,11 @@ export class ThreeFigure implements TriangleSink {
     this.count = 0;
   }
 
-  private updateSkin(key: readonly unknown[], build: () => SkinGeometry, matrices: Float32Array): void {
+  private updateSkin(key: readonly unknown[], build: () => SkinGeometry, matrices: Float32Array, share?: { owner: object; id: string }): void {
     const count = matrices.length / 16;
     if (!this.skinned || this.bones.length !== count) {
       this.skinned?.removeFromParent();
-      this.skinned?.geometry.dispose();
+      if (this.skinned && !SHARED_GEOMETRIES.has(this.skinned.geometry)) this.skinned.geometry.dispose();
       this.skinned?.skeleton.dispose();
       this.bones = Array.from({ length: count }, () => new THREE.Bone());
       const mesh = new THREE.SkinnedMesh(new THREE.BufferGeometry(), this.material);
@@ -132,21 +153,16 @@ export class ThreeFigure implements TriangleSink {
     }
     if (!this.skinKey || key.length !== this.skinKey.length || key.some((k, i) => k !== this.skinKey![i])) {
       this.skinKey = [...key];
-      const g = build();
-      const n = g.colors.length;
-      const rgb = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) {
-        const c = colorOf(g.colors[i]!);
-        rgb[i * 3] = c.r;
-        rgb[i * 3 + 1] = c.g;
-        rgb[i * 3 + 2] = c.b;
+      const shared = share ? SHARED_SKINS.get(share.owner)?.get(share.id) : undefined;
+      const geometry = shared ?? skinBuffer(build());
+      if (share && !shared) {
+        const byId = SHARED_SKINS.get(share.owner) ?? new Map<string, THREE.BufferGeometry>();
+        byId.set(share.id, geometry);
+        SHARED_SKINS.set(share.owner, byId);
+        SHARED_GEOMETRIES.add(geometry);
       }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(g.positions, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(rgb, 3));
-      geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(g.joints, 4));
-      geometry.setAttribute('skinWeight', new THREE.BufferAttribute(g.weights, 4));
-      this.skinned.geometry.dispose();
+      // 共用的網格不釋放（其他分身還在用；每個模型只有幾份）
+      if (!SHARED_GEOMETRIES.has(this.skinned.geometry)) this.skinned.geometry.dispose();
       this.skinned.geometry = geometry;
       this.boundsStale = true;
     }
@@ -209,7 +225,7 @@ export class ThreeFigure implements TriangleSink {
 
   dispose(): void {
     this.group.removeFromParent();
-    this.skinned?.geometry.dispose();
+    if (this.skinned && !SHARED_GEOMETRIES.has(this.skinned.geometry)) this.skinned.geometry.dispose();
     this.skinned?.skeleton.dispose();
     this.geometry.dispose();
     this.material.dispose();

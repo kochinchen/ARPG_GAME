@@ -7,7 +7,7 @@ import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, Relic, Stai
 import { CHESTS, chestPose } from '../figure/Chest';
 import { EXIT_GATE } from '../figure/ExitGate';
 import { STAIRS } from '../figure/Stairs';
-import type { ThreeFigure, ThreeWorld } from '../three/ThreeWorld';
+import { GPU_SKINNING, type ThreeFigure, type ThreeWorld } from '../three/ThreeWorld';
 import { MERCHANT } from '../figure/Merchant';
 import { PolyFigure } from '../figure/PolyFigure';
 import { describeItem } from '../../game/items/ItemDescriber';
@@ -119,7 +119,8 @@ export class InteractableLayer {
     const model = view.model;
     if (!model || !!model.three === !!this.three) return;
     model.three?.dispose();
-    model.three = this.three?.createFigure() ?? null;
+    // GPU 蒙皮（同怪物）：商人每一幀都在動，CPU 算 4400 面、每幀重新上傳，一隻約 1 毫秒（第 1 層出生點旁三位商人約占畫面的 3 成）
+    model.three = this.three?.createFigure(GPU_SKINNING.others) ?? null;
     model.figure.sink = model.three;
     if (model.shadow) model.shadow.visible = !model.three;
     model.redraw();

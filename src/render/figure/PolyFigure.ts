@@ -74,7 +74,11 @@ export type TriangleSink = {
    * GPU 蒙皮（有這個時改用它，不再逐幀交出三角形）：外觀改變（key 不同）時才呼叫 build 交出靜止網格，
    * 之後每幀只交出關節矩陣（bones），頂點位置由顯示卡計算。
    */
-  skin?: (key: readonly unknown[], build: () => SkinGeometry, bones: Float32Array) => void;
+  /**
+   * share：同一個模型、沒換裝也沒換武器時，所有分身共用同一份網格（owner + id 相同就是同一份）；
+   * 怪物同時很多隻，每隻各建一次網格（CPU 約 3.5 ms、上傳 GPU 更久）會在走進畫面時卡一下
+   */
+  skin?: (key: readonly unknown[], build: () => SkinGeometry, bones: Float32Array, share?: { owner: object; id: string }) => void;
 };
 
 /**
@@ -392,7 +396,8 @@ export class PolyFigure {
     // 蒙皮網格（整張連續的身體）：被裝備蓋住的部位不畫；靴子等部位換成裝備的顏色（skinColors）
     const skin = this.model.skin;
     if (sink?.skin) {
-      sink.skin([mode, lod, this.outfit, mount, this.hidden], () => this.skinGeometry(weaponJoint, lod, mode), this.boneMatrices(world, k));
+      const share = !this.outfit && !mount ? { owner: this.model, id: `${mode}|${lod}|${weaponJoint}|${[...this.hidden].sort().join(',')}` } : undefined;
+      sink.skin([mode, lod, this.outfit, mount, this.hidden], () => this.skinGeometry(weaponJoint, lod, mode), this.boneMatrices(world, k), share);
     } else if (skin) {
       const verts = skinVerts(skin, world);
       const hide = this.outfit?.hideSkin;
