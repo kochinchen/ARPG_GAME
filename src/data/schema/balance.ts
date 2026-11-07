@@ -279,6 +279,34 @@ export const BalanceSchema = z.strictObject({
       cooldown: z.number().positive(),
       max: z.int().positive(),
     }),
+    /** 移動速度隨狀況變化（乘在基本速度上） */
+    pace: z.strictObject({
+      /** 主角在 sprintDistance 格外時，追擊的速度加成 */
+      sprint: z.number().nonnegative(),
+      sprintDistance: z.number().positive(),
+      /** 誘敵逃跑、傳令兵求援、跑去撿藥水 */
+      errand: z.number().nonnegative(),
+      /** 遊擊繞到目標背後的途中 */
+      flank: z.number().nonnegative(),
+      /** 靈活派（agile）被貼近後退時 */
+      retreat: z.number().nonnegative(),
+    }),
+    /** 靈活派（弓手）每一箭的飛行速度與射程：隨目標距離、隨機與精英提高 */
+    agile: z
+      .strictObject({
+        /** 目標在 near 格內不加、far 格外加滿 */
+        near: z.number().nonnegative(),
+        far: z.number().positive(),
+        /** 飛行速度加成（加滿時） */
+        speed: z.number().nonnegative(),
+        /** 射程加成（加滿時；比例，乘在技能的出手距離上） */
+        range: z.number().nonnegative(),
+        /** 每一箭隨機 ± 這麼多 */
+        jitter: z.number().nonnegative(),
+        /** 精英再乘上 1 + elite */
+        elite: z.number().nonnegative(),
+      })
+      .refine((a) => a.far > a.near, { message: 'agile.far 要大於 near' }),
   }),
   /** 精英怪（每群隊長）的共通強化 */
   elite: EliteConfigSchema,

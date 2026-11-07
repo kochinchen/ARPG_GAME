@@ -4,7 +4,7 @@ import type { ActorId } from '../entities/ActorTypes';
 export type AiStateName = 'idle' | 'chase' | 'return' | 'call' | 'flee' | 'errand';
 
 /** 特殊行為（EnemyDef.tactics） */
-export type EnemyTactic = 'potion' | 'devour' | 'raise';
+export type EnemyTactic = 'potion' | 'devour' | 'raise' | 'agile';
 
 /** AI 看得到的屍體（GameWorld.corpses） */
 export interface CorpseView {
@@ -91,6 +91,12 @@ export interface AiBrain {
   braveTimer: number;
   /** 距離下次找藥水 / 屍體的秒數（不要每個 Tick 都掃一遍地上） */
   scanTimer: number;
+  /** 目前套用的狀況速度加成（Pace；變了才改 Modifier） */
+  pace: number;
+  /** 靈活派：這一箭的隨機值（-1～1）與擲骰時的施放次數；目前套用的射程加成（Tile） */
+  volleyRoll: number;
+  volleyCast: number;
+  volleyRange: number;
 }
 
 export interface BrainOptions {
@@ -144,5 +150,9 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     hazardTime: 0,
     braveTimer: 0,
     scanTimer: 0,
+    pace: 0,
+    volleyRoll: 0,
+    volleyCast: -1,
+    volleyRange: 0,
   };
 }

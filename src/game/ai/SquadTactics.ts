@@ -111,8 +111,10 @@ export class SquadTactics {
     const spacing = gap === 0 ? (Math.PI * 2) / Math.max(engaged.length, minSlots) : (Math.PI * 2 - gap) / Math.max(engaged.length - 1, minSlots - 1);
     const slots = engaged.map((_, i) => frontAngle + (i - (engaged.length - 1) / 2) * spacing);
     slots.sort((a, b) => angleGap(a, frontAngle) - angleGap(b, frontAngle));
-    const front = engaged.filter((m) => m.moveSpeed < flankSpeed);
-    const flank = engaged.filter((m) => m.moveSpeed >= flankSpeed);
+    // 看不含狀況加成的速度（追趕加速中的慢怪不算遊擊）
+    const calm = (m: Actor) => m.moveSpeed / (1 + (m.ai?.pace ?? 0));
+    const front = engaged.filter((m) => calm(m) < flankSpeed);
+    const flank = engaged.filter((m) => calm(m) >= flankSpeed);
     const pools = [slots.slice(0, front.length), slots.slice(front.length)];
     [front, flank].forEach((group, g) => {
       const free = pools[g]!;

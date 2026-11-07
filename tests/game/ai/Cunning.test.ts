@@ -269,3 +269,91 @@ describe('處理屍體', () => {
     expect(mage.ai!.raiseCooldown).toBeGreaterThan(0);
   });
 });
+
+describe('移動速度隨狀況變化', () => {
+  it('主角離得遠時追趕加速，靠近後恢復', () => {
+    const { world, data } = setup([at('skeleton', 20, 5.5)]);
+    world.player.position = vec2(4, 5.5);
+    const skeleton = enemiesOf(world)[0]!;
+    const base = skeleton.moveSpeed;
+    provoke(world, skeleton);
+    run(world, 0.2);
+    expect(skeleton.ai!.state).toBe('chase');
+    expect(skeleton.moveSpeed).toBeCloseTo(base * (1 + data.balance.enemyTactics.pace.sprint));
+    run(world, 8);
+    expect(distance(skeleton.position, world.player.position)).toBeLessThan(2);
+    expect(skeleton.moveSpeed).toBeCloseTo(base);
+  });
+
+  it('誘敵逃跑時加速；追趕加速中的慢怪不會被當成遊擊', () => {
+    const { world, data } = setup([at('skeleton', 6, 5.5), at('skeleton', 6, 7), at('skeleton', 22, 5.5), at('skeleton', 23, 6)]);
+    data.balance.enemyTactics.lure.chance = 1;
+    const [bait, buddy, ...far] = enemiesOf(world);
+    bait!.ai!.pack = { id: 0, size: 2 };
+    buddy!.ai!.pack = { id: 0, size: 2 };
+    for (const f of far) f.ai!.pack = { id: 1, size: 2 };
+    const base = bait!.moveSpeed;
+    world.player.position = vec2(4, 5.5);
+    run(world, 0.6);
+    bait!.hp = bait!.maxHp * 0.2;
+    run(world, 1.1);
+    expect(bait!.ai!.state).toBe('flee');
+    expect(bait!.moveSpeed).toBeCloseTo(base * (1 + data.balance.enemyTactics.pace.errand));
+    expect(buddy!.ai!.flanking).toBe(false);
+  });
+});
+
+describe('靈活派（弓手）的箭', () => {
+  /** 記錄弓手射出的每一箭：飛行速度與飛行距離 */
+  function arrows(world: World, archer: Actor) {
+    const shots: { speed: number; remaining: number }[] = [];
+    const seen = new Set<number>();
+    return {
+      shots,
+      watch: () => {
+        for (const p of world.projectiles) {
+          if (p.caster !== archer || seen.has(p.id)) continue;
+          seen.add(p.id);
+          shots.push({ speed: p.speed, remaining: p.remaining });
+        }
+      },
+    };
+  }
+
+  function shoot(distanceToPlayer: number, elite = false) {
+    const { world } = setup([at('skeleton_archer', 30, 5.5)]);
+    const archer = enemiesOf(world)[0]!;
+    archer.ai!.keepDistance = 0;
+    if (elite) (archer as { elite: boolean }).elite = true;
+    world.player.position = vec2(30 - distanceToPlayer, 5.5);
+    provoke(world, archer);
+    const log = arrows(world, archer);
+    run(world, 6, () => {
+      log.watch();
+      // 弓手不靠近也不後退：固定距離射
+      archer.position = vec2(30, 5.5);
+      archer.path = [];
+    });
+    return log.shots;
+  }
+
+  it('主角越遠，箭飛得越快越遠；每一箭有隨機差異', () => {
+    const near = shoot(3);
+    const far = shoot(7.5);
+    expect(near.length).toBeGreaterThan(2);
+    expect(far.length).toBeGreaterThan(2);
+    const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(avg(far.map((s) => s.speed))).toBeGreaterThan(avg(near.map((s) => s.speed)) * 1.15);
+    expect(avg(far.map((s) => s.remaining))).toBeGreaterThan(avg(near.map((s) => s.remaining)));
+    expect(new Set(far.map((s) => s.speed.toFixed(3))).size).toBeGreaterThan(1);
+  });
+
+  it('精英的箭更快；超出原本出手距離的主角也射得到', () => {
+    const normal = shoot(7.5);
+    const elite = shoot(7.5, true);
+    const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(avg(elite.map((s) => s.speed))).toBeGreaterThan(avg(normal.map((s) => s.speed)) * 1.15);
+    // 弓箭的出手距離是 6 格；主角在 7.5 格外，靠射程加成還是射得到
+    expect(normal.length).toBeGreaterThan(0);
+  });
+});

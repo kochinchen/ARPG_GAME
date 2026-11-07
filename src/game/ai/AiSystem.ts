@@ -19,6 +19,7 @@ import { ErrandState } from './states/ErrandState';
 import { FleeState } from './states/FleeState';
 import { IdleState } from './states/IdleState';
 import { ReturnState } from './states/ReturnState';
+import { updatePace } from './Pace';
 import { SquadTactics } from './SquadTactics';
 
 /** 被打中後持續追擊的秒數（超過 Leash 也不回家） */
@@ -112,6 +113,8 @@ export class AiSystem {
           this.events.emit('EnemyAlerted', { actorId: self.id, allies: called });
         }
       }
+      // 狀況速度、靈活派這一箭的速度與射程（放在狀態之後：用這一幀決定的意圖）
+      if (self.faction === 'enemy') updatePace(ctx);
     }
   }
 

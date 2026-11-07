@@ -114,7 +114,7 @@ export class SkillSystem {
           return;
         }
         targetId = target.id;
-        point = intent.lead ? this.leadPoint(actor, target, skill, intent.lead) : target.position;
+        point = intent.lead ? this.leadPoint(actor, target, skill, intent.lead, intent.mods?.projectileSpeed ?? 0) : target.position;
         break;
       }
       case 'ground': {
@@ -210,11 +210,11 @@ export class SkillSystem {
    * 預判射擊：投射物技能瞄準目標沿著目前路線、在「出手 + 飛行」這段時間後會到的位置（乘上 lead 比例）。
    * 目標沒有在走（站著、施法中）就瞄準目前位置；改變方向就躲得掉。
    */
-  private leadPoint(actor: Actor, target: Actor, skill: SkillDef, lead: number): Vec2 {
+  private leadPoint(actor: Actor, target: Actor, skill: SkillDef, lead: number, speedBonus: number): Vec2 {
     const projectile = skill.effects.find((e) => e.type === 'projectile');
     if (!projectile || projectile.type !== 'projectile' || target.path.length === 0 || target.cast) return target.position;
     const windup = this.castDuration(skill, actor) * skill.impactAt;
-    const time = Math.min(this.leadMaxTime, windup + distance(actor.position, target.position) / projectile.speed);
+    const time = Math.min(this.leadMaxTime, windup + distance(actor.position, target.position) / (projectile.speed * (1 + speedBonus)));
     let left = target.moveSpeed * time * lead;
     let at = target.position;
     for (const waypoint of target.path) {
