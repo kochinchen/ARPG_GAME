@@ -230,7 +230,10 @@ const SWORD_TIP: V3 = (() => {
  * 盾面朝外並往前轉 45°，不正對鏡頭。
  */
 function drawShield(): Mesh[] {
-  const place = (m: Mesh) => placeMesh(m, [0, -0.8, -Math.PI / 2], [1.9, -2.4, 0.5]);
+  return shieldMeshes().map((m) => placeMesh(m, [0, -0.8, -Math.PI / 2], [1.9, -2.4, 0.5]));
+}
+/** 盾牌本身：圓盾在 XZ 平面、盾面朝 +Y（背面的握把在 -Y） */
+function shieldMeshes(): Mesh[] {
   return [
     tone(prism(10, -0.8, 0, [5.2, 5.2], [5.3, 5.3], WOOD[2]), WOOD, 2),
     tone(prism(12, 0, 0.7, [5.7, 5.7], [5.5, 5.5], METAL_DARK[0]), METAL_DARK),
@@ -240,7 +243,7 @@ function drawShield(): Mesh[] {
     ...[0, 1, 2, 3, 4, 5].map((i) => box(0.6, 0.5, 0.6, METAL_LIGHT[0], [Math.cos(i * 1.047) * 5.1, 0.8, Math.sin(i * 1.047) * 5.1])),
     // 盾背的握把
     tone(box(4, 0.8, 1, LEATHER[0], [0, -1.1, 0]), LEATHER),
-  ].map(place);
+  ];
 }
 
 // ─────────────────────────── 腿 ───────────────────────────
@@ -521,6 +524,37 @@ const skeletonPoses: PoseSet = {
   dead: DEAD,
   attackChain: { windup: [ANTICIPATION, WINDUP, SHIFT, SWING], strike: [IMPACT, FOLLOW] },
 };
+
+/** 劍與盾（握點在手腕，與舊版的拳頭同一個座標）：AI 版骷髏戰士也拿這一套 */
+export const SKELETON_WEAPONS = { handR: drawSword(), handL: drawShield(), tip: SWORD_TIP } as const;
+/**
+ * AI 版的劍（沿 -Y、握把正中間在原點）：劍首 → 握把（長度 grip，配合拳頭的寬度）→ 護手 → 護手上包住劍根的 rain-guard → 劍身 → 劍尖。
+ * 劍身比舊版長 1.2 倍。回傳網格與劍尖的 y
+ */
+function hiltedSword(grip: number): { meshes: Mesh[]; tip: number } {
+  const g = grip / 2;
+  const guardY = -g - 0.5;
+  const bladeTop = -g - 1;
+  const bladeLen = 19.1 * 1.2;
+  const pointLen = 3.5 * 1.2;
+  const tip = bladeTop - bladeLen - pointLen;
+  const meshes = [
+    tone(lowSphere(0.95, METAL_DARK[0], [0, g + 0.75, 0], 6, 4), METAL_DARK),
+    tone(prism(6, g, -g, [0.62, 0.62], [0.58, 0.58], LEATHER[0]), LEATHER),
+    // 護手：橫在握把與劍身之間，兩端往握把方向翹
+    tone(box(1, 1, 5.6, METAL_DARK[0], [0, guardY, 0]), METAL_DARK),
+    bar([0, guardY, 2.7], [0, guardY + 0.8, 3.7], 0.8, 0.8, METAL_DARK),
+    bar([0, guardY, -2.7], [0, guardY + 0.8, -3.7], 0.8, 0.8, METAL_DARK),
+    // rain-guard（劍根的皮套）
+    tone(prism(4, bladeTop, bladeTop - 1.6, [0.62, 1.75], [0.48, 1.5], 0x6a3a26, [0, 0, 0], 0), [0x6a3a26, 0x5a2e1e]),
+    tone(prism(4, bladeTop, bladeTop - bladeLen, [0.34, 1.4], [0.3, 1.15], BLADE[0], [0, 0, 0], 0), BLADE, 1),
+    tone(prism(4, bladeTop - bladeLen, tip, [0.3, 1.15], [0.04, 0.05], BLADE[0], [0, 0, 0], 0), BLADE, 2),
+  ];
+  return { meshes, tip };
+}
+
+/** AI 版用的原始形狀：劍（依握把長度產生）、圓盾盾面朝 +Y */
+export const SKELETON_GEAR = { sword: hiltedSword, shield: shieldMeshes() } as const;
 
 export const SKELETON_WARRIOR: FigureModel = {
   hipHeight: HIP,

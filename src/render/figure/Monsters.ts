@@ -2,15 +2,25 @@ import { ABERRATION_MODELS } from './Aberrations';
 import { BEAST_MODELS } from './Beasts';
 import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
-import { LATE_MODELS } from './LateMonsters';
-import { SKELETON_WARRIOR } from './SkeletonWarrior';
+import { LATE_MODELS, WARDEN_GEAR } from './LateMonsters';
+import { SKELETON_GEAR, SKELETON_WARRIOR } from './SkeletonWarrior';
+import { monsterAi } from './MonsterAI';
+import SKELETON_AI_DATA from './monsters/skeletonAI.json';
+import FROST_SKELETON_AI_DATA from './monsters/frostSkeletonAI.json';
+import ARCHER_AI_DATA from './monsters/skeletonArcherAI.json';
+import GHOUL_AI_DATA from './monsters/ghoulAI.json';
+import VENOM_GHOUL_AI_DATA from './monsters/venomGhoulAI.json';
+import VOID_SPORE_AI_DATA from './monsters/voidSporeAI.json';
+import VOID_MAW_AI_DATA from './monsters/voidMawAI.json';
+import BURROWER_AI_DATA from './monsters/burrowerAI.json';
 import { BONE_HAND } from './BoneHand';
 import { STONE_WALKERS } from './StoneWalkers';
-import type { FigureModel, Pose } from './FigureModel';
+import type { FigureModel, Joint, Pose } from './FigureModel';
 import { BONE, BONE_DARK, boneLimb, humanoid, monsterPoses, pelvis, ribcage, skull } from './MonsterParts';
-import { box, lowSphere, placeMesh, prism, type Mesh } from './Poly3D';
+import { box, lowSphere, placeMesh, prism, type Mesh, type V3 } from './Poly3D';
 import { knightStance, skeletonStance } from './HumanoidStance';
-import { bolt, glowEyes, iceCluster, pustule, recolor, rustSpike, variant } from './Variants';
+import { bolt, glowEyes, iceCluster, pustule, recolor, rustSpike, toHsl, variant, type RecolorRule } from './Variants';
+import { spike } from './Creatures';
 
 /**
  * 怪物的多面體模型（與女主角同一套關節與繪製方式）。
@@ -260,7 +270,6 @@ const ARMORED: FigureModel = knightStance({
   gaitRate: 0.7,
 });
 
-
 /** 骷髏法師：紫色長袍（金色滾邊）、尖兜帽、腰帶與小袋、喇叭袖、左手法杖（頂端紫色水晶 + 金色爪座） */
 const ROBE = 0x4e3c7a;
 const ROBE_DARK = 0x33284f;
@@ -322,13 +331,14 @@ const isMetal = (c: { s: number; l: number }) => c.s < 0.2 && c.l > 0.25;
 
 /** 冰霜骷髏：骨頭結霜成冰藍色、劍與盾泛著冰光；肩膀、背後與劍身長出冰晶，眼窩透出藍光 */
 const ICE = [0xbfe8ff, 0x8ccff0] as const;
+const FROST_COLOR = recolor([
+  { match: isBone, h: 200, s: 0.4, l: 1.02 },
+  { match: isMetal, h: 198, s: 0.35, l: 1.12 },
+  { match: (c) => c.h < 20 || c.h > 340, h: 215, s: 0.45 },
+  { match: () => true, h: 210, s: 0.18 },
+]);
 const FROST_SKELETON = variant(SKELETON_WARRIOR, {
-  color: recolor([
-    { match: isBone, h: 200, s: 0.4, l: 1.02 },
-    { match: isMetal, h: 198, s: 0.35, l: 1.12 },
-    { match: (c) => c.h < 20 || c.h > 340, h: 215, s: 0.45 },
-    { match: () => true, h: 210, s: 0.18 },
-  ]),
+  color: FROST_COLOR,
   add: {
     torso: [...iceCluster([3.5, 14.5, -3.4], [0.3, 0.8, -0.5], 5, 0.75, ICE), ...iceCluster([-3, 13.5, -3.6], [-0.3, 0.85, -0.5], 4.4, 0.7, ICE), ...iceCluster([0, 8, -4], [0, 0.4, -1], 3.4, 0.6, ICE)],
     upperArmL: iceCluster([1.2, 1.4, 0], [0.5, 1, -0.2], 3.6, 0.6, ICE),
@@ -431,6 +441,251 @@ const DUMMY: FigureModel = {
   },
 };
 
+// ─────────────────────────── AI 版（設計者生成的 3D 模型；舊版保留為 *_CLASSIC）───────────────────────────
+
+export const SKELETON_CLASSIC = SKELETON_WARRIOR;
+const paint = (meshes: readonly Mesh[], color: (c: number) => number): Mesh[] =>
+  meshes.map((m) => ({
+    ...m,
+    faces: m.faces.map((f) => ({
+      ...f,
+      color: color(f.color),
+      ...(f.base !== undefined ? { base: color(f.base) } : {}),
+    })),
+  }));
+/** 食屍鬼：生成的模型本來就駝背、頭往前伸，待機就是模型的樣子（腰、頸、頭只加上舊版動作和待機的差） */
+const HUNCHED = ['torso', 'neck', 'head'] as const;
+
+/**
+ * 持劍盾的骷髏：劍握在拳心、與手臂垂直（握把配合拳頭寬度，往劍尖依序是護手、rain-guard、劍身；劍身比舊版長 1.2 倍）；
+ * 圓盾放大 2 倍、在拳頭外側（盾面朝外、垂直地面，不和手臂重疊）。1.3 = 舊版的劍盾放在 AI 模型上偏小，整體先放大的倍率
+ */
+const swordOf = (color?: (c: number) => number) => ({
+  build: (grip: number) => {
+    const sword = SKELETON_GEAR.sword(grip);
+    return { meshes: paint(sword.meshes, color ?? ((c) => c)), tip: sword.tip };
+  },
+});
+const shieldOf = (color?: (c: number) => number) => ({
+  meshes: paint(SKELETON_GEAR.shield, color ?? ((c) => c)),
+  scale: 2,
+});
+/**
+ * 骷髏（戰士、冰霜、弓手）和女主角一樣高（設計者 2026-11-07）：ratio = 原本的高度 ÷ 女主角
+ * （npm run docs:models 的 manifest.js 量的，正面待機），只放大畫面上的模型，碰撞與數值不變
+ */
+const asTallAsHeroine = (ratio: number, m: FigureModel): FigureModel => resized(ratio, 1, m);
+/** 高度（相對女主角）從 from 調成 to：生成的模型比例和舊版不同，維持舊版在遊戲裡的大小 */
+const resized = (from: number, to: number, m: FigureModel): FigureModel => ({
+  ...m,
+  visualScale: ((m.visualScale ?? 1) * to) / from,
+});
+const SKELETON_AI = asTallAsHeroine(
+  0.88,
+  monsterAi(SKELETON_AI_DATA, SKELETON_WARRIOR, {
+    sword: swordOf(),
+    shield: shieldOf(),
+    heldScale: 1.3,
+  }),
+);
+const FROST_SKELETON_AI = asTallAsHeroine(
+  0.9,
+  monsterAi(FROST_SKELETON_AI_DATA, FROST_SKELETON, {
+    sword: swordOf(FROST_COLOR),
+    shield: shieldOf(FROST_COLOR),
+    heldScale: 1.3,
+  }),
+);
+/**
+ * 骷髏弓手：弓放大 2 倍、握把在左手拳心（手臂往前平舉時弓直立、弓弦朝自己）。
+ * 拉弓：側身、左臂往目標平舉伸直、右手把弦拉到下巴旁（弦跟著被拉開、後半段搭上一支箭）→
+ * 放箭（箭消失、由技能的投射物飛出去；弦彈回原位、右手往後彈開、左臂不動）
+ */
+// 角度由數值搜尋：左臂（肩 → 手）朝正前方水平、弓的長軸垂直地面、右手停在下巴前（誤差約 1.6）
+const ARCHER_DRAW = {
+  torso: [-0.05, -0.7, 0],
+  neck: [0, 0.3, 0],
+  head: [0, 0.4, 0],
+  upperArmL: [-1.5, 0, 0.7],
+  forearmL: [0, 0, 0],
+  handL: [0, 0, 0],
+  upperArmR: [-1.2, 0, 1.2],
+  forearmR: [-1.1, 0, 0],
+  handR: [0, 0, 0],
+} as const;
+const ARCHER_LOOSE = {
+  ...ARCHER_DRAW,
+  upperArmR: [-0.9, 0, 1.3],
+  forearmR: [-0.35, 0, 0],
+} as const;
+const aim = (base: Pose, a: Readonly<Record<string, readonly number[]>>): Pose => ({ ...base, angles: { ...base.angles, ...(a as Pose['angles']) } });
+const ARCHER_AIMED: FigureModel = {
+  ...ARCHER,
+  poses: {
+    ...ARCHER.poses,
+    attackWindup: aim(ARCHER.poses.attackWindup, ARCHER_DRAW),
+    attackStrike: aim(ARCHER.poses.attackStrike, ARCHER_LOOSE),
+    castWindup: aim(ARCHER.poses.castWindup, ARCHER_DRAW),
+    castRelease: aim(ARCHER.poses.castRelease, ARCHER_LOOSE),
+  },
+};
+// 弓（不含舊版的拳頭與弓弦，弦另外做成會拉開的兩段）；箭：骨白的箭桿、紅羽
+const ARCHER_AI = asTallAsHeroine(
+  0.99,
+  monsterAi(ARCHER_AI_DATA, ARCHER_AIMED, {
+    bow: {
+      meshes: bow().slice(1, -1),
+      grip: [0, -1.6, 0],
+      scale: 2,
+      string: { y: 1.4, half: 13.4, color: 0xe8e0c8 },
+      arrow: { color: 0xd8d0b0, fletch: 0xa82a20, head: 0x8a8478 },
+    },
+  }),
+);
+const GHOUL_AI = monsterAi(GHOUL_AI_DATA, GHOUL, { modeled: HUNCHED });
+const VENOM_GHOUL_AI = monsterAi(VENOM_GHOUL_AI_DATA, VENOM_GHOUL, {
+  modeled: HUNCHED,
+  fit: 'height',
+});
+
+// ─────────────────────────── AI 版的屬性變種（同一個模型換色；設計者 2026-11-07）───────────────────────────
+
+/** 只換蒙皮網格（生成的身體）的顏色；手上的武器另外換 */
+const paintSkin = (m: FigureModel, color: (c: number) => number): FigureModel => ({
+  ...m,
+  skin: {
+    ...m.skin!,
+    faces: m.skin!.faces.map((f) => ({ ...f, color: color(f.color) })),
+  },
+});
+
+/**
+ * 冰霜骷髏的換色（生成的顏色：骨頭是低飽和的藍灰、冰晶是高飽和的亮青、腰布是深藍）：
+ * 冰晶 → 火焰 / 紫電、腰布 → 深紅 / 靛紫、骨頭 → 燒焦的暖灰 / 帶紫的灰
+ */
+const frostRecolor = (crystal: Omit<RecolorRule, 'match'>, cloth: Omit<RecolorRule, 'match'>, bone: Omit<RecolorRule, 'match'>) =>
+  recolor([
+    { match: (c) => c.s >= 0.5 && c.l >= 0.38, ...crystal },
+    { match: (c) => c.h >= 208 && c.s >= 0.3, ...cloth },
+    { match: () => true, ...bone },
+  ]);
+const FLAME_SKIN = frostRecolor({ h: 20, s: 0.95, l: 1.05 }, { h: 356, s: 0.6, l: 0.95 }, { h: 25, s: 0.1, l: 0.82 });
+const STORM_SKIN = frostRecolor({ h: 280, s: 0.9, l: 1.05 }, { h: 262, s: 0.5 }, { h: 262, s: 0.07, l: 0.92 });
+/** 劍與盾（舊版的顏色：金屬、皮革、木頭） */
+const FLAME_GEAR = recolor([
+  { match: isMetal, h: 12, s: 0.32 },
+  { match: () => true, h: 4, s: 0.5, l: 0.9 },
+]);
+const STORM_GEAR = recolor([
+  { match: isMetal, h: 268, s: 0.25 },
+  { match: () => true, h: 270, s: 0.4, l: 0.9 },
+]);
+const flameOrStorm = (gear: (c: number) => number, skin: (c: number) => number) =>
+  asTallAsHeroine(
+    0.9,
+    paintSkin(
+      monsterAi(FROST_SKELETON_AI_DATA, FROST_SKELETON, {
+        sword: swordOf(gear),
+        shield: shieldOf(gear),
+        heldScale: 1.3,
+      }),
+      skin,
+    ),
+  );
+const FLAME_SKELETON_AI = flameOrStorm(FLAME_GEAR, FLAME_SKIN);
+const STORM_SKELETON_AI = flameOrStorm(STORM_GEAR, STORM_SKIN);
+
+/**
+ * 骷髏弓手的換色（生成的顏色：骨頭是淡黃白、兜帽是深橄欖綠、皮革是褐色）：
+ * 焦骨 = 燒焦的骨頭、灰燼色兜帽、暗褐皮革；凍骨 = 冰白的骨頭、冰藍兜帽、灰藍皮革；猛毒 = 毒綠的骨頭、紫色兜帽、暗紫皮革
+ */
+const archerRecolor = (bone: Omit<RecolorRule, 'match'>, hood: Omit<RecolorRule, 'match'>, leather: Omit<RecolorRule, 'match'>) =>
+  recolor([
+    {
+      match: (c) => c.h >= 28 && c.h < 70 && c.l >= 0.34 && c.s < 0.5,
+      ...bone,
+    },
+    { match: (c) => c.h >= 42 && c.h < 130 && c.l < 0.34, ...hood },
+    { match: () => true, ...leather },
+  ]);
+const archerBow = (string: number, arrow: number, fletch: number, head: number) => ({
+  bow: {
+    meshes: bow().slice(1, -1),
+    grip: [0, -1.6, 0] as V3,
+    scale: 2,
+    string: { y: 1.4, half: 13.4, color: string },
+    arrow: { color: arrow, fletch, head },
+  },
+});
+const ember = monsterAi(ARCHER_AI_DATA, ARCHER_AIMED, archerBow(0xffb070, 0x3a2a22, 0xff8a2a, 0xffd060));
+const EMBER_ARCHER_AI = asTallAsHeroine(0.99, paintSkin(ember, archerRecolor({ h: 20, s: 0.12, l: 0.5 }, { h: 15, s: 0.1, l: 0.9 }, { h: 14, s: 0.45, l: 0.8 })));
+const frostArcher = monsterAi(ARCHER_AI_DATA, ARCHER_AIMED, archerBow(0xe8f6ff, 0xc8e4f0, 0x9ad8ff, 0xeaf8ff));
+const FROST_ARCHER_AI = asTallAsHeroine(0.99, paintSkin(frostArcher, archerRecolor({ h: 205, s: 0.35, l: 1.1 }, { h: 205, s: 0.45, l: 1.25 }, { h: 212, s: 0.22, l: 0.95 })));
+const venomArcher = monsterAi(ARCHER_AI_DATA, ARCHER_AIMED, archerBow(0xd8f0a0, 0x5a7a2a, 0x8ed04a, 0xc8ff60));
+const VENOM_ARCHER_AI = asTallAsHeroine(0.99, paintSkin(venomArcher, archerRecolor({ h: 78, s: 0.35, l: 0.95 }, { h: 285, s: 0.32, l: 1.15 }, { h: 300, s: 0.2, l: 0.8 })));
+
+/**
+ * 鎖鏈獄卒：骷髏戰士的模型（設計者 2026-11-07）＋舊版的鐵籠面罩、發光的眼、胸前的鎖鏈、手銬、左手的燈籠、右手的鐵鉤
+ * （鐵鉤握在拳心、與手臂垂直，同骷髏的劍）。燈籠照舊版一直晃
+ */
+// 高度和舊版一樣（女主角的 1.13 倍），不用調
+const CHAIN_WARDEN_AI = monsterAi(SKELETON_AI_DATA, LATE_MODELS['enemy.chain_warden']!, {
+  // 鐵鉤放大 2 倍、鉤尖朝地板（設計者 2026-11-07）：舊版的鉤子往前彎，握成與手臂垂直後「前」會變成上方，所以前後翻過來（鏡像後面的頂點順序也要反過來）
+  sword: { build: () => ({ meshes: WARDEN_GEAR.hook().map((m) => ({ ...m, verts: m.verts.map((v): V3 => [v[0] * 2, (v[1] + 3.2) * 2, -v[2] * 2]), faces: m.faces.map((f) => ({ ...f, idx: [...f.idx].reverse() })) })), tip: -11.8 * 2 }) },
+  held: {
+    head: [...WARDEN_GEAR.cage(), ...WARDEN_GEAR.eyes()],
+    torso: WARDEN_GEAR.chains(),
+    forearmL: WARDEN_GEAR.manacle(),
+    forearmR: WARDEN_GEAR.manacle(),
+  },
+  heldScale: 1.15,
+  // 燈籠放大 2 倍（設計者 2026-11-07），掛在左手腕、一直朝下垂著
+  hang: { joint: 'ex_lantern', parent: 'handL', meshes: WARDEN_GEAR.lantern(), scale: 2 },
+});
+
+/**
+ * 鑽地寄生蟲的外觀（設計者 2026-11-07，照舊版）：虛空吞噬者的紫黑換成大地的土色（環節縫是深褐、唇是暗紅、牙與嘴裡的黑洞不變），
+ * 頭上剩下的紫色寶石變成橘色的眼睛，身上每一節長幾根往後斜的微刺
+ */
+const BURROWER_LOOK = { eye: 0xff8040, spike: 0x5a4234 };
+function burrowerLook(m: FigureModel): FigureModel {
+  const skin = m.skin!;
+  const headZ = skin.rest.head![2];
+  const earth = recolor([
+    // 牙齒、嘴裡的黑洞不變
+    { match: (c) => c.s < 0.3 && c.l > 0.35 },
+    { match: (c) => c.l < 0.04 },
+    { match: (c) => (c.h >= 330 || c.h < 15) && c.s >= 0.5, h: 8, s: 0.45, l: 1.15 },
+    { match: (c) => c.h >= 260 && c.h < 295 && c.s >= 0.5, h: 22, s: 0.3, l: 1.35 },
+    { match: () => true, h: 18, s: 0.24, l: 2.4 },
+  ]);
+  const faces = skin.faces.map((f) => {
+    const z = (skin.verts[f.idx[0]]![2] + skin.verts[f.idx[1]]![2] + skin.verts[f.idx[2]]![2]) / 3;
+    const c = toHsl(f.color);
+    const gem = c.h >= 255 && c.h < 310 && c.s >= 0.45 && c.l >= 0.38;
+    return { ...f, color: gem && z > headZ - 2 ? BURROWER_LOOK.eye : earth(f.color) };
+  });
+  // 微刺：每一節（身體的關節）上半圈 5 根，插在那一節中段的表面上（往那個方向最外面的頂點），往後斜
+  const segs: Joint[] = ['neck', 'torso', 'root', 'ponytail', 'thighL', 'shinL', 'footL'];
+  const parts = m.parts.map((p) => {
+    if (!segs.includes(p.joint)) return p;
+    const at = skin.rest[p.joint]!;
+    const mine = skin.verts.filter((_, i) => skin.infl[i]![0]?.joint === p.joint).map((v): V3 => [v[0] - at[0], v[1] - at[1], v[2] - at[2]]);
+    if (!mine.length) return p;
+    const mid = mine.reduce((sum, v) => sum + v[2], 0) / mine.length;
+    const spikes = [-1.3, -0.65, 0, 0.65, 1.3].flatMap((a, i) => {
+      const near = mine.filter((v) => Math.abs(Math.atan2(v[0], v[1]) - a) < 0.3 && Math.abs(v[2] - mid) < 1.6);
+      if (!near.length) return [];
+      const r = Math.max(...near.map((v) => Math.hypot(v[0], v[1])));
+      const dir: V3 = [Math.sin(a), Math.cos(a), 0];
+      const len = r * (0.16 + (i % 2) * 0.07);
+      return [spike([dir[0] * r * 0.9, dir[1] * r * 0.9, mid], [dir[0] * (r + len), dir[1] * (r + len), mid - len * 0.5], r * 0.06, BURROWER_LOOK.spike)];
+    });
+    return { ...p, meshes: [...p.meshes, ...spikes] };
+  });
+  return { ...m, parts, skin: { ...skin, faces } };
+}
+
 /** EnemyDef ID → 模型（沒有對應時 ActorView 使用骷髏戰士） */
 /**
  * 非人形怪物的外觀倍率（只放大畫面，不影響碰撞與數值）。
@@ -477,15 +732,14 @@ const scaled = (models: Record<string, FigureModel>): Record<string, FigureModel
   Object.fromEntries(Object.entries(models).map(([id, m]) => [id, VISUAL_SCALE[id] ? { ...m, visualScale: VISUAL_SCALE[id] } : m]));
 
 export const MONSTER_MODELS: Record<string, FigureModel> = {
-  'enemy.skeleton': SKELETON_WARRIOR,
-  'enemy.ghoul': GHOUL,
-  'enemy.skeleton_archer': ARCHER,
+  'enemy.skeleton': SKELETON_AI,
+  'enemy.ghoul': GHOUL_AI,
+  'enemy.skeleton_archer': ARCHER_AI,
   'enemy.armored_skeleton': ARMORED,
   'enemy.skeleton_mage': MAGE,
   'enemy.training_dummy': DUMMY,
-  'enemy.frost_skeleton': FROST_SKELETON,
-  'enemy.venom_ghoul': VENOM_GHOUL,
-  'enemy.ember_archer': EMBER_ARCHER,
+  'enemy.frost_skeleton': FROST_SKELETON_AI,
+  'enemy.venom_ghoul': VENOM_GHOUL_AI,
   'enemy.storm_mage': STORM_MAGE,
   'enemy.rusted_knight': RUSTED_KNIGHT,
   ...scaled(CREATURE_MODELS),
@@ -495,6 +749,57 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   ...scaled(BOSS_MODELS),
   ...STONE_WALKERS,
   'enemy.bone_hand': BONE_HAND,
+  // 虛空孢子：舊版的觸手末端離地約 6
+  'enemy.void_spore': monsterAi(VOID_SPORE_AI_DATA, scaled(ABERRATION_MODELS)['enemy.void_spore']!, { rest: 'asModeled', ground: 'none', lift: 6 }),
+  // 虛空吞噬者、鑽地寄生蟲：維持舊版的高度（女主角的 1.79、1.28 倍）
+  'enemy.void_maw': resized(
+    1.13,
+    1.79,
+    monsterAi(VOID_MAW_AI_DATA, scaled(LATE_MODELS)['enemy.void_maw']!, {
+      rest: 'asModeled',
+      ground: 'all',
+    }),
+  ),
+  'enemy.flame_skeleton': FLAME_SKELETON_AI,
+  'enemy.storm_skeleton': STORM_SKELETON_AI,
+  'enemy.ember_archer': EMBER_ARCHER_AI,
+  'enemy.frost_archer': FROST_ARCHER_AI,
+  'enemy.venom_archer': VENOM_ARCHER_AI,
+  'enemy.chain_warden': CHAIN_WARDEN_AI,
+  // 鑽地寄生蟲：虛空吞噬者的模型，身上的寶石拿掉大部分（scripts/monster_ai.py 的 burrower），換成舊版的土色、橘眼、微刺；動作照舊版
+  'enemy.burrower': resized(0.71, 1.28, burrowerLook(monsterAi(BURROWER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.burrower']!, { rest: 'asModeled', ground: 'all' }))),
+};
+
+/** 換成 AI 版的一般怪（魔王動作預覽列出這些） */
+export const AI_MONSTERS = [
+  'enemy.skeleton',
+  'enemy.ghoul',
+  'enemy.venom_ghoul',
+  'enemy.frost_skeleton',
+  'enemy.skeleton_archer',
+  'enemy.void_spore',
+  'enemy.void_maw',
+  'enemy.flame_skeleton',
+  'enemy.storm_skeleton',
+  'enemy.ember_archer',
+  'enemy.frost_archer',
+  'enemy.venom_archer',
+  'enemy.chain_warden',
+  'enemy.burrower',
+];
+
+/** 換成 AI 版之前的舊版模型（比較面數、效能用） */
+export const CLASSIC_MODELS: Record<string, FigureModel> = {
+  'enemy.skeleton': SKELETON_WARRIOR,
+  'enemy.ghoul': GHOUL,
+  'enemy.venom_ghoul': VENOM_GHOUL,
+  'enemy.frost_skeleton': FROST_SKELETON,
+  'enemy.skeleton_archer': ARCHER,
+  'enemy.void_spore': ABERRATION_MODELS['enemy.void_spore']!,
+  'enemy.void_maw': LATE_MODELS['enemy.void_maw']!,
+  'enemy.ember_archer': EMBER_ARCHER,
+  'enemy.chain_warden': LATE_MODELS['enemy.chain_warden']!,
+  'enemy.burrower': ABERRATION_MODELS['enemy.burrower']!,
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;

@@ -43,6 +43,8 @@ const ARTS: Record<string, ProjectileArt> = {
   'ranged.execution_shot': arrow('execute', 0xff2a3a, 0xffd0a0, 'ember', 1.8, 70),
   'ranged.mark_shot': arrow('phantom', 0xb49aff, 0xf0e8ff, 'mote', 1.1, 30),
   'enemy.bow_shot': arrow('bone', 0xd8ccb0, 0xf0e8d8),
+  'enemy.frost_arrow': arrow('bone', 0x9ad8ff, 0xeaf8ff, 'flake', 1, 14),
+  'enemy.venom_arrow': arrow('bone', 0x8ed04a, 0xe0ffb0, 'drop', 1, 14),
   'magic.fireball': orb('fire', 0xff6a1a, 0xffe070, 'ember', 1, 55),
   'magic.ice_orb': orb('ice', 0x7fd4ff, 0xeaf8ff, 'flake', 1.1, 30),
   'magic.spark': orb('spark', 0xf5e663, 0xffffff, 'spark', 0.9, 45),

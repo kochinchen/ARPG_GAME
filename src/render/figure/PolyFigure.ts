@@ -138,6 +138,9 @@ export class PolyFigure {
   private outfit: (ReadonlyMap<Joint, Mesh[]> & { hideSkin?: ReadonlySet<string>; skinColors?: ReadonlyMap<number, number> }) | null = null;
   /** 不畫的關節（魔王階段變化：盾牌碎裂、巨劍落地） */
   private hidden: ReadonlySet<Joint> = new Set();
+  /** 階段藏起的關節；hidden = 這個 + 目前不在前搖後半段時的 windupOnly（兩組預先算好，切換時不重建） */
+  private phaseHidden: ReadonlySet<Joint> = new Set();
+  private phaseHiddenIdle: ReadonlySet<Joint> = new Set();
   /** 切換階段後還要慢慢過渡幾秒（模型的 phaseBlendTime） */
   private phaseBlend = 0;
   /** 目前階段的動作（魔王的 phasePoses；沒有時是模型的 poses） */
@@ -152,8 +155,14 @@ export class PolyFigure {
   ) {
     this.current = model.poses.ready(0);
     // 一開始是第 1 階段（魔王第 1 階段要藏起的關節，例如第 3 階段才出現的元素球）
-    this.hidden = new Set(model.phaseHidden?.[0] ?? []);
+    this.setHidden(model.phaseHidden?.[0] ?? []);
     this.poses = model.phasePoses?.[0] ?? model.poses;
+  }
+
+  private setHidden(phase: readonly Joint[]): void {
+    this.phaseHidden = new Set(phase);
+    this.phaseHiddenIdle = new Set([...phase, ...(this.model.windupOnly ?? [])]);
+    this.hidden = this.phaseHiddenIdle;
   }
 
   /** 攻擊 / 施法：windup 秒後命中（前搖），之後揮下、收回；variant 為招式（模型有對應動作時使用） */
@@ -173,7 +182,7 @@ export class PolyFigure {
 
   /** 魔王的階段：依模型的 phaseHidden 隱藏關節 */
   setPhase(phase: number): void {
-    this.hidden = new Set(this.model.phaseHidden?.[phase] ?? []);
+    this.setHidden(this.model.phaseHidden?.[phase] ?? []);
     this.poses = this.model.phasePoses?.[phase] ?? this.model.poses;
     this.phaseBlend = this.model.phaseBlendTime ?? 0;
   }
@@ -213,6 +222,10 @@ export class PolyFigure {
     this.phaseBlend = Math.max(0, this.phaseBlend - dt);
     const k = this.action || (this.death && this.poses.deathKeys) ? 1 : Math.min(1, dt * (this.phaseBlend > 0 ? 3 : 14));
     this.current = lerpPose(this.current, target, k);
+    if (this.model.windupOnly) {
+      const a = this.action;
+      this.hidden = a && a.elapsed > a.windup * 0.45 && a.elapsed < a.windup ? this.phaseHidden : this.phaseHiddenIdle;
+    }
     this.draw(yawFor(state.facing), state.facing);
   }
 

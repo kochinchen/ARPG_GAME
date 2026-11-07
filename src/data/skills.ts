@@ -840,6 +840,72 @@ const enemySkills: SkillInput[] = [
     ],
   },
   {
+    id: 'enemy.flame_strike',
+    name: '烈焰斬',
+    description: '赤焰骷髏的普通攻擊：武器傷害，另外附加 20% 的火焰傷害。',
+    targeting: 'enemy',
+    useAttackSpeed: true,
+    tags: ['attack', 'melee', 'fire'],
+    effects: [
+      { type: 'damage', element: 'physical', scaling: 'weapon' },
+      { type: 'damage', element: 'fire', scaling: 'weapon', multiplier: 0.2 },
+    ],
+  },
+  {
+    id: 'enemy.storm_slash',
+    name: '紫電斬',
+    description: '紫電骷髏的普通攻擊：武器傷害，另外附加 20% 的閃電傷害。',
+    targeting: 'enemy',
+    useAttackSpeed: true,
+    tags: ['attack', 'melee', 'lightning'],
+    effects: [
+      { type: 'damage', element: 'physical', scaling: 'weapon' },
+      { type: 'damage', element: 'lightning', scaling: 'weapon', multiplier: 0.2 },
+    ],
+  },
+  {
+    id: 'enemy.frost_arrow',
+    name: '凍骨箭',
+    description: '凍骨弓手的遠程攻擊：武器傷害，另外附加 20% 的冰霜傷害。',
+    targeting: 'enemy',
+    range: 6,
+    useAttackSpeed: true,
+    tags: ['attack', 'ranged', 'projectile', 'cold'],
+    effects: [
+      {
+        type: 'projectile',
+        speed: 9,
+        radius: 0.18,
+        range: 9,
+        onHit: [
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1 },
+          { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: 0.2 },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'enemy.venom_arrow',
+    name: '猛毒箭',
+    description: '猛毒弓手的遠程攻擊：武器傷害，另外附加 20% 的毒素傷害。',
+    targeting: 'enemy',
+    range: 6,
+    useAttackSpeed: true,
+    tags: ['attack', 'ranged', 'projectile', 'poison'],
+    effects: [
+      {
+        type: 'projectile',
+        speed: 9,
+        radius: 0.18,
+        range: 9,
+        onHit: [
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1 },
+          { type: 'damage', element: 'poison', scaling: 'weapon', multiplier: 0.2 },
+        ],
+      },
+    ],
+  },
+  {
     id: 'enemy.venom_claw',
     name: '毒爪',
     description: '毒液食屍鬼的爪擊：附加中毒（3 秒內結算，最多 3 層）。',

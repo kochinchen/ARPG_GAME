@@ -6,6 +6,7 @@ import { figureScale, finalPhase, type AttackVariant, type FigureModel } from '.
 import { PolyFigure, type FigureState } from '../render/figure/PolyFigure';
 import { boneDragonLook, type GlowElement } from '../render/figure/bosses/BoneDragonAI';
 import { BONE_HAND } from '../render/figure/BoneHand';
+import { AI_MONSTERS, MONSTER_MODELS } from '../render/figure/Monsters';
 import { STONE_WALKERS } from '../render/figure/StoneWalkers';
 import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
 
@@ -17,11 +18,11 @@ import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
  */
 
 const params = new URLSearchParams(location.search);
-const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && (e.boss || id === 'enemy.abyss_tail'))), ...Object.keys(STONE_WALKERS), 'enemy.bone_hand'];
+const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id === id && (e.boss || id === 'enemy.abyss_tail'))), ...Object.keys(STONE_WALKERS), 'enemy.bone_hand', ...AI_MONSTERS];
 const modelId = ids.includes(`enemy.${params.get('model')}`) ? `enemy.${params.get('model')}` : 'enemy.abyss_sovereign';
 /** ?glow=fire,poison：骨龍的兩種屬性 */
 const glow = params.get('glow')?.split(',') as [GlowElement, GlowElement] | undefined;
-const baseModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : modelId === 'enemy.bone_hand' ? BONE_HAND : BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId]!;
+const baseModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : modelId === 'enemy.bone_hand' ? BONE_HAND : BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId] ?? MONSTER_MODELS[modelId]!;
 /** ?bones=1：蒙皮網格每個面依權重最大的骨頭上色（手臂 = 黃 / 橘 / 紅、鎖骨 = 白，其他依名稱），檢查分區 */
 const BONE_COLORS: Record<string, number> = { upperArm: 0xffe040, forearm: 0xff8a20, hand: 0xff3030, ex_fingers: 0xff40c0, ex_clav: 0xffffff };
 const model: FigureModel =
@@ -235,7 +236,7 @@ addEventListener('keydown', (e) => {
 });
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
-  state.zoom = Math.min(6, Math.max(0.5, state.zoom * (e.deltaY > 0 ? 0.9 : 1.1)));
+  state.zoom = Math.min(16, Math.max(0.5, state.zoom * (e.deltaY > 0 ? 0.9 : 1.1)));
 }, { passive: false });
 
 // ── 畫面 ──

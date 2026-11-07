@@ -12,12 +12,18 @@ type FloorInput = z.input<typeof FloorDefSchema>;
  * 變種（冰霜骷髏、毒液食屍鬼…）與原版分攤原本的權重，每 1～2 層加入一種新面孔。
  */
 const humanoids = (scale = 1): FloorInput['monsterPool'] => [
-  { enemyId: 'enemy.skeleton', weight: 3.5 * scale },
-  { enemyId: 'enemy.frost_skeleton', weight: 1.5 * scale, minFloor: 3 },
+  // 骷髏戰士與冰霜、赤焰、紫電三種屬性版本分攤（第 3、4、6 層加入）
+  { enemyId: 'enemy.skeleton', weight: 3 * scale },
+  { enemyId: 'enemy.frost_skeleton', weight: 1.2 * scale, minFloor: 3 },
+  { enemyId: 'enemy.flame_skeleton', weight: 0.8 * scale, minFloor: 4 },
+  { enemyId: 'enemy.storm_skeleton', weight: 0.8 * scale, minFloor: 6 },
   { enemyId: 'enemy.ghoul', weight: 2 * scale },
   { enemyId: 'enemy.venom_ghoul', weight: 1 * scale, minFloor: 2 },
-  { enemyId: 'enemy.skeleton_archer', weight: 2 * scale, minFloor: 3 },
-  { enemyId: 'enemy.ember_archer', weight: 1 * scale, minFloor: 5 },
+  // 骷髏弓手與焦骨、凍骨、猛毒三種屬性版本分攤（第 4、5、7 層加入）
+  { enemyId: 'enemy.skeleton_archer', weight: 1.6 * scale, minFloor: 3 },
+  { enemyId: 'enemy.frost_archer', weight: 0.7 * scale, minFloor: 4 },
+  { enemyId: 'enemy.ember_archer', weight: 0.8 * scale, minFloor: 5 },
+  { enemyId: 'enemy.venom_archer', weight: 0.7 * scale, minFloor: 7 },
   { enemyId: 'enemy.armored_skeleton', weight: 1 * scale, minFloor: 4 },
   { enemyId: 'enemy.rusted_knight', weight: 0.6 * scale, minFloor: 8 },
   { enemyId: 'enemy.skeleton_mage', weight: 1.6 * scale, minFloor: 6 },

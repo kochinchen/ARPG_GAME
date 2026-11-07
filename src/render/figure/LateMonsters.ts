@@ -150,6 +150,29 @@ const lantern = (): Mesh[] => [
 ];
 /** 鐵手銬：手腕的鐵環 + 垂下的斷鏈 */
 const manacle = (): Mesh[] => [prism(10, -6.6, -8.4, [1.6, 1.6], [1.6, 1.6], W.ironDark), ...chainLinks([0.6, -8, 1], [1.4, -14, 2.6], 6, 0.6, W.chain)];
+/** 斜背的皮帶、胸前交叉的鎖鏈、鐵項圈、左肩一片鏽甲（torso 座標） */
+const wardenChains = (): Mesh[] => [
+  placeMesh(prism(4, -9, 9, [0.7, 0.35], [0.7, 0.35], W.leather), [0, 0, 0.75], [0, 8.6, 3.4]),
+  ...chainLinks([6, 15, 3.4], [-5, 4, 4], 11, 0.85, W.chain),
+  ...chainLinks([-6, 15, -3.6], [5, 5, -4], 11, 0.85, W.chain),
+  organic(prism(12, 14.6, 16.4, [4.6, 4], [4.4, 3.8], W.ironDark), 0.15),
+  ...[0, 1, 2, 3].map((i) => spike([Math.cos(i * 1.57) * 4.4, 16, Math.sin(i * 1.57) * 3.8], [Math.cos(i * 1.57) * 6, 16.6, Math.sin(i * 1.57) * 5.2], 0.4, W.iron)),
+  ...shell([5.4, 14, 0], [3.4, 2.6, 3.6], 2, 2, [W.iron, W.rust], 2.6, { arc: 0.7, thick: 0.6, rough: 0.25 }),
+];
+/** 鐵籠面罩：上下兩道鐵環 + 八根鐵條 + 頂上的提環（head 座標） */
+const wardenCage = (): Mesh[] => [
+  prism(12, 1.6, 2.6, [5.8, 6], [5.8, 6], W.ironDark),
+  prism(12, 10.6, 11.6, [5.4, 5.6], [5, 5.2], W.ironDark),
+  ...Array.from({ length: 8 }, (_, i) => {
+    const a = (i / 8) * Math.PI * 2 + 0.2;
+    return seg([Math.cos(a) * 5.8, 2.2, Math.sin(a) * 6], [Math.cos(a) * 5.3, 11, Math.sin(a) * 5.5], 0.32, 0.32, i % 3 ? W.iron : W.rust, 4);
+  }),
+  seg([0, 11.4, -2.4], [0, 13.4, 0], 0.4, 0.4, W.iron, 4),
+  seg([0, 13.4, 0], [0, 11.4, 2.4], 0.4, 0.4, W.iron, 4),
+];
+/** AI 版鎖鏈獄卒（骷髏戰士的模型）用的裝備：舊版的關節座標 */
+export const WARDEN_GEAR = { chains: wardenChains, cage: wardenCage, eyes: () => glowEyes(2, 6, 5.5, 0.75, W.eye), manacle, lantern, hook } as const;
+
 const CHAIN_WARDEN: FigureModel = {
   hipHeight: 29,
   referenceRadius: 0.3,
@@ -164,29 +187,8 @@ const CHAIN_WARDEN: FigureModel = {
       ...chainLinks([-4.6, 0.6, 3.4], [-5, -5, 2.8], 5, 0.75, W.chain),
       ...[0, 1, 2].map((i) => box3(0.4, 2.2, 0.3, W.rust, [-5 + i * 0.5, -6.4, 2.8])),
     ],
-    torso: [
-      ...ribcage(W.bone),
-      // 斜背的皮帶、胸前交叉的鎖鏈、鐵項圈、左肩一片鏽甲
-      placeMesh(prism(4, -9, 9, [0.7, 0.35], [0.7, 0.35], W.leather), [0, 0, 0.75], [0, 8.6, 3.4]),
-      ...chainLinks([6, 15, 3.4], [-5, 4, 4], 11, 0.85, W.chain),
-      ...chainLinks([-6, 15, -3.6], [5, 5, -4], 11, 0.85, W.chain),
-      organic(prism(12, 14.6, 16.4, [4.6, 4], [4.4, 3.8], W.ironDark), 0.15),
-      ...[0, 1, 2, 3].map((i) => spike([Math.cos(i * 1.57) * 4.4, 16, Math.sin(i * 1.57) * 3.8], [Math.cos(i * 1.57) * 6, 16.6, Math.sin(i * 1.57) * 5.2], 0.4, W.iron)),
-      ...shell([5.4, 14, 0], [3.4, 2.6, 3.6], 2, 2, [W.iron, W.rust], 2.6, { arc: 0.7, thick: 0.6, rough: 0.25 }),
-    ],
-    head: [
-      ...skull(W.bone),
-      ...glowEyes(2, 6, 5.5, 0.75, W.eye),
-      // 鐵籠面罩：上下兩道鐵環 + 八根鐵條 + 頂上的提環
-      prism(12, 1.6, 2.6, [5.8, 6], [5.8, 6], W.ironDark),
-      prism(12, 10.6, 11.6, [5.4, 5.6], [5, 5.2], W.ironDark),
-      ...Array.from({ length: 8 }, (_, i) => {
-        const a = (i / 8) * Math.PI * 2 + 0.2;
-        return seg([Math.cos(a) * 5.8, 2.2, Math.sin(a) * 6], [Math.cos(a) * 5.3, 11, Math.sin(a) * 5.5], 0.32, 0.32, i % 3 ? W.iron : W.rust, 4);
-      }),
-      seg([0, 11.4, -2.4], [0, 13.4, 0], 0.4, 0.4, W.iron, 4),
-      seg([0, 13.4, 0], [0, 11.4, 2.4], 0.4, 0.4, W.iron, 4),
-    ],
+    torso: [...ribcage(W.bone), ...wardenChains()],
+    head: [...skull(W.bone), ...glowEyes(2, 6, 5.5, 0.75, W.eye), ...wardenCage()],
     forearmL: [...boneLimb(9, 1, W.bone), ...manacle()],
     forearm: [...boneLimb(9, 1, W.bone), ...manacle()],
     handL: lantern(),

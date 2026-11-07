@@ -59,20 +59,69 @@ export interface SkinMesh {
   rest: Partial<Record<Joint, V3>>;
 }
 
+/**
+ * 蒙皮網格事先整理好的扁平陣列（每個網格算一次）：每個頂點的影響 = 關節編號、權重、（頂點 − 關節靜止位置）。
+ * 每一幀只要依關節編號取一次旋轉與位置，不用每個頂點查表、建暫存陣列（一般怪同時有幾十隻，要快）
+ */
+interface SkinPlan {
+  joints: Joint[];
+  /** 每個頂點的影響範圍：start[i] ～ start[i + 1] */
+  start: Int32Array;
+  joint: Int32Array;
+  w: Float64Array;
+  /** 每個影響的 (頂點 − 靜止位置)，3 個一組 */
+  d: Float64Array;
+}
+const SKIN_PLANS = new WeakMap<SkinMesh, SkinPlan>();
+function skinPlan(skin: SkinMesh): SkinPlan {
+  let plan = SKIN_PLANS.get(skin);
+  if (plan) return plan;
+  const joints: Joint[] = [];
+  const index = new Map<Joint, number>();
+  const start = new Int32Array(skin.verts.length + 1);
+  const jl: number[] = [];
+  const wl: number[] = [];
+  const dl: number[] = [];
+  skin.verts.forEach((v, i) => {
+    start[i] = jl.length;
+    for (const { joint, w } of skin.infl[i]!) {
+      const r = skin.rest[joint];
+      if (!r) continue;
+      let k = index.get(joint);
+      if (k === undefined) {
+        k = joints.length;
+        joints.push(joint);
+        index.set(joint, k);
+      }
+      jl.push(k);
+      wl.push(w);
+      dl.push(v[0] - r[0], v[1] - r[1], v[2] - r[2]);
+    }
+  });
+  start[skin.verts.length] = jl.length;
+  plan = { joints, start, joint: Int32Array.from(jl), w: Float64Array.from(wl), d: Float64Array.from(dl) };
+  SKIN_PLANS.set(skin, plan);
+  return plan;
+}
+
 /** 蒙皮網格目前的頂點位置：Σ 權重 ×（關節位置 + 關節旋轉 ×（頂點 − 關節靜止位置）） */
 export function skinVerts(skin: SkinMesh, world: JointFrames): V3[] {
+  const plan = skinPlan(skin);
+  const frames = plan.joints.map((j) => world.get(j));
   const out: V3[] = new Array(skin.verts.length);
+  const { start, joint, w, d } = plan;
   for (let i = 0; i < skin.verts.length; i++) {
-    const v = skin.verts[i]!;
     let x = 0, y = 0, z = 0;
-    for (const { joint, w } of skin.infl[i]!) {
-      const f = world.get(joint);
-      const r = skin.rest[joint];
-      if (!f || !r) continue;
-      const o = apply(f.m, [v[0] - r[0], v[1] - r[1], v[2] - r[2]]);
-      x += (f.p[0] + o[0]) * w;
-      y += (f.p[1] + o[1]) * w;
-      z += (f.p[2] + o[2]) * w;
+    for (let k = start[i]!; k < start[i + 1]!; k++) {
+      const f = frames[joint[k]!];
+      if (!f) continue;
+      const m = f.m;
+      const p = f.p;
+      const wk = w[k]!;
+      const dx = d[k * 3]!, dy = d[k * 3 + 1]!, dz = d[k * 3 + 2]!;
+      x += (p[0] + m[0] * dx + m[1] * dy + m[2] * dz) * wk;
+      y += (p[1] + m[3] * dx + m[4] * dy + m[5] * dz) * wk;
+      z += (p[2] + m[6] * dx + m[7] * dy + m[8] * dz) * wk;
     }
     out[i] = [x, y, z];
   }
@@ -160,6 +209,8 @@ export interface FigureModel {
   lighting?: 'normal' | 'toon' | 'flat';
   /** 蒙皮網格（整張連續的身體；與 parts 上的網格一起畫） */
   skin?: SkinMesh;
+  /** 只在攻擊 / 施法前搖的後半段才畫的關節（弓手拉弓時搭在弦上的箭；放箭後消失） */
+  windupOnly?: readonly Joint[];
   /** 魔王階段變化時不再畫的關節（index = 階段；例如第 2 階段盾牌碎裂、第 3 階段巨劍落地） */
   phaseHidden?: readonly (readonly Joint[])[];
   /** 切換階段後，慢慢過渡到新姿勢的秒數（爪子收合；預設立刻跟上） */

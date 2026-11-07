@@ -45,6 +45,8 @@ try {
     // 每一組（頂點、面）：關節上的網格，加上蒙皮網格（AI 版女主角的整張身體）
     const groups = [];
     for (const part of model.parts) {
+      // 只在攻擊前搖時才畫的（弓手弦上的箭）：待機的圖不畫
+      if (model.windupOnly?.includes(part.joint)) continue;
       const { m, p } = world.get(part.joint);
       for (const mesh of part.meshes) {
         groups.push({

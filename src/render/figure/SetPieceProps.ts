@@ -1,6 +1,7 @@
 import { bar, facetize, knob, subdivide, tone } from './Facets';
 import type { FigureModel, Pose } from './FigureModel';
 import { MONSTER_MODELS } from './Monsters';
+import { SKELETON_WARRIOR } from './SkeletonWarrior';
 import { box, type Mesh, type V3 } from './Poly3D';
 
 /**
@@ -224,8 +225,8 @@ const MAVIS_ADDED: Record<string, Mesh[]> = {
 };
 
 const MAVIS_BODY: FigureModel = {
-  ...MONSTER_MODELS['enemy.skeleton']!,
-  parts: MONSTER_MODELS['enemy.skeleton']!.parts.map((part) => {
+  ...SKELETON_WARRIOR,
+  parts: SKELETON_WARRIOR.parts.map((part) => {
     // 拿掉骷髏兵的劍與盾、破布，還有那條不在了的小腿
     const gone = ['shinL', 'footL', 'handL', 'handR', 'cloth'].includes(part.joint);
     return { ...part, meshes: [...(gone ? [] : part.meshes), ...(MAVIS_ADDED[part.joint] ?? [])] };
