@@ -1,5 +1,29 @@
+<script lang="ts">
+import { SKILL_CATEGORIES, type SkillCategory as Tab } from '../../data/schema/skill';
+/** 上次關閉時停在哪一頁：記在瀏覽器裡，下次打開（重新開遊戲也是）回到同一頁 */
+const TAB_KEY = 'arpg.skillTab';
+const TABS: readonly (Tab | 'codex')[] = [...SKILL_CATEGORIES, 'codex'];
+
+function loadTab(): Tab | 'codex' {
+  try {
+    const saved = localStorage.getItem(TAB_KEY);
+    return TABS.find((t) => t === saved) ?? 'melee';
+  } catch {
+    return 'melee';
+  }
+}
+
+function saveTab(tab: Tab | 'codex'): void {
+  try {
+    localStorage.setItem(TAB_KEY, tab);
+  } catch {
+    // 瀏覽器不允許儲存：下次打開回到近戰
+  }
+}
+</script>
+
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
 import { ask } from '../ask';
 import type { ComboKey, SkillCategory, SkillNodeView, SkillTreeView } from '../bridge/SkillTreeView';
@@ -8,7 +32,8 @@ const props = defineProps<{ view: SkillTreeView }>();
 const emit = defineEmits<{ close: [] }>();
 
 /** 技能分頁或「組合表」 */
-const active = ref<SkillCategory | 'codex'>('melee');
+const active = ref<SkillCategory | 'codex'>(loadTab());
+watch(active, saveTab);
 const selectedId = ref<string | null>(null);
 
 const category = computed(() => props.view.categories.find((c) => c.category === active.value));

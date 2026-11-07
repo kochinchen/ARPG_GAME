@@ -42,6 +42,14 @@ const FLOOR_CHUNK = 16;
 const REGION = 16;
 /** 分區在鏡頭範圍外多遠以內仍要畫：分區本身的大小 + 牆高與影子 */
 const REGION_MARGIN = REGION + 3;
+/**
+ * 點光源（燭光、火把）的影子偏移。陰影圖的深度是透視的：固定的 bias 換算成距離是 bias × 距離² ÷ near，
+ * 原本（bias -0.002、near 0.2）在 9 格外偏了將近 0.8 格，遠處的牆影子和牆分開。
+ * 現在 near 拉大、bias 縮小（9 格外約 0.05 格），近處避免自己擋自己的斑紋改由 normalBias（固定 World 距離）處理。
+ * near：燭光在主角頭上 1.5 格、火把貼著牆，比 near 更靠近光源的東西不投影子。
+ */
+const POINT_SHADOW = { bias: -0.0003, normalBias: 0.03, candleNear: 0.5, torchNear: 0.25 };
+
 /** 遮擋圖層：牆與角色也放這一層，renderOccluders 只重畫它們（加上深度板） */
 const OCCLUDER_LAYER = 2;
 /** 地板放在另一個圖層：先畫地板，Pixi 疊上地上標記，再畫牆與角色 */
@@ -57,6 +65,31 @@ function colorOf(hex: number): THREE.Color {
 
 function figureMaterial(): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: L.roughness, metalness: 0, side: THREE.DoubleSide });
+}
+
+/**
+ * 屍體永遠在活著的角色下面：角色（含商人、寶箱等模型）畫的地方在模板緩衝寫 1，
+ * 屍體排在角色之後畫、只畫在模板不是 1 的地方——倒在角色前面的屍體也不會蓋住角色；牆仍照深度擋住屍體。
+ */
+const FIGURE_STENCIL = 1;
+/** 屍體排在所有角色之後畫（半透明的角色也一樣：屍體一律算半透明，排序在半透明的最後） */
+const CORPSE_RENDER_ORDER = 1;
+
+function markFigure(material: THREE.Material): void {
+  material.stencilWrite = true;
+  material.stencilRef = FIGURE_STENCIL;
+  material.stencilFunc = THREE.AlwaysStencilFunc;
+  material.stencilZPass = THREE.ReplaceStencilOp;
+}
+
+function underFigures(material: THREE.Material): void {
+  material.stencilWrite = true;
+  material.stencilRef = FIGURE_STENCIL;
+  material.stencilFunc = THREE.NotEqualStencilFunc;
+  material.stencilZPass = THREE.KeepStencilOp;
+  material.transparent = true;
+  // 雙面的半透明材質預設分兩次畫（背面、正面）；屍體不透明度是 1，一次就好（一畫面可能上百具）
+  material.forceSinglePass = true;
 }
 
 /**
@@ -115,15 +148,18 @@ export class ThreeFigure implements TriangleSink {
      * 屍體：不投影子、不接收影子、不參與深度板的重畫（躺著的影子很小、身體已經變暗；
      * 一畫面可能有上百具，每具都查陰影圖、再重畫一次的話會掉到 30 FPS）
      */
-    corpse = false,
+    private readonly corpse = false,
   ) {
     this.group.scale.copy(FIGURE_SCALE);
+    if (corpse) underFigures(this.material);
+    else markFigure(this.material);
     if (gpu) {
       this.skin = (key, build, bones, share) => this.updateSkin(key, build, bones, share);
       return;
     }
     const mesh = new THREE.Mesh(this.geometry, this.material);
     if (!corpse) mesh.layers.enable(OCCLUDER_LAYER);
+    else mesh.renderOrder = CORPSE_RENDER_ORDER;
     mesh.castShadow = !corpse;
     mesh.receiveShadow = !corpse;
     // 包圍球每幀依頂點重算（end）：陰影的每個方向只畫範圍內的模型
@@ -216,7 +252,7 @@ export class ThreeFigure implements TriangleSink {
     const d = this.projection.toWorld(offset);
     this.group.position.set(position.x + d.x, lift / PX_PER_HEIGHT, position.y + d.y);
     this.material.color.copy(colorOf(tint));
-    const transparent = alpha < 0.999;
+    const transparent = this.corpse || alpha < 0.999;
     if (transparent !== this.material.transparent) {
       this.material.transparent = transparent;
       this.material.needsUpdate = true;
@@ -344,8 +380,9 @@ export class ThreeWorld {
       light.castShadow = on;
       light.shadow.intensity = strength;
       light.shadow.mapSize.set(size, size);
-      light.shadow.bias = -0.002;
-      light.shadow.camera.near = 0.1;
+      light.shadow.bias = POINT_SHADOW.bias;
+      light.shadow.normalBias = POINT_SHADOW.normalBias;
+      light.shadow.camera.near = POINT_SHADOW.torchNear;
       light.shadow.camera.far = light.distance;
     };
     for (let i = 0; i < L.torch.count; i++) {
@@ -363,8 +400,9 @@ export class ThreeWorld {
     this.scene.add(this.fill, this.fx.group, this.skillFx.group);
     this.candle.castShadow = L.candle.shadow;
     this.candle.shadow.mapSize.set(L.candle.shadowMap, L.candle.shadowMap);
-    this.candle.shadow.bias = -0.002;
-    this.candle.shadow.camera.near = 0.2;
+    this.candle.shadow.bias = POINT_SHADOW.bias;
+    this.candle.shadow.normalBias = POINT_SHADOW.normalBias;
+    this.candle.shadow.camera.near = POINT_SHADOW.candleNear;
     this.scene.add(this.candle);
     // 光源兩個圖層都要照到（地板在 FLOOR_LAYER）
     this.scene.traverse((o) => {
@@ -518,6 +556,8 @@ export class ThreeWorld {
     const gl = this.renderer.getContext();
     this.renderer.resetState();
     this.renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    // 模板緩衝：角色畫過的地方屍體不畫（Pixi 畫地上標記時可能用過，先清掉）
+    this.renderer.clear(false, false, true);
     this.camera.layers.set(0);
     this.renderer.render(this.scene, this.camera);
   }
