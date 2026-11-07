@@ -13,7 +13,6 @@ import type { GameWorld } from '../game/GameWorld';
 import { equippedItems, gearAura } from '../game/items/GearAura';
 import { coreTypeColor } from './icons/CoreIcons';
 import { outfitFor } from './figure/gear/ArmorLooks';
-import { HeroPreviewView, type HeroPreviewState } from './views/HeroPreviewView';
 import { weaponLookFor } from './figure/weapons/WeaponLooks';
 import { ZOOM_RANGE, type Camera } from './Camera';
 import { ELEMENT_COLORS, PALETTE } from './palette';
@@ -55,7 +54,6 @@ export class Renderer {
 
   /** 顯示頭盔（選單的畫面設定；關掉時主角露出臉與頭髮） */
   showHelmet = true;
-  private readonly heroPreview = new HeroPreviewView();
   private readonly worldLayer = new Container();
   private readonly objectLayer = new Container({ sortableChildren: true });
   /** Three.js 畫法：角色身體底下的東西（ActorView.ground），比 Three.js 的角色先畫 */
@@ -127,8 +125,6 @@ export class Renderer {
     // 小地圖在畫面座標（不跟著鏡頭移動）
     this.minimap = this.createMinimap();
     app.stage.addChild(this.minimap.container);
-    // 角色預覽在最上層（畫面座標）
-    app.stage.addChild(this.heroPreview.container);
 
     const resize = () => camera.setViewport(app.screen.width, app.screen.height);
     resize();
@@ -149,7 +145,7 @@ export class Renderer {
       this.markers.rebuild(world.checkpoints.checkpoints);
       this.minimap.destroy();
       this.minimap = this.createMinimap();
-      this.app.stage.addChildAt(this.minimap.container, this.app.stage.getChildIndex(this.heroPreview.container));
+      this.app.stage.addChild(this.minimap.container);
     });
     world.events.on('SkillCast', (e) => {
       const attacker = world.targeting.getActor(e.actorId);
@@ -447,7 +443,6 @@ export class Renderer {
     this.effects.update(dt, this.world.projectiles, alpha, this.world.scheduler.zones, this.world.scheduler.pending, auraRadius === null ? null : { position: playerPos, radius: auraRadius });
     this.floatingText.update(dt);
     this.soulWisps.update(dt);
-    this.heroPreview.update(dt);
     this.updateMarker(player.intent === null ? player.path[player.path.length - 1] : undefined);
     if (this.three) this.present(playerPos, dt);
   }
@@ -511,11 +506,6 @@ export class Renderer {
     return proxies;
   }
 
-  /** 角色頁的人物預覽：顯示的區域與方向（null = 關閉） */
-  setPreview(state: HeroPreviewState | null): void {
-    this.heroPreview.set(state);
-  }
-
   /** 小地圖右邊要讓出的寬度（觸控版 MP 球在右上角） */
   minimapRightInset = 0;
 
@@ -576,7 +566,6 @@ export class Renderer {
         // 身上的頭盔、盔甲、靴子
         const outfit = outfitFor((slot) => this.world.equipment.get(slot), this.data, this.showHelmet);
         view.setOutfit(outfit);
-        this.heroPreview.setLook(outfit, weapon?.look ?? null, weapon?.rarity ?? 'normal');
       }
       const position = lerp(actor.prevPosition, actor.position, alpha);
       const shown = onScreen(position);

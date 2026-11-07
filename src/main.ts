@@ -182,11 +182,6 @@ async function bootstrap(): Promise<void> {
     renderer.setThree(threeParam || s.threeD);
   });
   displayBridge.connectMap({ toggle: () => renderer.toggleMap(), setRightInset: (px) => (renderer.minimapRightInset = px) });
-  // 預覽區是 UI 的畫面座標：換算成畫布座標
-  displayBridge.connectPreview((rect) => {
-    const canvas = app.canvas.getBoundingClientRect();
-    renderer.setPreview(rect && { ...rect, x: rect.x - canvas.left, y: rect.y - canvas.top });
-  });
   // 讀檔（含換層）之後才開始監聽，背景音樂依目前樓層
   const sound = new AudioDirector(audio, world, data, events);
   sound.playFloorMusic();

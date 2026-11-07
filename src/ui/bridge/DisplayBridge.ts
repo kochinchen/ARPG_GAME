@@ -14,16 +14,6 @@ const KEY = 'arpg.display';
 /** 目前的遊戲畫面（每次開始遊戲重新連接，只保留最新的一個） */
 let listener: ((state: DisplayState) => void) | null = null;
 
-/** 角色預覽的區域（畫面座標）與方向；null = 關閉 */
-export interface PreviewRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  dir: number;
-}
-let previewListener: ((rect: PreviewRect | null) => void) | null = null;
-let lastPreview: PreviewRect | null = null;
 
 /** 地圖：切換小地圖 / 全地圖、小地圖右邊讓出的寬度 */
 export interface MapControl {
@@ -50,11 +40,6 @@ export const displayBridge = {
     listener = value;
     listener({ ...display });
   },
-  /** 連接角色預覽（由遊戲畫面在預覽區畫出主角） */
-  connectPreview(value: (rect: PreviewRect | null) => void): void {
-    previewListener = value;
-    value(lastPreview);
-  },
   connectMap(value: MapControl): void {
     map = value;
     value.setRightInset(lastInset);
@@ -65,10 +50,6 @@ export const displayBridge = {
   setMapInset(px: number): void {
     lastInset = px;
     map?.setRightInset(px);
-  },
-  setPreview(rect: PreviewRect | null): void {
-    lastPreview = rect;
-    previewListener?.(rect);
   },
   set(patch: Partial<DisplayState>): void {
     Object.assign(display, patch);

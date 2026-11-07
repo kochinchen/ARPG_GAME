@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import { gameBridge } from '../bridge/GameBridge';
 import { resolveHover, type CoreHost, type EquipmentSlot, type HoverTarget, type InventoryView } from '../bridge/InventoryView';
 import { createPress, DOUBLE_TAP_MS, isFinger } from '../bridge/TouchPress';
-import HeroPreview from './HeroPreview.vue';
 import { ask } from '../ask';
 import ItemCell from './ItemCell.vue';
 
@@ -138,7 +137,6 @@ const bySlot = computed(() => new Map(props.view.equipment.map((e) => [e.slot, e
 </script>
 
 <template>
-  <HeroPreview v-if="!touch" />
   <aside
     class="panel"
     :class="{ touch }"
