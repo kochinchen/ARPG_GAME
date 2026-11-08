@@ -1,0 +1,706 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Aisling - Wellkeeper 開發歷程</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --navy: #0E2442; --steel: #2C4E82; --aviation: #5A9DBB; --sky: #A5D5E7;
+  --amber: #D78212; --gold: #EFC262; --sand: #F2DBB5; --taupe: #9C805F;
+  --paper: #FDFDFD; --border: #ECECEB;
+
+  --bg: var(--paper);
+  --ink: var(--navy);
+  --ink-2: var(--steel);
+  --muted: #7d6547;
+  --line: var(--border);
+  --rail: var(--aviation);
+  --node: var(--sky);
+  --warm: #faf1e2;
+  --focus: var(--amber);
+  --badge-bg: var(--gold);
+  --badge-ink: var(--navy);
+  --bar: var(--steel);
+  --bar-hi: var(--amber);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1c33; --ink: #eef2f7; --ink-2: #a5d5e7; --muted: #c9b18f;
+    --line: #213a5c; --rail: #5A9DBB; --node: #2C4E82; --warm: #13294a;
+    --focus: #EFA23A; --badge-bg: #EFC262; --badge-ink: #0E2442;
+    --bar: #5A9DBB; --bar-hi: #EFA23A;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1c33; --ink: #eef2f7; --ink-2: #a5d5e7; --muted: #c9b18f;
+  --line: #213a5c; --rail: #5A9DBB; --node: #2C4E82; --warm: #13294a;
+  --focus: #EFA23A; --badge-bg: #EFC262; --badge-ink: #0E2442;
+  --bar: #5A9DBB; --bar-hi: #EFA23A;
+}
+
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  font-size: 16px; line-height: 1.75;
+}
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 20px; padding-block: 56px 80px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1, h2 { font-family: "Noto Serif TC", "Songti TC", serif; }
+.mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 13px; letter-spacing: .14em; color: var(--muted); font-weight: 500; }
+p { margin: 0; }
+
+/* Header */
+header { display: grid; gap: 18px; padding-bottom: 36px; border-bottom: 1px solid var(--line); }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 900; line-height: 1.2; letter-spacing: .02em; }
+h1 em { font-style: normal; color: var(--focus); }
+.lede { max-width: 38em; font-size: 17px; color: var(--ink); }
+.facts { display: flex; flex-wrap: wrap; gap: 10px 28px; font-size: 14px; color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 600; }
+
+section { padding-top: 56px; display: grid; gap: 22px; }
+h2 { font-size: clamp(24px, 4vw, 30px); font-weight: 900; }
+.sec-head { display: grid; gap: 6px; }
+.sec-head p { color: var(--muted); max-width: 40em; }
+
+/* Principles */
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.pr { padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 6px; align-content: start; }
+.pr h3 { font-size: 17px; color: var(--ink-2); font-weight: 700; }
+.pr p { font-size: 15px; }
+.pr .tag { font-size: 12px; color: var(--muted); }
+
+/* Timeline */
+.phase { display: grid; grid-template-columns: 120px 1fr; gap: 0 24px; }
+.phase + .phase { margin-top: 8px; }
+.phase-label { padding-top: 4px; display: grid; gap: 2px; align-content: start; }
+.phase-label .when { font-size: 13px; color: var(--muted); }
+.phase-label .name { font-weight: 700; font-size: 15px; color: var(--ink-2); line-height: 1.4; }
+.track { position: relative; padding-left: 26px; border-left: 2px solid var(--rail); padding-bottom: 20px; display: grid; gap: 14px; }
+.phase:last-child .track { border-left-style: dashed; }
+.item { position: relative; display: grid; gap: 3px; }
+.item::before {
+  content: ""; position: absolute; left: -34px; top: 7px; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--node); border: 2px solid var(--rail);
+}
+.item.key::before { background: var(--focus); border-color: var(--focus); width: 14px; height: 14px; left: -35px; top: 6px; }
+.item-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.ms { font-weight: 700; font-size: 16px; }
+.hash { font-size: 12px; color: var(--muted); }
+.tests { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
+.item p { font-size: 15px; }
+.item .why { font-size: 14px; color: var(--muted); }
+.badge { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: var(--badge-bg); color: var(--badge-ink); }
+.mvp-line {
+  margin: 4px 0 18px; padding: 12px 16px; background: var(--warm); border-radius: 8px;
+  font-size: 15px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+}
+.mvp-line b { color: var(--focus); }
+
+/* Chart */
+.chart { display: grid; gap: 8px; padding: 20px; border: 1px solid var(--line); border-radius: 10px; }
+.row { display: grid; grid-template-columns: 44px 1fr 40px; gap: 12px; align-items: center; font-size: 13px; }
+.row .lbl { color: var(--muted); }
+.row .bar { height: 14px; background: var(--bar); border-radius: 0 3px 3px 0; }
+.row.hi .bar { background: var(--bar-hi); }
+.row .val { text-align: right; color: var(--ink); }
+.chart .cap { font-size: 13px; color: var(--muted); padding-top: 6px; }
+
+/* Takeaways */
+ol.take { margin: 0; padding: 0; list-style: none; counter-reset: t; display: grid; gap: 14px; }
+ol.take li { counter-increment: t; display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
+ol.take li::before { content: counter(t); font-family: "Noto Serif TC", serif; font-weight: 900; font-size: 24px; color: var(--focus); line-height: 1.3; }
+ol.take b { color: var(--ink-2); }
+
+footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+
+@media (max-width: 620px) {
+  .phase { grid-template-columns: 1fr; }
+  .phase-label { padding: 0 0 10px; grid-auto-flow: column; justify-content: start; gap: 10px; align-items: baseline; }
+  .track { margin-left: 6px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">專案回顧 · Aisling - Wellkeeper · 2026 年 9～11 月</div>
+    <h1>先拆解，做出 <em>MVP</em>，<br>再一層一層補強</h1>
+    <p class="lede">一款 Diablo 式 2D 等角 ARPG，用 TypeScript + PixiJS + Vue 從零開始寫。這頁整理這次開發的方法論，以及從架構文件到可攜版遊戲包的實際過程。</p>
+    <div class="facts">
+      <span><b class="mono">120</b> 多個 commit</span>
+      <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1340</b> 個</span>
+      <span>核心 MVP 用時 <b>2 天</b></span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">方法論</div>
+      <h2>五個做法</h2>
+    </div>
+    <div class="principles">
+      <div class="pr">
+        <h3>先設計，再寫程式</h3>
+        <p>第一個 commit 以 <span class="mono">ARCHITECTURE.md</span> 為主：技術選型比較、座標與更新頻率原則、模組邊界、依賴方向，以及 M0～M9 路線圖。</p>
+        <span class="tag">每個 Milestone 都有 Goal / Classes / Dependencies / Acceptance / Test</span>
+      </div>
+      <div class="pr">
+        <h3>規則交給工具檢查</h3>
+        <p>架構規則寫進 <span class="mono">CLAUDE.md</span>，再用 dependency-cruiser、無 DOM 的邏輯 tsconfig、UI 直接寫入掃描測試自動擋下違規。</p>
+        <span class="tag">AI 寫錯會在 npm run lint / npm test 被抓到</span>
+      </div>
+      <div class="pr">
+        <h3>每一步都能實際玩</h3>
+        <p>每個 Milestone 完成後遊戲都能操作，通過驗收和測試才進下一個。</p>
+        <span class="tag">測試數從 28 一路累積到 260</span>
+      </div>
+      <div class="pr">
+        <h3>高風險系統先寫規格</h3>
+        <p>存檔與三段 Combo 先寫獨立規格，把重新整理刷寶、關分頁、多分頁等漏洞列清楚再實作。</p>
+        <span class="tag">SAVE_SYSTEM.md · COMBO_SYSTEM.md</span>
+      </div>
+      <div class="pr">
+        <h3>文件跟著程式更新</h3>
+        <p>完成時補上「狀態／實作細節」，記下和規格不同之處與原因；發現的問題寫給後面的 Milestone。</p>
+        <span class="tag">例：M3 發現重生死亡循環 → M7 規定存檔點 7 格內不放怪</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">開發過程</div>
+      <h2>時間軸</h2>
+      <p>依 git 紀錄排列。橘色節點是階段轉折點。</p>
+    </div>
+
+    <div class="timeline">
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/26</span><span class="name">階段 0<br>架構與規則</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">M0 專案骨架與架構文件</span><span class="hash mono">73394dd</span><span class="tests mono">28 tests</span></div>
+            <p>Game Loop、EventBus、CommandQueue、Seeded RNG、等角投影；畫面顯示等角格線與滑鼠所在 Tile。</p>
+            <p class="why">驗收包含「lint 能擋下 game → render 的 import」，規則從第一天就自動化。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/26</span><span class="name">第 1 天<br>核心玩法</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">M1 點擊移動、尋路、鏡頭</span><span class="hash mono">beb03bf</span><span class="tests mono">52 tests</span></div>
+            <p>A* 八方向尋路加視線拉直，點牆壁走到最近的地板。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M2 統一傷害流程</span><span class="hash mono">b3cb9a3</span><span class="tests mono">81 tests</span></div>
+            <p>所有傷害都走 DamagePipeline；訓練木樁、跳傷害數字、暴擊。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M3 怪物 AI</span><span class="hash mono">ea1c05b</span><span class="tests mono">94 tests</span></div>
+            <p>Idle / Chase / Return、角色互相推擠、玩家死亡與重生。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M4 技能系統</span><span class="hash mono">4c9c9da</span><span class="tests mono">114 tests</span></div>
+            <p>技能由 Effect 組合；新增技能只改資料檔。右鍵施放、QWE 切換、魔力與藥水。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M5 掉寶與裝備</span><span class="hash mono">ab82b75</span><span class="tests mono">137 tests</span></div>
+            <p>寶箱、格子背包、紙娃娃裝備欄、HP / MP 球。固定種子 1000 件物品驗證稀有度分佈。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/27</span><span class="name">第 2 天<br>補齊完整遊戲</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">M6 成長系統</span><span class="hash mono">5adcf76</span><span class="tests mono">179 tests</span></div>
+            <p>經驗與升級、技能樹與 Mastery 解鎖規則、三段 Combo、開發用快捷鍵。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M7 樓層與難度成長</span><span class="hash mono">d449987</span><span class="tests mono">260 tests</span></div>
+            <p>多樓層、DifficultyScaler、雙存檔點、出口；同時寫好 M9 存檔規格。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M9 存檔</span><span class="hash mono">ffec0fa</span><span class="badge">順序調整</span></div>
+            <p>輪替備份、Checksum、緊急副本、Migration、資料修復、匯出匯入、回到上一層。</p>
+            <p class="why">比 M8 UI 先做：存檔影響資料結構，越早定下來越好。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">M7.5 近戰平衡與屬性點</span><span class="hash mono">cac2d5f</span><span class="badge">臨時插入</span></div>
+            <p>近戰傷害約為遠程的 1.3～1.4 倍、扇形範圍、「近近遠」Combo 加成；存檔升到 v2。</p>
+            <p class="why">原路線圖沒有，實際玩過後發現需要才加。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">M8 HUD、選單與暫停</span><span class="hash mono">d544e25</span></div>
+            <p>GameViewStore、技能欄、離開樓層確認；UI 只能送 Command，有測試掃描。</p>
+          </div>
+          <div class="mvp-line"><b>MVP 完成</b><span>可以打怪、掉寶、升級、下樓、存檔。</span></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/27</span><span class="name">MVP 之後<br>內容擴充</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">怪物三批</span><span class="hash mono">e92cbb8 · cc841cb · f7925a3</span></div>
+            <p>一般怪（弓手、重甲、法師）→ 精英怪詞綴 → Boss；另加商人、背包整理。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">角色與地牢</span><span class="hash mono">b0817ff · 3820aec</span></div>
+            <p>女主角多面體模型、樓層魔王、怪物圖鑑、隨機地牢、迷霧小地圖。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">裝備深度與視覺</span><span class="hash mono">1fd60bf · fc9fda9</span></div>
+            <p>六級稀有度、傳奇與神話、裝備圖鑑、拆解與材料、武器造型、技能特效、地上光柱。</p>
+            <p class="why">因為規定「新內容優先只改 src/data/」，這階段大多只加資料。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/28</span><span class="name">試玩回饋<br>與終局</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">戰鬥規則調整</span><span class="hash mono">100ed1d</span></div>
+            <p>左鍵預設重砍（玩家沒有普通攻擊）、拿錯類型的武器扣傷害、法杖主倍率改乘法術強度、每層三位商人共用一家店。</p>
+            <p class="why">先用模擬器與網頁資料表檢查平衡，再依試玩的感受回頭改規則。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">介面與屬性</span><span class="hash mono">b7296b7</span></div>
+            <p>角色頁左右兩欄、與技能頁並排；元素抗性與三種控制抗性（緩速、擊退、暈眩）。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">終局：30 層通關、31～35 極限挑戰</span><span class="hash mono">b7296b7</span></div>
+            <p>等級上限 70、進入 31 層後回不到 1～30、通關紀錄與讀檔選層、中途小王、第 35 層王座廳與最終魔王「深淵統御者」（三階段、四足模型、盾與劍掉在地上）。</p>
+            <p class="why">先寫 docs/ENDGAME.md 規格、確認決定，再分三步實作：規則 → 樓層 → 魔王，最後才做外觀。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">數值調整</span><span class="hash mono">b7296b7</span></div>
+            <p>一般怪物傷害 ×1.25（大型怪 ×1.3）、精英傷害 ×1.8／經驗 ×3.5、前期怪物數量 +20%；順手修正魔王貼身時不用特殊技能的 bug。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/28～9/29</span><span class="name">發佈 v0.2.0<br>已 commit</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">標題畫面與可攜版遊戲包</span><span class="hash mono">b7296b7</span></div>
+            <p><span class="mono">npm run package</span> 產出單一 HTML 加 Windows / Mac 啟動檔；瀏覽器不允許 IndexedDB 時改用 localStorage 存檔。</p>
+            <p class="why">9/29 重新打包 v0.2.0（約 440 KB），包含下面的音效、寶箱、賭博修正與魔王門前存檔點；啟動檔允許自動播放，標題音樂一開啟就有聲音。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">音效與背景音樂</span><span class="hash mono">b7296b7</span></div>
+            <p>全部由 Web Audio 即時合成，不需要音效檔：標題與每 5 層一首地牢音樂、所有招式（含怪物與魔王）、魔王怒吼、升級、裝備操作、倒地；選單可調整主音量、音樂、音效。</p>
+            <p class="why">招式的聲音由技能資料（標籤、效果、元素）推導，新技能只改 src/data/ 也會自動有聲音。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">寶箱模型與賭博修正</span><span class="hash mono">b7296b7</span></div>
+            <p>寶箱改成多面體模型（木板、鐵箍、鎖扣、拱形箱蓋），開箱時箱蓋往後翻、露出金幣；王座廳寶箱為紅木金箍。賭博的武器改成劍、斧、弓、法杖分開選；史詩 / 傳奇機率降到一般怪物掉落的一半（0.3% / 0.05%），機率顯示改由資料算出。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">魔王門前存檔點與傳送口</span><span class="hash mono">b7296b7</span><span class="badge">存檔 v11</span></div>
+            <p>魔王層在競技場外多一個存檔點，死亡與讀檔回到那裡；到過中途的樓層，樓梯口與中途之間有傳送口。重新進入樓層時怪物與魔王都重生、出口關閉，要重新打過才能往下。</p>
+            <p class="why">讀檔仍然不重生怪物（不能靠重新整理刷怪），但重打魔王不必再走完整張地圖。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">9/29～10/17</span><span class="name">線上遊玩、難度與換裝</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">GitHub Pages 線上遊玩與 iPad 觸控</span><span class="hash mono">36302a7 · e66a2f6</span></div>
+            <p>可攜版 HTML 放到 <span class="mono">docs/index.html</span> 供線上遊玩；觸控裝置有左側浮動搖桿，右側攻擊、招式、Q / W / E 與藥水按鈕，自動瞄準最近的敵人。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">更名「地牢冒險 Dungeon Adventure」與難度大改</span><span class="hash mono">8412715</span></div>
+            <p>標題畫面改為英文標題 Dungeon Adventure、副標「地牢冒險」。怪物強化（第 1 → 35 層逐層提高）：一般怪與精英 HP ×1～8、魔王與 31～35 層的魔王 HP ×1～20、攻擊 ×1～4、特殊技能的圓形 / 扇形範圍 ×1.5～3（普通攻擊與直線招式不變）、經驗 ×0.7；第 1 層與原本相同，越往深層越強（第一版從 ×3 / ×8 / ×2 起跳，前期太難，已調降）。藥水回復 35% → 25%、冷卻 1 → 2 秒；技能樹「血之汲取 / 魔力汲取」每級 0.2%，滿級 1%。</p>
+            <p class="why">GitHub Pages 另外放上設計文件（<span class="mono">docs/design/</span>）與 README（be78bea · 67101a1）。修正傳奇「分裂」效果沒有作用：分裂的箭與小火球原本從被打中的敵人中心生成，第一步就又打中同一個敵人而消失。現在從敵人身體邊緣飛出、不會再打同一個目標；並加上檢查，所有 50 件傳奇 / 神話效果的技能條件都至少有一個技能能觸發。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">換裝：裝備直接穿在主角身上</span><span class="hash mono">74b2140</span></div>
+            <p>武器、頭盔、盔甲、靴子依裝備改變外觀：四個部位各 8 階造型，外加 15 件橘 / 紅防具專屬外觀。詞綴決定主題：元素、吸血、法術等詞綴改變顏色、寶石、發光符文與光芒；防禦類詞綴讓裝備變厚重，敏捷類長出翅膀，荊棘加上尖刺。武器微光也改用主題色。</p>
+            <p class="why">先畫物品圖示與換裝樣張確認外觀，再放進遊戲。外觀完全由裝備資料推導，存檔格式不變；換裝後主角面數只多約 7%。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">盾牌、金幣用途、角色預覽</span><span class="hash mono">72cd75f</span><span class="badge">存檔 v12</span></div>
+            <p>新增盾牌欄位：8 階盾牌與 3 件橘、3 件紅，只能搭配劍或斧，主打格擋（最多 50%，格擋時傷害 -60%）、防禦與抗性，橘紅效果在格擋時發動。金幣新用途：商人的詞綴重鑄（越重鑄越貴，橘紅只重擲固定屬性的數值）、一鍵賣出白 / 白＋藍 / 白＋藍＋黃、技能點與屬性點洗點（費用隨等級提高）。角色頁旁加上大尺寸人物預覽（可轉向），選單可關掉頭盔外觀。</p>
+            <p class="why">人物預覽一開始用獨立的 PixiJS 畫布，反覆開關背包後瀏覽器丟掉了遊戲畫面的 WebGL 環境（畫面變黑），改成由遊戲畫面的 Renderer 直接畫在預留區域。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">物品圖示與手套外觀</span><span class="hash mono">64f7bf4</span></div>
+            <p>背包、裝備欄、商人貨架與拆解區的武器、頭盔、盔甲、手套、靴子、盾牌改用圖示：直接用遊戲裡的裝備模型投影，所以詞綴主題、稀有度染色與橘 / 紅專屬造型都和身上看到的一樣；背景是稀有度光暈，元素等主題加上粒子。戒指、護符、藥水也有圖示（寶石換成詞綴主題色；橘為金、紅為深淵材質）。每一格都是「小圖示 + 稀有度顏色邊框」，橘、紅邊框帶光暈，紅色會脈動。手套也穿到主角身上：8 階造型與 5 件橘 / 紅專屬外觀，護手換掉皮護腕。</p>
+            <p class="why">手套在地圖上只有幾個像素，所以指節甲、爪、尖刺、寶石只在放大（角色預覽）時才畫，遊戲畫面只換護手與手套的顏色。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">拿武器的姿勢、背包格放大、怪物追擊</span><span class="hash mono">0f307ef</span></div>
+            <p>平常（待機、走路）拿武器的方式依種類不同：斧柄與前臂垂直、斧頭朝前；法杖杖頭往前傾；弓直立在身前、弓背朝外；劍不變。攻擊時從平常的角度轉到招式的角度。背包格放大到 1.5 倍（面板跟著變寬），每一格的邊框都是稀有度顏色。一般怪物放棄追擊的距離從離出生點 14 格加大到 28 格；走回家途中被打會回頭追擊，被打中後 4 秒內超過距離也不放棄。</p>
+            <p class="why">原本背包格的邊框被面板的格子樣式蓋掉（同名的 CSS class），所以只看得到灰色細框。怪物原本離家太遠就走回出生點、途中不理會攻擊，玩家可以站在範圍外把牠射死。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">吸血 / 吸魔硬上限</span><span class="hash mono">0f307ef</span></div>
+            <p>技能「血之汲取 / 魔力汲取」1～5 級改為 +0.1%～0.5%；其他每一個來源最高 +0.3%：一般詞綴 0.1%～0.2%、強屬性 0.2%～0.3%（不再隨階級成長），8 件傳奇 / 神話的吸血屬性、「低血量時吸血」、「近戰命中回復傷害的一部分」都降到 0.3% 以內；「近戰暴擊時回復傷害的一部分」例外訂為 0.5%（鼓勵提升暴擊率）。近戰技能的吸血 ×1.3 與多個來源累加保留。物品數值超過上限時一律以 0.3% 計算，舊存檔也一樣。1% 以下的數值改顯示到小數第二位。</p>
+            <p class="why">吸血 / 吸魔會嚴重破壞遊戲體驗，訂為硬規則（寫進專案守則並由測試把關）；新版本也受此限制，要往上調必須先提出理由並討論。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">v0.3.0：橘 / 紅裝備大擴充</span><span class="hash mono">0f307ef</span><span class="badge">版本 0.3.0</span></div>
+            <p>11 種裝備（劍、斧、弓、法杖、盾牌、頭盔、盔甲、手套、鞋子、戒指、護身符）都擴充到橘 12 件、紅 6 件：橘從 33 件增加到 132 件、紅從 23 件增加到 66 件。新的橘色有一部分取材自地牢裡的怪物（酸液甲蟲、骨刺獵獸、單眼浮體等的造型、配色與招式）；新的紅色對應每 5 層的魔王（墓穴守衛、墮落神官、熔岩巨獸、墮落騎士、蜘蛛女王、深淵魔王、深淵統御者），造型與效果參考魔王，從該魔王的樓層起才會掉落。每一件都有專屬外觀與背包圖示（戒指、護身符的材質、寶石與款式也各不相同）。橘、紅的掉落機率減半。標題畫面的版本改為讀取 package.json（v0.3.0）。</p>
+            <p class="why">新裝備由 5 個代理平行設計（每個負責 2～3 種裝備、各自的檔案，資料在 src/data/uniqueItems/、外觀在 weapons/uniques/ 與 gear/uniques/），合併後用測試檢查：每種 12 / 6 件、名稱不重複、效果條件都能成立、吸血上限、每件武器的造型與光芒不重複。裝備圖鑑加上遊戲裡的圖示（由 item-icons.js 在網頁上即時產生，避免把幾百張圖塞進 HTML）。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">七組連段：Q / W / E / R / A / S / D</span><span class="hash mono">18197a5</span><span class="badge">存檔 v13</span></div>
+            <p>連段從 Q / W / E 三組增加為 Q / W / E / R / A / S / D 七組，每組一樣是三招，依等級解鎖：Q Lv1、W Lv3、E Lv6、R Lv10、A Lv15、S Lv20、D Lv25（每組的第 2、3 格仍是 Lv3、Lv6）。未解鎖的按鍵在技能列顯示為窄格與解鎖等級。新角色改為左鍵重砍、Q 火球，兩個起始技能一開始都能用。按住 Ctrl / ⌘ / Alt 時不切換連段（避免 ⌘R 重新整理時誤觸）。手機版只放 Q / W / E / R 四個按鈕。「輪迴之環」維持 Q → W → E 輪轉，「墮騎之戒」維持 Q / W / E 三種附魔。</p>
+            <p class="why">存檔改為 v13（舊存檔的三組連段保留，新增四組空的）。按鍵用實體鍵位判斷，不受輸入法影響；R / A / S / D 原本沒有其他用途，開發用快捷鍵也沒有衝突。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">v0.4.0 規格：戰術技能與武器規則</span><span class="badge">設計討論</span></div>
+            <p>把 10/17～18 的討論（草稿 v01～v03）整理成 SPEC（md 給人看、yaml 給程式對照），再寫成 P0～P9 十個階段的開發計畫。開工前逐條定案 9 個待決事項：左鍵被禁用時灰掉提示、連段有一招被禁用就整組停用、戰術 T4 規則與其他類別相同、所有持續傷害（含燃燒）不吸取、閃光粉 Lv1～2 改為全元素減半、機關數值即時跟隨玩家、機關不受玩家技能波及等。</p>
+            <p class="why">設計者的決定都回寫 SPEC 的變更紀錄；SPEC 與實作不一致時以「先改 SPEC、再改程式」處理（例如 SPEC 原本寫戰術 T4 要開通次數，定案後改掉）。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">武器允許矩陣（扣分改禁用）</span><span class="hash mono">818394c～9b8cd4f</span></div>
+            <p>劍斧＝近戰＋魔法、弓＝遠程＋魔法、法杖＝魔法，新的「戰術」任何武器都能用；魔法對劍斧弓維持 −20%、法杖 +15%。拿錯武器時左鍵不出手、連段整組不施放，頭上浮字說明原因（「法杖無法使用近戰技能」），技能列與技能頁灰掉、劃線；配置保留，換回武器就恢復。武器提示多一行「可用技能」。</p>
+            <p class="why">檢查只放在玩家的指令入口，怪物共用的技能系統不動；沒拿武器時不限制（新角色起始空手）。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">戰術 12 招：身法、機關、投擲</span><span class="hash mono">9ad5256～9a93c26</span></div>
+            <p>新增第五類技能「戰術」：身法（翻滾、影步、鉤索、幻影突襲）、機關（絆索網、霜凍地雷、雷電圖騰、火藥桶）、投擲（淬毒飛刀、霜凍瓶、擲斧、閃光粉）。新狀態中毒（最多 3 層）、流血（每跳可暴擊）、弱化（降低抗性）。機關是有血量的佈置物：血量與防禦跟著玩家、全身最多 2 個，怪物在 3 格內會改打機關，被打壞時地雷與火藥桶會爆炸。新 Combo 規則破綻一擊、乘虛而入、佈雷引爆。</p>
+            <p class="why">Combo 池用遊戲的判定程式驗算，與 SPEC 的試算完全一致（劍斧 10,161、弓 9,264、法杖 1,943 種排列）並寫成回歸測試。機關沿用既有的「召喚物」陣營，所以玩家技能打不到、怪物會攻擊、換樓層自動清除，不需要新的抽象層。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">平衡模擬與調整</span><span class="hash mono">98dace7</span></div>
+            <p>用遊戲程式模擬第 8 階武器、橘裝主倍率下的單體 / 群體 / 魔王傷害：火藥桶約毀滅重擊的 75%，不需上限；雷電圖騰在走廊的效率接近隕星；淬毒飛刀的毒對魔王約 72 DPS，維持。設計者調整閃光粉：弱化改為從抗性直接相減、可以減到負數，每級 30 魔力、維持 20 秒、冷卻 30 秒；連段裡有技能冷卻中時整組不施放。</p>
+            <p class="why">模擬時發現中毒滿 3 層後新的一層會取代舊層並重置計時，連續施放時毒根本不會跳，改為刷新最快到期的一層。另外發現法杖的主倍率加在法術強度，武器傷害只有劍的約 1/8，法杖的戰術技能定位為 Combo 銜接。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">v0.4.0：文件、版號、修正商人鍛造格</span><span class="hash mono">d68bb2e</span><span class="badge">版本 0.4.0</span></div>
+            <p>關閉商人面板（按 ×、Esc、離開商人、開其他面板）時，鍛造格裡的裝備放回背包；背包滿了就丟在腳下。角色成長模擬加入戰術類別、武器允許矩陣與機關傷害；組合技圖鑑重新產生（22 條規則）；架構與 Combo 文件更新。標題畫面版本為 v0.4.0。</p>
+            <p class="why">鍛造格的裝備原本只留在商人身上（會存檔，但面板關掉後看不到），玩家以為裝備不見了。角色成長模擬的 sim.js 改由 npm run docs:sim 從遊戲程式產生。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">v0.4.1：盾擊、技能特效、法術＋戰術組合技</span><span class="hash mono">5dffa3f</span><span class="badge">版本 0.4.1</span></div>
+            <p>試玩回饋後的調整。雙重斬和幻影連斬太像，改成盾擊：傷害用盾牌本身的防禦計算，沒拿盾不能用，有衝擊波、暈眩與擊退。重砍、破甲斬、裂地擊等原本共用同一種特效，改成每招各有自己的特效；盾擊是盾牌往前撞加兩道風。傳奇 / 神話武器的特殊效果在 Combo 觸發時以金色特效顯示。戰術技能的攻擊力改為武器傷害與法術強度取較高者，並調高投擲與機關的倍率。新增元素投擲、元素陷阱兩條組合技，讓法師也能用「火球＋火球＋飛刀」這類組合。技能面板的說明改為滑鼠移上去才顯示，連段格可以按 × 清除，技能說明標出近身 / 中距離 / 遠距離。</p>
+            <p class="why">原本法杖的戰術技能只吃武器傷害（約劍的 1/8），用起來很弱；取較高者之後，同等級的法杖飛刀約是劍的 80%。原本指向雙重斬的三件傳奇改指向快斬、劍刃旋舞、幻影連斬；存檔升到 v14，雙重斬的等級與連段格自動轉給盾擊。</p>
+          </div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">10/18</span><span class="name">v0.5.0<br>鑲嵌與融合</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">規格討論：鑲嵌與融合</span><span class="badge">設計討論</span></div>
+            <p>v0.4.0 的武器允許矩陣讓三分之二的武器掉落變成廢鐵，所以讓玩家把用不到的裝備「融合」成熔核、鑲進自己裝備的孔。開工前逐條定案 15 項：手套、鞋子也有熔核效果、取消單件上限只留全身上限（一顆 T5 橘核最高值 × 1.5）、射擊距離用新屬性、混核兩核種各取一條 ×0.7、印記只傳強屬性（◆）不傳效果（✦）、護身符也能放進飾品區、存檔升 v15 等。</p>
+            <p class="why">融合的核種、核階、核色由規則決定，按下融合前全部顯示；只有數值、副屬性與印記是骰子。孔數和稀有度反向（白 5 孔 … 紅 0 孔），讓低稀有度的裝備也有用途。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">熔核資料、屬性生效與融合判定</span><span class="hash mono">a667a5b～b5ac3a7</span></div>
+            <p>熔核只存 ID 與擲骰位置，數值由資料推導；屬性行分三種（角色屬性、元素、依標籤的技能加成），技能加成沿用傳奇裝的效果系統。全身上限在彙整時套用；射擊距離加在投射物與投擲技能的飛行和施放距離。融合判定分成不擲骰的預覽與 Seeded 擲骰兩段，五個設計範例的固定部分與費用完全一致。</p>
+            <p class="why">預覽與實際融合共用同一套規則，介面、角色成長模擬的融合試算、裝備圖鑑的範例表都直接呼叫它，數字不會對不上。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">孔位、商人操作、融合流程與存檔 v15</span><span class="hash mono">e1dd948～b031723</span></div>
+            <p>白 / 藍 / 黃掉落時帶 0～2 孔（獨立的亂數序列，不改變既有掉落）；商人的鍛造格可以鑿孔、鑲嵌、拆卸；新的「融合」分頁有 4 格合成區與 2 格飾品區，投入傳奇 / 神話要二次確認。熔核可以放背包、地上、拆解區，不能賣。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">介面與表現：寶石、揭曉動畫、核光</span><span class="hash mono">a5b9731～ab83830</span></div>
+            <p>商人面板的融合確認面板（一定會是 / 有機會 / 五個部位的範圍 / 提醒 / 費用）；物品說明顯示孔位與熔核。熔核圖示是明亮式切割的六角寶石，核階越高切工越細；融合後播放揭曉動畫，最後的頂點星芒揭曉印記。熔核核階加進裝備光芒，腳下多一圈核光。</p>
+            <p class="why">寶石第一版太平，設計者看了參考圖後改成多面刻面、六重對稱反光與星芒，核階改用「切工細緻度」表示。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">平衡驗證與調整</span><span class="hash mono">66a0b5d · a688486</span></div>
+            <p>用遊戲程式實際裝備與施放：全身紫裝加 10 顆 T5 橘核，輸出約 ×2.7～3.0（設計者決定維持：花時間、花錢融合的回報）。設計者提問「白裝塞滿熔核就不用打寶」，模擬證實防具全換 5 孔白裝幾乎追得上紫裝，所以熔核強度改成跟著裝備稀有度（白 ×0.5 … 橘 ×1.25），白裝降到紫裝的 0.7 倍。副屬性改成不抽武器欄的屬性；融合費用砍半、飛昇的金幣與精華 ×2。</p>
+            <p class="why">最終魔王（60 萬血）用最強的劍重砍要 548 下，加 8 顆熔核後 440 下；這個長度先保留，等實際玩過再決定要不要調整。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">防具融合提前、文件與發佈</span><span class="hash mono">a6519ac～</span><span class="badge">版本 0.5.0</span></div>
+            <p>試玩後設計者決定提前開放：飾品以外的裝備都能融合。盔甲與盾牌 → 壁核、鞋子 → 疾核、手套 → 掌核、頭盔 → 冠核；四件同一類是純核、屬性多一條；精華跟著多數決。裝備圖鑑新增「熔核」頁（npm run docs:cores 由遊戲資料產生），角色成長模擬新增「融合試算」。</p>
+            <p class="why">護核的武器欄偏通用（近戰傷害、所有傷害），攻核的武器欄偏專精（重擊類技能傷害），所以全攻核輸出最高、全護核防禦最高、混搭兩者兼顧。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">盾牌也能鑲嵌、存檔 v16</span><span class="hash mono">10/19</span></div>
+            <p>原排第二期的盾牌開孔提前到 v0.5.0：8 種熔核都有盾牌欄，偏防禦與控制抗性（壁核、掌核加格擋率，靈核、冠核加元素抗性），唯一的輸出是重核的「盾擊傷害」。孔數、鑿孔費用、裝備稀有度倍率都沿用，盾牌欄也進副屬性池。存檔升到 v16，舊熔核的盾牌欄沿用自己衣裝欄的擲骰。</p>
+            <p class="why">盾牌只能配劍、斧，開孔等於只有近戰多 1～5 孔；盾牌欄只給保命的屬性，近戰站在怪物旁邊最需要，也不會拉大和遠程、法術的輸出差距。每條範圍都不高於其他部位欄的同一種屬性，全身上限不變。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">20 層以後紫、橘、紅掉落約加倍</span><span class="hash mono">10/23</span></div>
+            <p>試玩回報 21～25 層幾乎不掉橘、紫很少，打兩場蜘蛛女王只掉兩件黃。查證掉寶程式正常（兩場這麼差的機率約 2%），但 20 層以後確實偏乾，所以把樓層掉寶階級從 4 級拆成 5 級：15～19 層不變，20～24 層紫 / 橘 ×1.8 → ×3.6、25 層起 ×2.2 → ×4.4。設計者接著要求紅也一併調高，所以紅也加倍：20～24 層 ×2 → ×4、25 層起 ×2.6 → ×5.2（魔王每件是紅的機率 0.85% → 1.4%）。</p>
+            <p class="why">比較三個方案（小幅、加倍、小幅加魔王保底）後設計者選加倍：每層平均紫 1.7 → 3.2、橘以上 0.31 → 0.54（25 層起）；打完 21～25 層加兩場女王一件橘都沒有的機率從約 18% 降到約 5%。分解精華與賣價會跟著變多，之後再觀察熔核與飛昇的進度。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">10/23～10/30</span><span class="name">畫面、模型<br>與技能手感</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">iPad 觸控介面</span><span class="hash mono">2cc6967 · 5e6e109</span></div>
+            <p>HP / MP 移到上方、右側選單列、拿取鈕；背包點選與長按拖曳；商人貨架點一下看說明、長按 0.5 秒拿起，鍛造 / 融合點兩下放入，可指定主攻擊。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">女主角 AI 版</span><span class="hash mono">b6198d8～e9fb600</span></div>
+            <p>先做「骨架 → 構面體積」的 3D 模型頁與 Blender 流程，再用設計圖四視圖交給微軟 TRELLIS 生成模型，接上同一副骨架，換成遊戲裡的女主角（v13：頭部用四張頭像重新生成）。</p>
+            <p class="why">設計者不接受大平面的低多邊形，所以模型都加密成小三角構面；不使用中國公司的生成服務。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">橘紅裝備專屬造型</span><span class="hash mono">b79df3e～5f23812</span></div>
+            <p>裝備與武器加密成小三角面、遠距離改畫粗網格；靴子拆成獨立部位；橘紅的劍、斧、法杖、弓、盾牌、靴子、盔甲依名稱與特殊能力設計專屬造型，熔岩巨甲改用 AI 生成的模型。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">Three.js 畫法試驗</span><span class="hash mono">97e9dba～68baafd</span></div>
+            <p>按 G 切換（正式版網址加 ?three）：地板、角色、石砌的牆用 Three.js，主角的燭光是真的點光源並投射陰影；主角與所有怪物改用 GPU 蒙皮；滑鼠滾輪縮放最多 3 倍。技能特效重做成各招專屬演出，弱點 / 標記 / 弱化在頭上顯示光霧，牽制有束縛線；技能特效 Review 頁錄下每一招給設計者看。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">蛛后套毒蛛、傳奇擲骰、背包鑲嵌</span><span class="hash mono">594a0fd</span></div>
+            <p>蛛后絲甲召喚的毒蛛畫成小蜘蛛、最多 10 隻；傳奇效果數值掉落時擲骰；背包裡可直接鑲嵌、取下熔核。附加傷害或持續傷害打死的也算擊殺。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">設計者技能調整</span><span class="hash mono">cd3e0d0 · 8ccaa64</span></div>
+            <p>劍刃旋舞改成跟著主角 3～7 秒的劍風；毀滅重擊改單體；冰槍最多 3 支；冰霜新星改成滾動的冰球；淬毒飛刀毒傷 60%～200%；霜凍瓶改成 20 秒的自動投射器（每 0.5 秒冰箭）；擲斧流血可疊 5 層。絕對零度持續 6～10 秒，範圍內持續緩速並每秒 20%～40% 冰寒傷害。10/30 試玩後覺得霜凍瓶、火藥桶太強：場上機關最多 3 個（第 4 個讓最早的消失），所有機關的生命與防禦最高只有主角的 10%；霜凍瓶改名「霜凍投射器」、每秒一發 5%～15% 攻擊力；火藥桶爆炸 150%～230%，並燃燒 3 秒、每秒 20% 攻擊力；雷電圖騰 20%～40% 攻擊力。</p>
+            <p class="why">Combo 標籤跟著效果自動檢查，改完重新產生組合技圖鑑（25364 種排列）與角色成長模擬。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">怪物的戰術與習得技能</span><span class="hash mono">10/30</span></div>
+            <p>怪物發現主角會招呼 6 格內的同伴（只傳一層）；近戰在主角四周分配站位包圍、快怪繞側翼，背後留 70 度缺口（圍師必闕）；同時貼身最多 6 隻，其餘外圈等候；法師與弓手站在前排後方。機關的吸引力改成主角的 2/3，同樣距離先打主角。10 樓起怪物會學一招主角技能（法術系學法術樹、其他依近戰 / 遠程），越深學得越高層；怪物版傷害 ×0.6、前搖與冷卻放慢，施放時頭上顯示招式名稱。</p>
+            <p class="why">站位與學到的招式都由規則與世界種子決定，可以用測試把關（新增 18 個）。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">10/31</span><span class="name">正式版改用<br>Three.js 畫法</span></div>
+        <div class="track">
+          <div class="item">
+            <div class="item-head"><span class="ms">背包整理保留熔核</span><span class="hash mono">f6f1331</span></div>
+            <p>按「整理」時，放在背包（沒鑲在裝備上）的熔核會消失；現在熔核排在裝備之後、藥水之前，核階高的在前。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">畫面效能</span><span class="hash mono">059599d · 10/31</span></div>
+            <p>深樓層從約 30 FPS 回到穩定 60 FPS（第 30 層、400 多隻怪，一幀 29.6 → 16.6 ms）。角色改用固定緩衝區的網格；畫面外的牆與怪物移出圖層；Three.js 的牆與地板分區、遠處整區跳過，所有牆共用材質，角色模型只畫進範圍內的影子；10 層起怪物數量減少 10%。</p>
+            <p class="why">特效的點光源不再投射影子（照樣照亮周圍）：每個投影子的光源都讓畫面上每個像素多查一次陰影圖，是最大的負擔。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">Three.js 成為預設畫法</span><span class="hash mono">10/31</span></div>
+            <p>正式版直接用 Three.js（真的燭光、火把與影子）；選單「立體光影」可關掉改用 Pixi，網址加 ?pixi / ?three 強制指定，瀏覽器不支援 WebGL2 時自動用 Pixi。火把、機關、投射物、競技場擺設不再穿過牆或蓋住角色；精英光圈、面向小點、裝備腳下光環改畫在腳下；上層特效不再畫兩次。</p>
+            <p class="why">Pixi 畫的物件各放一塊看不見的深度板，Three.js 只重畫在它們前面的牆與角色，透明的部分不留空洞。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">蜘蛛女王 AI 版</span><span class="hash mono">10/31</span></div>
+            <p>怪物型態換成 AI 生成的第一隻：把遊戲裡的蜘蛛女王截圖交給 ChatGPT 重新設計、畫四視圖，再用微軟 TRELLIS 生成模型；Blender 減面成約 7000 個小三角面、接上骨架算好權重，整隻是一張蒙皮網格。動作沿用原本的威嚇站姿、撲下、橫掃、毒針突刺與蜷縮倒地；AI 模型每邊有 6 隻腳，走路一樣分兩組交替。</p>
+            <p class="why">骨架依模型手動擺放，每根骨頭一個顏色的截圖檢查分區；腳在靜止姿勢轉到正側面、往前的角度由動作加回，原本的動作不用改。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">深淵魔王 AI 版</span><span class="hash mono">10/31</span></div>
+            <p>設計者給了預期的造型圖（紅色肌肉甲殼、黑角、骨金鑲邊、熔岩裂紋、破爛翼膜、箭頭長尾），直接請 ChatGPT 畫成白底四視圖，再用 TRELLIS 生成；30 層魔王與深淵分身都換成這個模型。關節名稱沿用魔王的人形骨架，厚重步伐、爪擊、仰天怒吼時張開翅膀、甩尾都照舊；翅膀由四根翼指撐住翼膜跟著翼肘動。</p>
+            <p class="why">Blender 腳本改成怪物共用（scripts/monster_ai.py，每隻只定義骨架），遊戲端共用 AiRig.ts。TRELLIS 未登入的免費 GPU 額度一天只夠一次，第二隻改在 Hugging Face 登入後操作。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">深淵統御者 AI 版</span><span class="hash mono">10/31</span></div>
+            <p>設計者的參考圖（金色尖刺重甲、獸顱巨盾、鋸齒巨劍）＋舊版模型的結構（人形上身接四足獸身）＋30 層深淵魔王的外型，交給 ChatGPT 設計出最終魔王；四視圖不拿劍盾，巨劍與盾牌另外生成成獨立的模型。動作照舊（四足對角步伐、巨劍招式、低吼張翅），三個階段的持武器方式不同：雙手往前舉劍（劍尖朝上、劍鋒朝前）與盾 → 盾牌落地後雙手持劍 → 巨劍也落地後雙手往前、手掌微張，隨呼吸與步伐前後擺動。掉下的盾與劍留在場上。</p>
+            <p class="why">TRELLIS 把左右側面的尾巴混在一起，身體正前方多長出一條尾巴，在減面前切掉。手臂往前彎時網格不跟著骨頭：AI 模型的骨盆偏前 18 公分，遊戲又一律把骨盆放在正中央，網格與骨頭錯開，所有關節都在錯的位置旋轉（共用的 AiRig.ts 修正，蜘蛛女王、深淵魔王也一起修好）。生成的網格把垂下的手、翅膀下緣、兩腳間的腰布黏在旁邊的部位上，動作時被拉成長條，所以各部位分開、只從肩膀與髖接身體。新增魔王動作預覽頁（boss-viewer.html），可切換動作、招式、階段，並用「T 字」姿勢與依骨頭上色檢查手臂。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">通道加寬（方便包圍）</span><span class="hash mono">10/31</span></div>
+            <p>試玩時發現地圖幾乎都是通道，怪物很難包圍主角，只會排成一列。通道寬度改成樓層設定（layout.corridorWidth），從 5.5～7.5 格加寬到 9.5～13.5 格（約 1.7 倍），邊緣侵蝕後大多數地方也有 6 格以上，近戰排得開兩側與背後的站位。</p>
+            <p class="why">怪物數依「每 100 格地板」計算，通道變寬會讓地板多出 24～29%，所以密度同時除以 1.26，每層怪物數維持加寬前的數量（測試把關誤差 7% 內）。地圖產生器改版（v5），舊存檔的樓層會重新生成。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">怪物屍體留在地上</span><span class="hash mono">10/31</span><span class="badge">存檔 v18</span></div>
+            <p>怪物死後播一次倒地動作（每種怪都一樣），之後固定不動、整體變暗，像打開的寶箱；可以直接穿過，換樓層才消失（回到原本的樓層時怪物重生、沒有屍體）。召喚的毒蛛與機關不留屍體。存檔記錄每具屍體的生成索引、位置與面向，重新整理後屍體留在原地。</p>
+            <p class="why">屍體不是角色：AI、技能、碰撞、滑鼠選取都看不到。畫面上同時 200 具時，原本照活怪的畫法會掉到 30 FPS；改成靜態網格、不投也不收影子、不參與深度板重畫後維持 60 FPS。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">5、10、15、20 層魔王 AI 版</span><span class="hash mono">11/1</span></div>
+            <p>墓穴守衛、墮落神官、熔岩巨獸、墮落騎士換成 ChatGPT 四視圖＋TRELLIS 生成的模型，動作沿用舊版。披風、腰布、神官的長袍下擺是獨立的骨頭，會延遲擺動；神官的腿不帶動長袍，只有靴子跟著走。武器握在拳心、與手臂垂直（T 字時水平朝前），塔盾盾面朝前、拳頭握在正中央，招式揮的方向不變。</p>
+            <p class="why">ChatGPT 把四個角度擠在一張圖時人會被壓窄，設計者要求肩寬再寬 1.3～1.5 倍，改成「正面＋背面」「右側＋左側」分兩張畫再切開。把四件武器拼成一張送 TRELLIS 一次生成，設計者看過覺得效果不好，武器暫時沿用舊版程式畫的並放大。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">手套與一般防具重做</span><span class="hash mono">8172c01</span></div>
+            <p>橘紅手套 18 件依手臂的實際形狀放樣，手指全包、手肘露出，造型照盔甲設計稿上戴的手套。一般頭盔、盔甲、手套八階改走樸實路線：胸甲貼身、頭盔貼頭形，只靠材質和甲片區分；詞條（含靴子）只有淡淡染色、小寶石、小羽飾、小尖刺，不改輪廓。</p>
+            <p class="why">調查發現舊手套沒藏掉身體的棕色護腕，而且手臂模型不在關節中心、左右也不對稱，手套其實套在手臂旁邊。設計者比對後要求橘手套要和盔甲稿上畫的一樣，比例不能瘦長。</p>
+          </div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">10/31～11/1</span><span class="name">故事<br>與井誌</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">世界觀與七環的故事</span><span class="hash mono">11/1</span></div>
+            <p>補上整個地牢的故事：世界由界匠畫下邊界而生，深淵統御者是困在裡面的一塊無垠，透過手、眼、口三相伸進世界；每五層一環，每環的魔王都是墮落的守門人。主角最後打倒它，活著回到地面，自己選擇守在井口。</p>
+            <p class="why">故事順著現有機制來寫，不用改規則：越深地圖越大是口在吞噬空間，怪物學主角技能是眼在學她，31 層回不去是退路被吞掉。內容收在設計文件「故事與世界觀」。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">過場影片</span><span class="hash mono">d3d58d9 · 10/31</span><span class="badge">存檔 v19</span></div>
+            <p>第一次站上 1、6、11…31 層播放前導，預告下一位魔王；打倒統御者後播四頁終章。上 80% 是 ChatGPT 生成的舊紙畫，慢慢放大；下 20% 是英文字幕與小字中文，配降調的英文旁白和黑暗低語。每個存檔只播一次，看過的可以在標題畫面重看。</p>
+            <p class="why">可攜版是單一 HTML，圖、聲音、中古風字型都要內嵌，遊戲包從 4.6MB 增加到約 14MB。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">魔王的魂魄、遺物與挑戰者筆記</span><span class="hash mono">878daff · 11/1</span><span class="badge">存檔 v20、v21</span></div>
+            <p>魔王第一次倒下時飄出一縷煙，逐句說出那個人的真相，遊戲不暫停。1～34 層每層散落一件遺物；十頁挑戰者筆記夾在各層寶箱裡，錯過的由更深樓層開的下一個寶箱補上。</p>
+            <p class="why">遺物位置用獨立亂數決定，不會改變既有的怪物與寶箱配置。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">《井誌》與收集獎勵</span><span class="hash mono">878daff · 11/1</span></div>
+            <p>魂魄、遺物、筆記合成一本 69 頁的小書（按 Y），一次一頁、左右翻頁，沒收集到的頁是「？？？」，魂魄一句一頁並署名。每收集 1/4 給一次獎勵：隨機橘核、橘裝武器、橘裝鎧甲（後兩項依技能點最多的路線）、額外 20 屬性點。</p>
+            <p class="why">獎勵事先不告訴玩家，收集滿才跳通知。獎勵在跨過門檻的當下發放，不另外存檔；額外屬性點由收集紀錄推導，存檔修復不會把它判定成異常。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">遊戲更名 Aisling - Wellkeeper</span><span class="hash mono">11/1</span></div>
+            <p>遊戲標題改為 Aisling - Wellkeeper，不再有中文名稱。Aisling 是愛爾蘭語的「異象」，呼應初代封印者艾希琳（Aislinn）；Wellkeeper 是主角最後成為的井口守望者。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">詞綴 T5 改到拿得到</span><span class="hash mono">11/1</span></div>
+            <p>比對設計文件時發現：詞綴每 10 級一階，T5 要物品等級 40，但物品等級等於樓層、最高 35，所以 T5 永遠拿不到。改成每 8 級一階（T5 在 32 層起），和熔核的核階相同。</p>
+            <p class="why">既有裝備的詞綴數值由物品等級推導，所以舊裝備也會跟著變強。自動難度測試的預設角色也從物品等級 50 改成 35。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">共用倉庫</span><span class="hash mono">cfff791 · 11/2</span></div>
+            <p>每位商人旁邊多一個藍金色的華麗寶箱：5 頁、共 150 格，3 個存檔欄位共用，可以交換裝備與熔核。熔核同時加上等級限制：角色等級要達到核的物品等級才能鑲，鑲著高階核的裝備也要達到等級才能穿。</p>
+            <p class="why">沒有等級限制的話，新角色可以從倉庫拿 T5 橘核鑲在白裝上，前期難度就消失了。倉庫和角色存在兩個地方，所以同步寫兩邊的緊急副本，再照固定順序寫入；動作不做互換，當機時最壞是多一件，不會少一件。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">魔王的範圍技改到躲得掉</span><span class="hash mono">11/3</span></div>
+            <p>魔王的範圍倍率從 ×1.5～3 改成 ×1～1.5、放大後最多 8 格（一般怪與精英不變）；地面預警改成和實際範圍一樣大、衝鋒的預警畫在落點；有預警的招式走出預警就躲得掉；散落招式加大散布，不再鋪滿。統御者的盾牌衝撞寬度 10 → 7 格、火冰彈幕只打 6 格外的目標且命中範圍 1 格、血量減半（約 60 萬 → 30 萬）。</p>
+            <p class="why">原本第 30 層暗黑領域半徑 18.3 格，幾乎塞滿畫面，預警卻只畫 6.6 格；衝鋒類招式還標了「主要目標一定命中」而且沒有距離限制，跑多遠都會被打到。一般怪的同類招式維持原樣。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">一般怪的招式也跑得掉</span><span class="hash mono">11/3</span></div>
+            <p>角甲衝鋒、鑽地突襲、鎖鏈突進、撲擊、暗影撲殺、鉤爪撕裂、吞噬，以及怪物學走的主角招式，不再跑多遠都打得中：衝鋒朝開始出招時的方向，跑出範圍或往旁邊閃就躲得掉。普通攻擊與主角的技能不變。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">魔王模擬器與敵方範圍圖</span><span class="hash mono">11/3</span></div>
+            <p>開發工具：選敵人、樓層、階段、主角等級與裝備，用遊戲的 AI 與傷害流程開打，主角只走路不倒下，顯示招式表、各階段對照與實戰紀錄。範圍圖不必開打，照實際比例畫出所有敵方範圍。暗黑領域也換成黑底紅圈、漂出骷髏的特效，魔王與裝備共用。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">重甲與法師的 AI 模型、新招式</span><span class="hash mono">11/8</span></div>
+            <p>重甲骷髏、骷髏法師、雷霆法師換成 AI 模型。重甲系多了鏽蝕重甲（鏽色、尖刺、斧刃血光）、霜鎧 / 熔鐵 / 雷殛重甲（重擊有冰刺、大道落雷、大爆炸）與飛斧重甲（斧頭沿直線飛出去再飛回來，來回都打）。法師依袍色分火、冰、雷、三系，共八種，法術依階級抽定。虛空吞噬者與鑽地寄生蟲的嘴會快速吐吸，主角離得遠時鑽進地下、從腳下竄出，土石紛飛。</p>
+            <p class="why">同一個模型換色、換配件、換招式，就能多出很多種怪，面數和效能不變。法師高階的招會把瞬間傷害推過 30%，所以精英的招式等級固定 1 級，高倍率的招再把整隻的傷害往下調。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">主角拿法杖的姿勢</span><span class="hash mono">11/7</span></div>
+            <p>設計者畫了示意圖：手肘彎成直角、前臂水平往前（手往前推一點、略往外），杖身直立、杖頭朝上，手握在杖身從下算起 2/3 的位置（原本握在杖尾附近、杖往前傾）。施法動作不變，只是握點換到 2/3。</p>
+            <p class="why">直立的角度每一幀依目前的手臂算，身體前傾、呼吸、走路時杖都還是直的。手往外一點，正面與側面看杖頭都不擋臉；朝右下時仍會疊到臉，設計者看過截圖覺得可以。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">拿掉背包旁的人物預覽</span><span class="hash mono">11/7</span></div>
+            <p>遊戲畫面已經可以用滑鼠滾輪放大看主角，背包旁另外畫的大尺寸人物預覽就拿掉了。</p>
+            <p class="why">預覽是另外畫一次主角，換裝與姿勢常有破綻（例如沒有脖子），兩邊各維護一份不值得。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">第一層的卡頓：商人改用 GPU、同種怪共用網格</span><span class="hash mono">11/7</span></div>
+            <p>試玩覺得第一層怪還不多就卡。實際量每一幀：主因不是屍體（當時一具都沒有），而是出生點旁三位商人每一幀由 CPU 重算約 4400 面、重新上傳（一位約 1 毫秒），以及每隻怪第一次走進畫面時各自建一次網格（AI 骷髏一次約 18 毫秒，走路時一頓一頓）。商人、寶箱、倉庫改用和怪物一樣的 GPU 蒙皮；同一種怪、沒換裝的分身共用同一份網格，只有第一隻要建。人物與怪物每幀的時間約 4.4 → 2.1 毫秒。</p>
+            <p class="why">屍體倒下後是不動的網格，畫面外的已經移出圖層，目前不是負擔；等深層一個畫面堆到上百具再考慮讓屍體淡出。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">一般怪換成 AI 模型，新增四隻屬性怪</span><span class="hash mono">11/7</span></div>
+            <p>骷髏戰士、冰霜骷髏、骷髏弓手、食屍鬼、毒液食屍鬼、虛空孢子、虛空吞噬者換成設計者生成的 3D 模型，動作沿用舊版；骷髏和女主角一樣高。同一個模型換色換裝：焦骨弓手、鎖鏈獄卒（鐵籠面罩、垂掛的燈籠、鉤尖朝地的鐵鉤）、鑽地寄生蟲（寶石壓平、土色、橘眼、微刺）。新增赤焰骷髏、紫電骷髏（第 4、6 層起）、凍骨弓手、猛毒弓手（第 4、7 層起），攻擊另外附加 20% 該屬性的傷害。劍握在拳心、與手臂垂直，握把往劍尖是護手、rain-guard、劍身；盾放大兩倍、在拳頭外側直立；弓放大兩倍，拉弓時弦被拉開、搭上箭，放箭後弦彈回。</p>
+            <p class="why">生成的四視圖是空手，武器沿用程式畫的，再依拳頭的寬度與位置握好。一般怪同時出現很多隻，面數壓到接近舊版、蒙皮計算改成事先整理好的陣列，遊戲的負擔差不多。虛空孢子的眼被 TRELLIS 做成尖錐，壓平後照四視圖畫上發光的核心；虛空吞噬者的嘴往內挖出鋸齒黑洞。</p>
+          </div>
+          <div class="item">
+            <div class="item-head"><span class="ms">新小怪：骸手爬行者</span><span class="hash mono">11/4</span></div>
+            <p>設計者生成的骷髏手蜘蛛模型接上骨架，第 14 層起出現：每邊 9 隻腳、手掌朝前，招式是預警後往前拍地（前方扇形、短暫緩速，離開範圍就躲得掉）。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">隱藏魔王：奪界雙手</span><span class="hash mono">11/4</span></div>
+            <p>第 9、11～14 層的第三隻隱藏魔王，代表「手」：兩隻一對的爬行骷髏手臂，共用名字、血條分兩段，兩隻都倒下才掉一份寶。會一起放雙掌合擊與交叉地震；奪取之握會奪走一個技能 5 秒；HP 30% 時手被打壞，改從手肘的眼睛噴毒冰球。掉寶 4～6 件、至少一件紫裝、有機會掉紫色純核，3% 機率掉帶「奪取之手」印記（吸血、吸魔各 0.2～0.6%，設計者同意的吸血上限例外）的橘色純核。萬骸之口移到第 16～22 層，三隻分成三段。</p>
+            <p class="why">TRELLIS 認不出一體的四視圖，身體與手分開生成再接起來，剛好變成第三階段打壞手的機制。TRELLIS 每邊多生了兩隻腳而且直直往下，所以在 Blender 切掉，並把留下的四對往外張開。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">樓層減傷調整：一般樓層打六折，隱藏魔王不變</span><span class="hash mono">11/4</span></div>
+            <p>精英與魔王的樓層減傷都減 40%，第 26 層魔王從 34% 降到 20.4%，上限從 40% 降到 24%，深淵統御者固定的全抗性從 30% 降到 18%；一般怪本來就沒有。隱藏魔王維持原本的數值。噬界足眼另外抽到的三個抗性也改成等於樓層減傷（26 層 34%），疊加上去，總上限 75%。</p>
+            <p class="why">隱藏魔王要有特殊地位，所以比同層的一般魔王硬。隨機抗性不再是固定小範圍，越深越明顯，換屬性的價值也越大。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">隱藏魔王：噬界足眼</span><span class="hash mono">11/2</span><span class="badge">存檔 v23</span></div>
+            <p>第 23～29 層的第二隻隱藏魔王，代表「眼」：血紅眼球、圓形鋸齒深口、八根花瓣爪、人手腳掌、尾巴尖端是女性的臉。第二階段爪子交替開合，收合時減傷 30%、由尾巴每秒輪流丟火焰爆破與冰霜新星；第三階段停 5 秒後尾巴脫離成獨立的怪物。新增吐息三選一、擊退 8 格的翼風，以及跳起消失、印記追人再落下的墜天。每次出現隨機抽三個抗性。掉寶越深越多（23 層 6 件 → 29 層 12 件），主角死在附近時牠回 15% 血。</p>
+            <p class="why">四視圖把翅膀畫小、尾巴分開生成，身體細節才保得住；翅膀和尾巴在 Blender 放大，尾巴用重複的甲殼延長，甲片不會變形。TRELLIS 把翅膀的眼睛糊成寶石、深口接近平面，所以照位置畫上瞳孔黑縫、把嘴往內挖深。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">隱藏魔王：萬骸之口</span><span class="hash mono">11/2</span><span class="badge">存檔 v22</span></div>
+            <p>第 11～22 層機率出現的隱藏魔王，由骷髏戰士、重甲骷髏、墮落聖殿騎士的物件拼成，身體是一張巨口，有四根觸手。地圖右上角預留一間正方形隱藏房，平常是實心牆，骰到才打開。火、冰、雷、毒隨機抽兩種，決定發光區塊的顏色，每次出招只用其中一種。一定掉 6 件裝備，10% 有 5 孔白裝。</p>
+            <p class="why">房間先預留、最後才接通道，所以一定是死路，也不會讓怪物和寶箱換位置。TRELLIS 每邊多生一隻腳，切掉成四隻；嘴裡的東西改跟下顎，張嘴時才不會連著上顎。減面後平的地方還是大塊，所以再切開過長的邊，約 17900 面。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">噴錢的結晶獸</span><span class="hash mono">11/1</span></div>
+            <p>設計者用 TRELLIS 生成的石頭獸做成火、冰、雷、毒四種結晶獸，共用一張網格與骨架，外觀從模型的凹凸推導：凸出的尖岩變成各屬性的結晶、凹縫發光。第 5 層起單獨出現，每次進入樓層 30%、25%、20%、15%、10%、5% 各自擲一次，打倒噴出 400～1500 金幣（越深越多），死亡 0.8 秒後晶核碎裂；強度與精英相同，大小固定與震地獸同高（×2.26）。</p>
+            <p class="why">原本想用程式替石頭獸長結晶，細得像刺，改成用模型本身的尖岩。貼圖烤死了光影，所以不用貼圖、依部位上色。讀檔不重擲，避免靠重新整理刷錢；不算進開出口的擊殺數，打不打都不影響過關。</p>
+          </div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">11/7</span><span class="name">怪物 AI<br>閃避、求援與搶資源</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">閃避、繞後、求援</span><span class="hash mono">11/7</span></div>
+            <p>追擊中的怪會閃開飛來的投射物（第 1 層 20%、第 30 層 45%，慢的怪與近距離射擊閃不掉，連射只閃得掉第一發）。包圍不再留缺口給主角，快的怪從側面繞到背後才出手。一群被打掉超過一半，最遠的一隻喊「求援！」跑去叫 30 格內最多兩群閒置的怪；主角要注意離開戰場的那一隻，打倒牠就叫不到。</p>
+            <p class="why">群的編號由生成計畫推導，不用改存檔；派過與被叫來的群不再往外叫，不會一路把整張地圖叫過來。閃避看「閃不閃得出投射物的寬度」，速度慢的怪自然閃不掉，不需要另外設定每種怪。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">躲範圍傷害、預判射擊、誘敵、撿藥水、處理屍體</span><span class="hash mono">11/7</span></div>
+            <p>怪物的路線繞開主角的火海、毒池，主角站在裡面時會在邊緣猶豫一下才硬闖。弓手與法師預判主角沿著路線會走到的位置（深層更準），直線跑會中箭。血少的怪會往另一群閒置的怪逃，把追來的主角帶進去；人形的怪會搶地上的藥水喝。食屍鬼吃屍體回血變大，骷髏法師讓不死族的屍體站起來。</p>
+            <p class="why">撿藥水、吃屍體、復活由怪物資料的 tactics 決定哪些怪會，數值都在 balance.enemyTactics；繞路用尋路的額外距離，繞不過去就照走，不會卡住。復活的怪算召喚物，不給經驗也不掉寶，不能拿來刷。</p>
+          </div>
+          <div class="item key">
+            <div class="item-head"><span class="ms">速度隨狀況變化、弓手的箭</span><span class="hash mono">11/7</span></div>
+            <p>怪物的移動速度不再固定：主角跑遠時追趕加速，逃跑、求援、搶藥水時加速，快怪繞後時加速。弓手是靈活派，主角離得越遠，箭飛得越快越遠，每一箭還有隨機差異，精英更快更遠；被貼近時也退得比較快。</p>
+            <p class="why">加速用乘在基本速度上的 Modifier，狀況變了才改；判斷誰是遊擊仍看不含加速的速度，追趕中的慢怪不會被誤當成繞後的快怪。</p>
+          </div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">11/8</span><span class="name">怪物 AI<br>非人形怪物</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">躲掩護、圍獵、蜂擁、撞牆、自爆、鑽地、護衛與潰散</span><span class="hash mono">11/8</span></div>
+            <p>遠程怪躲在巨獸背後偷射，主角要先跑遠讓射手自己出來，再上前打掉它。野獸先繞圈再一起撲；孵化蜘蛛直接一擁而上，少了就逃回母體身邊守著。角甲巨獸衝鋒撞牆會自己暈 2 秒；火囊爬行者血少時衝上來自爆；鑽地寄生蟲鑽進地下躲投射物，從背後鑽出來。小惡魔守在深淵祭司身邊，祭司倒下就潰散。</p>
+            <p class="why">每種行為都由怪物資料的 tactics 決定（shield、cover、hunt、swarm、guard、rout、kamikaze、burrow），數值在 balance.enemyTactics；站位仍由集體戰術每 0.5 秒分配。自爆與鑽地是怪物資料以外的技能，只在條件成立時才用，平常不會亂放。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">品質</div>
+      <h2>測試數量隨 Milestone 累積</h2>
+      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 11/1 的 npm test 結果。</p>
+    </div>
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1340">
+      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.7%"></div><span class="val mono">28</span></div>
+      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.0%"></div><span class="val mono">52</span></div>
+      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:7.8%"></div><span class="val mono">81</span></div>
+      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:9.1%"></div><span class="val mono">94</span></div>
+      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:11.0%"></div><span class="val mono">114</span></div>
+      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.2%"></div><span class="val mono">137</span></div>
+      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.3%"></div><span class="val mono">179</span></div>
+      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:25.1%"></div><span class="val mono">260</span></div>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1340</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1340 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個；閃避、繞後與求援 7 個；躲範圍傷害、預判射擊、誘敵、撿藥水與處理屍體 11 個；速度隨狀況與弓手的箭 4 個；非人形怪物的行為 15 個；飛斧來回、鑽地破土與法師法術書 40 個）。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">重點</div>
+      <h2>這套做法為什麼有效</h2>
+    </div>
+    <ol class="take">
+      <li><p><b>底層規則一開始就定死。</b>座標、更新頻率、隨機種子、模組依賴方向，越晚改越貴，所以最先決定。</p></li>
+      <li><p><b>每個系統先做最簡單可用的版本。</b>技能先 4 個、掉寶表先一張、地圖先手畫，全部接通後再逐一加深。</p></li>
+      <li><p><b>資料和程式分開。</b>MVP 之後擴充變快，主要靠「新內容只改 src/data/」。</p></li>
+      <li><p><b>品質靠自動檢查守住。</b>每個 Milestone 都要通過測試、lint 與依賴檢查，大改多次也沒有失控。</p></li>
+      <li><p><b>路線圖可以調整，但要寫回文件。</b>M7.5 的插入與 M8、M9 的順序對調都有記錄。</p></li>
+    </ol>
+  </section>
+
+  <footer>資料來源：專案 git 紀錄與 docs/ARCHITECTURE.md、SAVE_SYSTEM.md、COMBO_SYSTEM.md。</footer>
+</div>
+
+</body></html>

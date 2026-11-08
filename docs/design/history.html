@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">120</b> 多個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1300</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1340</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -578,6 +578,11 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
             <p>開發工具：選敵人、樓層、階段、主角等級與裝備，用遊戲的 AI 與傷害流程開打，主角只走路不倒下，顯示招式表、各階段對照與實戰紀錄。範圍圖不必開打，照實際比例畫出所有敵方範圍。暗黑領域也換成黑底紅圈、漂出骷髏的特效，魔王與裝備共用。</p>
           </div>
           <div class="item">
+            <div class="item-head"><span class="ms">重甲與法師的 AI 模型、新招式</span><span class="hash mono">11/8</span></div>
+            <p>重甲骷髏、骷髏法師、雷霆法師換成 AI 模型。重甲系多了鏽蝕重甲（鏽色、尖刺、斧刃血光）、霜鎧 / 熔鐵 / 雷殛重甲（重擊有冰刺、大道落雷、大爆炸）與飛斧重甲（斧頭沿直線飛出去再飛回來，來回都打）。法師依袍色分火、冰、雷、三系，共八種，法術依階級抽定。虛空吞噬者與鑽地寄生蟲的嘴會快速吐吸，主角離得遠時鑽進地下、從腳下竄出，土石紛飛。</p>
+            <p class="why">同一個模型換色、換配件、換招式，就能多出很多種怪，面數和效能不變。法師高階的招會把瞬間傷害推過 30%，所以精英的招式等級固定 1 級，高倍率的招再把整隻的傷害往下調。</p>
+          </div>
+          <div class="item">
             <div class="item-head"><span class="ms">主角拿法杖的姿勢</span><span class="hash mono">11/7</span></div>
             <p>設計者畫了示意圖：手肘彎成直角、前臂水平往前（手往前推一點、略往外），杖身直立、杖頭朝上，手握在杖身從下算起 2/3 的位置（原本握在杖尾附近、杖往前傾）。施法動作不變，只是握點換到 2/3。</p>
             <p class="why">直立的角度每一幀依目前的手臂算，身體前傾、呼吸、走路時杖都還是直的。手往外一點，正面與側面看杖頭都不擋臉；朝右下時仍會疊到臉，設計者看過截圖覺得可以。</p>
@@ -667,7 +672,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <h2>測試數量隨 Milestone 累積</h2>
       <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 11/1 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1300">
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1340">
       <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.7%"></div><span class="val mono">28</span></div>
       <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.0%"></div><span class="val mono">52</span></div>
       <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:7.8%"></div><span class="val mono">81</span></div>
@@ -676,8 +681,8 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.2%"></div><span class="val mono">137</span></div>
       <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.3%"></div><span class="val mono">179</span></div>
       <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:25.1%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1300</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1300 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個；閃避、繞後與求援 7 個；躲範圍傷害、預判射擊、誘敵、撿藥水與處理屍體 11 個；速度隨狀況與弓手的箭 4 個；非人形怪物的行為 15 個）。</p>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1340</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1340 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個；閃避、繞後與求援 7 個；躲範圍傷害、預判射擊、誘敵、撿藥水與處理屍體 11 個；速度隨狀況與弓手的箭 4 個；非人形怪物的行為 15 個；飛斧來回、鑽地破土與法師法術書 40 個）。</p>
     </div>
   </section>
 
