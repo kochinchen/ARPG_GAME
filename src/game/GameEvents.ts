@@ -139,6 +139,8 @@ export interface GameEvents {
   BarrageFired: { actorId: ActorId; skillId: string; origin: Vec2; point: Vec2; direction: Vec2; impactIn: number };
   /** 跳到空中：地上出現印記（噬界足眼） */
   ActorLeapt: { actorId: ActorId; duration: number; radius: number };
+  /** 鑽進地下的角色從地下鑽出來（畫面：土石紛飛、身體垂直竄出再倒下） */
+  ActorEmerged: { actorId: ActorId; radius: number };
   /** 進入某一層（含第一次進入遊戲） */
   FloorEntered: { floor: number; mapId: string };
   /** kind 與 CheckpointSystem 的 CheckpointKind 相同（不 import，避免循環依賴） */

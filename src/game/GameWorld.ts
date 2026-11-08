@@ -14,7 +14,7 @@ import { DeathSystem } from './combat/DeathSystem';
 import { BossSystem } from './enemies/BossSystem';
 import { PassiveSkillSystem } from './enemies/PassiveSkillSystem';
 import { applyFloorResist, EnemyFactory, NORMAL_SIZE, rollSize, visualRadiusOf, type FloorResist } from './enemies/EnemyFactory';
-import { rollMimic, teachMimic } from './enemies/MimicSkills';
+import { rollMimic, rollSpellbook, teachMimic, teachSpellbook } from './enemies/MimicSkills';
 import { ItemEffectSystem } from './items/ItemEffectSystem';
 import { SalvageSystem } from './items/SalvageSystem';
 import { Materials } from './player/Materials';
@@ -727,6 +727,9 @@ export class GameWorld {
     const mimics = plan.map((request) =>
       rollMimic(this.data.enemies.get(request.enemyId), floor, request.eliteAffixes !== undefined, this.data.skills, this.data.balance.enemyMimic, mimicRng),
     );
+    // 法師的法術書：同樣每個索引都擲一次（獨立的亂數，不影響其他的抽選），讀檔後不變
+    const spellbookRng = new Rng(this.seed).fork(`spellbook-${floor}`);
+    const spellbooks = plan.map((request) => rollSpellbook(this.data.enemies.get(request.enemyId), floor, request.eliteAffixes !== undefined, this.data.skills, this.data.balance.mageSpellbook, spellbookRng));
     // 每一群生成時的隻數（含已擊殺的）：求援看「被打掉幾成」
     const packSizes = new Map<number, number>();
     for (const request of plan) if (request.pack !== undefined) packSizes.set(request.pack, (packSizes.get(request.pack) ?? 0) + 1);
@@ -745,6 +748,8 @@ export class GameWorld {
       if (eliteSpec) applyFloorResist(enemy, resists[index]!);
       const mimic = mimics[index];
       if (mimic) teachMimic(enemy, mimic);
+      const spellbook = spellbooks[index];
+      if (spellbook) teachSpellbook(enemy, spellbook, floor, this.data.skills, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
       if (enemy.ai && request.pack !== undefined) enemy.ai.pack = { id: request.pack, size: packSizes.get(request.pack)! };
       const actor = this.addActor(enemy);
       spawnedIds.push([actor.id, index]);
@@ -1252,6 +1257,8 @@ export class GameWorld {
       applyFloorResist(actor, { physical: resist, elemental: resist });
     }
     actor.innateElements = innateElements;
+    const spellbook = rollSpellbook(def, floor, false, this.data.skills, this.data.balance.mageSpellbook, new Rng(this.seed).fork(`spellbook-sim-${this.nextActorId}`));
+    if (spellbook) teachSpellbook(actor, spellbook, floor, this.data.skills, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
     return this.addActor(actor);
   }
 

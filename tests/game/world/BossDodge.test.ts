@@ -93,7 +93,6 @@ describe('魔王有預警的招式：跑開就躲得掉', () => {
   // 這幾招原本跑多遠都會被打中（設計者 2026-11-03）
   const NORMAL_DASHES: [string, string, number][] = [
     ['enemy.horned_brute', 'enemy.horn_charge', 20],
-    ['enemy.burrower', 'enemy.burrow_strike', 25],
     ['enemy.chain_warden', 'enemy.chain_rush', 25],
     ['enemy.bone_hound', 'enemy.pounce', 15],
     ['enemy.shadow_panther', 'enemy.shadow_pounce', 20],

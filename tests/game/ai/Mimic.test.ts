@@ -60,7 +60,7 @@ describe('怪物學到哪一招', () => {
     expect(schoolOf(enemy('skeleton_mage'), data.skills)).toBe('magic');
     expect(schoolOf(enemy('skeleton_archer'), data.skills)).toBe('ranged');
     expect(schoolOf(enemy('skeleton'), data.skills)).toBe('melee');
-    expect(roll('skeleton_mage', 12, true)!.skillId).toMatch(/^mimic\.magic\./);
+    expect(roll('eye_floater', 12, true)!.skillId).toMatch(/^mimic\.magic\./);
     expect(roll('skeleton', 12, true)!.skillId).toMatch(/^mimic\.melee\./);
   });
 
@@ -74,7 +74,7 @@ describe('怪物學到哪一招', () => {
     const tierOf = (floor: number) => {
       let max = 0;
       for (let seed = 1; seed < 300; seed++) {
-        const r = roll('skeleton_mage', floor, true, seed)!;
+        const r = roll('eye_floater', floor, true, seed)!;
         max = Math.max(max, data.skills.get(r.skillId.slice('mimic.'.length)).tree!.tier);
       }
       return max;

@@ -178,6 +178,17 @@ export const BalanceSchema = z.strictObject({
     cooldownPerTier: z.number().nonnegative(),
     castTimeMultiplier: z.number().min(1),
   }),
+  /** 法師的法術書（EnemyDef.spellbook） */
+  mageSpellbook: z.strictObject({
+    /** 多會一招高一階的機率：fromFloor 層是 chance[0]，toFloor 層以後是 chance[1] */
+    upper: z.strictObject({ fromFloor: z.int().positive(), toFloor: z.int().positive(), chance: RangeSchema }),
+    /** 精英再多會一招高兩階的機率 */
+    eliteChance: z.number().min(0).max(1),
+    /** 一般法師的招式等級上限（精英固定 1 級） */
+    maxRank: z.int().min(1).max(5),
+    /** 精英一下的倍率上限（武器傷害的倍數）：會更高倍率的招就把整隻的傷害往下調，瞬間傷害才不會超過主角最大生命的 30% */
+    eliteMaxMultiplier: z.number().positive(),
+  }),
   /** 怪物的集體戰術（AiSystem 的 SquadTactics） */
   enemyTactics: z.strictObject({
     /** 怪物發現敵人時，叫醒這個距離內、看得到牠的閒置同伴（只傳一層，不會連鎖） */

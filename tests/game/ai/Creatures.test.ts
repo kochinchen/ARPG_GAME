@@ -255,6 +255,8 @@ describe('鑽地寄生蟲鑽地閃避', () => {
     const { world, data } = setup([at('burrower', 14, 5.5)]);
     data.balance.enemyTactics.burrow.chance = 1;
     const [worm] = enemiesOf(world);
+    // 這裡只測閃避：遠距離的鑽地突襲先冷卻
+    worm!.cooldowns.set('enemy.burrow_strike', 60);
     provoke(world, worm!);
     run(world, 0.3);
     world.player.facing = vec2(1, 0);

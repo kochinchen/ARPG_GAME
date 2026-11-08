@@ -97,6 +97,16 @@ export const EnemyDefSchema = z
    */
   skills: z.array(IdSchema).default([]),
   /**
+   * 法師的法術書（balance.mageSpellbook）：schools = 會的魔法系（branch：A 火、B 冰、C 雷；basic = 那一系的普通攻擊，
+   * 多系的每隻隨機用一種）；固定會 tier 階；低機率多一招 tier + 1（越深機率越高）；精英低機率再多一招 tier + 2
+   */
+  spellbook: z
+    .strictObject({
+      tier: z.int().min(1).max(2),
+      schools: z.array(z.strictObject({ branch: z.enum(['A', 'B', 'C']), basic: IdSchema })).min(1),
+    })
+    .optional(),
+  /**
    * 特殊行為（balance.enemyTactics）：potion = 血少時撿地上的藥水喝；devour = 吃屍體回血變大；raise = 讓不死族的屍體站起來；
    * agile = 靈活派（弓手）：每一箭的速度與射程隨狀況變化，被貼近後退時跑得比較快；
    * shield = 巨獸，遠程同伴會躲在牠背後；cover = 遠程怪躲在巨獸背後射擊；hunt = 野獸圍獵；swarm = 孵化蜘蛛蜂擁、少了就逃回母體；

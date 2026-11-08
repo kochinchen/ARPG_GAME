@@ -174,7 +174,8 @@ export class EffectScheduler implements EffectSchedulerPort {
         }
       }
       const remaining = def.duration - leap.elapsed;
-      caster.air = Math.min(1, Math.min(leap.elapsed / LEAP_RISE, remaining / LEAP_FALL));
+      // 鑽地：一直待在地下，時間到才一口氣竄出來（畫面的 ActorEmerged）
+      caster.air = def.underground ? Math.min(1, leap.elapsed / LEAP_RISE) : Math.min(1, Math.min(leap.elapsed / LEAP_RISE, remaining / LEAP_FALL));
       // 跳起之後角色就在印記正上方（落下時位置就對了）
       if (leap.elapsed >= LEAP_RISE) caster.position = leap.mark;
       if (remaining > 0) continue;
@@ -183,6 +184,7 @@ export class EffectScheduler implements EffectSchedulerPort {
       caster.vanished = false;
       caster.untouchable = false;
       caster.underground = false;
+      if (def.underground) ctx.services.events.emit('ActorEmerged', { actorId: caster.id, radius: def.radius });
       const landed = { ...ctx, origin: leap.mark, target: null };
       landed.run(def.effects, landed);
     }

@@ -1,6 +1,6 @@
 import { aiFigure, aiPoints, alignDown, alignTo, I3, sub, type AiMonsterData } from './AiRig';
 import { mapPoses } from './bosses/BossPoses';
-import { grounded, solveJoints, type FigureModel, type Joint, type PartDef, type Pose, type PoseSet } from './FigureModel';
+import { grounded, skinVerts, solveJoints, type FigureModel, type Joint, type PartDef, type Pose, type PoseSet } from './FigureModel';
 import { apply, box, jointRotation, mul, prism, type M3, type Mesh, type V3 } from './Poly3D';
 
 /**
@@ -43,6 +43,10 @@ export interface MonsterAiOptions {
    * 拉弓的後半段弦上搭著一支箭，放箭時箭消失（飛出去的箭由技能的投射物畫）
    */
   bow?: { meshes: readonly Mesh[]; grip: V3; scale: number; string: { y: number; half: number; color: number }; arrow: { color: number; fletch: number; head: number } };
+  /**
+   * 左手的法杖（網格沿 -Y 是杖頭方向，握點在原點）：穿過拳心、與手臂垂直（前臂往前平舉時杖身直立、杖頭朝上）
+   */
+  staff?: { meshes: readonly Mesh[] };
   /** 拿在手上的東西再放大幾倍（舊版的劍與盾放在 AI 模型上偏小） */
   heldScale?: number;
   /**
@@ -92,7 +96,7 @@ export function monsterAi(json: unknown, classic: FigureModel, o: MonsterAiOptio
 
   // 武器依前臂長度縮放（舊版的前臂 = 手腕關節離手肘的距離）
   const forearmOf = (model: { parts: readonly { joint: Joint; offset: V3 }[] }) => length(model.parts.find((p) => p.joint === 'handR')?.offset ?? [1, 0, 0]);
-  const k = o.held || o.sword || o.shield || o.bow ? (forearmOf({ parts }) / forearmOf(classic)) * (o.heldScale ?? 1) : 1;
+  const k = o.held || o.sword || o.shield || o.bow || o.staff ? (forearmOf({ parts }) / forearmOf(classic)) * (o.heldScale ?? 1) : 1;
   const held = o.held ?? {};
   const withHeld = parts.map((p) => {
     const extra = held[p.joint];
@@ -122,6 +126,10 @@ export function monsterAi(json: unknown, classic: FigureModel, o: MonsterAiOptio
     withHeld.push({ joint: 'weapon', parent: 'handR', offset: fist.center, meshes: sword.meshes.map((m) => ({ ...m, verts: m.verts.map(toGrip) })) });
     tip = toGrip([0, sword.tip, 0]);
     weaponJoint = 'weapon';
+  }
+  if (o.staff) {
+    const toGrip = (v: V3): V3 => [v[0] * gearK, v[2] * gearK, -v[1] * gearK];
+    withHeld.push({ joint: 'weaponL', parent: 'handL', offset: fistOf('L').center, meshes: o.staff.meshes.map((m) => ({ ...m, verts: m.verts.map(toGrip) })) });
   }
   if (o.hang) withHeld.push({ joint: o.hang.joint, parent: o.hang.parent, offset: [0, 0, 0], meshes: scaled(o.hang.meshes, k * o.hang.scale) });
   const windupOnly: Joint[] = [];
@@ -265,6 +273,46 @@ function eulerOf(m: M3): V3 {
  * 腳板放平：舊版的站姿讓後腳腳尖往外轉、再依大腿與小腿的角度把腳往回壓，舊版的腳很短看不出來，
  * 生成的腳板長，腳尖就翹起來（骷髏的右腳）。這裡把兩腳的腳底轉成朝正下方（只轉最少的角度，腳尖的方向不變）
  */
+/**
+ * 蟲（虛空吞噬者、鑽地寄生蟲；設計者 2026-11-08）：嘴的一圈骨頭（monster_ai.py 的 ex_mouth?）快速一吐一吸，出招時張到最大再咬合；
+ * 另外算出從地下垂直鑽出來的姿勢（身體豎直、頭朝上、尾巴埋在地裡約 1/4）
+ */
+export function wormLife(m: FigureModel, o: { amp: number; rate: number }): FigureModel {
+  const bones = m.parts.filter((p) => p.joint.startsWith('ex_mouth')).length;
+  const axes: V3[] = Array.from({ length: bones }, (_, i) => {
+    const a = (2 * Math.PI * i) / bones;
+    const d = 0.1;
+    const r = alignTo([0, 0, 1], [Math.sin(d) * Math.cos(a), Math.sin(d) * Math.sin(a), Math.cos(d)]);
+    return [Math.asin(Math.max(-1, Math.min(1, -r[5]))) / d, Math.atan2(r[2], r[8]) / d, Math.atan2(r[3], r[4]) / d];
+  });
+  const open = (p: Pose, k: number): Pose => {
+    const angles = { ...p.angles } as Record<string, V3>;
+    axes.forEach((v, i) => (angles[`ex_mouth${i}`] = [v[0] * k, v[1] * k, v[2] * k]));
+    return { ...p, angles: angles as Pose['angles'] };
+  };
+  // 吐（張開）快、吸（縮回）稍慢，不像機械的正弦波
+  const pulse = (x: number) => o.amp * Math.sin(x + 0.5 * Math.sin(x));
+  const poses = m.poses;
+  const up: Pose = open({ ...poses.ready(0), angles: { ...poses.ready(0).angles, root: [-1.25, 0, 0], torso: [0.3, 0, 0], neck: [0.3, 0, 0], head: [0.2, 0, 0] } }, o.amp * 1.6);
+  const world = solveJoints(m.parts, m.hipHeight, { ...up, rootY: 0 });
+  const ys = skinVerts(m.skin!, world).map((v) => v[1]);
+  const [low, high] = [Math.min(...ys), Math.max(...ys)];
+  return {
+    ...m,
+    poses: {
+      ...poses,
+      ready: (t) => open(poses.ready(t), pulse(t * o.rate)),
+      run: (p) => open(poses.run(p), pulse(p * 1.3)),
+      ...(poses.walk ? { walk: (p: number) => open(poses.walk!(p), pulse(p * 1.3)) } : {}),
+      attackWindup: open(poses.attackWindup, o.amp * 2),
+      attackStrike: open(poses.attackStrike, -o.amp * 0.6),
+      castWindup: open(poses.castWindup, o.amp * 2),
+      castRelease: open(poses.castRelease, -o.amp * 0.6),
+      emerge: { ...up, rootY: -low - (high - low) * 0.25 },
+    },
+  };
+}
+
 function levelFeet(parts: readonly PartDef[], hip: number, pose: Pose): Pose {
   const w = solveJoints(parts, hip, pose);
   const angles = { ...pose.angles };

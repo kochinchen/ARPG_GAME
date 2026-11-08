@@ -57,6 +57,8 @@ const ARTS: Record<string, ProjectileArt> = {
   'utility.grapple_hook': arrow('hook', 0xc8a878, 0xc8ccd4),
   // 設計者要求（2026-10-29）：飛斧要更大、更明顯
   'utility.throwing_axe': orb('axe', 0xd84848, 0xc8ccd4, 'spark', 2.6, 40),
+  // 飛斧重甲的迴旋斧：比主角的飛斧更大
+  'enemy.axe_throw': orb('axe', 0x9aa4b4, 0xd8dce4, 'dust', 3.4, 30),
   // 冰霜新星：在地上滾的巨大冰球
   'magic.frost_nova': orb('ice', 0x7fd4ff, 0xeaf8ff, 'flake', 3.4, 60),
   // 霜凍投射器射出的冰箭

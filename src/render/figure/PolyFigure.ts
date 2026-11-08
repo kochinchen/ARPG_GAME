@@ -6,6 +6,11 @@ import { apply, dot, faceNormal, jointRotation, normalize, rotY, type M3, type M
 import { restPose } from './WeaponRest';
 
 /** 模型單位 → 畫面像素（45° 等角：地面 2:1，垂直略為縮短） */
+/** 從地下鑽出來：竄出、停住、倒下的秒數；一開始埋在地下多深（站立高度的倍數） */
+const EMERGE_RISE = 0.16;
+const EMERGE_HOLD = 0.16;
+const EMERGE_FALL = 0.4;
+const EMERGE_SINK = 1.1;
 const SCALE = 0.95;
 /** 從畫面看向角色的方向（相機在 +X +Z 上方） */
 const VIEW: V3 = normalize([1, 0.82, 1]);
@@ -179,6 +184,35 @@ export class PolyFigure {
     this.action = { kind, elapsed: 0, windup: Math.max(0.08, windup), ...(variant ? { variant } : {}) };
   }
 
+  /** 從地下鑽出來（模型有 emerge 姿勢才有動作） */
+  erupt(): void {
+    this.action = null;
+    this.emergeTime = 0;
+  }
+
+  /** 鑽出來後剛倒回地上（讀取後清除） */
+  consumeLanded(): boolean {
+    const l = this.landed;
+    this.landed = false;
+    return l;
+  }
+
+  private emergeTime: number | null = null;
+  private landed = false;
+
+  /** 武器丟出去了（飛斧重甲的迴旋斧飛在空中）：手上的武器不畫 */
+  setThrown(on: boolean): void {
+    this.thrown = on;
+  }
+
+  private thrown = false;
+  private readonly noWeapon = new Map<ReadonlySet<Joint>, ReadonlySet<Joint>>();
+  private withoutWeapon(base: ReadonlySet<Joint>): ReadonlySet<Joint> {
+    let set = this.noWeapon.get(base);
+    if (!set) this.noWeapon.set(base, (set = new Set([...base, 'weapon'])));
+    return set;
+  }
+
   /** 換手上的武器（null = 空手） */
   setWeapon(mount: WeaponMount | null): void {
     this.mount = mount;
@@ -229,12 +263,11 @@ export class PolyFigure {
     const target = this.targetPose(state, dt, walking);
     // 動作（攻擊 / 施法 / 死亡過程）直接用時間軸的姿勢，其他狀態平滑過渡
     this.phaseBlend = Math.max(0, this.phaseBlend - dt);
-    const k = this.action || (this.death && this.poses.deathKeys) ? 1 : Math.min(1, dt * (this.phaseBlend > 0 ? 3 : 14));
+    const k = this.action || this.emergeTime !== null || (this.death && this.poses.deathKeys) ? 1 : Math.min(1, dt * (this.phaseBlend > 0 ? 3 : 14));
     this.current = lerpPose(this.current, target, k);
-    if (this.model.windupOnly) {
-      const a = this.action;
-      this.hidden = a && a.elapsed > a.windup * 0.45 && a.elapsed < a.windup ? this.phaseHidden : this.phaseHiddenIdle;
-    }
+    const a = this.action;
+    const base = this.model.windupOnly && a && a.elapsed > a.windup * 0.45 && a.elapsed < a.windup ? this.phaseHidden : this.phaseHiddenIdle;
+    this.hidden = this.thrown ? this.withoutWeapon(base) : base;
     this.draw(yawFor(state.facing), state.facing);
   }
 
@@ -249,6 +282,17 @@ export class PolyFigure {
     }
     this.death = null;
     const base = this.withRest(state.moving ? (walking ? poses.walk!(this.runPhase) : poses.run(this.runPhase)) : poses.ready(this.time));
+    // 從地下鑽出來：豎直竄出、停一下，再加速倒回平常的姿勢（掉在地上）
+    if (this.emergeTime !== null && poses.emerge) {
+      const t = (this.emergeTime += dt);
+      const up = poses.emerge;
+      if (t < EMERGE_RISE) return lerpPose({ ...up, rootY: up.rootY - EMERGE_SINK * Math.abs(up.rootY) }, up, easeOut(t / EMERGE_RISE));
+      if (t < EMERGE_RISE + EMERGE_HOLD) return up;
+      const f = (t - EMERGE_RISE - EMERGE_HOLD) / EMERGE_FALL;
+      if (f < 1) return lerpPose(up, base, f * f);
+      this.emergeTime = null;
+      this.landed = true;
+    }
     if (this.action) {
       const a = this.action;
       a.elapsed += dt;

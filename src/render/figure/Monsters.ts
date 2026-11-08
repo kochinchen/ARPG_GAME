@@ -4,7 +4,7 @@ import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
 import { LATE_MODELS, WARDEN_GEAR } from './LateMonsters';
 import { SKELETON_GEAR, SKELETON_WARRIOR } from './SkeletonWarrior';
-import { monsterAi } from './MonsterAI';
+import { monsterAi, wormLife } from './MonsterAI';
 import SKELETON_AI_DATA from './monsters/skeletonAI.json';
 import FROST_SKELETON_AI_DATA from './monsters/frostSkeletonAI.json';
 import ARCHER_AI_DATA from './monsters/skeletonArcherAI.json';
@@ -13,13 +13,16 @@ import VENOM_GHOUL_AI_DATA from './monsters/venomGhoulAI.json';
 import VOID_SPORE_AI_DATA from './monsters/voidSporeAI.json';
 import VOID_MAW_AI_DATA from './monsters/voidMawAI.json';
 import BURROWER_AI_DATA from './monsters/burrowerAI.json';
+import ARMORED_AI_DATA from './monsters/armoredSkeletonAI.json';
+import MAGE_AI_DATA from './monsters/skeletonMageAI.json';
+import STORM_MAGE_AI_DATA from './monsters/stormMageAI.json';
 import { BONE_HAND } from './BoneHand';
 import { STONE_WALKERS } from './StoneWalkers';
 import type { FigureModel, Joint, Pose } from './FigureModel';
 import { BONE, BONE_DARK, boneLimb, humanoid, monsterPoses, pelvis, ribcage, skull } from './MonsterParts';
 import { box, lowSphere, placeMesh, prism, type Mesh, type V3 } from './Poly3D';
 import { knightStance, skeletonStance } from './HumanoidStance';
-import { bolt, glowEyes, iceCluster, pustule, recolor, rustSpike, toHsl, variant, type RecolorRule } from './Variants';
+import { bolt, fromHsl, glowEyes, iceCluster, pustule, recolor, rustSpike, toHsl, variant, type Hsl, type RecolorRule } from './Variants';
 import { spike } from './Creatures';
 
 /**
@@ -381,20 +384,29 @@ const EMBER_ARCHER = variant(ARCHER, {
 
 /** 雷霆法師：深藍長袍、銀色滾邊、法杖頂端是發光的青色水晶，周圍纏著雷光；眼窩透出電光 */
 const STORM = { glow: 0x8ef0ff, bolt: 0xe4fbff };
+const STORM_STAFF_COLOR = recolor([
+  { match: (c) => c.h > 240 && c.h < 290 && c.s > 0.6 && c.l > 0.5, h: 188, s: 0.95, l: 1.15 },
+  { match: (c) => c.h > 240 && c.h < 290, h: 222, s: 0.5 },
+  { match: (c) => c.h > 35 && c.h < 55 && c.s > 0.4, h: 205, s: 0.12, l: 1.15 },
+]);
+const STORM_STAFF_BOLTS = (): Mesh[] => [...bolt([1.5, 16, 0], [5, 23, 1], 0.32, STORM.bolt, 0.9), ...bolt([-1.5, 17, 0.5], [-4.6, 22, -1.5], 0.3, STORM.glow, 0.8), lowSphere(1.2, STORM.bolt, [0, 19.4, 0], 6, 4)];
 const STORM_MAGE = variant(MAGE, {
-  color: recolor([
-    { match: (c) => c.h > 240 && c.h < 290 && c.s > 0.6 && c.l > 0.5, h: 188, s: 0.95, l: 1.15 },
-    { match: (c) => c.h > 240 && c.h < 290, h: 222, s: 0.5 },
-    { match: (c) => c.h > 35 && c.h < 55 && c.s > 0.4, h: 205, s: 0.12, l: 1.15 },
-  ]),
+  color: STORM_STAFF_COLOR,
   add: {
-    handL: [...bolt([1.5, 16, 0], [5, 23, 1], 0.32, STORM.bolt, 0.9), ...bolt([-1.5, 17, 0.5], [-4.6, 22, -1.5], 0.3, STORM.glow, 0.8), lowSphere(1.2, STORM.bolt, [0, 19.4, 0], 6, 4)],
+    handL: STORM_STAFF_BOLTS(),
     head: glowEyes(2, 6, 5.5, 0.8, STORM.glow),
   },
 });
 
 /** 鏽蝕重甲：板甲鏽成紅褐色、盔纓褪成暗褐；肩甲與頭盔上鉚著長短不一（有的斷掉）的鏽刺 */
 const RUST = { spike: 0x5a3a26, base: 0x3e2a1e };
+/** 鏽刺（舊版的關節座標；AI 版也用） */
+const RUST_SPIKES: Partial<Record<Joint, Mesh[]>> = {
+  upperArmL: [...rustSpike([3.4, 3.6, 0], [0.5, 1, 0], 5, 0.9, RUST.spike, RUST.base), ...rustSpike([4.4, 1.4, 2], [0.8, 0.6, 0.4], 4, 0.75, RUST.spike, RUST.base, true), ...rustSpike([4, 1.6, -2.2], [0.8, 0.6, -0.4], 4, 0.75, RUST.spike, RUST.base)],
+  upperArmR: [...rustSpike([-3.4, 3.6, 0], [-0.5, 1, 0], 5, 0.9, RUST.spike, RUST.base, true), ...rustSpike([-4.4, 1.4, 2], [-0.8, 0.6, 0.4], 4, 0.75, RUST.spike, RUST.base), ...rustSpike([-4, 1.6, -2.2], [-0.8, 0.6, -0.4], 4, 0.75, RUST.spike, RUST.base, true)],
+  head: [...rustSpike([3.6, 9, 0], [1, 0.4, 0], 3.6, 0.7, RUST.spike, RUST.base), ...rustSpike([-3.6, 9, 0], [-1, 0.4, 0], 3.6, 0.7, RUST.spike, RUST.base, true)],
+  torso: [...rustSpike([0, 14, -5], [0, 0.5, -1], 4, 0.8, RUST.spike, RUST.base), ...rustSpike([3.4, 11, -5.2], [0.3, 0.3, -1], 3, 0.7, RUST.spike, RUST.base, true), ...rustSpike([-3.4, 11, -5.2], [-0.3, 0.3, -1], 3, 0.7, RUST.spike, RUST.base)],
+};
 const RUSTED_KNIGHT = variant(ARMORED, {
   color: recolor([
     // 亮的甲片鏽得淺、暗的接縫鏽得深（斑駁）；斧刃保留一點金屬色
@@ -403,12 +415,7 @@ const RUSTED_KNIGHT = variant(ARMORED, {
     { match: (c) => c.s < 0.2, h: 14, s: 0.42, l: 0.8 },
     { match: (c) => c.h < 15 || c.h > 340, h: 18, s: 0.4, l: 0.75 },
   ]),
-  add: {
-    upperArmL: [...rustSpike([3.4, 3.6, 0], [0.5, 1, 0], 5, 0.9, RUST.spike, RUST.base), ...rustSpike([4.4, 1.4, 2], [0.8, 0.6, 0.4], 4, 0.75, RUST.spike, RUST.base, true), ...rustSpike([4, 1.6, -2.2], [0.8, 0.6, -0.4], 4, 0.75, RUST.spike, RUST.base)],
-    upperArmR: [...rustSpike([-3.4, 3.6, 0], [-0.5, 1, 0], 5, 0.9, RUST.spike, RUST.base, true), ...rustSpike([-4.4, 1.4, 2], [-0.8, 0.6, 0.4], 4, 0.75, RUST.spike, RUST.base), ...rustSpike([-4, 1.6, -2.2], [-0.8, 0.6, -0.4], 4, 0.75, RUST.spike, RUST.base, true)],
-    head: [...rustSpike([3.6, 9, 0], [1, 0.4, 0], 3.6, 0.7, RUST.spike, RUST.base), ...rustSpike([-3.6, 9, 0], [-1, 0.4, 0], 3.6, 0.7, RUST.spike, RUST.base, true)],
-    torso: [...rustSpike([0, 14, -5], [0, 0.5, -1], 4, 0.8, RUST.spike, RUST.base), ...rustSpike([3.4, 11, -5.2], [0.3, 0.3, -1], 3, 0.7, RUST.spike, RUST.base, true), ...rustSpike([-3.4, 11, -5.2], [-0.3, 0.3, -1], 3, 0.7, RUST.spike, RUST.base)],
-  },
+  add: RUST_SPIKES,
 });
 
 /** 訓練木樁：木柱、橫桿、草包（不會動，被打時晃一下） */
@@ -542,6 +549,308 @@ const ARCHER_AI = asTallAsHeroine(
     },
   }),
 );
+/**
+ * 重甲骷髏：雙手巨斧（暫時用舊版程式畫的斧頭，不含舊版的鐵手套；生成的斧頭之後換上）。
+ * 設計者 2026-11-08：斧面比舊版放大 2 倍後再小 30%、斧柄短 40%；劈下時彎腰屈膝，斧頭砍到地面
+ */
+const AXE_HEAD_Y = -23;
+const shortAxe = (): Mesh[] =>
+  greatAxe()
+    // 去掉舊版的鐵手套（5 個零件）
+    .slice(gauntlet().length)
+    .map((m, i) => ({
+      ...m,
+      verts: m.verts.map((v): V3 =>
+        // 第一個是斧柄：整根縮短；其他（握環除外）是斧頭：移到縮短後的位置、以斧頭中心縮小 30%
+        i === 0 || (i >= 1 && i <= 3) ? [v[0], v[1] * 0.6, v[2]] : [v[0] * 0.7, AXE_HEAD_Y * 0.6 + (v[1] - AXE_HEAD_Y) * 0.7, v[2] * 0.7],
+      ),
+    }));
+const plusAngles = (base: Pose, d: Readonly<Record<string, readonly number[]>>, dy = 0): Pose => {
+  const angles = { ...base.angles } as Record<string, V3>;
+  for (const [j, a] of Object.entries(d)) {
+    const b = angles[j] ?? [0, 0, 0];
+    angles[j] = [b[0] + a[0]!, b[1] + a[1]!, b[2] + a[2]!];
+  }
+  return { ...base, rootY: base.rootY + dy, angles: angles as Pose['angles'] };
+};
+const AXE_CARRY = { upperArmR: [0.66, -0.18, -0.75], forearmR: [-0.36, 0, 0], handR: [1.35, -0.81, 0] } as const;
+/** 扛斧的右手臂（走路步伐正中間的角度；待機、受傷也用） */
+const carryArm = (): Pose['angles'] => {
+  const walk = plusAngles(ARMORED.poses.run(0), AXE_CARRY).angles;
+  return { upperArmR: walk.upperArmR!, forearmR: walk.forearmR!, handR: walk.handR! };
+};
+const ARMORED_SLAM: FigureModel = {
+  ...ARMORED,
+  poses: {
+    ...ARMORED.poses,
+    // 走路時把斧頭扛在右肩上（設計者 2026-11-08）：握點在右肩前方，斧柄往後上方斜過肩膀，斧頭在頭的後上方（角度由數值搜尋）
+    run: (p) => plusAngles(ARMORED.poses.run(p), AXE_CARRY),
+    // 待機時斧頭的位置和走路一致：右手臂用走路（步伐正中間）的角度
+    ready: (t) => {
+      const r = ARMORED.poses.ready(t);
+      return { ...r, angles: { ...r.angles, ...carryArm() } };
+    },
+    // 受傷時斧頭也維持扛在肩上
+    hit: { ...ARMORED.poses.hit, angles: { ...ARMORED.poses.hit.angles, ...carryArm() } },
+    // 舉斧：手腕往後翻，斧頭朝後上方高舉在頭的後面（設計者 2026-11-08：原本斧頭垂在背後、砍進背裡）
+    attackWindup: plusAngles(ARMORED.poses.attackWindup, { handR: [2.2, 0, 0] }),
+    attackStrike: plusAngles(
+      ARMORED.poses.attackStrike,
+      { torso: [0.35, 0, 0], thighL: [-0.45, 0, 0], thighR: [-0.45, 0, 0], shinL: [0.8, 0, 0], shinR: [0.8, 0, 0], footL: [-0.35, 0, 0], footR: [-0.35, 0, 0], upperArmR: [0.2, 0, 0], upperArmL: [0.2, 0, 0], handR: [1.6, 0, 0] },
+      -3,
+    ),
+  },
+};
+// 斧柄與手臂垂直、握在拳心（設計者 2026-11-08，同骷髏的劍）：手臂往兩側平舉、手心朝下時斧柄朝前、斧刃往兩側（與手臂同一個平面）；握點在斧柄從尾端算起約 40% 的地方
+const AXE_GRIP = 5;
+const ARMORED_AI = monsterAi(ARMORED_AI_DATA, ARMORED_SLAM, {
+  sword: {
+    build: () => ({ meshes: shortAxe().map((m) => ({ ...m, verts: m.verts.map((v): V3 => [v[0], v[1] + AXE_GRIP, v[2]]) })), tip: AXE_HEAD_Y * 0.6 + AXE_GRIP }),
+  },
+  heldScale: 2,
+});
+/**
+ * 重甲骷髏的換色版本（鏽蝕重甲、三種屬性重甲）：同一個 AI 模型與動作，換板甲、骨頭、盔纓、前襬、眼窩的顏色，
+ * 斧刃換色並在刃口加一條發亮的細邊，肩甲、頭盔、背上可以長出鏽刺或冰晶
+ */
+interface ArmorLook {
+  /** 板甲（spot = 交錯的斑點，讓顏色斑駁） */
+  armor: (c: Hsl, spot: boolean) => Hsl;
+  bone?: (c: Hsl) => Hsl;
+  /** 頭上的盔纓 */
+  plume?: (c: Hsl) => Hsl;
+  /** 腰前的布 */
+  cloth?: (c: Hsl) => Hsl;
+  /** 眼窩（發光） */
+  eye?: number;
+}
+function armorSkin(m: FigureModel, look: ArmorLook): FigureModel {
+  const skin = m.skin!;
+  const headY = skin.rest.head![1];
+  return {
+    ...m,
+    skin: {
+      ...skin,
+      faces: skin.faces.map((f, n) => {
+        if (f.color === ARMORED_EYE) return look.eye === undefined ? f : { ...f, color: look.eye };
+        const c = toHsl(f.color);
+        const paint = (fn: ((c: Hsl) => Hsl) | undefined) => (fn ? { ...f, color: fromHsl(fn(c)) } : f);
+        if ((c.h >= 330 || c.h < 12) && c.s >= 0.45) return paint(f.idx.every((i) => skin.verts[i]![1] > headY) ? look.plume : look.cloth);
+        if (c.h >= 30 && c.h < 50 && c.s < 0.25 && c.l > 0.5) return paint(look.bone);
+        if (c.h > 190 && c.h < 240) return { ...f, color: fromHsl(look.armor(c, (n * 2654435761) % 7 < 2)) };
+        return f;
+      }),
+    },
+  };
+}
+/** 重甲骷髏的眼窩（monster_ai.py 塗的深黑） */
+const ARMORED_EYE = 0x0a0808;
+const AXE_BLADES = [4, 5];
+/** 斧頭：鐵的部分換色（iron），每片斧刃最外緣一條比斧刃厚一點的發亮細邊（兩面都看得到） */
+const edgedAxe = (iron: (c: number) => number, edge: number): Mesh[] => {
+  const axe = shortAxe();
+  const edges = AXE_BLADES.map((i) => {
+    const vs = axe[i]!.verts;
+    const zMax = Math.max(...vs.map((v) => Math.abs(v[2])));
+    const far = vs.filter((v) => Math.abs(v[2]) > zMax * 0.97);
+    const ys = far.map((v) => v[1]);
+    const side = Math.sign(far[0]![2]);
+    return box(0.7, Math.max(...ys) - Math.min(...ys) + 0.2, 0.5, edge, [0, (Math.max(...ys) + Math.min(...ys)) / 2, side * (zMax - 0.1)]);
+  });
+  return [...axe.map((m) => ({ ...m, faces: m.faces.map((f) => ({ ...f, color: iron(f.color) })) })), ...edges];
+};
+/**
+ * 長在生成模型表面的尖刺：在跟著該關節的頂點裡找最往 dir 方向凸出的一點當底座（稍微埋進去），沿 dir 長出去。
+ * [關節, 方向, 長度, 粗細, 斷掉]（舊版的單位）
+ */
+type SurfaceSpike = [Joint[], V3, number, number, boolean];
+const ARMOR_SPIKES: SurfaceSpike[] = [
+  ...([1, -1] as const).flatMap((s): SurfaceSpike[] => {
+    const arm: Joint[] = s > 0 ? ['ex_clavL', 'upperArmL'] : ['ex_clavR', 'upperArmR'];
+    return [
+      [arm, [0.45 * s, 1, 0], 6, 1.1, s < 0],
+      [arm, [0.8 * s, 0.7, 0.45], 4.6, 0.9, s > 0],
+      [arm, [0.8 * s, 0.7, -0.45], 4.6, 0.9, false],
+    ];
+  }),
+  [['head'], [0.9, 0.6, -0.2], 4, 0.8, false],
+  [['head'], [-0.9, 0.6, -0.2], 4, 0.8, true],
+  [['torso'], [0, 0.55, -1], 5, 1, false],
+  [['torso'], [0.45, 0.2, -1], 4, 0.85, true],
+  [['torso'], [-0.45, 0.2, -1], 4, 0.85, false],
+];
+function withSurfaceSpikes(m: FigureModel, spikes: readonly SurfaceSpike[], build: (c: V3, d: V3, len: number, r: number, broken: boolean) => Mesh[]): FigureModel {
+  const skin = m.skin!;
+  const add = new Map<Joint, Mesh[]>();
+  for (const [joints, dir, len, r, broken] of spikes) {
+    const n = Math.hypot(...dir);
+    const d: V3 = [dir[0] / n, dir[1] / n, dir[2] / n];
+    const owner = joints[joints.length - 1]!;
+    const at = skin.rest[owner]!;
+    let best: V3 | null = null;
+    let bestDot = -Infinity;
+    skin.verts.forEach((v, i) => {
+      if (!skin.infl[i]!.some((x) => joints.includes(x.joint) && x.w > 0.5)) return;
+      const dot = (v[0] - at[0]) * d[0] + (v[1] - at[1]) * d[1] + (v[2] - at[2]) * d[2];
+      if (dot > bestDot) [bestDot, best] = [dot, v];
+    });
+    if (!best) continue;
+    const b = best as V3;
+    const k = 1.3;
+    const c: V3 = [b[0] - at[0] - d[0] * r * 0.6, b[1] - at[1] - d[1] * r * 0.6, b[2] - at[2] - d[2] * r * 0.6];
+    add.set(owner, [...(add.get(owner) ?? []), ...build(c, d, len * k, r * k, broken)]);
+  }
+  return { ...m, parts: m.parts.map((p) => (add.has(p.joint) ? { ...p, meshes: [...p.meshes, ...add.get(p.joint)!] } : p)) };
+}
+const armoredVariant = (classic: FigureModel, axe: Mesh[], look: ArmorLook): FigureModel =>
+  armorSkin(
+    monsterAi(ARMORED_AI_DATA, { ...classic, poses: ARMORED_SLAM.poses }, {
+      sword: { build: () => ({ meshes: axe.map((m) => ({ ...m, verts: m.verts.map((v): V3 => [v[0], v[1] + AXE_GRIP, v[2]]) })), tip: AXE_HEAD_Y * 0.6 + AXE_GRIP }) },
+      heldScale: 2,
+    }),
+    look,
+  );
+
+/**
+ * 鏽蝕重甲（設計者 2026-11-08）：板甲是斑駁的鏽色（亮處橙褐、暗處深紅褐），盔纓是深黑色、前襬褪成暗紅褐；
+ * 肩甲、頭盔、背上長著鏽刺；斧刃鏽成暗紅、刃口泛著血光
+ */
+const RUSTED_KNIGHT_AI = withSurfaceSpikes(
+  armoredVariant(RUSTED_KNIGHT, edgedAxe(recolor([{ match: (c) => c.s < 0.25, h: 16, s: 0.32, l: 0.62 }]), 0xff3a2a), {
+    armor: (c, spot) => (c.l > 0.42 ? { h: spot ? 22 : 12, s: spot ? 0.5 : 0.42, l: c.l * (spot ? 0.82 : 0.7) } : { h: spot ? 18 : 8, s: 0.38, l: c.l * 0.62 }),
+    plume: (c) => ({ h: 0, s: 0.08, l: 0.05 + c.l * 0.12 }),
+    cloth: (c) => ({ h: 10, s: 0.45, l: c.l * 0.75 }),
+  }),
+  ARMOR_SPIKES,
+  (c, d, len, r, broken) => rustSpike(c, d, len, r, RUST.spike, RUST.base, broken),
+);
+
+/**
+ * 三種屬性的重甲（設計者 2026-11-08，攻擊附帶該屬性 20% 傷害）：
+ * 熔鐵 = 燒黑的板甲、接縫透出橘紅的熔光，斧刃燒紅；霜鎧 = 結霜的青白板甲、肩上與背上長著冰晶，斧刃是冰；
+ * 雷殛 = 帶紫的深灰板甲、接縫透出紫色電光，斧刃有電光。眼窩都發出該屬性的光
+ */
+const MOLTEN_ARMOR_AI = armoredVariant(ARMORED, edgedAxe(recolor([{ match: (c) => c.s < 0.25, h: 12, s: 0.25, l: 0.45 }]), 0xffa030), {
+  // 亮的甲片燒黑、暗的接縫是熔光
+  armor: (c, spot) => (c.l < 0.32 ? { h: spot ? 30 : 18, s: 1, l: 0.5 } : { h: 12, s: 0.18, l: c.l * (spot ? 0.45 : 0.36) }),
+  bone: (c) => ({ h: 28, s: 0.18, l: c.l * 0.72 }),
+  plume: (c) => ({ h: 24, s: 1, l: Math.min(0.62, c.l * 1.4) }),
+  cloth: (c) => ({ h: 6, s: 0.6, l: c.l * 0.7 }),
+  eye: 0xff8a20,
+});
+const FROST_SHARD = [0xd8f4ff, 0x8ecff0] as const;
+const FROST_ARMOR_AI = withSurfaceSpikes(
+  armoredVariant(ARMORED, edgedAxe(recolor([{ match: (c) => c.s < 0.25, h: 200, s: 0.4, l: 1.15 }]), 0xeaffff), {
+    armor: (c, spot) => ({ h: spot ? 195 : 205, s: spot ? 0.35 : 0.28, l: Math.min(0.85, c.l * 1.25) }),
+    bone: (c) => ({ h: 200, s: 0.25, l: c.l }),
+    plume: (c) => ({ h: 200, s: 0.75, l: Math.min(0.75, c.l * 1.8) }),
+    cloth: (c) => ({ h: 215, s: 0.55, l: c.l * 0.9 }),
+    eye: 0x7ae0ff,
+  }),
+  // 冰晶比鏽刺短一點、不會斷
+  ARMOR_SPIKES.map(([j, d, len, r]): SurfaceSpike => [j, d, len * 0.85, r, false]),
+  (c, d, len, r) => iceCluster(c, d, len, r, FROST_SHARD),
+);
+const STORM_ARMOR_AI = armoredVariant(ARMORED, edgedAxe(recolor([{ match: (c) => c.s < 0.25, h: 260, s: 0.12, l: 0.7 }]), 0xd8a8ff), {
+  armor: (c, spot) => (c.l < 0.34 ? { h: 275, s: 0.85, l: spot ? 0.66 : 0.55 } : { h: 255, s: 0.14, l: c.l * (spot ? 0.75 : 0.62) }),
+  bone: (c) => ({ h: 265, s: 0.12, l: c.l * 0.92 }),
+  plume: (c) => ({ h: 280, s: 0.8, l: Math.min(0.62, c.l * 1.5) }),
+  cloth: (c) => ({ h: 265, s: 0.5, l: c.l * 0.8 }),
+  eye: 0xc890ff,
+});
+/**
+ * 骷髏法師（設計者 2026-11-08）：左手前臂往前平舉、法杖直立（同主角拿法杖），杖身握在從下算起約 2/3 的地方；
+ * 普通攻擊和施法都是舉起法杖再往前指
+ */
+const MAGE_GRIP = 2.7;
+const MAGE_HOLD = { upperArmL: [-0.35, 0, 0.7], forearmL: [-1.22, 0, 0], handL: [-0.18, 0.7, 0] } as const;
+const MAGE_RAISE = aim(MAGE.poses.castWindup, { upperArmL: [-1.75, 0, -0.1], forearmL: [-0.15, 0, 0], handL: [0.3, 0, 0], upperArmR: [-0.75, 0, -0.2], forearmR: [-0.5, 0, 0] });
+const MAGE_POINT = aim(MAGE.poses.castRelease, { upperArmL: [-1.15, 0, -0.1], forearmL: [-0.25, 0, 0], handL: [0.75, 0, 0], upperArmR: [-1.35, 0, -0.15], forearmR: [-0.05, 0, 0] });
+const MAGE_STAFF: FigureModel = {
+  ...MAGE,
+  poses: {
+    ...MAGE.poses,
+    ready: (t) => aim(MAGE.poses.ready(t), MAGE_HOLD),
+    run: (p) => aim(MAGE.poses.run(p), MAGE_HOLD),
+    hit: aim(MAGE.poses.hit, MAGE_HOLD),
+    attackWindup: MAGE_RAISE,
+    attackStrike: MAGE_POINT,
+    castWindup: MAGE_RAISE,
+    castRelease: MAGE_POINT,
+  },
+};
+/** 舊版的法杖（不含舊版的拳頭）轉成杖頭朝 -Y、握點在原點 */
+const staffMeshes = (meshes: readonly Mesh[]): Mesh[] => meshes.map((m) => ({ ...m, verts: m.verts.map((v): V3 => [v[0], -(v[1] - MAGE_GRIP), -v[2]]) }));
+/**
+ * 法師的袍色（設計者 2026-11-08）：系別由袍色決定。模型的長袍、發光的紋路、雙眼與法杖的水晶換色，其他（骨頭、飾邊、皮帶、角）不變
+ */
+interface RobeLook {
+  robe: (c: Hsl) => Hsl;
+  /** 長袍上發光的電光紋 */
+  glow?: (c: Hsl) => Hsl;
+  /** 雙眼（中心、外圈） */
+  eyes: readonly [number, number];
+}
+/** 骷髏法師（紫袍）：長袍的色相範圍、monster_ai.py 畫的雙眼 */
+const MAGE_ROBE = { isRobe: (c: Hsl) => c.h >= 275 && c.h < 352 && c.s >= 0.3, isGlow: () => false, eyes: [0xf0a0ff, 0xb040f0] as const };
+/** 雷霆法師（深藍袍） */
+const STORM_ROBE = { isRobe: (c: Hsl) => c.h >= 205 && c.h < 262 && c.s >= 0.25, isGlow: (c: Hsl) => c.h >= 165 && c.h < 205 && c.s >= 0.3, eyes: [0xd0ffff, 0x40d8f0] as const };
+function robeSkin(m: FigureModel, base: typeof MAGE_ROBE | typeof STORM_ROBE, look: RobeLook): FigureModel {
+  const skin = m.skin!;
+  return {
+    ...m,
+    skin: {
+      ...skin,
+      faces: skin.faces.map((f) => {
+        if (f.color === base.eyes[0]) return { ...f, color: look.eyes[0] };
+        if (f.color === base.eyes[1]) return { ...f, color: look.eyes[1] };
+        const c = toHsl(f.color);
+        if (base.isGlow(c)) return look.glow ? { ...f, color: fromHsl(look.glow(c)) } : f;
+        return base.isRobe(c) ? { ...f, color: fromHsl(look.robe(c)) } : f;
+      }),
+    },
+  };
+}
+/** 法杖的杖頭（水晶、金座、三根金爪）跟該屬性同色系，並以金座為中心放大 1.5 倍（設計者 2026-11-08）；杖身不變 */
+const STAFF_HEAD_BASE = 13.6;
+const STAFF_HEAD_SCALE = 1.5;
+const biggerHead = (meshes: readonly Mesh[]): Mesh[] =>
+  meshes.map((m) => ({ ...m, verts: m.verts.map((v): V3 => [v[0] * STAFF_HEAD_SCALE, STAFF_HEAD_BASE + (v[1] - STAFF_HEAD_BASE) * STAFF_HEAD_SCALE, v[2] * STAFF_HEAD_SCALE]) }));
+const headColor = (hue: number) =>
+  recolor([
+    { match: (c) => c.h > 180 && c.h < 290 && c.s > 0.6 && c.l > 0.45, h: hue, s: 0.95, l: 1.1 },
+    { match: (c) => c.h > 35 && c.h < 55 && c.s > 0.4, h: hue, s: 0.6, l: 0.85 },
+  ]);
+const mageStaffOf = (hue: number, extra: readonly Mesh[] = []): Mesh[] => {
+  const [shaft, ...head] = staff().slice(1);
+  return staffMeshes([shaft!, ...biggerHead([...paint(head, headColor(hue)), ...extra])]);
+};
+// 和女主角一樣高（同其他骷髏）
+const tallMage = (data: unknown, classic: FigureModel, meshes: Mesh[]) => asTallAsHeroine(0.88, monsterAi(data, classic, { staff: { meshes }, heldScale: 1.7 }));
+const lowMage = (hue: number, look: RobeLook | null) => {
+  const m = tallMage(MAGE_AI_DATA, MAGE_STAFF, mageStaffOf(hue));
+  return look ? robeSkin(m, MAGE_ROBE, look) : m;
+};
+// 骷髏法師：紫袍 = 雷、紅袍 = 火、藍袍 = 冰、白袍 = 三系
+const MAGE_AI = lowMage(275, null);
+const MAGE_FIRE_AI = lowMage(18, { robe: (c) => ({ h: 6, s: 0.72, l: c.l * 1.05 }), eyes: [0xffd080, 0xff6020] });
+const MAGE_FROST_AI = lowMage(195, { robe: (c) => ({ h: 205, s: 0.65, l: c.l * 1.15 }), eyes: [0xd8f4ff, 0x50b8ff] });
+const MAGE_WHITE_AI = lowMage(48, { robe: (c) => ({ h: 45, s: 0.08, l: Math.min(0.9, 0.5 + c.l * 1.2) }), eyes: [0xffffff, 0xffe080] });
+const stormMage = (hue: number, look: RobeLook | null): FigureModel => {
+  const m = tallMage(STORM_MAGE_AI_DATA, { ...STORM_MAGE, poses: MAGE_STAFF.poses }, mageStaffOf(hue, look ? [] : STORM_STAFF_BOLTS()));
+  return look ? robeSkin(m, STORM_ROBE, look) : m;
+};
+/** 中階法師（設計者 2026-11-08）：自己的模型（肩上彎角、電光紋）；法杖同骷髏法師。深藍袍 = 雷、紅袍 = 火、冰藍袍 = 冰、金袍 = 三系 */
+const STORM_MAGE_AI = stormMage(190, null);
+const STORM_MAGE_FIRE_AI = stormMage(18, { robe: (c) => ({ h: 6, s: 0.7, l: c.l * 1.05 }), glow: (c) => ({ h: 28, s: 0.95, l: c.l }), eyes: [0xffd080, 0xff6020] });
+const STORM_MAGE_FROST_AI = stormMage(195, { robe: (c) => ({ h: 195, s: 0.5, l: Math.min(0.8, c.l * 1.7) }), eyes: [0xffffff, 0x90e0ff] });
+const STORM_MAGE_GOLD_AI = stormMage(48, { robe: (c) => ({ h: 45, s: 0.8, l: Math.min(0.72, c.l * 1.9) }), glow: (c) => ({ h: 52, s: 1, l: c.l }), eyes: [0xffffff, 0xffd050] });
+/** 飛斧重甲（設計者 2026-11-08）：重甲骷髏換成帶藍的鋼灰板甲、深藍盔纓與前襬；斧頭丟出去時手上不畫（Renderer） */
+const AXE_THROWER_AI = armoredVariant(ARMORED, edgedAxe(recolor([{ match: (c) => c.s < 0.25, h: 215, s: 0.12, l: 1.05 }]), 0xe8eef8), {
+  armor: (c, spot) => ({ h: 215, s: spot ? 0.2 : 0.16, l: c.l * (spot ? 1.05 : 0.95) }),
+  plume: (c) => ({ h: 222, s: 0.6, l: c.l * 0.75 }),
+  cloth: (c) => ({ h: 222, s: 0.5, l: c.l * 0.7 }),
+});
 const GHOUL_AI = monsterAi(GHOUL_AI_DATA, GHOUL, { modeled: HUNCHED });
 const VENOM_GHOUL_AI = monsterAi(VENOM_GHOUL_AI_DATA, VENOM_GHOUL, {
   modeled: HUNCHED,
@@ -652,8 +961,8 @@ function burrowerLook(m: FigureModel): FigureModel {
   const skin = m.skin!;
   const headZ = skin.rest.head![2];
   const earth = recolor([
-    // 牙齒、嘴裡的黑洞不變
-    { match: (c) => c.s < 0.3 && c.l > 0.35 },
+    // 沒有大獠牙（設計者 2026-11-08）：壓平的牙齒換成肉色的口緣；嘴裡的黑洞不變
+    { match: (c) => c.s < 0.3 && c.l > 0.35, h: 12, s: 0.3, l: 0.7 },
     { match: (c) => c.l < 0.04 },
     { match: (c) => (c.h >= 330 || c.h < 15) && c.s >= 0.5, h: 8, s: 0.45, l: 1.15 },
     { match: (c) => c.h >= 260 && c.h < 295 && c.s >= 0.5, h: 22, s: 0.3, l: 1.35 },
@@ -735,13 +1044,23 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.skeleton': SKELETON_AI,
   'enemy.ghoul': GHOUL_AI,
   'enemy.skeleton_archer': ARCHER_AI,
-  'enemy.armored_skeleton': ARMORED,
-  'enemy.skeleton_mage': MAGE,
+  'enemy.armored_skeleton': ARMORED_AI,
+  'enemy.skeleton_mage': MAGE_AI,
+  'enemy.skeleton_mage_fire': MAGE_FIRE_AI,
+  'enemy.skeleton_mage_frost': MAGE_FROST_AI,
+  'enemy.skeleton_mage_white': MAGE_WHITE_AI,
   'enemy.training_dummy': DUMMY,
   'enemy.frost_skeleton': FROST_SKELETON_AI,
   'enemy.venom_ghoul': VENOM_GHOUL_AI,
-  'enemy.storm_mage': STORM_MAGE,
-  'enemy.rusted_knight': RUSTED_KNIGHT,
+  'enemy.storm_mage': STORM_MAGE_AI,
+  'enemy.storm_mage_fire': STORM_MAGE_FIRE_AI,
+  'enemy.storm_mage_frost': STORM_MAGE_FROST_AI,
+  'enemy.storm_mage_gold': STORM_MAGE_GOLD_AI,
+  'enemy.rusted_knight': RUSTED_KNIGHT_AI,
+  'enemy.molten_armor': MOLTEN_ARMOR_AI,
+  'enemy.frost_armor': FROST_ARMOR_AI,
+  'enemy.storm_armor': STORM_ARMOR_AI,
+  'enemy.axe_thrower': AXE_THROWER_AI,
   ...scaled(CREATURE_MODELS),
   ...scaled(BEAST_MODELS),
   ...scaled(ABERRATION_MODELS),
@@ -755,10 +1074,13 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.void_maw': resized(
     1.13,
     1.79,
-    monsterAi(VOID_MAW_AI_DATA, scaled(LATE_MODELS)['enemy.void_maw']!, {
-      rest: 'asModeled',
-      ground: 'all',
-    }),
+    wormLife(
+      monsterAi(VOID_MAW_AI_DATA, scaled(LATE_MODELS)['enemy.void_maw']!, {
+        rest: 'asModeled',
+        ground: 'all',
+      }),
+      { amp: 0.22, rate: 11 },
+    ),
   ),
   'enemy.flame_skeleton': FLAME_SKELETON_AI,
   'enemy.storm_skeleton': STORM_SKELETON_AI,
@@ -767,7 +1089,7 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.venom_archer': VENOM_ARCHER_AI,
   'enemy.chain_warden': CHAIN_WARDEN_AI,
   // 鑽地寄生蟲：虛空吞噬者的模型，身上的寶石拿掉大部分（scripts/monster_ai.py 的 burrower），換成舊版的土色、橘眼、微刺；動作照舊版
-  'enemy.burrower': resized(0.71, 1.28, burrowerLook(monsterAi(BURROWER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.burrower']!, { rest: 'asModeled', ground: 'all' }))),
+  'enemy.burrower': resized(0.71, 1.28, burrowerLook(wormLife(monsterAi(BURROWER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.burrower']!, { rest: 'asModeled', ground: 'all' }), { amp: 0.28, rate: 15 }))),
 };
 
 /** 換成 AI 版的一般怪（魔王動作預覽列出這些） */
@@ -786,10 +1108,28 @@ export const AI_MONSTERS = [
   'enemy.venom_archer',
   'enemy.chain_warden',
   'enemy.burrower',
+  'enemy.armored_skeleton',
+  'enemy.rusted_knight',
+  'enemy.frost_armor',
+  'enemy.molten_armor',
+  'enemy.storm_armor',
+  'enemy.axe_thrower',
+  'enemy.skeleton_mage',
+  'enemy.storm_mage',
+  'enemy.skeleton_mage_fire',
+  'enemy.skeleton_mage_frost',
+  'enemy.skeleton_mage_white',
+  'enemy.storm_mage_fire',
+  'enemy.storm_mage_frost',
+  'enemy.storm_mage_gold',
 ];
 
 /** 換成 AI 版之前的舊版模型（比較面數、效能用） */
 export const CLASSIC_MODELS: Record<string, FigureModel> = {
+  'enemy.armored_skeleton': ARMORED,
+  'enemy.rusted_knight': RUSTED_KNIGHT,
+  'enemy.skeleton_mage': MAGE,
+  'enemy.storm_mage': STORM_MAGE,
   'enemy.skeleton': SKELETON_WARRIOR,
   'enemy.ghoul': GHOUL,
   'enemy.venom_ghoul': VENOM_GHOUL,

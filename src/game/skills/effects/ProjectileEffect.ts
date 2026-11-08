@@ -40,6 +40,7 @@ export class ProjectileEffect implements IEffect<'projectile'> {
         mods,
         ...(def.look ? { look: def.look } : {}),
         ...(def.hitAtEnd ? { hitAtEnd: true } : {}),
+        ...(def.returns ? { returns: true, traveled: 0 } : {}),
       });
     }
   }

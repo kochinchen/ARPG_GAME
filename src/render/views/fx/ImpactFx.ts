@@ -32,7 +32,9 @@ export type ImpactKind =
   | 'dash'
   /** 裝備（傳奇 / 神話）的特殊效果：發光的地裂，和技能本身的特效區分 */
   | 'rift'
-  | 'flash';
+  | 'flash'
+  /** 鑽地、破土：土石紛飛，地上留一個洞 */
+  | 'dirt';
 
 export interface ImpactInput {
   kind: ImpactKind;
@@ -50,6 +52,8 @@ export interface ImpactInput {
   /** 哪一招（Three.js 畫法依招式畫專屬的特效）與元素 */
   skillId?: string;
   element?: string | null;
+  /** 粗細倍率（落雷；雷殛重甲的重擊是一大道粗落雷） */
+  thick?: number;
 }
 
 interface Particle {
@@ -90,13 +94,14 @@ interface Chain {
 /** 各招專屬特效（drawSignature 處理） */
 const SIGNATURE = new Set<ImpactKind>(['cleave', 'sunder', 'crater', 'shieldBash', 'tremor', 'uppercut', 'execute', 'phantom', 'dash', 'rift', 'flash']);
 /** 這些特效沒有開頭的白色地面閃光（斬擊類只有弧光） */
-const NO_FLASH = new Set<ImpactKind>(['slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
+const NO_FLASH = new Set<ImpactKind>(['dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
 
 const CHAIN_TIME = 0.38;
 const HEIGHT = 30;
 
 const DURATION: Record<ImpactKind, number> = {
   fire: 0.75,
+  dirt: 1.1,
   frost: 0.95,
   lightning: 0.55,
   poison: 0.8,
@@ -217,6 +222,13 @@ export class ImpactFx {
     };
     const size = Math.min(2.2, 0.6 + input.radius * 0.45) * (input.big ? 1.4 : 1);
     switch (input.kind) {
+      case 'dirt':
+        // 土塊往上噴再落下、塵土散開
+        burst('debris', Math.round(34 * size), 0x9a7a54, size * 1.3, 6);
+        burst('debris', Math.round(20 * size), 0xc4a478, size * 1.1, 10);
+        burst('dust', Math.round(18 * size), 0xa89070, size * 1.5);
+        this.addShake(input.big ? 5 : 2.5);
+        break;
       case 'fire':
         burst('ember', Math.round(22 * size), c, size, 8);
         burst('ember', Math.round(10 * size), 0xffe070, size * 0.7, 8);
@@ -449,6 +461,13 @@ export class ImpactFx {
       return;
     }
     switch (im.kind) {
+      case 'dirt': {
+        // 地上的洞：深色的圓，邊緣一圈翻起的土，慢慢淡掉
+        const a = clamp01(1.5 - t * 1.5);
+        disc(R * 0.62, 0.8 * a, 0x120c08);
+        ring(R * (0.62 + 0.12 * easeOut(clamp01(t * 4))), 5, 0.75 * a, 0x5a4230);
+        break;
+      }
       case 'fire': {
         // 焦痕（留得較久）
         disc(R * 0.8, 0.35 * clamp01(1.8 - t) * 0.6, 0x1a0e08, gs);
@@ -516,7 +535,7 @@ export class ImpactFx {
         const top = { x: im.sx + (im.seeds[0]! - 0.5) * 40, y: im.sy - 190 };
         const path = bolt(top, { x: im.sx, y: im.sy }, 5, 26, seed);
         const a = fade * (0.7 + 0.3 * Math.sin(this.time * 60));
-        strokeBolt(tg, path, c, a, im.big ? 1.5 : 1);
+        strokeBolt(tg, path, c, a, (im.big ? 1.5 : 1) * (im.thick ?? 1));
         for (let b = 0; b < 2; b++) {
           const k = Math.floor(path.length / 2 / 2) * 2 + b * 4;
           const from = { x: path[k] ?? im.sx, y: path[k + 1] ?? im.sy };

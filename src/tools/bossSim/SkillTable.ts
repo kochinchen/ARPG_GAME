@@ -87,7 +87,8 @@ function walk(effects: readonly EffectDef[], count: number, caster: Actor, targe
         info.extras.push(rankValue(e.distance, 1) < 0 ? '拉近' : '擊退');
         break;
       case 'projectile':
-        walk(e.onHit, count * rankValue(e.count, 1), caster, target, data, info);
+        // 迴旋的飛斧：去程、回程各打一次
+        walk(e.onHit, count * rankValue(e.count, 1) * (e.returns ? 2 : 1), caster, target, data, info);
         break;
       case 'delayed':
         walk(e.effects, count * e.repeat, caster, target, data, info);
@@ -100,6 +101,7 @@ function walk(effects: readonly EffectDef[], count: number, caster: Actor, targe
         break;
       case 'area':
       case 'chain':
+      case 'leap':
         walk(e.effects, count, caster, target, data, info);
         break;
       default:

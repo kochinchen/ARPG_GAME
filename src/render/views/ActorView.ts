@@ -218,6 +218,21 @@ export class ActorView {
   }
 
   /** 魔王的階段變化（盾牌碎裂、巨劍落地：模型的 phaseHidden） */
+  /** 從地下鑽出來：身體垂直竄出再倒下 */
+  erupt(): void {
+    this.figure.erupt();
+  }
+
+  /** 鑽出來後剛倒回地上（讀取後清除） */
+  consumeLanded(): boolean {
+    return this.figure.consumeLanded();
+  }
+
+  /** 武器丟出去了（迴旋的飛斧還在空中）：手上不畫武器 */
+  setThrown(on: boolean): void {
+    this.figure.setThrown(on);
+  }
+
   setPhase(phase: number): void {
     this.figure.setPhase(phase);
   }

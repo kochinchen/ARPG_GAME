@@ -100,7 +100,10 @@ describe('骷髏法師：烈焰爆裂落在施放當下的位置', () => {
   function burst(dodge: boolean) {
     const { world, events } = setup([at('enemy.skeleton_mage', 9.5, 4.5)]);
     const mage = enemiesOf(world)[0]!;
-    // 讓冰霜箭不干擾：只觀察火焰傷害
+    // 法術是生成時抽的：這裡直接教會烈焰爆裂
+    mage.skillRanks.set('mimic.magic.flame_burst', 1);
+    mage.ai!.specialSkills = ['mimic.magic.flame_burst'];
+    // 讓普通攻擊不干擾：只觀察火焰傷害
     let fire = 0;
     let firstCast = '';
     events.on('SkillCast', (e) => {
@@ -116,7 +119,7 @@ describe('骷髏法師：烈焰爆裂落在施放當下的位置', () => {
   }
 
   it('冷卻好、目標在範圍內時先用烈焰爆裂', () => {
-    expect(burst(false).firstCast).toBe('enemy.flame_burst');
+    expect(burst(false).firstCast).toBe('mimic.magic.flame_burst');
   });
 
   it('留在原地被燒到；走開就躲過', () => {

@@ -24,10 +24,22 @@ const humanoids = (scale = 1): FloorInput['monsterPool'] => [
   { enemyId: 'enemy.frost_archer', weight: 0.7 * scale, minFloor: 4 },
   { enemyId: 'enemy.ember_archer', weight: 0.8 * scale, minFloor: 5 },
   { enemyId: 'enemy.venom_archer', weight: 0.7 * scale, minFloor: 7 },
-  { enemyId: 'enemy.armored_skeleton', weight: 1 * scale, minFloor: 4 },
+  // 重甲骷髏與霜鎧、熔鐵、雷殛三種屬性版本分攤（第 5、6、7 層加入）
+  { enemyId: 'enemy.armored_skeleton', weight: 0.7 * scale, minFloor: 4 },
+  { enemyId: 'enemy.frost_armor', weight: 0.4 * scale, minFloor: 5 },
+  { enemyId: 'enemy.molten_armor', weight: 0.4 * scale, minFloor: 6 },
+  { enemyId: 'enemy.storm_armor', weight: 0.4 * scale, minFloor: 7 },
+  { enemyId: 'enemy.axe_thrower', weight: 0.5 * scale, minFloor: 6 },
   { enemyId: 'enemy.rusted_knight', weight: 0.6 * scale, minFloor: 8 },
-  { enemyId: 'enemy.skeleton_mage', weight: 1.6 * scale, minFloor: 6 },
-  { enemyId: 'enemy.storm_mage', weight: 1 * scale, minFloor: 7 },
+  // 法師依袍色分系（設計者 2026-11-08）：比重由四色分攤，三系全會的白袍、金袍較少
+  { enemyId: 'enemy.skeleton_mage', weight: 0.5 * scale, minFloor: 6 },
+  { enemyId: 'enemy.skeleton_mage_fire', weight: 0.45 * scale, minFloor: 6 },
+  { enemyId: 'enemy.skeleton_mage_frost', weight: 0.45 * scale, minFloor: 6 },
+  { enemyId: 'enemy.skeleton_mage_white', weight: 0.2 * scale, minFloor: 6 },
+  { enemyId: 'enemy.storm_mage', weight: 0.3 * scale, minFloor: 7 },
+  { enemyId: 'enemy.storm_mage_fire', weight: 0.28 * scale, minFloor: 7 },
+  { enemyId: 'enemy.storm_mage_frost', weight: 0.28 * scale, minFloor: 7 },
+  { enemyId: 'enemy.storm_mage_gold', weight: 0.14 * scale, minFloor: 7 },
 ];
 
 /**

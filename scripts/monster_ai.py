@@ -47,9 +47,9 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800})
+TRIS_OF.update({"burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
-ROTATE_Z = {"skeleton": -90}
+ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
 SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032, "abyss_hand": 0.04, "abyss_hand_hand": 0.032}
 
@@ -211,6 +211,8 @@ def reshape_spore_eye(bm):
 
 
 SPORE_EYE_R = 0.1
+# 法師的眼：左右的 x、高度 z、半徑、中心色、外圈色
+MAGE_EYE = {"skeleton_mage": (0.026, 0.349, 0.021, 0xf0a0ff, 0xb040f0), "storm_mage": (0.03, 0.36, 0.022, 0xd0ffff, 0x40d8f0)}
 # 虛空吞噬者的嘴：中心（x, z）、鋸齒洞的內外半徑、齒數、深度；喉嚨表面約在 y = -0.41，牙齒前緣 -0.49
 MAW_MOUTH = (0.14, 0.1)
 MAW_HOLE = (0.03, 0.055, 9, 0.13)
@@ -257,9 +259,22 @@ def reshape_burrower(bm):
             BURROWER_GEMS.append(v.co.copy())
             flat += 1
     print("寶石頂點壓平", flat)
+    # 大獠牙壓平（設計者 2026-11-08：鑽地寄生蟲沒有大獠牙）：嘴的範圍內凸出來的牙齒壓回口緣的表面
+    fangs = 0
+    for v in bm.verts:
+        if math.hypot(v.co.x - MAW_MOUTH[0], v.co.z - MAW_MOUTH[1]) < BURROWER_FANG_R and v.co.y < BURROWER_LIP_Y:
+            v.co.y = BURROWER_LIP_Y
+            fangs += 1
+    print("獠牙頂點壓平", fangs)
 
 
 BURROWER_GEM_OUT = 0.008
+BURROWER_FANG_R = 0.135
+BURROWER_LIP_Y = -0.43
+# 嘴的一圈骨頭（快速一吐一吸）：口緣跟著轉；骨頭數、半徑範圍（洞邊 r0～r1 漸入、r2～r3 漸出）、只動最前面（y 小於）
+MAW_RING_BONES = 6
+MAW_RING = (0.025, 0.055, 0.125, 0.155)
+MAW_RING_Y = -0.385
 RESHAPE = {"burrower": reshape_burrower, "void_maw": reshape_maw_mouth, "void_spore": reshape_spore_eye, "abyss_dragon": reshape_eye, "bone_hand": reshape_bone_hand, "abyss_hand": reshape_hand_body, "abyss_hand_hand": reshape_hand_arm}
 # 尾巴：中段重複成 TAIL_COPIES 段（每段自己封口、互相重疊一點，彎曲時不會破洞），總長約 3 倍；再整體縮到接在本體上的大小
 TAIL_BAND = (-0.34, -0.06)
@@ -584,6 +599,36 @@ def skeleton_archer():
     ), {}
 
 
+def armored_skeleton():
+    """重甲骷髏：全身厚重的鏽斑板甲、頭盔露出骷髏臉、紅盔纓、腰帶與紅色前襬；空手（斧頭由遊戲端畫）"""
+    return monster_humanoid(
+        [(0, 0, 0.0), (0, 0, 0.06), (0, -0.01, 0.27), (0, -0.01, 0.3), (0, 0.0, 0.47)], [0.1, 0.14, 0.05, 0.1],
+        [(0.17, 0, 0.24), (0.215, 0, 0.08), (0.245, -0.01, -0.05), (0.25, -0.02, -0.15)], [0.07, 0.07, 0.05],
+        [(0.1, 0, -0.03), (0.12, 0, -0.22), (0.13, 0, -0.42), (0.13, -0.14, -0.48)], [0.08, 0.075, 0.06],
+        (0.05, 0, 0.23), 0.09,
+    ), {}
+
+
+def skeleton_mage():
+    """骷髏法師：尖兜帽、斗篷領、喇叭袖、蓋到腳踝的長袍（腿不帶動長袍，只有靴子跟著腳）；空手（法杖由遊戲端畫）"""
+    return monster_humanoid(
+        [(0, 0, 0.0), (0, 0, 0.06), (0, -0.01, 0.25), (0, -0.01, 0.27), (0, 0.0, 0.47)], [0.1, 0.1, 0.04, 0.1],
+        [(0.12, 0, 0.18), (0.21, 0, 0.05), (0.25, -0.01, -0.07), (0.25, -0.02, -0.17)], [0.05, 0.06, 0.03],
+        [(0.08, 0, -0.06), (0.1, 0, -0.26), (0.12, 0, -0.43), (0.12, -0.14, -0.49)], [0.02, 0.03, 0.05],
+        (0.04, 0, 0.17), 0.07,
+    ), {}
+
+
+def storm_mage():
+    """雷霆法師：尖兜帽、肩上一對彎角、喇叭袖、長袍上有電光紋（腿不帶動長袍，只有靴子跟著腳）；空手（法杖由遊戲端畫）"""
+    return monster_humanoid(
+        [(0, 0, 0.0), (0, 0, 0.06), (0, -0.01, 0.24), (0, -0.01, 0.26), (0, 0.0, 0.47)], [0.1, 0.1, 0.04, 0.1],
+        [(0.125, 0, 0.17), (0.215, 0, 0.05), (0.235, -0.01, -0.05), (0.235, -0.02, -0.16)], [0.05, 0.06, 0.03],
+        [(0.08, 0, -0.06), (0.1, 0, -0.25), (0.14, 0, -0.41), (0.14, -0.13, -0.49)], [0.02, 0.03, 0.05],
+        (0.04, 0, 0.17), 0.07,
+    ), {}
+
+
 def ghoul():
     """食屍鬼：嚴重駝背、頭往前伸、長臂垂到膝蓋前、長爪；背上一排骨刺"""
     return monster_humanoid(
@@ -629,6 +674,11 @@ def void_maw():
     bones += chain(["ponytail", "thighL", "shinL", "footL"], "root", [P[5], P[6], P[7], P[8], P[9]], [0.09, 0.085, 0.08, 0.07])
     # root 到 ponytail 之間的那段跟 root
     bones[0] = ("root", None, P[5], P[3], 0.1)
+    # 嘴的一圈骨頭：支點在嘴的後方，轉動時口緣往外張開或往內縮（權重在下面另外算）
+    center = V((MAW_MOUTH[0], -0.3, MAW_MOUTH[1]))
+    for i in range(MAW_RING_BONES):
+        a = 2 * math.pi * i / MAW_RING_BONES
+        bones.append((f"ex_mouth{i}", "head", center.copy(), V((MAW_MOUTH[0] + math.cos(a) * 0.09, -0.44, MAW_MOUTH[1] + math.sin(a) * 0.09)), 0.01))
     return bones, {}
 
 
@@ -1055,6 +1105,7 @@ ZONES["abyss_hand"] = abyss_hand_zone
 # 分開的部位（joined(三角形三個頂點的主要骨頭, 三個頂點的權重) → 可以留下嗎）：跨到不相連部位的三角形在動作時會被拉長，輸出時拿掉
 ZONES["skeleton"] = limb_zone(lambda p: (abs(p.x) > 0.125 if p.z > 0.12 else abs(p.x) > 0.15 if p.z > 0 else abs(p.x) > 0.185) and -0.24 < p.z < 0.3, lambda p: True)
 ZONES["frost_skeleton"] = limb_zone(lambda p: (abs(p.x) > 0.135 if p.z > 0.12 else abs(p.x) > 0.16 if p.z > 0 else abs(p.x) > 0.175) and -0.24 < p.z < 0.42, lambda p: True)
+ZONES["armored_skeleton"] = limb_zone(lambda p: (abs(p.x) > 0.165 if p.z > 0.1 else abs(p.x) > 0.17) and -0.22 < p.z < 0.32, lambda p: True)
 _ARCHER_ARMS = limb_zone(lambda p: (abs(p.x) > 0.11 if p.z > 0.1 else abs(p.x) > 0.145) and -0.2 < p.z < 0.24 and p.y < 0.045, lambda p: True)
 # 箭筒在背後（頭與手臂不帶動）
 ZONES["skeleton_archer"] = lambda p, bone: (bone == "torso" if p.y > 0.07 and p.z > 0.12 else True) and _ARCHER_ARMS(p, bone)
@@ -1064,7 +1115,27 @@ ZONES["ghoul"] = lambda p, bone: (not bone.startswith(("head", "neck")) or p.y <
 _VENOM_ARMS = limb_zone(lambda p: ((p.z > 0.08 and abs(p.x) > 0.2) or abs(p.x) > 0.285) and p.y < 0.08 and p.z < 0.25, lambda p: True)
 ZONES["venom_ghoul"] = lambda p, bone: (not bone.startswith(("head", "neck")) or p.y < -0.1) and _VENOM_ARMS(p, bone)
 ZONES["void_spore"] = lambda p, bone: (bone != "head" or (p.y < -0.3 and math.hypot(p.x, p.z) < 0.17)) and (not re.match(r"(upperArm|forearm|hand|thigh|shin|foot)", bone) or p.z < -0.3)
-JOINED = {n: limbs_joined for n in ("frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "skeleton", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
+def mage_zone(in_arm, boot_z):
+    """長袍的法師：靴子（長袍下擺以下）只跟腳；大腿、小腿不帶動長袍；手臂區同其他人形"""
+    arms = limb_zone(in_arm, lambda p: True)
+
+    def zone(p, bone):
+        boot = p.z < boot_z
+        if re.match(r"(thigh|shin)[LR]$", bone):
+            return False
+        if re.match(r"foot[LR]$", bone):
+            return boot and (bone[-1] == "L") == (p.x > 0)
+        if boot:
+            return False
+        return arms(p, bone)
+
+    return zone
+
+
+ZONES["skeleton_mage"] = mage_zone(lambda p: abs(p.x) > (0.13 if p.z > 0.1 else 0.155 if p.z > -0.08 else 0.2) and -0.2 < p.z < 0.24, -0.41)
+ZONES["storm_mage"] = mage_zone(lambda p: abs(p.x) > (0.13 if p.z > 0.1 else 0.15 if p.z > 0 else 0.16) and -0.2 < p.z < 0.36, -0.385)
+ZONES["void_maw"] = ZONES["burrower"] = lambda p, bone: not bone.startswith("ex_mouth")
+JOINED = {n: limbs_joined for n in ("storm_mage", "skeleton_mage", "armored_skeleton", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "skeleton", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
 # 骨龍：嘴裡的東西碰到上顎的三角形，張嘴時會被拉成長條
 JOINED["bone_dragon"] = lambda bones, ws: not {"head", "jaw"} <= bones
 
@@ -1089,6 +1160,9 @@ SKELETONS = {
     "skeleton": skeleton,
     "frost_skeleton": frost_skeleton,
     "skeleton_archer": skeleton_archer,
+    "armored_skeleton": armored_skeleton,
+    "skeleton_mage": skeleton_mage,
+    "storm_mage": storm_mage,
     "ghoul": ghoul,
     "venom_ghoul": venom_ghoul,
     "void_spore": void_spore,
@@ -1114,7 +1188,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
+JOINT_SOFT = {n: 0.04 for n in ("storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
@@ -1143,6 +1217,20 @@ if NAME == "abyss_dragon":
         k = int(at) % MOUTH_BONES
         f = at - int(at)
         ws = [[f"ex_mouth{k}", s * (1 - f)], [f"ex_mouth{(k + 1) % MOUTH_BONES}", s * f], ["head", 1 - s]]
+        weights[i] = [[n, round(w, 3)] for n, w in ws if w > 0.02]
+
+# 蟲的嘴：口緣跟著一圈骨頭，依角度混合相鄰兩根（洞的深處與嘴外面維持跟頭）
+if NAME in ("void_maw", "burrower"):
+    r0, r1, r2, r3 = MAW_RING
+    for i, c in enumerate(co):
+        r = math.hypot(c.x - MAW_MOUTH[0], c.z - MAW_MOUTH[1])
+        if c.y > MAW_RING_Y or r >= r3 or r <= r0:
+            continue
+        s = smooth((r - r0) / (r1 - r0)) * smooth((r3 - r) / (r3 - r2))
+        at = (math.atan2(c.z - MAW_MOUTH[1], c.x - MAW_MOUTH[0]) / (2 * math.pi) % 1) * MAW_RING_BONES
+        k = int(at) % MAW_RING_BONES
+        f = at - int(at)
+        ws = [[f"ex_mouth{k}", s * (1 - f)], [f"ex_mouth{(k + 1) % MAW_RING_BONES}", s * f], ["head", 1 - s]]
         weights[i] = [[n, round(w, 3)] for n, w in ws if w > 0.02]
 
 # ── 存成可編輯的 .blend：骨架 + 頂點群組 ──
@@ -1324,6 +1412,60 @@ if NAME == "burrower" and BURROWER_GEMS:
         todo -= set(done)
         if not todo:
             break
+# 重甲骷髏（設計者 2026-11-08）：生成的顏色整體偏紅褐、看不出是金屬。板甲 → 金屬灰（保留明暗）、露出的骨頭與臉 → 骷髏白、
+# 眼窩 → 深黑；紅色盔纓與前襬、金色的扣環與鉚釘不變
+if NAME == "armored_skeleton":
+    import colorsys
+
+    def hls_of(c):
+        h, l, s = colorsys.rgb_to_hls(((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255)
+        return h * 360, s, l
+
+    def from_hls(h, s, l):
+        return to_int(*colorsys.hls_to_rgb(h / 360, min(1.0, l), s))
+
+    counts = {"甲": 0, "骨": 0, "眼": 0}
+    for f in faces:
+        c = sum((co[i] for i in f[:3]), Vector()) / 3
+        h, s_, l = hls_of(f[3])
+        face = c.y < -0.05 and 0.27 < c.z < 0.43 and abs(c.x) < 0.07
+        if face and any(math.hypot(abs(c.x) - 0.026, c.z - 0.378) < r for r in (0.02,)) or (face and l < 0.15 and c.z > 0.355):
+            f[3] = 0x0a0808
+            counts["眼"] += 1
+        elif s_ >= 0.45 and (h >= 330 or h < 12):
+            continue
+        elif s_ >= 0.4 and 35 <= h < 60 and l > 0.3:
+            continue
+        elif -0.02 < c.z < 0.06 and c.y < 0 and 8 <= h < 34 and s_ >= 0.28:
+            # 腰帶（皮革）不變
+            continue
+        elif 21 <= h < 48 and s_ >= 0.17 and l >= 0.27:
+            f[3] = from_hls(40, 0.16, 0.62 + l * 0.55)
+            counts["骨"] += 1
+        else:
+            f[3] = from_hls(212, 0.09, 0.2 + l * 0.85)
+            counts["甲"] += 1
+    print("重甲骷髏換色", counts)
+# 法師：TRELLIS 的臉偏暗、眼睛糊掉。照位置畫出發光的紫色雙眼（四視圖的樣子），頭骨與手的骨頭提亮
+if NAME in MAGE_EYE:
+    eye_x, eye_z, eye_r, eye_core, eye_rim = MAGE_EYE[NAME]
+
+    def lift(c, k):
+        return to_int(*(min(1.0, ((c >> sh) & 255) / 255 * k) for sh in (16, 8, 0)))
+
+    eyes = 0
+    for f in faces:
+        c = sum((co[i] for i in f[:3]), Vector()) / 3
+        r, g, b = f[3] >> 16, (f[3] >> 8) & 255, f[3] & 255
+        hi, lo = max(r, g, b), min(r, g, b)
+        boneish = hi > 50 and ((r >= g >= b and (hi - lo) / hi < 0.5) or (hi - lo) / hi < 0.18)
+        d = math.hypot(abs(c.x) - eye_x, c.z - eye_z)
+        if c.y < -0.07 and d < eye_r:
+            f[3] = eye_core if d < eye_r * 0.5 else eye_rim
+            eyes += 1
+        elif boneish and ((c.y < -0.06 and abs(c.x) < 0.07 and 0.27 < c.z < 0.39) or (abs(c.x) > 0.2 and c.z < -0.08)):
+            f[3] = lift(f[3], 1.9 if NAME == "storm_mage" else 1.55)
+    print("眼的面", eyes)
 # 虛空孢子：TRELLIS 把正面發光的眼糊成一團暗紫的圓頂（四視圖是洋紅色發光的核心、外面一圈亮紫的環）。
 # 整體也比四視圖暗很多，先整體提亮，再照位置畫眼：核心（中心最亮）→ 環 → 環外一圈暗的凹槽
 if NAME == "void_spore":

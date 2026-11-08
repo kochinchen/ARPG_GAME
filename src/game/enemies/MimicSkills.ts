@@ -1,5 +1,7 @@
 import type { Rng } from '../../core/Rng';
 import type { DataTable } from '../../data/DataRegistry';
+import { rankValue } from '../../data/schema/common';
+import { nestedEffects, type EffectDef } from '../../data/schema/effects';
 import type { Balance } from '../../data/schema/balance';
 import type { EnemyDef } from '../../data/schema/enemy';
 import type { SkillCategory, SkillDef } from '../../data/schema/skill';
@@ -39,7 +41,7 @@ export function rollMimic(
 ): MimicRoll | null {
   const learnRoll = rng.next();
   const pickRoll = rng.next();
-  if (def.boss || def.ai === 'none') return null;
+  if (def.boss || def.ai === 'none' || def.spellbook) return null;
   const unlock = [...config.unlocks].reverse().find((u) => u.minFloor <= floor);
   if (!unlock || (!guaranteed && learnRoll >= unlock.chance)) return null;
   const school = schoolOf(def, skills);
@@ -50,12 +52,65 @@ export function rollMimic(
   });
   if (candidates.length === 0) return null;
   const skill = candidates[Math.floor(pickRoll * candidates.length)]!;
-  const rank = Math.min(MAX_RANK, 1 + Math.floor((floor - config.unlocks[0]!.minFloor) / config.floorsPerRank));
-  return { skillId: skill.id, rank };
+  return { skillId: skill.id, rank: mimicRank(floor, config) };
+}
+
+/** 怪物版技能的等級：第一個解鎖樓層為 Lv1，之後每 floorsPerRank 層 +1（更淺的樓層也是 Lv1） */
+function mimicRank(floor: number, config: Balance['enemyMimic']): number {
+  return Math.min(MAX_RANK, 1 + Math.max(0, Math.floor((floor - config.unlocks[0]!.minFloor) / config.floorsPerRank)));
+}
+
+export interface SpellbookRoll {
+  /** 這隻的普通攻擊 */
+  basic: string;
+  /** 會的法術（高階的排前面） */
+  spells: string[];
+}
+
+/**
+ * 法師的法術書（設計者 2026-11-08）：會的系各有 tier 階的招；低機率多一招 tier + 1（越深越高）；精英低機率再多一招 tier + 2。
+ * 不論結果都固定擲五次亂數：同一個生成索引讀檔後學到的招不變。
+ */
+export function rollSpellbook(def: EnemyDef, floor: number, elite: boolean, skills: DataTable<SkillDef>, config: Balance['mageSpellbook'], rng: Rng): SpellbookRoll | null {
+  const [basicRoll, upperRoll, upperPick, eliteRoll, elitePick] = [rng.next(), rng.next(), rng.next(), rng.next(), rng.next()];
+  const book = def.spellbook;
+  if (!book) return null;
+  const spell = (branch: string, tier: number) =>
+    skills.all.find((s) => {
+      if (!s.id.startsWith(MIMIC_PREFIX)) return false;
+      const tree = skills.get(s.id.slice(MIMIC_PREFIX.length)).tree;
+      return tree?.category === 'magic' && tree.tier === tier && tree.branch === branch;
+    })?.id;
+  const pick = (roll: number) => book.schools[Math.floor(roll * book.schools.length)]!;
+  const { fromFloor, toFloor, chance } = config.upper;
+  const t = Math.max(0, Math.min(1, (floor - fromFloor) / (toFloor - fromFloor)));
+  const spells: (string | undefined)[] = book.schools.map((s) => spell(s.branch, book.tier));
+  if (upperRoll < chance[0] + (chance[1] - chance[0]) * t) spells.unshift(spell(pick(upperPick).branch, book.tier + 1));
+  if (elite && eliteRoll < config.eliteChance) spells.unshift(spell(pick(elitePick).branch, book.tier + 2));
+  return { basic: pick(basicRoll).basic, spells: spells.filter((id): id is string => id !== undefined) };
+}
+
+/** 一招裡倍率最高的一下（等級 rank） */
+function maxHitMultiplier(effects: readonly EffectDef[], rank: number): number {
+  return Math.max(0, ...effects.map((e) => (e.type === 'damage' ? rankValue(e.multiplier, rank) : maxHitMultiplier(nestedEffects(e), rank))));
+}
+
+/** 學會法術書：招式等級隨樓層（一般法師有上限）；精英固定 1 級，倍率太高的招把整隻的傷害往下調，瞬間傷害才不會超過 30% */
+export function teachSpellbook(actor: Actor, roll: SpellbookRoll, floor: number, skills: DataTable<SkillDef>, mimic: Balance['enemyMimic'], config: Balance['mageSpellbook']): void {
+  if (!actor.ai) return;
+  const rank = actor.elite ? 1 : Math.min(config.maxRank, mimicRank(floor, mimic));
+  actor.skillRanks.set(roll.basic, 1);
+  actor.ai.skillId = roll.basic;
+  for (const id of roll.spells) actor.skillRanks.set(id, rank);
+  actor.ai.specialSkills = roll.spells;
+  if (!actor.elite) return;
+  const highest = Math.max(maxHitMultiplier(skills.get(roll.basic).effects, 1), ...roll.spells.map((id) => maxHitMultiplier(skills.get(id).effects, rank)));
+  if (highest > config.eliteMaxMultiplier) actor.stats.addModifier({ stat: 'damageBonus', kind: 'flat', value: config.eliteMaxMultiplier / highest - 1, source: 'spellbook' });
 }
 
 /** 物理系 / 法術系：原本的技能有 spell 標籤就是法術系 */
 export function schoolOf(def: EnemyDef, skills: DataTable<SkillDef>): SkillCategory {
+  if (def.spellbook) return 'magic';
   if (def.skills.some((id) => skills.has(id) && skills.get(id).tags.includes('spell'))) return 'magic';
   return def.ai === 'ranged' ? 'ranged' : 'melee';
 }

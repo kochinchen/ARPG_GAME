@@ -166,7 +166,9 @@ export class Renderer {
         const active = () => attacker.alive && attacker.cast?.skill.id === skill.id;
         for (const area of skill.effects) {
           // 投射物：畫出飛行的扇形範圍（奪界雙手）
-          if (area.type === 'projectile') this.effects.spawnTelegraph(attacker.position, area.range + area.originForward, e.direction, Math.max(rankValue(area.spreadDeg, 1) + 12, 16), e.impactIn, active);
+          // 迴旋的飛斧：畫出來回的直線
+          if (area.type === 'projectile' && area.returns) this.effects.spawnTelegraph(attacker.position, area.range, e.direction, 360, e.impactIn, active, { length: area.range, width: area.radius * 2 + 0.3 });
+          else if (area.type === 'projectile') this.effects.spawnTelegraph(attacker.position, area.range + area.originForward, e.direction, Math.max(rankValue(area.spreadDeg, 1) + 12, 16), e.impactIn, active);
           if (area.type !== 'area' && area.type !== 'zone') continue;
           const direction = area.type === 'area' && area.offsetDeg ? rotate(e.direction, area.offsetDeg) : e.direction;
           // 直線範圍從施放者腳下延伸（衝鋒也是：先標出整條衝撞路線）
@@ -200,6 +202,18 @@ export class Renderer {
     world.events.on('AreaTriggered', (event) => {
       // 怪物學會的主角技能沿用主角的特效
       const e = { ...event, skillId: originalSkillId(event.skillId) };
+      // 屬性重甲的重擊（設計者 2026-11-08）：在砍下去的扇形中間冒出一大圈冰刺 / 劈下一大道落雷 / 炸開一團大火，再加上地面的震波
+      // 破土的咬擊：特效是 ActorEmerged 的土石紛飛
+      if (EMERGE_SKILLS.has(e.skillId)) return;
+      const smash = ELEMENT_SMASH[e.skillId];
+      if (smash) {
+        const center = vec2(e.position.x + e.direction.x * e.radius * 0.55, e.position.y + e.direction.y * e.radius * 0.55);
+        const color = ELEMENT_COLORS[smash.element] ?? 0xffffff;
+        for (const kind of smash.kinds) {
+          this.effects.spawnImpact({ kind, position: center, radius: e.radius * (smash.scale ?? 0.75), color, direction: e.direction, angleDeg: 360, big: true, special: false, skillId: e.skillId, element: smash.element, glow: kind !== 'crater' && kind !== 'shockwave', ...(smash.thick ? { thick: smash.thick } : {}) });
+        }
+        return;
+      }
       const skill = data.skills.has(e.skillId) ? data.skills.get(e.skillId) : null;
       this.effects.spawnImpact({
         kind: impactKind(e.skillId, skill?.tags ?? [], e.element, e.angleDeg, e.radius),
@@ -280,7 +294,17 @@ export class Renderer {
     });
     world.events.on('BossLookChanged', (e) => this.actorViews.get(e.actorId)?.setPhase(e.look));
     // 跳到空中：地上的印記跟著目標，填滿時落下
+    // 鑽地 / 破土：土石紛飛（地上留個洞），鑽出來時身體垂直竄出再倒下
+    const dirt = (position: Vec2, radius: number, big: boolean) =>
+      this.effects.spawnImpact({ kind: 'dirt', position, radius, color: 0x5a4230, direction: { x: 1, y: 0 }, angleDeg: 360, big, special: false });
+    world.events.on('ActorEmerged', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (actor) dirt(actor.position, e.radius, true);
+      this.actorViews.get(e.actorId)?.erupt();
+    });
     world.events.on('ActorLeapt', (e) => {
+      const digger = world.targeting.getActor(e.actorId);
+      if (digger?.underground) dirt(digger.position, Math.max(digger.radius * 2.4, 1), false);
       const follow = () => world.scheduler.leapMark(e.actorId);
       this.effects.spawnTelegraph(follow() ?? vec2(0, 0), e.radius, { x: 1, y: 0 }, 360, e.duration, () => follow() !== null, undefined, follow);
     });
@@ -570,6 +594,8 @@ export class Renderer {
     // 機關有自己的外觀（DeviceLayer），不建立角色模型
     this.devices.sync(this.world.actors, alpha, dt);
     this.corpses.update(this.world.corpses, dt, onScreen);
+    const thrown = new Set<ActorId>();
+    for (const p of this.world.projectiles) if (p.returns && p.alive) thrown.add(p.caster.id);
     for (const actor of this.world.actors) {
       if (actor.device) continue;
       alive.add(actor.id);
@@ -594,7 +620,10 @@ export class Renderer {
       }
       const position = lerp(actor.prevPosition, actor.position, alpha);
       const shown = onScreen(position);
+      // 飛斧重甲：迴旋斧飛在空中時手上沒有斧頭
+      view.setThrown(thrown.has(actor.id));
       view.update(actor, position, dt, shown);
+      if (view.consumeLanded()) this.effects.spawnImpact({ kind: 'dirt', position, radius: Math.max(actor.radius * 2, 0.8), color: 0x5a4230, direction: { x: 1, y: 0 }, angleDeg: 360, big: false, special: false });
       // 畫面外的角色移出圖層（不只是隱藏）：圖層每幀依深度排序，深樓層有上百個畫面外的角色
       const layer = this.threeOn ? this.actorOverlay : this.objectLayer;
       if (!shown) view.container.removeFromParent();
@@ -667,6 +696,16 @@ function castExtras(skill: SkillDef, from: Vec2, target: Vec2 | undefined, dir: 
   }
   return out;
 }
+
+/** 從地下鑽出來的招式（命中特效由 ActorEmerged 畫） */
+const EMERGE_SKILLS = new Set(['enemy.burrow_strike', 'enemy.burrow_dodge', 'enemy.maw_ambush']);
+
+/** 屬性重甲的重擊：命中特效（依序疊加）與元素色 */
+const ELEMENT_SMASH: Record<string, { element: string; kinds: ImpactKind[]; scale?: number; thick?: number }> = {
+  'enemy.frost_smash': { element: 'cold', kinds: ['frost', 'shockwave'] },
+  'enemy.storm_smash': { element: 'lightning', kinds: ['lightning', 'shockwave'], thick: 3 },
+  'enemy.molten_smash': { element: 'fire', kinds: ['fire', 'burst', 'crater'], scale: 1 },
+};
 
 export const BIG_IMPACTS = new Set(['magic.meteor', 'magic.absolute_zero', 'melee.devastator', 'melee.earth_break', 'magic.storm_core', 'enemy.eye_leap']);
 

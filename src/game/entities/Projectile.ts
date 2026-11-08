@@ -30,4 +30,10 @@ export interface Projectile {
   look?: ProjectileEffectDef['look'];
   /** 飛完全程時在終點觸發 onHit */
   hitAtEnd?: boolean;
+  /** 迴旋：飛到最遠或撞牆後掉頭飛回發射者 */
+  returns?: boolean;
+  /** 迴旋的回程中 */
+  returning?: boolean;
+  /** 去程已飛的距離（回程的飛行距離上限用） */
+  traveled?: number;
 }

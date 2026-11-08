@@ -129,6 +129,10 @@ export const ProjectileEffectSchema = z.strictObject({
   aimAssistDeg: z.number().nonnegative().default(0),
   /** 飛完全程（沒撞到東西）時也在終點觸發 onHit（在地上滾的冰球） */
   hitAtEnd: z.boolean().default(false),
+  /**
+   * 迴旋：飛到最遠（或撞牆）後掉頭飛回發射者手上（飛斧重甲）；來回都會擊中，每個目標每一趟只中一次，不會因擊中而消失
+   */
+  returns: z.boolean().default(false),
   /** 從身體前方幾格發射（奪界雙手的指尖） */
   originForward: z.number().nonnegative().default(0),
   /** 投射物的外觀（省略 = 依技能與元素）：spider = 爬行的毒蛛 */

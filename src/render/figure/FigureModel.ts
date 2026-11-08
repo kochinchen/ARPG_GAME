@@ -155,6 +155,8 @@ export interface PoseSet {
   dead: Pose;
   /** 走路（可省略：移動較慢時使用；沒有時一律用 run） */
   walk?(phase: number): Pose;
+  /** 從地下垂直鑽出來的姿勢（可省略；蟲：身體豎直、頭朝上，尾巴還埋在地裡） */
+  emerge?: Pose;
   /** 依招式區分的多段攻擊（可省略）：橫斬、突刺、上劈 */
   attackVariants?: Partial<Record<AttackVariant, { windup: Pose[]; strike: Pose[] }>>;
   /** 受傷的分段反應（頭 → 肩 → 身體 → 骨盆），依序播放後回到原姿勢 */
