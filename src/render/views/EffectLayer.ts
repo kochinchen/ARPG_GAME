@@ -6,6 +6,9 @@ import type { Projectile } from '../../game/entities/Projectile';
 import type { PendingEffect, Zone } from '../../game/skills/EffectScheduler';
 import { originalSkillId } from '../../game/enemies/MimicSkills';
 import { firstElement } from '../../game/skills/effects/AreaEffect';
+import { figureScale } from '../figure/FigureModel';
+import { PROJECTILE_MODELS } from '../figure/Monsters';
+import { PolyFigure } from '../figure/PolyFigure';
 import { ELEMENT_COLORS } from '../palette';
 import { DarkDomainFx } from './fx/DarkDomainFx';
 import { ImpactFx, type ImpactInput } from './fx/ImpactFx';
@@ -14,6 +17,17 @@ import { drawProjectile, projectileArt, specialArt, type ProjectileArt } from '.
 const TELEGRAPH_COLOR = 0xff4a3a;
 /** 投射物的飛行高度（px） */
 const FLIGHT_HEIGHT = 24;
+/** 3D 投射物的旋轉速度（弧度 / 秒） */
+const FLYING_SPIN = 16;
+
+/** Three.js 畫法提供的 3D 物件（ThreeWorld 會 import 這個檔案的型別，這裡只宣告用到的部分，避免循環相依） */
+type FlyingFigure = NonNullable<PolyFigure['sink']> & {
+  place(position: Vec2, offset: Vec2, lift: number, tint: number, alpha: number, visible: boolean): void;
+  dispose(): void;
+};
+interface FigureHost {
+  createFigure(): FlyingFigure;
+}
 
 interface ProjectileView {
   container: Container;
@@ -25,6 +39,8 @@ interface ProjectileView {
   trailTimer: number;
   /** 會發光（法術的光球、元素箭）：Three.js 畫法的光源 */
   glows: boolean;
+  /** 有 3D 模型的投射物（迴旋飛斧） */
+  model?: { figure: PolyFigure; three: FlyingFigure | null };
 }
 
 /**
@@ -116,6 +132,7 @@ export class EffectLayer {
   private readonly fx: ImpactFx;
   private readonly telegraphs: Telegraph[] = [];
   private readonly projectileViews = new Map<number, ProjectileView>();
+  private three: FigureHost | null = null;
   private readonly zoneViews = new Map<number, Graphics>();
   /** 區域生成時的畫面位置（跟著施放者移動的區域用來算位移） */
   private readonly zoneOrigins = new Map<number, { x: number; y: number }>();
@@ -376,6 +393,32 @@ export class EffectLayer {
     });
   }
 
+  /** Three.js 畫法：有 3D 模型的投射物交給 Three.js（Pixi 的圖形與假影子不畫） */
+  setThree(world: FigureHost | null): void {
+    this.three = world;
+    for (const view of this.projectileViews.values()) this.syncFlying(view);
+  }
+
+  private attachFlying(view: ProjectileView, p: Projectile): void {
+    const model = PROJECTILE_MODELS[originalSkillId(p.skill.id)];
+    if (!model) return;
+    view.model = { figure: new PolyFigure(model, figureScale(model, p.caster.visualRadius)), three: null };
+    view.container.addChild(view.model.figure.graphics);
+    view.model.figure.graphics.visible = false;
+    this.syncFlying(view);
+  }
+
+  private syncFlying(view: ProjectileView): void {
+    const model = view.model;
+    if (!model || !!model.three === !!this.three) return;
+    model.three?.dispose();
+    model.three = this.three?.createFigure() ?? null;
+    model.figure.sink = model.three;
+    view.art.visible = !model.three;
+    view.shadow.visible = !model.three;
+    view.glows = !model.three && view.style.type === 'orb';
+  }
+
   private syncProjectiles(projectiles: readonly Projectile[], alpha: number, dt: number): void {
     const seen = new Set<number>();
     for (const p of projectiles) {
@@ -399,6 +442,7 @@ export class EffectLayer {
         view = { container, shadow, art, style, special, age: 0, trailTimer: 0, glows };
         this.projectileViews.set(p.id, view);
         this.objectLayer.addChild(container);
+        this.attachFlying(view, p);
       }
       view.age += dt;
       const pos = {
@@ -416,7 +460,11 @@ export class EffectLayer {
       const angle = Math.atan2(d1.y - d0.y, d1.x - d0.x);
       // 滾動的冰球：一面前進一面轉
       view.art.rotation = p.skill.id === 'magic.frost_nova' ? angle + view.age * p.speed * 1.5 : angle;
-      drawProjectile(view.art.clear(), view.style, view.age, view.special);
+      if (view.model?.three) {
+        // 3D 模型：水平旋轉，影子由 Three.js 投射
+        view.model.figure.showPose({ rootY: 0, angles: { root: [0, view.age * FLYING_SPIN, 0] } }, { x: 0, y: 1 });
+        view.model.three.place(pos, { x: 0, y: 0 }, 0, 0xffffff, 1, true);
+      } else drawProjectile(view.art.clear(), view.style, view.age, view.special);
       // 拖尾粒子
       const st = view.style;
       if (st.trail && st.trailRate > 0) {
@@ -430,6 +478,7 @@ export class EffectLayer {
     }
     for (const [id, view] of this.projectileViews) {
       if (seen.has(id)) continue;
+      view.model?.three?.dispose();
       view.container.destroy({ children: true });
       this.projectileViews.delete(id);
     }

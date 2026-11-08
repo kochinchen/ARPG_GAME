@@ -33,7 +33,7 @@ import { MONSTER_MODELS } from './figure/Monsters';
 import { PolyFigure } from './figure/PolyFigure';
 import { figureScale } from './figure/FigureModel';
 import { MinimapView, type MinimapMarker } from './views/MinimapView';
-import type { DepthProxy, ThreeWorld } from './three/ThreeWorld';
+import type { DepthProxy, ThreeFigure, ThreeWorld } from './three/ThreeWorld';
 import { lightRadius, PlayerLightView } from './views/PlayerLightView';
 
 /**
@@ -76,7 +76,7 @@ export class Renderer {
   private readonly actorViews = new Map<ActorId, ActorView>();
   private readonly roars: ActorId[] = [];
   /** 魔王階段變化時掉在地上的物件（碎盾、插在地上的巨劍）；換樓層時清除 */
-  private readonly drops: Container[] = [];
+  private readonly drops: BossDrop[] = [];
   private hoveredId: ActorId | null = null;
   private hoveredInteractable: number | null = null;
   /** 目前用 Three.js 畫角色與牆（需要建立時傳入 ThreeWorld；選單「立體光影」） */
@@ -136,7 +136,10 @@ export class Renderer {
     });
     // 換樓層：重建地圖與地面標記（角色、物品依 ID 同步，會自動清掉）
     world.events.on('FloorEntered', () => {
-      for (const drop of this.drops.splice(0)) drop.destroy({ children: true });
+      for (const drop of this.drops.splice(0)) {
+        drop.three?.dispose();
+        drop.container.destroy({ children: true });
+      }
       this.tileMap.destroy();
       this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world), world.map.setPieces);
       this.worldLayer.addChildAt(this.tileMap.floor, 0);
@@ -324,9 +327,13 @@ export class Renderer {
         container.position.set(s.x, s.y);
         container.zIndex = projection.depth(at) - 0.01;
         container.addChild(figure.graphics);
-        figure.showPose(drop.model.poses.ready(0), boss.facing);
         this.objectLayer.addChild(container);
-        this.drops.push(container);
+        const pose = drop.model.poses.ready(0);
+        const facing = boss.facing;
+        const view: BossDrop = { container, figure, position: at, three: null, redraw: () => figure.showPose(pose, facing) };
+        view.redraw();
+        this.drops.push(view);
+        this.attachDrop(view);
       }
     });
     world.events.on('SoulReleased', (e) => this.soulWisps.spawn(projection.toScreen(e.position), e.smoke));
@@ -401,6 +408,8 @@ export class Renderer {
     this.interactables.setThree(this.threeOn ? this.three : null);
     this.setPieces.setThree(this.threeOn ? this.three : null);
     this.corpses.setThree(this.threeOn ? this.three : null);
+    this.effects.setThree(this.threeOn ? this.three : null);
+    for (const drop of this.drops) this.attachDrop(drop);
     this.effects.listener = this.threeOn ? this.three.skillFx : null;
   }
 
@@ -583,6 +592,17 @@ export class Renderer {
     return this.roars.splice(0);
   }
 
+  /** 魔王掉在地上的盾與劍：Three.js 畫法時交給 Three.js（有燭光與影子） */
+  private attachDrop(view: BossDrop): void {
+    const world = this.threeOn ? this.three : null;
+    if (!!view.three === !!world) return;
+    view.three?.dispose();
+    view.three = world?.createFigure() ?? null;
+    view.figure.sink = view.three;
+    view.redraw();
+    view.three?.place(view.position, { x: 0, y: 0 }, 0, 0xffffff, 1, true);
+  }
+
   private syncActorViews(alpha: number, dt: number): void {
     const alive = new Set<ActorId>();
     // 畫面外的角色不更新模型（多面體每幀重畫，只畫看得到的）
@@ -695,6 +715,15 @@ function castExtras(skill: SkillDef, from: Vec2, target: Vec2 | undefined, dir: 
     } else if (effect.type === 'delayed' && out.delay === undefined) out.delay = effect.delay;
   }
   return out;
+}
+
+/** 魔王換階段時掉在場上的盾與劍 */
+interface BossDrop {
+  container: Container;
+  figure: PolyFigure;
+  position: Vec2;
+  three: ThreeFigure | null;
+  redraw: () => void;
 }
 
 /** 從地下鑽出來的招式（命中特效由 ActorEmerged 畫） */

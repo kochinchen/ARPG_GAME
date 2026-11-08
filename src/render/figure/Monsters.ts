@@ -1092,6 +1092,24 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.burrower': resized(0.71, 1.28, burrowerLook(wormLife(monsterAi(BURROWER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.burrower']!, { rest: 'asModeled', ground: 'all' }), { amp: 0.28, rate: 15 }))),
 };
 
+/**
+ * 飛行中的 3D 投射物（技能 ID → 模型）：迴旋飛斧用飛斧重甲手上那把斧頭，放平（斧刃水平）、以斧柄中點為圓心水平旋轉
+ */
+function flyingWeapon(thrower: FigureModel): FigureModel {
+  const meshes = thrower.parts.find((p) => p.joint === 'weapon')!.meshes;
+  const zs = meshes.flatMap((m) => m.verts.map((v) => v[2]));
+  const mid = (Math.min(...zs) + Math.max(...zs)) / 2;
+  const still: Pose = { rootY: 0, angles: {} };
+  return {
+    parts: [{ joint: 'root', parent: null, offset: [0, 0, 0], meshes: meshes.map((m) => ({ ...m, verts: m.verts.map((v): V3 => [-v[1], v[0], v[2] - mid]) })) }],
+    hipHeight: 20,
+    referenceRadius: thrower.referenceRadius,
+    ...(thrower.visualScale ? { visualScale: thrower.visualScale } : {}),
+    poses: { ready: () => still, run: () => still, attackWindup: still, attackStrike: still, castWindup: still, castRelease: still, hit: still, dead: still },
+  };
+}
+export const PROJECTILE_MODELS: Record<string, FigureModel> = { 'enemy.axe_throw': flyingWeapon(AXE_THROWER_AI) };
+
 /** 換成 AI 版的一般怪（魔王動作預覽列出這些） */
 export const AI_MONSTERS = [
   'enemy.skeleton',
