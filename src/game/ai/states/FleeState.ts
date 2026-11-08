@@ -4,6 +4,7 @@ import { findPathFor, type AiContext, type IAiState } from '../IAiState';
 /**
  * 誘敵：血少的怪往另一群閒置的怪逃（Errands.pickLure 決定方向），不出手、也不叫醒牠們；
  * 追過來的主角走進那一群的視野就會被一起打。到了（arriveDistance）或 maxTime 秒後回頭打原本的目標。
+ * 召喚者死掉時潰散（AiSystem.rout）也用這個狀態，秒數是 brain.fleeFor。
  */
 export class FleeState implements IAiState {
   readonly name = 'flee' as const;
@@ -14,7 +15,8 @@ export class FleeState implements IAiState {
     brain.slot = null;
     brain.waiting = false;
     brain.flanking = false;
-    brain.fleeTimer = tactics.lure.maxTime;
+    brain.fleeTimer = brain.fleeFor ?? tactics.lure.maxTime;
+    brain.fleeFor = null;
     self.path = brain.fleeTo ? findPathFor(ctx, brain.fleeTo) : [];
   }
 

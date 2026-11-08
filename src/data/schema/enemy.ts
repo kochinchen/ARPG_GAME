@@ -5,6 +5,10 @@ import { IdSchema, ModifierKindSchema, RangeSchema, StatIdSchema } from './commo
 export const EnemyFamilySchema = z.enum(['undead', 'beast', 'chitin', 'brute', 'spitter', 'floater', 'parasite', 'demon', 'boss', 'other']);
 export type EnemyFamily = z.infer<typeof EnemyFamilySchema>;
 
+/** 特殊行為（balance.enemyTactics；說明見 EnemyDefSchema.tactics） */
+export const EnemyTacticSchema = z.enum(['potion', 'devour', 'raise', 'agile', 'shield', 'cover', 'hunt', 'swarm', 'guard', 'rout', 'kamikaze', 'burrow']);
+export type EnemyTactic = z.infer<typeof EnemyTacticSchema>;
+
 /** Boss 的階段：HP 降到 hpBelow 以下時進入（一次性套用 modifiers，並可改用另一組技能） */
 /**
  * 連發：有目標時每隔 every 秒輪流對目標發動一招，不用施法、不打斷其他動作。
@@ -94,9 +98,11 @@ export const EnemyDefSchema = z
   skills: z.array(IdSchema).default([]),
   /**
    * 特殊行為（balance.enemyTactics）：potion = 血少時撿地上的藥水喝；devour = 吃屍體回血變大；raise = 讓不死族的屍體站起來；
-   * agile = 靈活派（弓手）：每一箭的速度與射程隨狀況變化，被貼近後退時跑得比較快
+   * agile = 靈活派（弓手）：每一箭的速度與射程隨狀況變化，被貼近後退時跑得比較快；
+   * shield = 巨獸，遠程同伴會躲在牠背後；cover = 遠程怪躲在巨獸背後射擊；hunt = 野獸圍獵；swarm = 孵化蜘蛛蜂擁、少了就逃回母體；
+   * guard = 召喚物守在召喚者身邊；rout = 召喚者死了就潰散；kamikaze = 血少時衝上去自爆；burrow = 鑽進地下閃避投射物
    */
-  tactics: z.array(z.enum(['potion', 'devour', 'raise', 'agile'])).default([]),
+  tactics: z.array(EnemyTacticSchema).default([]),
   lootTable: IdSchema.optional(),
   xp: z.number().nonnegative(),
   /** Boss：冰凍改為強力緩速 */

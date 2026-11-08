@@ -24,6 +24,8 @@ const LUNGE_DISTANCE = 7;
 const AIRBORNE_LIFT = 30;
 /** 跳到空中時畫面上移動的高度（像素） */
 const AIR_HEIGHT = 700;
+/** 鑽進地下時往下沉的深度（px） */
+const SINK_DEPTH = 40;
 const LUNGE_DURATION = 0.15;
 /** 超過這個速度（px / 秒）視為在移動（播放跑步動作） */
 const MOVING_SPEED = 8;
@@ -268,7 +270,8 @@ export class ActorView {
     // 浮空：身體往上挑起，影子留在地面
     const liftTarget = actor.alive && actor.hasStatus('airborne') ? AIRBORNE_LIFT : 0;
     this.lift += (liftTarget - this.lift) * Math.min(1, dt * 14);
-    if (actor.air > 0) this.lift = actor.air * AIR_HEIGHT;
+    // 鑽進地下：往下沉、慢慢看不見
+    if (actor.air > 0) this.lift = actor.air * (actor.underground ? -SINK_DEPTH : AIR_HEIGHT);
     this.body.position.set(this.lungeDir.x * k, this.lungeDir.y * k - this.lift);
     // 食屍鬼吃屍體變大
     if (this.body.scale.x !== actor.growth) this.body.scale.set(actor.growth);
@@ -280,7 +283,7 @@ export class ActorView {
     this.body.alpha = this.hovered ? 0.85 : 1;
     // 冰凍、暈眩、燃燒、緩速等狀態以顏色表示
     this.body.tint = STATUS_TINTS.find(([kind]) => actor.statuses.some((st) => st.kind === kind))?.[1] ?? 0xffffff;
-    this.container.alpha = actor.alive ? 1 : 0.6;
+    this.container.alpha = (actor.alive ? 1 : 0.6) * (actor.underground ? 1 - actor.air : 1);
     this.ground.alpha = this.container.alpha;
     this.facingMark.visible = actor.alive;
     this.three?.place(position, { x: this.body.position.x, y: this.body.position.y + this.lift }, this.lift, this.body.tint, this.container.alpha * this.body.alpha, true, actor.growth);

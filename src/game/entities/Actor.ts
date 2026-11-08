@@ -137,6 +137,8 @@ export class Actor {
   barrage: Barrage | null = null;
   /** 跳躍的高度（0 = 地上，1 = 看不見了）：Render 用 */
   air = 0;
+  /** 這次「跳」是鑽進地下（air 改成往下沉）：Render 用 */
+  underground = false;
   readonly xpReward: number;
   readonly skillArea: number;
   /** 放大後的半徑上限（格）；只有魔王有 */

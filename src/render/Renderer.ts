@@ -337,6 +337,16 @@ export class Renderer {
       const actor = world.targeting.getActor(e.actorId);
       if (actor) say(actor.position, errandText[e.kind], PALETTE.critText);
     });
+    // 火囊爬行者衝上去自爆、小惡魔潰散、角甲巨獸撞牆暈眩
+    world.events.on('EnemyKamikaze', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (actor) say(actor.position, '自爆！', PALETTE.critText);
+    });
+    world.events.on('EnemyRouted', (e) => {
+      const actor = world.targeting.getActor(e.actorId);
+      if (actor) say(actor.position, '潰散', PALETTE.hoverName);
+    });
+    world.events.on('ActorCrashed', (e) => say(e.position, '撞牆！', PALETTE.critText));
     world.events.on('EnemyDrankPotion', (e) => {
       const actor = world.targeting.getActor(e.actorId);
       if (actor && e.healed > 0) say(actor.position, `+${Math.round(e.healed)}`, PALETTE.healText);

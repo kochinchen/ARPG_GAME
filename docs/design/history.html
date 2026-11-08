@@ -131,7 +131,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <div class="facts">
       <span><b class="mono">120</b> 多個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1285</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1300</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -648,6 +648,16 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
           </div>
         </div>
       </div>
+      <div class="phase">
+        <div class="phase-label"><span class="when mono">11/8</span><span class="name">怪物 AI<br>非人形怪物</span></div>
+        <div class="track">
+          <div class="item key">
+            <div class="item-head"><span class="ms">躲掩護、圍獵、蜂擁、撞牆、自爆、鑽地、護衛與潰散</span><span class="hash mono">11/8</span></div>
+            <p>遠程怪躲在巨獸背後偷射，主角要先跑遠讓射手自己出來，再上前打掉它。野獸先繞圈再一起撲；孵化蜘蛛直接一擁而上，少了就逃回母體身邊守著。角甲巨獸衝鋒撞牆會自己暈 2 秒；火囊爬行者血少時衝上來自爆；鑽地寄生蟲鑽進地下躲投射物，從背後鑽出來。小惡魔守在深淵祭司身邊，祭司倒下就潰散。</p>
+            <p class="why">每種行為都由怪物資料的 tactics 決定（shield、cover、hunt、swarm、guard、rout、kamikaze、burrow），數值在 balance.enemyTactics；站位仍由集體戰術每 0.5 秒分配。自爆與鑽地是怪物資料以外的技能，只在條件成立時才用，平常不會亂放。</p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -657,7 +667,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <h2>測試數量隨 Milestone 累積</h2>
       <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 11/1 的 npm test 結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1285">
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1300">
       <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.7%"></div><span class="val mono">28</span></div>
       <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.0%"></div><span class="val mono">52</span></div>
       <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:7.8%"></div><span class="val mono">81</span></div>
@@ -666,8 +676,8 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
       <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.2%"></div><span class="val mono">137</span></div>
       <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.3%"></div><span class="val mono">179</span></div>
       <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:25.1%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1285</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1285 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個；閃避、繞後與求援 7 個；躲範圍傷害、預判射擊、誘敵、撿藥水與處理屍體 11 個；速度隨狀況與弓手的箭 4 個）。</p>
+      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1300</span></div>
+      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1300 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個；閃避、繞後與求援 7 個；躲範圍傷害、預判射擊、誘敵、撿藥水與處理屍體 11 個；速度隨狀況與弓手的箭 4 個；非人形怪物的行為 15 個）。</p>
     </div>
   </section>
 

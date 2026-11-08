@@ -64,8 +64,14 @@ export interface GameEvents {
   ComboInterrupted: { step: number };
   /** 怪物發現敵人並招呼同伴（Render 在頭上顯示「!」）；allies：叫醒了幾隻 */
   EnemyAlerted: { actorId: ActorId; allies: number };
-  /** 怪物往旁邊閃開投射物 */
+  /** 怪物往旁邊閃開投射物（鑽地寄生蟲是鑽進地下） */
   EnemyDodged: { actorId: ActorId };
+  /** 血少的怪改成衝上去自爆（Render 在頭上顯示） */
+  EnemyKamikaze: { actorId: ActorId };
+  /** 召喚者死了，召喚物潰散逃跑 */
+  EnemyRouted: { actorId: ActorId };
+  /** 衝鋒撞到牆，自己暈眩（dash.wallStun） */
+  ActorCrashed: { actorId: ActorId; position: Vec2; duration: number };
   /** 一群怪被打掉超過一半：這隻去叫其他群支援（Render 在頭上顯示「求援」；打倒牠就叫不到） */
   EnemyCalling: { actorId: ActorId; packs: number };
   /** 怪物離開戰鬥去撿藥水 / 吃屍體 / 復活屍體（Render 在頭上顯示） */

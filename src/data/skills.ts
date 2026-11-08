@@ -1118,7 +1118,7 @@ const creatureSkills: SkillInput[] = [
   {
     id: 'enemy.horn_charge',
     name: '角甲衝鋒',
-    description: '角甲巨獸低頭衝鋒，撞到目標時擊退並暈眩。',
+    description: '角甲巨獸低頭衝鋒，撞到目標時擊退並暈眩；撞到牆會自己暈眩 2 秒。',
     targeting: 'enemy',
     range: 5,
     castTime: 1.3,
@@ -1126,7 +1126,8 @@ const creatureSkills: SkillInput[] = [
     cooldown: 7,
     tags: ['attack', 'melee', 'heavy'],
     effects: [
-      { type: 'dash', distance: 5, direction: 'forward' },
+      // 撞到牆自己暈 2 秒（設計者 2026-11-08）：給玩家反擊的機會
+      { type: 'dash', distance: 5, direction: 'forward', wallStun: 2 },
       {
         type: 'area',
         radius: 1.5,
@@ -1235,6 +1236,29 @@ const creatureSkills: SkillInput[] = [
         range: 8,
         onHit: [{ type: 'area', radius: 1.2, effects: [{ type: 'damage', element: 'fire', scaling: 'weapon', multiplier: 1.1 }] }],
       },
+    ],
+  },
+  {
+    // 不放在怪物的技能清單：血量低於 balance.enemyTactics.kamikaze.hpBelow 才改用（AiSystem.kamikaze）
+    id: 'enemy.fire_sac_burst',
+    name: '火囊自爆',
+    description: '血少的火囊爬行者衝到目標身邊，火囊爆開（周圍火焰傷害並燃燒），自己也跟著死去。前搖時地上會顯示範圍。',
+    targeting: 'enemy',
+    range: 0.5,
+    castTime: 0.9,
+    impactAt: 0.85,
+    telegraph: true,
+    tags: ['spell', 'area', 'fire'],
+    effects: [
+      {
+        type: 'area',
+        radius: 1.8,
+        effects: [
+          { type: 'damage', element: 'fire', scaling: 'weapon', multiplier: 2.2 },
+          { type: 'status', status: 'burn', duration: 2, magnitude: 0.3 },
+        ],
+      },
+      { type: 'sacrifice' },
     ],
   },
   {
@@ -1395,6 +1419,39 @@ const creatureSkills: SkillInput[] = [
         effects: [
           { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1.6 },
           { type: 'knockback', distance: 1 },
+        ],
+      },
+    ],
+  },
+  {
+    // 不放在怪物的技能清單：看到投射物時改用（AiSystem.burrow）
+    id: 'enemy.burrow_dodge',
+    name: '鑽地',
+    description: '鑽地寄生蟲看到飛來的投射物時鑽進地下，從目標背後鑽出來咬擊。地上的印記是牠鑽出來的地方。',
+    targeting: 'enemy',
+    range: 12,
+    castTime: 0.15,
+    impactAt: 0,
+    cooldown: 6,
+    tags: ['attack', 'melee'],
+    effects: [
+      {
+        type: 'leap',
+        duration: 1.4,
+        lockAt: 1,
+        followSpeed: 7,
+        radius: 1.2,
+        underground: true,
+        behind: 1.2,
+        effects: [
+          {
+            type: 'area',
+            radius: 1.2,
+            effects: [
+              { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1.3 },
+              { type: 'knockback', distance: 0.8 },
+            ],
+          },
         ],
       },
     ],

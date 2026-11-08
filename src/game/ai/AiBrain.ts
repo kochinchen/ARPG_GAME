@@ -3,8 +3,9 @@ import type { ActorId } from '../entities/ActorTypes';
 
 export type AiStateName = 'idle' | 'chase' | 'return' | 'call' | 'flee' | 'errand';
 
-/** 特殊行為（EnemyDef.tactics） */
-export type EnemyTactic = 'potion' | 'devour' | 'raise' | 'agile';
+import type { EnemyTactic } from '../../data/schema/enemy';
+
+export type { EnemyTactic };
 
 /** AI 看得到的屍體（GameWorld.corpses） */
 export interface CorpseView {
@@ -97,6 +98,14 @@ export interface AiBrain {
   volleyRoll: number;
   volleyCast: number;
   volleyRange: number;
+  /** 躲掩護：目前的站位在巨獸背後（出手之間走回去的距離比較短） */
+  covered: boolean;
+  /** 圍獵：一起撲上去時，還要等這麼多秒才出手（第一隻先撲，其他依序跟上） */
+  huntHold: number;
+  /** 自爆：已經改用自爆技能衝上去 */
+  kamikaze: boolean;
+  /** 下次逃跑（FleeState）的秒數；null = 照誘敵的 maxTime */
+  fleeFor: number | null;
 }
 
 export interface BrainOptions {
@@ -154,5 +163,9 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     volleyRoll: 0,
     volleyCast: -1,
     volleyRange: 0,
+    covered: false,
+    huntHold: 0,
+    kamikaze: false,
+    fleeFor: null,
   };
 }

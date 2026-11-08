@@ -612,6 +612,12 @@ Summon 召喚系已移除
   - 預判射擊（`leadShot`）：`ChaseState` 在意圖上設 `SkillIntent.lead`（隨樓層），`SkillSystem.leadPoint` 沿目標的路徑推算投射物飛到時的位置。
   - 誘敵、撿藥水、吃屍體、復活：`ai/Errands.ts` 決定（`pickErrand` / `pickLure`），`FleeState`、`ErrandState` 執行；哪些怪會由 `EnemyDef.tactics` 決定。地上的藥水與屍體由 `GameWorld` 當 `AiSurroundings` 傳入；`EnemyDrankPotion`、`CorpseConsumed` 由 `GameWorld` 移除藥水 / 屍體，復活的怪以召喚物生成（`raiseCorpse`）。吃屍體變大是 `Actor.growth`（只影響外觀）
   - 速度隨狀況（`pace`）與靈活派的箭（`agile`）：`ai/Pace.ts` 在每個怪的狀態更新之後執行，移動速度用來源 `ai:pace` 的 `more` Modifier（狀況變了才改）；靈活派每出手一次重擲隨機值，射程用 `ai:volley` 的 `projectileRange` Modifier，飛行速度放在 `SkillIntent.mods.projectileSpeed`（預判射擊也算進去）。`SquadTactics` 判斷遊擊看不含 `pace` 的速度
+- 非人形怪物的行為（`balance.enemyTactics`，設計者 2026-11-08；哪些怪會由 `EnemyDef.tactics` 決定）：
+  - 躲掩護（`cover` / `shield`）、圍獵（`hunt`）、蜂擁（`swarm`）、護衛（`guard`）：都在 `SquadTactics` 分配站位。射手站到巨獸背後設 `AiBrain.covered`（`ChaseState.toBackline` 用較短的距離走回去），站在那裡射不到目標就不躲；圍獵每個目標記一份 `Hunt`（繞圈 → 撲上去），繞圈時 `waiting`、撲上去時依序以 `huntHold` 放行；召喚物（`Actor.summonedBy`）守在召喚者身邊時 `waiting`，被打（`angerTimer`）就照常出手
+  - 潰散（`rout`）：`AiSystem` 記下這個 Tick 之前死掉的怪，召喚物轉成 `FleeState`（秒數放在 `AiBrain.fleeFor`），發 `EnemyRouted`
+  - 自爆（`kamikaze`）：`AiSystem.kamikaze` 把主要攻擊換成 `kamikaze.skill`（`skillRanks` 補上等級），`keepDistance` 歸零，發 `EnemyKamikaze`；技能最後的 `sacrifice` 效果讓施放者死亡（擊殺者照 `lastDamagedBy`）
+  - 鑽地（`burrow`）：`AiSystem.dodge` 先試著放 `burrow.skill`（`leap` 效果加 `underground`、`behind`：外觀往下沉、印記追目標背後）
+  - 撞牆（`dash.wallStun`）：`DashEffect` 沒走完全程、也不是停在目標前，施放者自己暈眩，發 `ActorCrashed`
 - 怪物版主角技能：`data/mimicSkills.ts` 由近戰 / 遠程 / 法術樹產生 `mimic.<原 ID>`（傷害 ×0.6、不耗魔、冷卻與前搖放慢、法術強度改用怪物傷害）；`enemies/MimicSkills.ts` 在生成時依樓層擲骰（每個生成索引固定擲兩次，讀檔不變），學會的招式排在特殊技能最前面。Render 以 `originalSkillId` 沿用主角的特效，施放時頭上顯示招式名稱
 
 ### 鑲嵌與融合（v0.5.0，規格：`release/設計文件/版更討論/v0.5.0_鑲嵌與融合/`）

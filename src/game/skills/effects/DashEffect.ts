@@ -5,6 +5,8 @@ import { directionBetween, slide } from './movement';
 
 /** 路徑命中的寬度（從施放者邊緣算起） */
 const PATH_REACH = 0.8;
+/** 少走這麼多以上才算撞牆（Tile） */
+const WALL_SLACK = 0.15;
 
 /** 施放者位移；對敵技能向前衝時停在目標前方。之後的效果從新位置發出。 */
 export class DashEffect implements IEffect<'dash'> {
@@ -21,8 +23,14 @@ export class DashEffect implements IEffect<'dash'> {
         ? () => distance(caster.position, target.position) <= caster.radius + target.radius + 0.3
         : undefined;
     const start = caster.position;
-    slide(caster, direction, def.distance * (1 + ctx.mods.movementSpeed), ctx.services.nav, stop);
+    const full = def.distance * (1 + ctx.mods.movementSpeed);
+    const moved = slide(caster, direction, full, ctx.services.nav, stop);
     caster.path = [];
+    // 撞到牆（不是停在目標前）：自己暈眩
+    if (def.wallStun && moved < full - WALL_SLACK && !stop?.()) {
+      ctx.services.statuses.apply(caster, 'stun', def.wallStun, 0, caster, 0, ctx.skill.id);
+      ctx.services.events.emit('ActorCrashed', { actorId: caster.id, position: caster.position, duration: def.wallStun });
+    }
     ctx.origin = caster.position;
     if (def.onPath.length > 0) this.hitPath(def, ctx, start);
   }

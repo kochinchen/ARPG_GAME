@@ -15,6 +15,7 @@ const RANGE_STEP = 0.05;
  * - 誘敵逃跑、傳令兵求援、跑去撿藥水：+ errand
  * - 遊擊繞到背後的途中：+ flank
  * - 靈活派（弓手）被貼近後退：+ retreat
+ * - 自爆的怪衝上去：+ sprint
  * 靈活派每一箭的飛行速度與射程另見 volley。魔王不套用。
  */
 export function updatePace(ctx: AiContext): void {
@@ -25,7 +26,8 @@ export function updatePace(ctx: AiContext): void {
   if (!self.isBoss) {
     switch (brain.state) {
       case 'chase':
-        if (brain.flanking) bonus = pace.flank;
+        if (brain.kamikaze) bonus = pace.sprint;
+        else if (brain.flanking) bonus = pace.flank;
         else if (brain.retreating && brain.tactics.includes('agile')) bonus = pace.retreat;
         else if (target && !self.cast && distance(self.position, target.position) > pace.sprintDistance) bonus = pace.sprint;
         break;

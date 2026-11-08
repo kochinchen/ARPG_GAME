@@ -159,6 +159,21 @@ export const balance: z.input<typeof BalanceSchema> = {
     // 靈活派（tactics 有 agile 的弓手）每一箭的飛行速度與射程：主角離得越遠越快越遠（near 格內不加、far 格外加滿 speed / range），
     // 每一箭再隨機 ± jitter；精英再乘上 1 + elite。射程同時加在出手距離與飛行距離上
     agile: { near: 3, far: 9, speed: 0.4, range: 0.35, jitter: 0.15, elite: 0.25 },
+    // 以下七項（設計者 2026-11-08）
+    // 躲掩護：遠程怪躲在正在追擊的巨獸背後射擊；主角跑遠到射不到，射手才會自己出來
+    cover: { perShield: 2, gap: 0.4, spread: 0.7, reachMargin: 0.3, slack: 0.5 },
+    // 圍獵（野獸）：先在 3.5 格外繞圈 2～3 秒，再一起撲
+    hunt: { minHunters: 2, ring: 3.5, circle: [2, 3], strike: 3.5, follow: 0.35, spinDeg: 20 },
+    // 蜂擁（孵化蜘蛛）：直接一擁而上；同一隻母體生的少於 3 隻就逃回母體身邊守著
+    swarm: { min: 3, guardRange: 3.5, ring: 1.3 },
+    // 護衛（小惡魔）：守在祭司與主角之間；主角靠近祭司 4 格內才出手
+    guard: { range: 4, ring: 1.4 },
+    // 潰散（小惡魔）：祭司死了往外逃 7 格，最多 3.5 秒
+    rout: { distance: 7, duration: 3.5 },
+    // 自爆（火囊爬行者）：血量低於 40% 就衝上去自爆
+    kamikaze: { hpBelow: 0.4, skill: 'enemy.fire_sac_burst' },
+    // 鑽地閃避（鑽地寄生蟲）：看到投射物 60% 機率鑽進地下，從主角背後鑽出來
+    burrow: { chance: 0.6, skill: 'enemy.burrow_dodge' },
   },
   elite: {
     minFloor: 3,

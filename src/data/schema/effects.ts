@@ -103,6 +103,8 @@ export const DashEffectSchema = z.strictObject({
   direction: z.enum(['forward', 'backward']),
   /** 穿越：向前衝時不停在目標前，穿過敵人走完全程（影步、幻影突襲） */
   passThrough: z.boolean().default(false),
+  /** 衝到一半撞到牆（不是停在目標前）：施放者自己暈眩這麼多秒（角甲巨獸） */
+  wallStun: z.number().positive().optional(),
   /** 對位移路徑上的每個敵人執行（突進斬） */
   get onPath() {
     return z.array(EffectDefSchema).default([]);
@@ -213,9 +215,18 @@ export const LeapEffectSchema = z.strictObject({
   /** 印記追目標的速度（格 / 秒） */
   followSpeed: z.number().positive(),
   radius: z.number().positive(),
+  /** 鑽進地下（鑽地寄生蟲）：外觀往下沉而不是跳起來 */
+  underground: z.boolean().default(false),
+  /** 印記追的是目標背後這麼多格的地方（從背後鑽出來；那裡是牆就追目標本身） */
+  behind: z.number().nonnegative().default(0),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },
+});
+
+/** 施放者自己死亡（火囊爬行者自爆）：擊殺者照最後一個打牠的人算 */
+export const SacrificeEffectSchema = z.strictObject({
+  type: z.literal('sacrifice'),
 });
 
 /** 奪取：目標（主角）裝備的技能隨機一個在 duration 秒內不能用 */
@@ -299,6 +310,7 @@ export const EffectDefSchema = z.discriminatedUnion('type', [
   SealEffectSchema,
   DeviceEffectSchema,
   LeapEffectSchema,
+  SacrificeEffectSchema,
 ]);
 
 export type DamageEffectDef = z.infer<typeof DamageEffectSchema>;

@@ -2,6 +2,7 @@ import type { Rng } from '../../core/Rng';
 import { vec2, type Vec2 } from '../../core/math/Vec2';
 import { rankValue } from '../../data/schema/common';
 import type { DelayedEffectDef, EffectDef, LeapEffectDef, ZoneEffectDef } from '../../data/schema/effects';
+import type { Actor } from '../entities/Actor';
 import type { NavGrid } from '../movement/NavGrid';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { EffectContext, EffectSchedulerPort } from './effects/IEffect';
@@ -127,11 +128,20 @@ export class EffectScheduler implements EffectSchedulerPort {
     const caster = ctx.caster;
     caster.vanished = true;
     caster.untouchable = true;
+    caster.underground = def.underground;
     caster.cast = null;
     caster.intent = null;
     caster.path = [];
-    this.leaps.push({ ctx, def, targetId: ctx.target?.id ?? caster.ai?.targetId ?? null, mark: ctx.target?.position ?? caster.position, elapsed: 0 });
+    const mark = ctx.target ? this.leapGoal(caster, ctx.target, def) : caster.position;
+    this.leaps.push({ ctx, def, targetId: ctx.target?.id ?? caster.ai?.targetId ?? null, mark, elapsed: 0 });
     ctx.services.events.emit('ActorLeapt', { actorId: caster.id, duration: def.duration, radius: def.radius });
+  }
+
+  /** 印記要追的地方：目標本身，或目標背後 behind 格（那裡站不下就追目標本身） */
+  private leapGoal(caster: Actor, target: Actor, def: LeapEffectDef): Vec2 {
+    if (def.behind <= 0) return target.position;
+    const back = vec2(target.position.x - target.facing.x * def.behind, target.position.y - target.facing.y * def.behind);
+    return this.nav.isClearAt(back, caster.radius) ? back : target.position;
   }
 
   /** 這個角色地上的印記（沒有在跳就是 null） */
@@ -155,8 +165,9 @@ export class EffectScheduler implements EffectSchedulerPort {
       if (leap.elapsed < def.lockAt && leap.targetId !== null) {
         const target = this.targeting.getValidTarget(caster, leap.targetId);
         if (target) {
-          const dx = target.position.x - leap.mark.x;
-          const dy = target.position.y - leap.mark.y;
+          const goal = this.leapGoal(caster, target, def);
+          const dx = goal.x - leap.mark.x;
+          const dy = goal.y - leap.mark.y;
           const d = Math.hypot(dx, dy);
           const step = Math.min(d, def.followSpeed * dt);
           if (d > 1e-6) leap.mark = vec2(leap.mark.x + (dx / d) * step, leap.mark.y + (dy / d) * step);
@@ -171,6 +182,7 @@ export class EffectScheduler implements EffectSchedulerPort {
       caster.air = 0;
       caster.vanished = false;
       caster.untouchable = false;
+      caster.underground = false;
       const landed = { ...ctx, origin: leap.mark, target: null };
       landed.run(def.effects, landed);
     }

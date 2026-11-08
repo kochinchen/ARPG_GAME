@@ -19,6 +19,7 @@ const STATION_SLACK = 0.4;
  * - 正在閃避投射物 / 走出地上的範圍傷害（AiSystem）時不追擊、不出手；被指定為傳令兵時改去求援（CallState）
  * - 血少時去撿藥水、吃屍體，或施法復活屍體（ErrandState）；或往另一群閒置的怪逃（FleeState，誘敵）
  * - 投射物預判目標的走位（SkillIntent.lead，隨樓層）
+ * - 躲在巨獸背後的遠程怪（covered）出手之間走回掩護的位置；圍獵還沒輪到撲上去的野獸（huntHold）先不出手
  */
 export class ChaseState implements IAiState {
   readonly name = 'chase' as const;
@@ -61,7 +62,8 @@ export class ChaseState implements IAiState {
       return;
     }
     if (target && this.retreat(ctx, target)) return;
-    if (brain.waiting) {
+    // 等候補位、守著召喚者、圍獵繞圈或還沒輪到撲上去：不出手
+    if (brain.waiting || brain.huntHold > 0) {
       this.holdStation(ctx);
       return;
     }
@@ -116,7 +118,8 @@ export class ChaseState implements IAiState {
   private toBackline(ctx: AiContext): boolean {
     const { self, brain } = ctx;
     if (brain.keepDistance <= 0 || !brain.slot || brain.retreating) return false;
-    if (distance(self.position, brain.slot) <= BACKLINE_SLACK || self.castCount === brain.castsAtRetreat) return false;
+    const slack = brain.covered ? ctx.tactics.cover.slack : BACKLINE_SLACK;
+    if (distance(self.position, brain.slot) <= slack || self.castCount === brain.castsAtRetreat) return false;
     const path = findPathFor(ctx, brain.slot);
     if (path.length === 0) return false;
     self.intent = null;

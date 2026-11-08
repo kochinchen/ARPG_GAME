@@ -9,6 +9,7 @@ import type { EffectContext, IEffect } from './effects/IEffect';
 import { KnockbackEffect } from './effects/KnockbackEffect';
 import { LeapEffect } from './effects/LeapEffect';
 import { ProjectileEffect } from './effects/ProjectileEffect';
+import { SacrificeEffect } from './effects/SacrificeEffect';
 import { StatusEffect } from './effects/StatusEffect';
 import { SealEffect } from './effects/SealEffect';
 import { SummonEffect } from './effects/SummonEffect';
@@ -35,6 +36,7 @@ export class EffectRegistry {
     seal: new SealEffect(),
     device: new DeviceEffect(),
     leap: new LeapEffect(),
+    sacrifice: new SacrificeEffect(),
   };
 
   apply(def: EffectDef, ctx: EffectContext): void {

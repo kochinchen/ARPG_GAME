@@ -307,6 +307,48 @@ export const BalanceSchema = z.strictObject({
         elite: z.number().nonnegative(),
       })
       .refine((a) => a.far > a.near, { message: 'agile.far 要大於 near' }),
+    /**
+     * 躲掩護（tactics 有 cover 的遠程怪）：同一個目標附近有正在追擊的巨獸（tactics 有 shield）時，站到巨獸背後（目標 → 巨獸的延長線上）射擊。
+     * 站在那裡打不到目標（目標跑遠了）就離開掩護、自己追出來
+     */
+    cover: z.strictObject({
+      /** 每隻巨獸最多掩護幾隻 */
+      perShield: z.int().positive(),
+      /** 站在巨獸背後、兩者邊緣之間隔這麼遠（Tile） */
+      gap: z.number().nonnegative(),
+      /** 第二隻以後左右錯開這麼遠（Tile） */
+      spread: z.number().nonnegative(),
+      /** 從掩護位置到目標的距離要比射程短這麼多才躲（Tile） */
+      reachMargin: z.number().nonnegative(),
+      /** 離掩護位置這麼遠，出手之間就走回去（Tile） */
+      slack: z.number().positive(),
+    }),
+    /**
+     * 圍獵（tactics 有 hunt 的野獸）：同一個目標附近至少 minHunters 隻時，先在 ring 格外繞圈（circle 秒，不出手），
+     * 時間到或其中一隻被打，就一起撲上去（第一隻先撲，其他每隔 follow 秒跟上），strike 秒後再回去繞圈
+     */
+    hunt: z.strictObject({
+      minHunters: z.int().min(2),
+      ring: z.number().positive(),
+      circle: RangeSchema,
+      strike: z.number().positive(),
+      follow: z.number().nonnegative(),
+      /** 繞圈時每次重新分配站位往前轉幾度 */
+      spinDeg: z.number().nonnegative(),
+    }),
+    /**
+     * 蜂擁（tactics 有 swarm 的孵化蜘蛛）：不排包圍站位、不等候補位，直接一擁而上。
+     * 同一隻母體生的、還在打的少於 min 隻，就逃回母體身邊（ring 格）守著，目標走進母體 guardRange 格內才出手
+     */
+    swarm: z.strictObject({ min: z.int().positive(), guardRange: z.number().positive(), ring: z.number().positive() }),
+    /** 護衛（tactics 有 guard 的召喚物，小惡魔）：召喚者活著時站在召喚者與目標之間 ring 格，目標走進召喚者 range 格內、或自己被打才出手 */
+    guard: z.strictObject({ range: z.number().positive(), ring: z.number().positive() }),
+    /** 潰散（tactics 有 rout 的召喚物）：召喚者死了就往遠離目標的方向逃 distance 格，最多 duration 秒，之後回頭打 */
+    rout: z.strictObject({ distance: z.number().positive(), duration: z.number().positive() }),
+    /** 自爆（tactics 有 kamikaze 的怪，火囊爬行者）：血量低於 hpBelow 就改用 skill（自爆）衝上去，不再保持距離 */
+    kamikaze: z.strictObject({ hpBelow: z.number().gt(0).lt(1), skill: IdSchema }),
+    /** 鑽地閃避（tactics 有 burrow 的怪）：看到會打中自己的投射物時，以 chance 機率改用 skill 鑽進地下（冷卻看技能），不受移動速度限制 */
+    burrow: z.strictObject({ chance: z.number().min(0).max(1), skill: IdSchema }),
   }),
   /** 精英怪（每群隊長）的共通強化 */
   elite: EliteConfigSchema,
