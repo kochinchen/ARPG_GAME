@@ -153,12 +153,14 @@ describe('樓層分布（minFloor）', () => {
     expect([...kinds(2)].sort()).toEqual(['enemy.ghoul', 'enemy.skeleton', 'enemy.venom_ghoul']);
   });
 
-  it('變種依序加入：冰霜骷髏 3、焦骨弓手 5、雷霆法師 7、鏽蝕重甲 8', () => {
+  it('變種依序加入：冰霜骷髏 3、焦骨弓手 5、鏽蝕重甲 8、雷霆法師 17、屬性重甲 18、飛斧重甲 20', () => {
     const from: [string, number][] = [
       ['enemy.frost_skeleton', 3],
       ['enemy.ember_archer', 5],
-      ['enemy.storm_mage', 7],
       ['enemy.rusted_knight', 8],
+      ['enemy.storm_mage', 17],
+      ['enemy.frost_armor', 18],
+      ['enemy.axe_thrower', 20],
     ];
     for (const [id, floor] of from) {
       expect(kinds(floor - 1).has(id)).toBe(false);
@@ -171,8 +173,8 @@ describe('樓層分布（minFloor）', () => {
     expect(kinds(3).has('enemy.skeleton_archer')).toBe(true);
     expect(kinds(3).has('enemy.armored_skeleton')).toBe(false);
     expect(kinds(4).has('enemy.armored_skeleton')).toBe(true);
-    expect(kinds(5).has('enemy.skeleton_mage')).toBe(false);
-    expect(kinds(6).has('enemy.skeleton_mage')).toBe(true);
+    expect(kinds(5).has('enemy.skeleton_mage_fire')).toBe(false);
+    expect(kinds(6).has('enemy.skeleton_mage_fire')).toBe(true);
   });
 
   it('資料驗證：區間第一層沒有任何可生成的怪物時報錯', () => {

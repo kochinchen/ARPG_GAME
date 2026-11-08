@@ -13,7 +13,7 @@ import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { BossSystem } from './enemies/BossSystem';
 import { PassiveSkillSystem } from './enemies/PassiveSkillSystem';
-import { applyFloorResist, EnemyFactory, NORMAL_SIZE, rollSize, visualRadiusOf, type FloorResist } from './enemies/EnemyFactory';
+import { applyFloorResist, EnemyFactory, NORMAL_SIZE, rollSize, visualRadiusOf, type FloorResist, rollVariant } from './enemies/EnemyFactory';
 import { rollMimic, rollSpellbook, teachMimic, teachSpellbook } from './enemies/MimicSkills';
 import { ItemEffectSystem } from './items/ItemEffectSystem';
 import { SalvageSystem } from './items/SalvageSystem';
@@ -712,10 +712,16 @@ export class GameWorld {
             rng: new Rng(this.seed).fork(`elite-${floor}`),
           }
         : undefined;
-    const plan = spawner.planMonsters(pool, scaling.density, zones, elite);
+    const planned = spawner.planMonsters(pool, scaling.density, zones, elite);
     // 隨機體型用獨立亂數：每個生成索引都擲一次（包含已擊殺的），讀檔後體型不變
     const sizeRng = new Rng(this.seed).fork(`size-${floor}`);
-    const sizes = plan.map((request) => rollSize(this.data.enemies.get(request.enemyId), this.data.balance.enemySize, sizeRng));
+    const sizes = planned.map((request) => rollSize(this.data.enemies.get(request.enemyId), this.data.balance.enemySize, sizeRng));
+    // 特化型依體型決定（精英隨機）；同樣每個索引都擲一次，讀檔後不變
+    const variantRng = new Rng(this.seed).fork(`variant-${floor}`);
+    const plan = planned.map((request, i) => ({
+      ...request,
+      enemyId: rollVariant(this.data.enemies.get(request.enemyId), floor, sizes[i]!.scale, request.eliteAffixes !== undefined, this.data.balance.enemySize, variantRng),
+    }));
     // 樓層減傷：精英隨機物理或屬性其一、Boss 兩種都有；同樣每個索引都擲一次，讀檔後不變
     const resistRng = new Rng(this.seed).fork(`resist-${floor}`);
     const eliteResist = floorResistFor(floor, false, eliteConfig.floorResist);
@@ -897,7 +903,9 @@ export class GameWorld {
   ): Vec2 {
     const config = this.data.balance.champion;
     const rng = new Rng(this.seed).fork(`champion-${floor}`);
-    const def = this.data.enemies.get(rng.weighted(monsterPool).enemyId);
+    // 首領和精英一樣：原版與已解鎖的特化型隨機（獨立亂數，不影響其他的抽選）
+    const picked = this.data.enemies.get(rng.weighted(monsterPool).enemyId);
+    const def = this.data.enemies.get(rollVariant(picked, floor, NORMAL_SIZE.scale, true, this.data.balance.enemySize, new Rng(this.seed).fork(`champion-variant-${floor}`)));
     const affixes = rollElite({ chance: 1, count: config.affixCount, pool: this.data.eliteAffixes.all.filter((a) => a.minFloor <= floor), rng }) ?? [];
     const spot = this.spotNear(this.exit!.position, config.guardDistance, Math.min(0.8, def.radius * def.size * config.radiusMultiplier));
     looks.set(index, { defId: def.id, visualRadius: visualRadiusOf(def, NORMAL_SIZE, config.radiusMultiplier) });
@@ -911,6 +919,8 @@ export class GameWorld {
     applyFloorResist(actor, { physical: resist, elemental: resist });
     const mimic = rollMimic(def, floor, true, this.data.skills, this.data.balance.enemyMimic, rng);
     if (mimic) teachMimic(actor, mimic);
+    const spellbook = rollSpellbook(def, floor, true, this.data.skills, this.data.balance.mageSpellbook, new Rng(this.seed).fork(`champion-spellbook-${floor}`));
+    if (spellbook) teachSpellbook(actor, spellbook, floor, this.data.skills, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
     this.champion = { actorId: actor.id };
     spawnedIds.push([actor.id, index]);
     return spot;

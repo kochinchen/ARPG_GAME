@@ -28,7 +28,8 @@ describe('每層的首領', () => {
       expect(list).toHaveLength(1);
       const c = list[0]!;
       expect(c.elite).toBe(true);
-      expect(w.floors.defFor(floor).monsterPool.some((m) => m.enemyId === c.defId)).toBe(true);
+      // 怪物池裡的怪，或它已解鎖的特化型
+      expect(w.floors.defFor(floor).monsterPool.some((m) => m.enemyId === c.defId || data.enemies.get(m.enemyId).variants.some((v) => v.enemyId === c.defId && v.minFloor <= floor))).toBe(true);
       // 出口的安全範圍外、離出口約 guardDistance 格
       expect(distance(c.position, w.exit!.position)).toBeGreaterThanOrEqual(data.balance.floor.stairsSafeRadius);
       expect(distance(c.position, w.exit!.position)).toBeLessThan(config.guardDistance + 4);

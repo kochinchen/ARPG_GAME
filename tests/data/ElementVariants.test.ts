@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { enemies } from '../../src/data/enemies';
-import { floors } from '../../src/data/floors';
 import { skills } from '../../src/data/skills';
 
 /** 赤焰 / 紫電骷髏、凍骨 / 猛毒弓手（設計者 2026-11-07）：普通攻擊另外附加 20% 該屬性的傷害 */
@@ -25,8 +24,8 @@ describe('屬性版本的骷髏與弓手', () => {
     ]);
   });
 
-  it('都會出現在樓層裡', () => {
-    const pool = new Set(floors.flatMap((f) => f.monsterPool.map((m) => m.enemyId)));
+  it('都會出現：是樓層裡某種怪的特化型', () => {
+    const pool = new Set(enemies.flatMap((e) => (e.variants ?? []).map((v) => v.enemyId)));
     for (const [enemyId] of VARIANTS) expect(pool.has(enemyId), enemyId).toBe(true);
   });
 });

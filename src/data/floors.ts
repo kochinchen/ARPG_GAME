@@ -9,37 +9,24 @@ type FloorInput = z.input<typeof FloorDefSchema>;
 
 /**
  * 人形怪物（所有樓層）；scale 讓越深的樓層人形怪越少。
- * 變種（冰霜骷髏、毒液食屍鬼…）與原版分攤原本的權重，每 1～2 層加入一種新面孔。
+ * 法師依樓層分批加入；物理型的特化版依體型決定（EnemyDef.variants）。
  */
 const humanoids = (scale = 1): FloorInput['monsterPool'] => [
-  // 骷髏戰士與冰霜、赤焰、紫電三種屬性版本分攤（第 3、4、6 層加入）
-  { enemyId: 'enemy.skeleton', weight: 3 * scale },
-  { enemyId: 'enemy.frost_skeleton', weight: 1.2 * scale, minFloor: 3 },
-  { enemyId: 'enemy.flame_skeleton', weight: 0.8 * scale, minFloor: 4 },
-  { enemyId: 'enemy.storm_skeleton', weight: 0.8 * scale, minFloor: 6 },
-  { enemyId: 'enemy.ghoul', weight: 2 * scale },
-  { enemyId: 'enemy.venom_ghoul', weight: 1 * scale, minFloor: 2 },
-  // 骷髏弓手與焦骨、凍骨、猛毒三種屬性版本分攤（第 4、5、7 層加入）
-  { enemyId: 'enemy.skeleton_archer', weight: 1.6 * scale, minFloor: 3 },
-  { enemyId: 'enemy.frost_archer', weight: 0.7 * scale, minFloor: 4 },
-  { enemyId: 'enemy.ember_archer', weight: 0.8 * scale, minFloor: 5 },
-  { enemyId: 'enemy.venom_archer', weight: 0.7 * scale, minFloor: 7 },
-  // 重甲骷髏與霜鎧、熔鐵、雷殛三種屬性版本分攤（第 5、6、7 層加入）
-  { enemyId: 'enemy.armored_skeleton', weight: 0.7 * scale, minFloor: 4 },
-  { enemyId: 'enemy.frost_armor', weight: 0.4 * scale, minFloor: 5 },
-  { enemyId: 'enemy.molten_armor', weight: 0.4 * scale, minFloor: 6 },
-  { enemyId: 'enemy.storm_armor', weight: 0.4 * scale, minFloor: 7 },
-  { enemyId: 'enemy.axe_thrower', weight: 0.5 * scale, minFloor: 6 },
-  { enemyId: 'enemy.rusted_knight', weight: 0.6 * scale, minFloor: 8 },
-  // 法師依袍色分系（設計者 2026-11-08）：比重由四色分攤，三系全會的白袍、金袍較少
-  { enemyId: 'enemy.skeleton_mage', weight: 0.5 * scale, minFloor: 6 },
-  { enemyId: 'enemy.skeleton_mage_fire', weight: 0.45 * scale, minFloor: 6 },
-  { enemyId: 'enemy.skeleton_mage_frost', weight: 0.45 * scale, minFloor: 6 },
-  { enemyId: 'enemy.skeleton_mage_white', weight: 0.2 * scale, minFloor: 6 },
-  { enemyId: 'enemy.storm_mage', weight: 0.3 * scale, minFloor: 7 },
-  { enemyId: 'enemy.storm_mage_fire', weight: 0.28 * scale, minFloor: 7 },
-  { enemyId: 'enemy.storm_mage_frost', weight: 0.28 * scale, minFloor: 7 },
-  { enemyId: 'enemy.storm_mage_gold', weight: 0.14 * scale, minFloor: 7 },
+  // 物理型的特化版（冰霜骷髏、毒液食屍鬼、屬性重甲…）不在這裡：依體型決定（EnemyDef.variants）
+  { enemyId: 'enemy.skeleton', weight: 4 * scale },
+  { enemyId: 'enemy.ghoul', weight: 2.5 * scale },
+  { enemyId: 'enemy.skeleton_archer', weight: 2.4 * scale, minFloor: 3 },
+  { enemyId: 'enemy.armored_skeleton', weight: 1.2 * scale, minFloor: 4 },
+  // 低階法師依袍色分批出現，三系全會的白袍最晚、最少
+  { enemyId: 'enemy.skeleton_mage_fire', weight: 0.55 * scale, minFloor: 6 },
+  { enemyId: 'enemy.skeleton_mage_frost', weight: 0.55 * scale, minFloor: 7 },
+  { enemyId: 'enemy.skeleton_mage', weight: 0.5 * scale, minFloor: 9 },
+  { enemyId: 'enemy.skeleton_mage_white', weight: 0.2 * scale, minFloor: 14 },
+  // 中階法師放到後半，填沒有新怪的樓層；這裡人形怪的比重已經打折，所以權重比低階高
+  { enemyId: 'enemy.storm_mage', weight: 0.6 * scale, minFloor: 17 },
+  { enemyId: 'enemy.storm_mage_fire', weight: 0.55 * scale, minFloor: 21 },
+  { enemyId: 'enemy.storm_mage_frost', weight: 0.55 * scale, minFloor: 24 },
+  { enemyId: 'enemy.storm_mage_gold', weight: 0.3 * scale, minFloor: 27 },
 ];
 
 /**

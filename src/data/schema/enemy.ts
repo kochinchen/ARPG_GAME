@@ -97,6 +97,13 @@ export const EnemyDefSchema = z
    */
   skills: z.array(IdSchema).default([]),
   /**
+   * 特化型（設計者 2026-11-08）：近戰的一般怪體型超過自身標準的 balance.enemySize.variantScale 倍時，變成其中一種（minFloor 起解鎖，依 weight 抽）；
+   * 遠程（弓手）依樓層的機率（balance.enemySize.rangedVariantChance）；精英不看體型，原版與已解鎖的特化型隨機一種。特化型自己不放在樓層的怪物池裡
+   */
+  variants: z.array(z.strictObject({ enemyId: IdSchema, minFloor: z.int().positive(), weight: z.number().positive() })).default([]),
+  /** 這種怪自己的特化體型門檻（自身標準的倍數；省略 = balance.enemySize.variantScale） */
+  variantScale: z.number().positive().optional(),
+  /**
    * 法師的法術書（balance.mageSpellbook）：schools = 會的魔法系（branch：A 火、B 冰、C 雷；basic = 那一系的普通攻擊，
    * 多系的每隻隨機用一種）；固定會 tier 階；低機率多一招 tier + 1（越深機率越高）；精英低機率再多一招 tier + 2
    */

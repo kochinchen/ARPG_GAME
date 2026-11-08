@@ -33,6 +33,32 @@ export function rollSize(def: EnemyDef, config: Balance['enemySize'], rng: Rng):
   return { scale, stat: 1 + (scale - 1) * c.statPerSize };
 }
 
+/**
+ * 特化型（設計者 2026-11-08）：近戰的一般怪體型超過「自身標準體型的 variantScale 倍」（一般約 20% 的個體、重甲約 30%），就變成已解鎖的特化型之一；
+ * 遠程（弓手）的機率依樓層；精英不看體型，原版與已解鎖的特化型隨機。不論結果都固定擲一次亂數：同一個生成索引讀檔後不變
+ */
+export function rollVariant(def: EnemyDef, floor: number, scale: number, elite: boolean, config: Balance['enemySize'], rng: Rng): string {
+  const pick = rng.next();
+  const open = def.variants.filter((v) => v.minFloor <= floor);
+  if (open.length === 0) return def.id;
+  if (elite) return [def.id, ...open.map((v) => v.enemyId)][Math.floor(pick * (open.length + 1))]!;
+  // 同一次亂數：遠程先看有沒有中機率，中了再用剩下的比例抽是哪一種
+  let share = pick;
+  if (def.ai === 'melee') {
+    if (scale <= config.melee.mean * (def.variantScale ?? config.variantScale)) return def.id;
+  } else {
+    const chance = [...config.rangedVariantChance].reverse().find((c) => c.fromFloor <= floor)?.chance ?? 0;
+    if (pick >= chance) return def.id;
+    share = pick / chance;
+  }
+  let left = share * open.reduce((sum, v) => sum + v.weight, 0);
+  for (const v of open) {
+    left -= v.weight;
+    if (left < 0) return v.enemyId;
+  }
+  return open[open.length - 1]!.enemyId;
+}
+
 /** 屬性減傷作用的抗性 */
 const ELEMENTAL_RESISTS = ['fireResist', 'coldResist', 'lightningResist', 'poisonResist'] as const;
 

@@ -280,6 +280,14 @@ export const balance: z.input<typeof BalanceSchema> = {
     melee: { mean: 1.2, sd: 0.22, min: 1, max: 2, statPerSize: 0.5 },
     // 遠程 / 法術：100%～130%，數值不變
     ranged: { mean: 1.08, sd: 0.1, min: 1, max: 1.3, statPerSize: 0 },
+    // 近戰一般怪超過自身標準體型的這個倍率就是特化型，約 20% 的個體（設計者 2026-11-08）；精英隨機；重甲另外設定
+    variantScale: 1.154,
+    // 弓手的特化比例依樓層（設計者 2026-11-08）：10 樓前 15%、10～20 樓 25%、20 樓以後 35%
+    rangedVariantChance: [
+      { fromFloor: 1, chance: 0.15 },
+      { fromFloor: 10, chance: 0.25 },
+      { fromFloor: 21, chance: 0.35 },
+    ],
   },
   shop: {
     value: { base: 4, perItemLevel: 2, rarity: { normal: 1, magic: 2.5, rare: 6, epic: 12, legendary: 20, mythic: 35 } },

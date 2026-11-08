@@ -475,6 +475,10 @@ export const BalanceSchema = z.strictObject({
   enemySize: z.strictObject({
     melee: SizeRollSchema,
     ranged: SizeRollSchema,
+    /** 近戰的一般怪體型超過自身標準（melee.mean）的這個倍率，就變成特化型（EnemyDef.variants）；精英隨機 */
+    variantScale: z.number().positive(),
+    /** 遠程（弓手）的一般怪變成特化型的機率：由淺到深，fromFloor 起用這個機率 */
+    rangedVariantChance: z.array(z.strictObject({ fromFloor: z.int().positive(), chance: z.number().min(0).max(1) })).min(1),
   }),
   /** 出口旁的商人：買、賣、賭博 */
   shop: z.strictObject({
