@@ -397,6 +397,135 @@ export function houndLife(m: FigureModel): FigureModel {
   };
 }
 
+/** 單眼浮體的六條觸手：外側兩條（ex_tent）跟著舊版四條的動作，時間差開一點 */
+export function sixTentacles(m: FigureModel): FigureModel {
+  const add = (p: Pose, follow: Pose): Pose => {
+    const angles: Pose['angles'] = { ...p.angles };
+    for (const [s, source] of [['L', 'thighR'], ['R', 'upperArmL']] as const) {
+      const side = source.startsWith('thigh') ? ['thigh', 'shin', 'foot'] : ['upperArm', 'forearm', 'hand'];
+      side.forEach((part, i) => {
+        const v = follow.angles[`${part}${source.slice(-1)}` as Joint];
+        if (v) angles[`ex_tent${s}${i}`] = v;
+      });
+    }
+    return { ...p, angles };
+  };
+  const edited = mapPoses(m.poses, (p) => add(p, p));
+  return { ...m, poses: { ...edited, ready: (t) => add(m.poses.ready(t), m.poses.ready(t + 1.1)), run: (p) => add(m.poses.run(p), m.poses.run(p + 1.1)) } };
+}
+
+/**
+ * 鐵輪劍獸（設計者 2026-11-09）：靠兩個輪子滾動（thigh 的關節在輪心，角度隨步伐連續增加），雙臂懸在身前。
+ * 連刺先左後右大幅度揮臂（從身體側面掃到正前方，腰跟著扭）；劍氣左右手輪流往前捅；突刺往後縮、輪子空轉蓄力，雙臂伸直衝出去；迴旋雙臂張開、輪子反向，原地轉三圈。
+ */
+export function wheelBeastLife(m: FigureModel): FigureModel {
+  type Angles = Pose['angles'];
+  const pose = (angles: Angles): Pose => ({ rootY: 0, angles });
+  const both = (a: Angles, part: 'upperArm' | 'forearm' | 'hand', v: readonly [number, number, number]) => {
+    a[`${part}L`] = [v[0], v[1], v[2]];
+    a[`${part}R`] = [v[0], -v[1], -v[2]];
+  };
+  const wheels = (a: Angles, l: number, r = l) => {
+    a.thighL = [l, 0, 0];
+    a.thighR = [r, 0, 0];
+  };
+  const ready = (t: number): Pose => {
+    const b = Math.sin(t * 1.6);
+    return pose({ root: [0.02 * b, 0, 0], torso: [0.03 * b, 0, 0], neck: [-0.03 * b, 0.05 * Math.sin(t * 0.7), 0], upperArmL: [-0.08 + 0.05 * Math.sin(t * 1.6 + 1), 0, 0], upperArmR: [-0.08 + 0.05 * Math.sin(t * 1.6 + 2.4), 0, 0] });
+  };
+  const run = (p: number): Pose => {
+    const a: Angles = { root: [0.16 + 0.02 * Math.sin(p * 2), 0, 0.025 * Math.sin(p)], torso: [0.1, 0.05 * Math.sin(p), 0], neck: [-0.2, 0, 0], head: [-0.06, 0, 0] };
+    both(a, 'upperArm', [-0.5, 0, 0]);
+    both(a, 'forearm', [-0.15, 0, 0]);
+    a.upperArmL![0] += 0.12 * Math.sin(p);
+    a.upperArmR![0] -= 0.12 * Math.sin(p);
+    wheels(a, p);
+    return pose(a);
+  };
+  const cocked = (spin = 0): Pose => {
+    const a: Angles = { root: [-0.12, 0, 0], torso: [-0.22, 0, 0], neck: [0.16, 0, 0] };
+    both(a, 'upperArm', [0.45, 0, 0]);
+    both(a, 'forearm', [-0.35, 0, 0]);
+    wheels(a, spin);
+    return pose(a);
+  };
+  /** 一隻手往前捅、另一隻手收回；side = 1 是左手 */
+  const thrust = (side: 1 | -1): Pose => {
+    const [hit, back] = side === 1 ? (['L', 'R'] as const) : (['R', 'L'] as const);
+    const a: Angles = { root: [0.1, 0, 0], torso: [0.26, 0.38 * side, 0], neck: [-0.2, -0.3 * side, 0] };
+    a[`upperArm${hit}`] = [-1.4, 0, 0];
+    a[`forearm${hit}`] = [0.1, 0, 0];
+    a[`hand${hit}`] = [-0.25, 0, 0];
+    a[`upperArm${back}`] = [0.35, 0, 0];
+    a[`forearm${back}`] = [-0.4, 0, 0];
+    return pose(a);
+  };
+  /** 揮臂的起手：side 那隻手高舉到身體側面，腰往反方向扭開 */
+  const raised = (side: 1 | -1): Pose => {
+    const [swing, other] = side === 1 ? (['L', 'R'] as const) : (['R', 'L'] as const);
+    const a: Angles = { root: [-0.06, 0, 0], torso: [-0.2, 0.62 * side, 0], neck: [0.1, -0.5 * side, 0] };
+    a[`upperArm${swing}`] = [0.1, 0, 1.25 * side];
+    a[`forearm${swing}`] = [-0.3, 0, 0];
+    a[`upperArm${other}`] = [-0.55, 0, 0];
+    a[`forearm${other}`] = [-0.25, 0, 0];
+    return pose(a);
+  };
+  /** 揮完：side 那隻手掃到正前方偏內側，腰扭到另一邊，另一隻手收在後面 */
+  const swept = (side: 1 | -1): Pose => {
+    const [swing, other] = side === 1 ? (['L', 'R'] as const) : (['R', 'L'] as const);
+    const a: Angles = { root: [0.12, 0, 0], torso: [0.26, -0.68 * side, 0], neck: [-0.22, 0.52 * side, 0] };
+    a[`upperArm${swing}`] = [-1.55, 0, -0.38 * side];
+    a[`forearm${swing}`] = [0.05, 0, 0];
+    a[`hand${swing}`] = [-0.3, 0, 0];
+    a[`upperArm${other}`] = [0.25, 0, 0.3 * (side === 1 ? -1 : 1)];
+    a[`forearm${other}`] = [-0.35, 0, 0];
+    return pose(a);
+  };
+  const coil = (spin: number): Pose => {
+    const a: Angles = { root: [-0.36, 0, 0], torso: [-0.3, 0, 0], neck: [0.34, 0, 0], head: [0.1, 0, 0] };
+    both(a, 'upperArm', [0.75, 0, 0]);
+    both(a, 'forearm', [-0.25, 0, 0]);
+    wheels(a, spin);
+    return pose(a);
+  };
+  const extended = (spin: number): Pose => {
+    const a: Angles = { root: [0.42, 0, 0], torso: [0.22, 0, 0], neck: [-0.5, 0, 0], head: [-0.15, 0, 0] };
+    both(a, 'upperArm', [-1.55, 0, 0]);
+    both(a, 'forearm', [0.08, 0, 0]);
+    both(a, 'hand', [-0.12, 0, 0]);
+    wheels(a, spin);
+    return pose(a);
+  };
+  const spun = (yaw: number, wheel: number): Pose => {
+    const a: Angles = { root: [0.04, yaw, 0], torso: [-0.08, 0, 0] };
+    both(a, 'upperArm', [-0.1, 0, 0.75]);
+    both(a, 'forearm', [0, 0, 0.3]);
+    wheels(a, wheel, -wheel);
+    return pose(a);
+  };
+  const hit = pose({ root: [-0.14, 0, 0], torso: [-0.22, 0, 0], neck: [0.2, 0, 0], upperArmL: [0.3, 0, 0], upperArmR: [0.3, 0, 0] });
+  const dead = pose({ root: [0.5, 0, 0.12], torso: [0.65, 0, 0], neck: [0.35, 0, 0], head: [0.25, 0, 0], upperArmL: [0.5, 0, 0.3], upperArmR: [0.5, 0, -0.3], forearmL: [-0.4, 0, 0], forearmR: [-0.4, 0, 0] });
+  return {
+    ...m,
+    poses: {
+      ready,
+      run,
+      attackWindup: cocked(),
+      attackStrike: swept(1),
+      castWindup: cocked(),
+      castRelease: thrust(1),
+      hit,
+      dead,
+      attackChain: { windup: [raised(1)], strike: [swept(1), raised(-1), swept(-1)], strikeTime: 0.4 },
+      attackVariants: {
+        thrust: { windup: [cocked()], strike: [thrust(1), thrust(-1)] },
+        overhead: { windup: [coil(-3), coil(-9)], strike: [extended(-4), extended(2 * Math.PI)], strikeTime: 0.3 },
+        slash: { windup: [spun(-0.8, -2)], strike: [spun(Math.PI * 2, 6), spun(Math.PI * 4, 12), spun(Math.PI * 6, 18)], strikeTime: 1.05 },
+      },
+    },
+  };
+}
+
 function levelFeet(parts: readonly PartDef[], hip: number, pose: Pose): Pose {
   const w = solveJoints(parts, hip, pose);
   const angles = { ...pose.angles };

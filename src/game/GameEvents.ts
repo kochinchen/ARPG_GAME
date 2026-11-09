@@ -37,6 +37,10 @@ export interface GameEvents {
     element: Element | null;
     direction: Vec2;
     angleDeg: number;
+    /** 扇形相對施放方向的偏轉（Render 用來分辨先砍左邊或右邊） */
+    offsetDeg?: number;
+    /** 位移的距離（Render 畫速度線的長度） */
+    pathLength?: number;
     /** 成功組成 Combo 的招式（Render 換成特別的顏色） */
     special: boolean;
   };

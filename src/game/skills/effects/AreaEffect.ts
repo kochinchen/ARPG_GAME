@@ -16,6 +16,7 @@ export class AreaEffect implements IEffect<'area'> {
     const radius = rankValue(def.radius, ctx.rank) * (1 + ctx.mods.aoeRadius);
     const direction = def.offsetDeg ? rotate(ctx.direction, def.offsetDeg) : ctx.direction;
     events.emit('AreaTriggered', {
+      ...(def.offsetDeg ? { offsetDeg: def.offsetDeg } : {}),
       skillId: ctx.skill.id,
       position: center,
       radius,

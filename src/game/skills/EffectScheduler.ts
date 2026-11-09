@@ -37,6 +37,8 @@ export interface Zone {
   exclusive: boolean;
   /** 外觀（Render 用） */
   look?: ZoneEffectDef['look'];
+  /** 殺傷力的外觀階級（手動指定；Render 用） */
+  fxTier?: ZoneEffectDef['fxTier'];
   effects: readonly EffectDef[];
 }
 
@@ -99,6 +101,7 @@ export class EffectScheduler implements EffectSchedulerPort {
       followCaster: def.followCaster,
       exclusive: def.exclusive,
       ...(def.look ? { look: def.look } : {}),
+      ...(def.fxTier ? { fxTier: def.fxTier } : {}),
       effects: def.effects,
     });
   }
@@ -125,7 +128,12 @@ export class EffectScheduler implements EffectSchedulerPort {
       const c = Math.cos(spin);
       const s = Math.sin(spin);
       const direction = spin === 0 ? ctx.direction : vec2(ctx.direction.x * c - ctx.direction.y * s, ctx.direction.x * s + ctx.direction.y * c);
-      const center = def.spacing > 0 ? this.inLine(ctx.origin, ctx.direction, (i - (def.repeat - 1) / 2) * def.spacing) : ctx.origin;
+      const center =
+        def.advance > 0
+          ? vec2(ctx.origin.x + ctx.direction.x * (i + 0.5) * def.advance, ctx.origin.y + ctx.direction.y * (i + 0.5) * def.advance)
+          : def.spacing > 0
+            ? this.inLine(ctx.origin, ctx.direction, (i - (def.repeat - 1) / 2) * def.spacing)
+            : ctx.origin;
       let position = this.scatter(center, def.scatter);
       for (let attempt = 0; def.minApart > 0 && attempt < 12 && placed.some((p) => Math.hypot(p.x - position.x, p.y - position.y) < def.minApart); attempt++) position = this.scatter(center, def.scatter);
       placed.push(position);

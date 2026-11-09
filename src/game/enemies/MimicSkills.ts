@@ -1,7 +1,5 @@
 import type { Rng } from '../../core/Rng';
 import type { DataTable } from '../../data/DataRegistry';
-import { rankValue } from '../../data/schema/common';
-import { nestedEffects, type EffectDef } from '../../data/schema/effects';
 import type { Balance } from '../../data/schema/balance';
 import type { EnemyDef } from '../../data/schema/enemy';
 import type { SkillCategory, SkillDef } from '../../data/schema/skill';
@@ -90,22 +88,14 @@ export function rollSpellbook(def: EnemyDef, floor: number, elite: boolean, skil
   return { basic: pick(basicRoll).basic, spells: spells.filter((id): id is string => id !== undefined) };
 }
 
-/** 一招裡倍率最高的一下（等級 rank） */
-function maxHitMultiplier(effects: readonly EffectDef[], rank: number): number {
-  return Math.max(0, ...effects.map((e) => (e.type === 'damage' ? rankValue(e.multiplier, rank) : maxHitMultiplier(nestedEffects(e), rank))));
-}
-
-/** 學會法術書：招式等級隨樓層（一般法師有上限）；精英固定 1 級，倍率太高的招把整隻的傷害往下調，瞬間傷害才不會超過 30% */
-export function teachSpellbook(actor: Actor, roll: SpellbookRoll, floor: number, skills: DataTable<SkillDef>, mimic: Balance['enemyMimic'], config: Balance['mageSpellbook']): void {
+/** 學會法術書：招式等級隨樓層（一般法師有上限）；精英固定 1 級 */
+export function teachSpellbook(actor: Actor, roll: SpellbookRoll, floor: number, mimic: Balance['enemyMimic'], config: Balance['mageSpellbook']): void {
   if (!actor.ai) return;
   const rank = actor.elite ? 1 : Math.min(config.maxRank, mimicRank(floor, mimic));
   actor.skillRanks.set(roll.basic, 1);
   actor.ai.skillId = roll.basic;
   for (const id of roll.spells) actor.skillRanks.set(id, rank);
   actor.ai.specialSkills = roll.spells;
-  if (!actor.elite) return;
-  const highest = Math.max(maxHitMultiplier(skills.get(roll.basic).effects, 1), ...roll.spells.map((id) => maxHitMultiplier(skills.get(id).effects, rank)));
-  if (highest > config.eliteMaxMultiplier) actor.stats.addModifier({ stat: 'damageBonus', kind: 'flat', value: config.eliteMaxMultiplier / highest - 1, source: 'spellbook' });
 }
 
 /** 物理系 / 法術系：原本的技能有 spell 標籤就是法術系 */

@@ -186,8 +186,6 @@ export const BalanceSchema = z.strictObject({
     eliteChance: z.number().min(0).max(1),
     /** 一般法師的招式等級上限（精英固定 1 級） */
     maxRank: z.int().min(1).max(5),
-    /** 精英一下的倍率上限（武器傷害的倍數）：會更高倍率的招就把整隻的傷害往下調，瞬間傷害才不會超過主角最大生命的 30% */
-    eliteMaxMultiplier: z.number().positive(),
   }),
   /** 怪物的集體戰術（AiSystem 的 SquadTactics） */
   enemyTactics: z.strictObject({

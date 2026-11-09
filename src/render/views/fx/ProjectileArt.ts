@@ -9,7 +9,7 @@ import { mix, type FxParticleKind } from './FxColors';
  * special（成功組成 Combo 的招式）換成金色調並加亮。
  */
 
-export type ArrowKind = 'plain' | 'pierce' | 'wind' | 'charge' | 'small' | 'dust' | 'weak' | 'rapid' | 'spin' | 'execute' | 'phantom' | 'bone' | 'knife' | 'hook';
+export type ArrowKind = 'plain' | 'pierce' | 'wind' | 'charge' | 'small' | 'dust' | 'weak' | 'rapid' | 'spin' | 'execute' | 'phantom' | 'bone' | 'knife' | 'hook' | 'vblade';
 export type OrbKind = 'fire' | 'ice' | 'spark' | 'lance' | 'frostBolt' | 'poison' | 'spore' | 'glob' | 'shard' | 'axe' | 'bolt' | 'spider';
 
 export interface ProjectileArt {
@@ -43,6 +43,8 @@ const ARTS: Record<string, ProjectileArt> = {
   'ranged.execution_shot': arrow('execute', 0xff2a3a, 0xffd0a0, 'ember', 1.8, 70),
   'ranged.mark_shot': arrow('phantom', 0xb49aff, 0xf0e8ff, 'mote', 1.1, 30),
   'enemy.bow_shot': arrow('bone', 0xd8ccb0, 0xf0e8d8),
+  'enemy.blade_wave': arrow('vblade', 0xcfe0f0, 0xffffff),
+  'enemy.frost_wave': arrow('vblade', 0x8fd4ff, 0xeaf8ff),
   'enemy.frost_arrow': arrow('bone', 0x9ad8ff, 0xeaf8ff, 'flake', 1, 14),
   'enemy.venom_arrow': arrow('bone', 0x8ed04a, 0xe0ffb0, 'drop', 1, 14),
   'magic.fireball': orb('fire', 0xff6a1a, 0xffe070, 'ember', 1, 55),
@@ -100,6 +102,7 @@ export function drawProjectile(g: Graphics, art: ProjectileArt, t: number, speci
 
 function drawArrow(g: Graphics, art: ProjectileArt, t: number): void {
   if (art.kind === 'knife') return drawKnife(g, art);
+  if (art.kind === 'vblade') return drawVBlade(g, art);
   if (art.kind === 'hook') return drawHook(g, art);
   const k = art.size;
   const L = (art.kind === 'rapid' ? 16 : art.kind === 'pierce' ? 24 : 20) * k;
@@ -187,6 +190,14 @@ function drawArrow(g: Graphics, art: ProjectileArt, t: number): void {
 }
 
 /** 淬毒飛刀：鋼刃兩面（亮 / 暗）、纏布刀柄，刀刃滴著毒 */
+/** 劍氣：白色的窄 V，尖端朝飛行方向 */
+function drawVBlade(g: Graphics, art: ProjectileArt): void {
+  const k = art.size;
+  const pts = [-34 * k, -5 * k, 16 * k, 0, -34 * k, 5 * k];
+  g.poly(pts, false).stroke({ color: art.color, width: 4.5, alpha: 0.28, join: 'miter' });
+  g.poly(pts, false).stroke({ color: art.core, width: 1.8, alpha: 0.95, join: 'miter' });
+}
+
 function drawKnife(g: Graphics, art: ProjectileArt): void {
   const k = art.size;
   g.moveTo(-8 * k, 0).lineTo(-20 * k, 0).stroke({ color: art.color, width: 1.2, alpha: 0.35 });

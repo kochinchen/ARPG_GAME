@@ -19,7 +19,8 @@ export class ProjectileEffect implements IEffect<'projectile'> {
     for (let i = 0; i < count; i++) {
       // 扇形：平均分布在 spread 內；環狀：360° 等分
       const offset = count === 1 ? 0 : ring ? (spread * i) / count : -spread / 2 + (spread * i) / (count - 1);
-      const direction = rotate(base, offset);
+      const scatter = def.scatterDeg > 0 ? (ctx.services.rng.range(-def.scatterDeg / 2, def.scatterDeg / 2) * Math.PI) / 180 : 0;
+      const direction = rotate(base, offset + scatter);
       // 從施放者（或分裂來源）身體邊緣發射
       const start = add(ctx.origin, scale(direction, (ctx.spawnFrom ?? ctx.caster).radius + def.originForward));
       ctx.services.spawnProjectile({

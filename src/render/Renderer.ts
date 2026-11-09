@@ -9,6 +9,7 @@ import type { DataRegistry } from '../data/DataRegistry';
 import { MATERIAL_LABELS, type MaterialId } from '../data/schema/item';
 import type { Actor, ActorId } from '../game/entities/Actor';
 import { originalSkillId } from '../game/enemies/MimicSkills';
+import { PATH_REACH as DASH_PATH_REACH } from '../game/skills/effects/DashEffect';
 import type { GameWorld } from '../game/GameWorld';
 import { equippedItems, gearAura } from '../game/items/GearAura';
 import { coreTypeColor } from './icons/CoreIcons';
@@ -172,6 +173,8 @@ export class Renderer {
           // 迴旋的飛斧：畫出來回的直線
           if (area.type === 'projectile' && area.returns) this.effects.spawnTelegraph(attacker.position, area.range, e.direction, 360, e.impactIn, active, { length: area.range, width: area.radius * 2 + 0.3 });
           else if (area.type === 'projectile') this.effects.spawnTelegraph(attacker.position, area.range + area.originForward, e.direction, Math.max(rankValue(area.spreadDeg, 1) + 12, 16), e.impactIn, active);
+          // 穿越的衝刺（蹬輪突刺）：路徑上的目標都會被打中，標出整條路線
+          if (area.type === 'dash' && area.passThrough) this.effects.spawnTelegraph(attacker.position, area.distance, e.direction, 360, e.impactIn, active, { length: area.distance, width: (attacker.radius + DASH_PATH_REACH) * 2 });
           if (area.type !== 'area' && area.type !== 'zone') continue;
           const direction = area.type === 'area' && area.offsetDeg ? rotate(e.direction, area.offsetDeg) : e.direction;
           // 直線範圍從施放者腳下延伸（衝鋒也是：先標出整條衝撞路線）
@@ -229,8 +232,10 @@ export class Renderer {
         special: e.special,
         skillId: e.skillId,
         element: e.element,
+        ...(e.offsetDeg ? { side: Math.sign(e.offsetDeg) } : {}),
+        ...(e.pathLength ? { pathLength: e.pathLength } : {}),
         // 魔法與元素攻擊、Combo 特別招、裝備特效會發光；物理的近戰與箭不發光
-        glow: (e.element !== null && e.element !== 'physical') || e.special || itemFxColor(e.skillId, e.element) !== null,
+        glow: e.skillId !== 'enemy.gaze_beam' && ((e.element !== null && e.element !== 'physical') || e.special || itemFxColor(e.skillId, e.element) !== null),
       });
     });
     // 牽制射擊：被緩速的敵人腰部拉出束縛線
@@ -751,6 +756,14 @@ const BARRAGE_MOTION = 0.3;
 /** 各招專屬的命中特效（沒有列出的依元素 / 標籤 / 範圍決定） */
 const SKILL_FX: Record<string, ImpactKind> = {
   'enemy.acid_spray': 'acid',
+  'enemy.wheel_whirl': 'whirl',
+  'enemy.twin_thrust': 'sickle',
+  'enemy.wheel_lunge': 'lunge',
+  'enemy.ember_lunge': 'lunge',
+  'enemy.saw_lunge': 'lunge',
+  'enemy.frost_whirl': 'whirl',
+  'enemy.saw_whirl': 'whirl',
+  'enemy.gaze_beam': 'laser',
   'melee.heavy_slash': 'cleave',
   'melee.armor_break': 'sunder',
   'melee.earth_break': 'shockwave',
@@ -784,6 +797,7 @@ export function impactKind(skillId: string, tags: readonly string[], element: st
 }
 
 function attackVariant(tags: readonly string[]): AttackVariant | undefined {
+  if (tags.includes('thrust')) return 'thrust';
   if (tags.includes('heavy')) return 'overhead';
   if (tags.includes('area')) return 'slash';
   return undefined;

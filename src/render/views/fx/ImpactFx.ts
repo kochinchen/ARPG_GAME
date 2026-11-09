@@ -36,7 +36,13 @@ export type ImpactKind =
   /** 鑽地、破土：土石紛飛，地上留一個洞 */
   | 'dirt'
   /** 酸液噴灑：扇形的毒液，留在地上冒泡、冒煙 */
-  | 'acid';
+  | 'acid'
+  /** 鐵輪劍獸的連刺：從側面掃到正前方、往前送的鐮刀 */
+  | 'sickle'
+  /** 鐵輪劍獸的突刺：聚焦衝向一方的白色速度線，落點土石紛飛 */
+  | 'lunge'
+  /** 凝視者的直線光束（radius = 長度） */
+  | 'laser';
 
 export interface ImpactInput {
   kind: ImpactKind;
@@ -56,6 +62,10 @@ export interface ImpactInput {
   element?: string | null;
   /** 粗細倍率（落雷；雷殛重甲的重擊是一大道粗落雷） */
   thick?: number;
+  /** 鐮刀從哪一側掃過來（±1） */
+  side?: number;
+  /** 位移的距離（World；速度線的長度） */
+  pathLength?: number;
 }
 
 interface Particle {
@@ -94,9 +104,9 @@ interface Chain {
 }
 
 /** 各招專屬特效（drawSignature 處理） */
-const SIGNATURE = new Set<ImpactKind>(['cleave', 'sunder', 'crater', 'shieldBash', 'tremor', 'uppercut', 'execute', 'phantom', 'dash', 'rift', 'flash']);
+const SIGNATURE = new Set<ImpactKind>(['laser', 'sickle', 'lunge', 'cleave', 'sunder', 'crater', 'shieldBash', 'tremor', 'uppercut', 'execute', 'phantom', 'dash', 'rift', 'flash']);
 /** 這些特效沒有開頭的白色地面閃光（斬擊類只有弧光） */
-const NO_FLASH = new Set<ImpactKind>(['acid', 'dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
+const NO_FLASH = new Set<ImpactKind>(['laser', 'sickle', 'lunge', 'acid', 'dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
 
 const CHAIN_TIME = 0.38;
 const HEIGHT = 30;
@@ -105,6 +115,9 @@ const DURATION: Record<ImpactKind, number> = {
   fire: 0.75,
   dirt: 1.1,
   acid: 2,
+  sickle: 0.42,
+  lunge: 0.62,
+  laser: 0.3,
   frost: 0.95,
   lightning: 0.55,
   poison: 0.8,
@@ -321,6 +334,18 @@ export class ImpactFx {
       case 'phantom':
         burst('mote', 14, 0xc8b4ff, 1.4, 14);
         break;
+      case 'laser':
+        this.addShake(2);
+        break;
+      case 'lunge': {
+        // 落點往前噴的土石
+        for (let i = 0; i < 70; i++) {
+          const q = this.screen(vec2(input.position.x + input.direction.x * rand(0.2, 2) - input.direction.y * rand(-1.3, 1.3), input.position.y + input.direction.y * rand(0.2, 2) + input.direction.x * rand(-1.3, 1.3)));
+          this.emit(i % 3 ? 'debris' : 'dust', q.x, q.y - 4, i % 2 ? 0x6a5a4a : 0x8a7a66, 1.5);
+        }
+        this.addShake(3);
+        break;
+      }
       case 'dash':
         burst('wind', 8, 0xe8f0ff, 1, 10);
         burst('dust', 5, 0x8a7a66, 1);
@@ -860,6 +885,65 @@ export class ImpactFx {
           if (tk <= 0 || tk >= 1) continue;
           const off = (im.seeds[k]! - 0.5) * 1.6;
           this.crescent(im, { span: Math.PI * 0.45, radius: R * (0.8 + im.seeds[k + 5]! * 0.3), width: 0.25, lift: 10 + k * 3, sweep: easeOut(clamp01(tk * 2)), color: 0xc8b4ff, alpha: 0.6 * (1 - tk), edge: 1.5, offset: off });
+        }
+        break;
+      }
+      case 'laser': {
+        if (!live) break;
+        // 從眼睛射出的光束：外層紫藍、核心亮白，越來越細
+        const from = this.screen(im.position);
+        const to = this.screen(vec2(im.position.x + im.direction.x * im.radius, im.position.y + im.direction.y * im.radius));
+        const line = (width: number, color: number, alpha: number) => tg.moveTo(from.x, from.y - 34).lineTo(to.x, to.y - 10).stroke({ color, width, alpha });
+        line(22 * fade, 0x8a70ff, 0.35 * fade);
+        line(10 * fade, 0xd0c8ff, 0.8 * fade);
+        line(3.5 * fade, 0xffffff, fade);
+        break;
+      }
+      case 'sickle': {
+        if (!live) break;
+        // 一把粗的鐮刀＋兩道細的弧線：頭從側面掃到正前方，整組同時往前送
+        const side = im.side ?? 1;
+        const k = easeOut(clamp01(t * 3.4));
+        const forward = im.radius * 0.65 * k;
+        const point = (a: number, r: number): [number, number] => {
+          const q = this.screen(vec2(im.position.x + im.direction.x * forward + Math.cos(a) * r, im.position.y + im.direction.y * forward + Math.sin(a) * r));
+          return [q.x, q.y - 16];
+        };
+        const steps = 20;
+        for (let layer = 0; layer < 3; layer++) {
+          const head = dir + side * (1.35 - 1.9 * k - layer * 0.14);
+          const radius = im.radius * (1.08 - layer * 0.17);
+          const edge: number[] = [];
+          const inner: number[] = [];
+          for (let i = 0; i <= steps; i++) {
+            const u = i / steps;
+            const a = head + side * 1.9 * u;
+            edge.push(...point(a, radius));
+            inner.unshift(...point(a, radius * (1 - Math.sin(u * Math.PI) ** 0.8 * 0.38)));
+          }
+          if (layer === 0) tg.poly([...edge, ...inner]).fill({ color: 0xe8f0ff, alpha: 0.8 * fade });
+          tg.poly(edge, false).stroke({ color: 0xffffff, width: layer === 0 ? 3 : 1.6, alpha: (layer === 0 ? 1 : 0.7) * fade });
+        }
+        break;
+      }
+      case 'lunge': {
+        // 從後方四散的起點，快速聚焦衝向落點前方的白線
+        const length = im.pathLength ?? 5;
+        const ux = im.direction.x;
+        const uy = im.direction.y;
+        const focus = vec2(im.position.x + ux * 0.8, im.position.y + uy * 0.8);
+        for (let i = 0; i < 22; i++) {
+          const u = (t - im.seeds[i]! * 0.16) / 0.24;
+          if (u <= 0 || u >= 1.5) continue;
+          const back = length * (0.55 + im.seeds[i + 22]! * 0.6);
+          const across = (im.seeds[(i + 11) % 48]! - 0.5) * 5;
+          const sx = im.position.x - ux * back - uy * across;
+          const sy = im.position.y - uy * back + ux * across;
+          const along = (v: number) => this.screen(vec2(sx + (focus.x - sx) * v, sy + (focus.y - sy) * v));
+          const a = along(clamp01(u - 0.5));
+          const b = along(clamp01(u));
+          const alpha = u < 1 ? 0.95 : 1.5 * (1.5 - u) * 0.95;
+          tg.moveTo(a.x, a.y - 14).lineTo(b.x, b.y - 14).stroke({ color: 0xffffff, width: 1 + im.seeds[i + 5]! * 1.6, alpha });
         }
         break;
       }

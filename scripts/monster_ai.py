@@ -35,6 +35,7 @@ import sys
 import bmesh
 import bpy
 from mathutils import Matrix, Vector
+from mathutils.bvhtree import BVHTree
 
 args = sys.argv[sys.argv.index("--") + 1:]
 folder, out_json = args[0], args[1]
@@ -48,14 +49,20 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
+TRIS_OF.update({"wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
-ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90}
+ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
 SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032, "abyss_hand": 0.04, "abyss_hand_hand": 0.032}
 
+# 鐵輪劍獸的輪軸（Blender 的 y、z）
+WHEEL_CENTER = (0.156, -0.184)
+
 # 生成時多出來、要切掉的部分（Blender 座標、減面前判斷；整個三角形都在範圍內才刪）
 CLEANUP = {
+    # 鐵輪劍獸：TRELLIS 把正面與側面的手臂混在一起，前臂後面多長了一束劍；輪子前面多一塊半圓（輪子修成圓形）
+    "wheel_sword_beast": lambda p: (abs(p.x) > 0.26 and ((p.y > 0.05 and p.z < -0.02) or (p.y > 0.075 and p.z < 0.03)))
+    or (0.07 < abs(p.x) < 0.235 and p.z < 0 and p.y < 0.1 and math.hypot(p.y - WHEEL_CENTER[0], p.z - WHEEL_CENTER[1]) > 0.155),
     # 深淵統御者：TRELLIS 把左右側面的尾巴混在一起，身體正前方多長出一條垂到地上的尾巴
     "abyss_sovereign": lambda p: p.y < -0.33 and abs(p.x) < 0.1 and p.z > -0.42,
     # 骨龍：TRELLIS 每邊多生一隻中間的腳（設計是四隻腳），切掉腳掌與小腿
@@ -418,7 +425,38 @@ def add_beetle_gun(bm):
             bm.faces.new((a[k], b[k2], a[k2]))
 
 
-AFTER_DECIMATE = {"abyss_dragon_tail": lengthen_tail, "acid_beetle": add_beetle_gun}
+# 單眼浮體的瞳孔：減面後貼圖的十字看不出來，另外做一顆貼在眼球上的四角光芒（外層金色、內層亮白；x 半寬、z 半高、凹處半徑）
+EYE_STAR = {"center": (0.0, 0.05), "layers": [(0.125, 0.118, 0.044, 0.004, 0xffd21e), (0.07, 0.066, 0.025, 0.014, 0xfff8c8)]}
+EYE_STAR_VERTS = {}
+
+
+def add_eye_star(bm):
+    bm.faces.ensure_lookup_table()
+    tree = BVHTree.FromBMesh(bm)
+    cx, cz = EYE_STAR["center"]
+
+    def on_eye(x, z, out):
+        hit, *_ = tree.ray_cast(Vector((x, -1.0, z)), Vector((0, 1, 0)))
+        v = bm.verts.new(Vector((x, hit.y - out, z)))
+        return v
+
+    made = []
+    for rx, rz, inner, out, color in EYE_STAR["layers"]:
+        ring = []
+        for k in range(8):
+            a = math.pi * k / 4
+            # 偶數是四個尖角，奇數是尖角之間的凹處
+            px, pz = (rx * math.cos(a), rz * math.sin(a)) if k % 2 == 0 else (inner * math.cos(a), inner * math.sin(a))
+            ring.append(on_eye(cx + px, cz + pz, out))
+        made.append((on_eye(cx, cz, out + 0.002), ring, color))
+    for center, ring, color in made:
+        for x in [center, *ring]:
+            EYE_STAR_VERTS[tuple(round(c, 4) for c in x.co)] = color
+        for k in range(8):
+            bm.faces.new((center, ring[k], ring[(k + 1) % 8]))
+
+
+AFTER_DECIMATE = {"abyss_dragon_tail": lengthen_tail, "acid_beetle": add_beetle_gun, "eye_floater": add_eye_star}
 
 
 def to_int(r, g, b):
@@ -449,7 +487,7 @@ def load(path, tris, name, cut=None):
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(cut(v.co) for v in f.verts)], context="FACES")
         bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
         # 骨龍：切掉多餘的腳留下的開口補起來，否則從旁邊看得到身體裡面（補的面沒有貼圖，下面當黑面處理）
-        if name.startswith(("bone_dragon", "abyss_hand", "acid_beetle")):
+        if name.startswith(("bone_dragon", "abyss_hand", "acid_beetle", "wheel_sword_beast")):
             bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
     base = name[:-3] if name.endswith("_ai") else name
     if base in RESHAPE:
@@ -1122,6 +1160,46 @@ def in_hound_jaw(p):
     return abs(p.x) < 0.08 and p.y > -0.45 and p.z < -0.02 + (p.y + 0.345) * 0.65 and p.y < -0.345
 
 
+def wheel_beast_zone(p, bone):
+    """輪子是獨立的剛體（整顆一起轉）；手臂和身體分開，肩上的骨板與水晶跟身體"""
+    in_wheel = 0.075 < abs(p.x) < 0.24 and math.hypot(p.y - WHEEL_CENTER[0], p.z - WHEEL_CENTER[1]) < 0.175
+    if bone.startswith("thigh"):
+        return in_wheel
+    if in_wheel:
+        return False
+    if bone.startswith(("upperArm", "forearm", "hand")):
+        return abs(p.x) > 0.235 and p.z < 0.11
+    return abs(p.x) < 0.3 or p.z > 0.03
+
+
+def eye_floater_zone(p, bone):
+    """眼球（連眼瞼以內）跟 head；觸手只拿身體以下的部分"""
+    in_eye = p.y < -0.16 and math.hypot(p.x, (p.z - 0.025) * 1.6) < 0.2
+    if bone == "head":
+        return in_eye
+    if in_eye:
+        return False
+    if bone == "root":
+        return p.z > -0.26
+    return p.z < -0.17
+
+
+def in_spider_body(p):
+    return (p.x / 0.31) ** 2 + ((p.y - 0.1) / 0.3) ** 2 + ((p.z - 0.03) / 0.23) ** 2 < 1
+
+
+def hatchling_zone(p, bone):
+    """腳和腹部分開；前面兩根觸肢（shin）跟頭"""
+    palp = 0.08 < abs(p.x) < 0.26 and p.y < -0.2 and p.z < -0.05
+    if bone.startswith("shin"):
+        return palp
+    if palp:
+        return False
+    if bone.startswith(("upperArm", "forearm", "hand", "thigh", "ex_leg")):
+        return not in_spider_body(p) and abs(p.x) > 0.16
+    return in_spider_body(p) or abs(p.x) < 0.2
+
+
 def bone_hound_zone(p, bone):
     """腿只能拿腿的位置：肋骨與背上的骨刺跟身體，腳掌不被身體搶走；下顎只有嘴下半部"""
     if bone == "jaw":
@@ -1263,6 +1341,9 @@ ZONES["ghoul"] = lambda p, bone: (not bone.startswith(("head", "neck")) or p.y <
 _VENOM_ARMS = limb_zone(lambda p: ((p.z > 0.08 and abs(p.x) > 0.2) or abs(p.x) > 0.285) and p.y < 0.08 and p.z < 0.25, lambda p: True)
 ZONES["venom_ghoul"] = lambda p, bone: (not bone.startswith(("head", "neck")) or p.y < -0.1) and _VENOM_ARMS(p, bone)
 ZONES["bone_hound"] = bone_hound_zone
+ZONES["wheel_sword_beast"] = wheel_beast_zone
+ZONES["eye_floater"] = eye_floater_zone
+ZONES["hatchling_spider"] = hatchling_zone
 ZONES["acid_beetle"] = acid_beetle_zone
 ZONES["void_spore"] = lambda p, bone: (bone != "head" or (p.y < -0.3 and math.hypot(p.x, p.z) < 0.17)) and (not re.match(r"(upperArm|forearm|hand|thigh|shin|foot)", bone) or p.z < -0.3)
 def mage_zone(in_arm, boot_z):
@@ -1287,6 +1368,8 @@ ZONES["storm_mage"] = mage_zone(lambda p: abs(p.x) > (0.13 if p.z > 0.1 else 0.1
 ZONES["void_maw"] = ZONES["burrower"] = lambda p, bone: not bone.startswith("ex_mouth")
 JOINED = {n: limbs_joined for n in ("storm_mage", "skeleton_mage", "armored_skeleton", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "skeleton", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
 # 骨龍：嘴裡的東西碰到上顎的三角形，張嘴時會被拉成長條
+# 鐵輪劍獸：輪子是獨立的剛體，輪面和輪軸、身體之間的三角形切開，轉動時才不會拉出長條
+JOINED["wheel_sword_beast"] = lambda bones, ws: not (any(b.startswith("thigh") for b in bones) and any(not b.startswith("thigh") for b in bones))
 JOINED["bone_dragon"] = lambda bones, ws: not {"head", "jaw"} <= bones
 
 # 眼：爪碰到翅膀的三角形，收合時會被拉成長條
@@ -1339,7 +1422,63 @@ def acid_beetle():
     return bones + sides(side), {}
 
 
+def eye_floater():
+    """單眼浮體：身體（root）、正面的眼（head）、底下六條觸手（四條用舊版的關節名稱，外側兩條是 ex_tent，遊戲端跟著擺動）"""
+    bones = [("root", None, V((0, 0.02, -0.08)), V((0, 0.02, 0.2)), 0.24), ("head", "root", V((0, -0.16, 0.025)), V((0, -0.3, 0.025)), 0.1)]
+    for names, (x, y) in ((("upperArmL", "forearmL", "handL"), (0.09, -0.095)), (("upperArmR", "forearmR", "handR"), (-0.09, -0.095)),
+                          (("thighL", "shinL", "footL"), (0.095, 0.15)), (("thighR", "shinR", "footR"), (-0.095, 0.15)),
+                          (("ex_tentL0", "ex_tentL1", "ex_tentL2"), (0.225, 0.0)), (("ex_tentR0", "ex_tentR1", "ex_tentR2"), (-0.225, 0.0))):
+        pts = [V((x * k, y * k, z)) for k, z in ((0.85, -0.2), (0.97, -0.3), (1.0, -0.4), (1.0, -0.5))]
+        bones += chain(list(names), "root", pts, [0.055, 0.05, 0.045])
+    return bones, {}
+
+
+# 孵化蜘蛛八隻腳（由前到後，左半邊的腳尖 x、y）；腳根與膝蓋依腳尖的方向推算
+HATCHLING_LEGS = [("upperArm", 0.327, -0.379), ("forearm", 0.47, -0.19), ("hand", 0.485, -0.008), ("thigh", 0.424, 0.232)]
+
+
+def hatchling_spider():
+    """孵化蜘蛛：頭胸（root）、腹部（ponytail）、頭、兩根觸肢（shinL/R，掛在頭上）、八隻腳（關節名稱同 Creatures.arthropod）"""
+    bones = [
+        ("root", None, V((0, -0.12, -0.06)), V((0, 0.02, -0.03)), 0.2),
+        ("ponytail", "root", V((0, 0.02, 0.0)), V((0, 0.3, 0.05)), 0.24),
+        ("head", "root", V((0, -0.16, -0.08)), V((0, -0.33, -0.1)), 0.1),
+    ]
+
+    def side(s, m):
+        out = [(f"shin{s}", "head", m(V((0.12, -0.28, -0.1))), m(V((0.16, -0.39, -0.28))), 0.05)]
+        for i, (joint, x, y) in enumerate(HATCHLING_LEGS):
+            a, b, c = V((x * 0.45, y * 0.45, -0.09)), V((x * 0.72, y * 0.72, -0.05)), V((x, y, -0.28))
+            out.append((f"{joint}{s}", "root", m(a), m(b), 0.05))
+            out.append((f"ex_leg{s}{i}", f"{joint}{s}", m(b), m(c), 0.05))
+        return out
+
+    return bones + sides(side), {}
+
+
+def wheel_sword_beast():
+    """鐵輪劍獸：root 的原點在輪軸（身體前傾時輪子不會離地）；輪子用 thigh 的關節（原點在輪心，遊戲端繞 X 軸連續轉）；
+    手臂到束環是 upperArm、forearm，整束劍是 hand"""
+    wy, wz = WHEEL_CENTER
+    bones = [
+        ("root", None, V((0, wy, wz)), V((0, 0.17, -0.03)), 0.08),
+        ("torso", "root", V((0, 0.17, -0.03)), V((0, 0.03, 0.14)), 0.2),
+        ("neck", "torso", V((0, -0.03, 0.12)), V((0, -0.14, 0.12)), 0.08),
+        ("head", "neck", V((0, -0.14, 0.12)), V((0, -0.33, 0.09)), 0.09),
+    ]
+    arm = [V((0.24, 0.03, 0.09)), V((0.31, 0.0, 0.02)), V((0.35, -0.06, -0.075)), V((0.42, -0.19, -0.19))]
+
+    def side(s, m):
+        out = chain([f"upperArm{s}", f"forearm{s}", f"hand{s}"], "torso", [m(p) for p in arm], [0.07, 0.08, 0.09])
+        return out + [(f"thigh{s}", "root", m(V((0.13, wy, wz))), m(V((0.19, wy, wz))), 0.15)]
+
+    return bones + sides(side), {}
+
+
 SKELETONS = {
+    "wheel_sword_beast": wheel_sword_beast,
+    "eye_floater": eye_floater,
+    "hatchling_spider": hatchling_spider,
     "spider_queen": spider_queen,
     "abyss_lord": abyss_lord,
     "abyss_sovereign": abyss_sovereign,
@@ -1387,7 +1526,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
+JOINT_SOFT = {n: 0.04 for n in ("eye_floater", "hatchling_spider", "wheel_sword_beast", "bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
@@ -1600,6 +1739,12 @@ if NAME == "acid_beetle":
         f[3] = 0x2a2630 if max(radial) < BEETLE_GUN["bore"] + 0.002 else (0xa8ec48 if sum(pts, Vector()).z / 3 > gun_base.z - 0.02 else 0x8fd63a)
         painted += 1
     print("砲管的面", painted)
+# 單眼浮體瞳孔的四角光芒
+if NAME == "eye_floater":
+    for f in faces:
+        star = [EYE_STAR_VERTS.get(tuple(round(c, 4) for c in co[i])) for i in f[:3]]
+        if all(star):
+            f[3] = star[0]
 # 骨刺獵獸：上下顎之間的面張嘴時會被拉開，塗成口腔的暗紅色，看得出嘴是張開的
 if NAME == "bone_hound":
     mouth = 0

@@ -4,7 +4,7 @@ import type { EffectContext, IEffect } from './IEffect';
 import { directionBetween, slide } from './movement';
 
 /** 路徑命中的寬度（從施放者邊緣算起） */
-const PATH_REACH = 0.8;
+export const PATH_REACH = 0.8;
 /** 少走這麼多以上才算撞牆（Tile） */
 const WALL_SLACK = 0.15;
 
@@ -33,6 +33,13 @@ export class DashEffect implements IEffect<'dash'> {
     }
     ctx.origin = caster.position;
     if (def.onPath.length > 0) this.hitPath(def, ctx, start);
+    // 撞到牆（不是停在目標前）：往回彈
+    if (def.wallBounce && moved < full - WALL_SLACK && !stop?.()) {
+      ctx.services.events.emit('ActorCrashed', { actorId: caster.id, position: caster.position, duration: 0 });
+      slide(caster, scale(direction, -1), def.wallBounce, ctx.services.nav);
+      caster.path = [];
+      ctx.origin = caster.position;
+    }
   }
 
   /** 突進斬：對起點到終點之間的敵人執行 onPath */
@@ -47,6 +54,7 @@ export class DashEffect implements IEffect<'dash'> {
     ctx.services.events.emit('AreaTriggered', {
       skillId: ctx.skill.id,
       position: end,
+      pathLength: distance(start, end),
       radius: reach,
       element: 'physical',
       direction: ctx.direction,

@@ -124,7 +124,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     castTimeMultiplier: 1.5,
   },
   // 法師的法術書（設計者 2026-11-08）
-  mageSpellbook: { upper: { fromFloor: 6, toFloor: 30, chance: [0.1, 0.5] }, eliteChance: 0.25, maxRank: 3, eliteMaxMultiplier: 0.85 },
+  mageSpellbook: { upper: { fromFloor: 6, toFloor: 30, chance: [0.1, 0.5] }, eliteChance: 0.25, maxRank: 3 },
   // 怪物的集體戰術（設計者 2026-10-30，參考孫子兵法）：呼朋引伴、包圍站位（圍師必闕）、後排站在前排後方
   enemyTactics: {
     alertRadius: 6,

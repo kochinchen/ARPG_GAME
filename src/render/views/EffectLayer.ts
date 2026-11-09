@@ -6,6 +6,7 @@ import type { Projectile } from '../../game/entities/Projectile';
 import type { PendingEffect, Zone } from '../../game/skills/EffectScheduler';
 import { originalSkillId } from '../../game/enemies/MimicSkills';
 import { firstElement } from '../../game/skills/effects/AreaEffect';
+import { ZONE_TIER_LOOK, zoneTier, type ZoneTier } from './fx/ZoneTier';
 import { figureScale } from '../figure/FigureModel';
 import { PROJECTILE_MODELS } from '../figure/Monsters';
 import { PolyFigure } from '../figure/PolyFigure';
@@ -51,6 +52,9 @@ export interface FxGlow {
   id: string;
   /** 哪一招（火牆的火焰、隕石、電擊的殘影依招式畫） */
   skillId?: string;
+  /** 地面持續區域的屬性與殺傷力階級（Three.js 畫法依此不斷冒出火焰、冰晶、電光、毒泡泡） */
+  element?: string | null;
+  tier?: ZoneTier;
   kind: 'orb' | 'flash' | 'zone' | 'pending';
   position: Vec2;
   height: number;
@@ -133,6 +137,8 @@ export class EffectLayer {
   private readonly telegraphs: Telegraph[] = [];
   private readonly projectileViews = new Map<number, ProjectileView>();
   private three: FigureHost | null = null;
+  /** 地面持續區域上每幀重畫的特效層 */
+  private readonly zoneFx = new Map<number, Graphics>();
   private readonly zoneViews = new Map<number, Graphics>();
   /** 區域生成時的畫面位置（跟著施放者移動的區域用來算位移） */
   private readonly zoneOrigins = new Map<number, { x: number; y: number }>();
@@ -264,11 +270,19 @@ export class EffectLayer {
     }
   }
 
+  /** 沒有 Three.js 時才全部畫平面的火舌 / 冰晶；Three.js 畫法由 ThreeSkillFx 放立體的，這裡只補二階以上的電弧 */
+  private zoneHasFx(zone: Zone, element: string | null, tier: ZoneTier): boolean {
+    if (zone.followCaster || !element) return false;
+    return !this.listener || (element === 'lightning' && tier >= 2);
+  }
+
   /** 地面持續區域：半透明圓，閃爍表示仍在作用 */
   private syncZones(zones: readonly Zone[], dt: number): void {
     const seen = new Set<number>();
     for (const zone of zones) {
       seen.add(zone.id);
+      const element = zone.followCaster ? null : zoneFxElement(zone);
+      const tier = zoneTier(zone);
       if (zone.look === 'acid') continue;
       if (zone.look === 'darkDomain') {
         this.syncDomain(zone, dt);
@@ -277,9 +291,16 @@ export class EffectLayer {
       let g = this.zoneViews.get(zone.id);
       if (!g) {
         const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
-        g = new Graphics().poly(this.outline(zone.position, zone.radius)).fill({ color, alpha: zone.followCaster ? 0.1 : 0.28 }).stroke({ color, width: 2, alpha: 0.8 });
-        // 隱藏魔王的腐液：依屬性加上燃燒、冰柱、電弧、毒泡泡
-        if (zone.exclusive) g.addChild(new Graphics());
+        // 殺傷力分三階（物理的區域沒有階級，維持原樣）
+        const look = element ? ZONE_TIER_LOOK[tier] : null;
+        g = new Graphics().poly(this.outline(zone.position, zone.radius)).fill({ color, alpha: zone.followCaster ? 0.1 : (look?.fill ?? 0.28) }).stroke({ color, width: look?.stroke ?? 2, alpha: 0.8 });
+        if (element && tier === 3) drawZoneCracks(g, zone, element, (x, y) => this.projection.toScreen(vec2(x, y)));
+        // 不斷冒出的特效：Three.js 畫法由 ThreeSkillFx 放立體的，這裡只畫電弧；沒有 Three.js 時全部畫在這裡
+        if (this.zoneHasFx(zone, element, tier)) {
+          const fx = new Graphics();
+          g.addChild(fx);
+          this.zoneFx.set(zone.id, fx);
+        }
         this.ground.addChild(g);
         this.zoneViews.set(zone.id, g);
         this.zoneOrigins.set(zone.id, this.projection.toScreen(zone.position));
@@ -290,19 +311,19 @@ export class EffectLayer {
         const now = this.projection.toScreen(zone.position);
         g.position.set(now.x - from.x, now.y - from.y);
       }
-      g.alpha = 0.7 + 0.3 * Math.sin(performance.now() / 90 + zone.id);
-      if (zone.exclusive) {
-        g.alpha = 1;
-        drawZoneElement(g.children[0] as Graphics, zone, zoneElement(zone.effects), performance.now() / 1000, (x, y) => this.projection.toScreen(vec2(x, y)));
-      }
+      const look = ZONE_TIER_LOOK[element ? tier : 2];
+      g.alpha = 1 - look.pulse + look.pulse * Math.sin(performance.now() / look.period + zone.id);
+      const fx = this.zoneFx.get(zone.id);
+      if (fx) drawZoneElement(fx, zone, zoneElement(zone.effects), performance.now() / 1000, (x, y) => this.projection.toScreen(vec2(x, y)), tier);
       // 持續區域一直亮著（火牆、毒池、冰霜地面），亮度隨閃爍起伏
       const color = ELEMENT_COLORS[zoneElement(zone.effects)] ?? 0xff7a2a;
-      this.glows.push({ skillId: originalSkillId(zone.ctx.skill.id), id: `z${zone.id}`, kind: 'zone', position: zone.position, height: ZONE_GLOW_HEIGHT, color, strength: 0.55 * g.alpha, radius: zone.radius, t: 0 });
+      this.glows.push({ skillId: originalSkillId(zone.ctx.skill.id), element, tier, id: `z${zone.id}`, kind: 'zone', position: zone.position, height: ZONE_GLOW_HEIGHT, color, strength: look.light * g.alpha, radius: zone.radius, t: 0 });
     }
     for (const [id, g] of this.zoneViews) {
       if (seen.has(id)) continue;
       g.destroy({ children: true });
       this.zoneViews.delete(id);
+      this.zoneFx.delete(id);
       this.zoneOrigins.delete(id);
     }
     for (const [id, domain] of this.domains) {
@@ -494,9 +515,43 @@ const zoneRand = (seed: number): number => {
 };
 
 /** 區域裡的屬性動畫：火焰往上竄、冰柱立在地上、電弧閃爍、毒泡泡冒出來破掉 */
-function drawZoneElement(g: Graphics, zone: Zone, element: string, now: number, toScreen: (x: number, y: number) => { x: number; y: number }): void {
+/** 地面持續區域的屬性（要不斷冒出特效的）；物理與純增益的區域回傳 null */
+function zoneFxElement(zone: Zone): string | null {
+  const element = firstElement(zone.effects);
+  if (element) return element === 'physical' ? null : element;
+  return zone.effects.some((e) => e.type === 'status' && (e.status === 'slow' || e.status === 'freeze')) ? 'cold' : null;
+}
+
+/** 三階的地面：熔岩紋、冰裂、焦痕，毒是發黑的地面（只畫一次） */
+function drawZoneCracks(g: Graphics, zone: Zone, element: string, toScreen: (x: number, y: number) => { x: number; y: number }): void {
+  const at = (a: number, r: number) => toScreen(zone.position.x + Math.cos(a) * r, zone.position.y + Math.sin(a) * r);
+  if (element === 'poison') {
+    const pts: number[] = [];
+    for (let i = 0; i < 20; i++) {
+      const p = at((i / 20) * Math.PI * 2, zone.radius * (0.55 + zoneRand(zone.id + i) * 0.3));
+      pts.push(p.x, p.y);
+    }
+    g.poly(pts).fill({ color: 0x0c1a08, alpha: 0.55 });
+    return;
+  }
+  const color = element === 'fire' ? 0xff7a24 : element === 'cold' ? 0xe8f8ff : 0xd8c4ff;
+  const n = Math.round(6 + zone.radius * 4);
+  for (let i = 0; i < n; i++) {
+    let a = (i / n) * Math.PI * 2 + zoneRand(zone.id * 3 + i) * 0.5;
+    const pts: number[] = [];
+    for (let k = 0; k <= 5; k++) {
+      const p = at(a, (zone.radius * 0.92 * k) / 5);
+      pts.push(p.x, p.y);
+      a += (zoneRand(zone.id + i * 7 + k) - 0.5) * 0.5;
+    }
+    g.poly(pts, false).stroke({ color: 0x0a0604, width: 3.5, alpha: 0.7 }).poly(pts, false).stroke({ color, width: 1.6, alpha: 0.95 });
+  }
+}
+
+function drawZoneElement(g: Graphics, zone: Zone, element: string, now: number, toScreen: (x: number, y: number) => { x: number; y: number }, tier: ZoneTier = 2): void {
   g.clear();
-  const count = Math.round(4 + zone.radius * 7);
+  const tierK = [0.6, 1, 1.4][tier - 1]!;
+  const count = Math.round((4 + zone.radius * 7) * [0.6, 1, 1.5][tier - 1]!);
   const spot = (i: number) => {
     const angle = zoneRand(zone.id * 7 + i) * Math.PI * 2;
     const r = Math.sqrt(zoneRand(zone.id * 13 + i * 3)) * zone.radius * 0.85;
@@ -504,7 +559,7 @@ function drawZoneElement(g: Graphics, zone: Zone, element: string, now: number, 
   };
   for (let i = 0; i < count; i++) {
     const p = spot(i);
-    const size = 0.6 + zoneRand(zone.id + i * 11) * 0.8;
+    const size = (0.6 + zoneRand(zone.id + i * 11) * 0.8) * tierK;
     const life = (now * (0.8 + zoneRand(i) * 0.7) + zoneRand(zone.id + i)) % 1;
     if (element === 'fire') {
       const h = 22 * size * (1 - life * 0.6);
@@ -512,10 +567,13 @@ function drawZoneElement(g: Graphics, zone: Zone, element: string, now: number, 
       const y = p.y - life * 10;
       g.poly([p.x - w, y, p.x + w, y, p.x, y - h]).fill({ color: life < 0.45 ? 0xffd24a : 0xff5a14, alpha: 0.9 * (1 - life) });
     } else if (element === 'cold') {
-      const h = 26 * size;
-      const w = 5 * size;
-      g.poly([p.x - w, p.y, p.x, p.y + w * 0.5, p.x, p.y - h]).fill({ color: 0x8fd8ff, alpha: 0.9 });
-      g.poly([p.x + w, p.y, p.x, p.y + w * 0.5, p.x, p.y - h]).fill({ color: 0xe4f8ff, alpha: 0.95 });
+      // 冰晶從地面長出來、停一下、碎掉，再換下一根
+      const grow = Math.min(1, life / 0.3);
+      const fade = life > 0.8 ? (1 - life) / 0.2 : 1;
+      const h = 26 * size * grow;
+      const w = 5 * size * grow;
+      g.poly([p.x - w, p.y, p.x, p.y + w * 0.5, p.x, p.y - h]).fill({ color: 0x8fd8ff, alpha: 0.9 * fade });
+      g.poly([p.x + w, p.y, p.x, p.y + w * 0.5, p.x, p.y - h]).fill({ color: 0xe4f8ff, alpha: 0.95 * fade });
     } else if (element === 'lightning') {
       if (i % 3 !== 0) continue;
       // 每秒換 12 次形狀，看起來在閃
@@ -527,7 +585,7 @@ function drawZoneElement(g: Graphics, zone: Zone, element: string, now: number, 
         points.push(p.x + (q.x - p.x) * t + (zoneRand(beat + i * 5 + k) - 0.5) * 16, p.y + (q.y - p.y) * t - 4 + (zoneRand(beat + i * 7 + k) - 0.5) * 12);
       }
       points.push(q.x, q.y - 4);
-      g.poly(points, false).stroke({ color: 0xd8c4ff, width: 2, alpha: 0.95 });
+      g.poly(points, false).stroke({ color: tier === 3 ? 0xf4ecff : 0xd8c4ff, width: tier === 3 ? 3.5 : 2, alpha: 0.95 });
       g.circle(p.x, p.y - 4, 2.5).fill({ color: 0xf4eaff, alpha: 0.9 });
     } else if (element === 'poison') {
       const r = (2 + 6 * life) * size;

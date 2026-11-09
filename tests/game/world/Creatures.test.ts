@@ -203,3 +203,101 @@ describe('酸液甲蟲：地上的毒液', () => {
     expect(spray([-1.5, 0])).toBe(0);
   });
 });
+
+describe('鐵輪劍獸的四招', () => {
+  const setup = (gap: number) => {
+    const { world, events } = createWorldWithMap(ROOM, [{ enemyId: 'enemy.shadow_panther', at: [12, 4] }]);
+    makeInvulnerable(world.player);
+    world.player.position = vec2(12 + gap, 4);
+    world.player.stats.setBase('moveSpeed', 0);
+    const [beast] = enemiesOf(world);
+    beast!.ai!.provokedBy = world.player.id;
+    return { world, events, beast: beast! };
+  };
+  const firstCast = (gap: number) => {
+    const { world, events, beast } = setup(gap);
+    let cast: string | null = null;
+    events.on('SkillCast', (e) => {
+      if (e.actorId === beast.id && cast === null) cast = e.skillId;
+    });
+    for (let t = 0; t < 5 && cast === null; t += 1 / 60) run(world, 1 / 60);
+    return cast;
+  };
+
+  it('依距離出招：貼身迴旋、中距離突刺、遠距離劍氣', () => {
+    expect(firstCast(1.5)).toBe('enemy.wheel_whirl');
+    expect(firstCast(4)).toBe('enemy.wheel_lunge');
+    expect(firstCast(8)).toBe('enemy.blade_wave');
+  });
+
+  const hitsOf = (skillId: string, seconds: number) => {
+    const { world, events, beast } = setup(1.3);
+    for (const id of ['enemy.wheel_whirl', 'enemy.wheel_lunge', 'enemy.blade_wave']) if (id !== skillId) beast.cooldowns.set(id, 99);
+    let casts = 0;
+    let hits = 0;
+    events.on('SkillCast', (e) => {
+      if (e.actorId === beast.id && e.skillId === skillId) casts++;
+    });
+    events.on('ActorDamaged', (e) => {
+      if (e.targetId === world.player.id && casts === 1) hits++;
+    });
+    for (let t = 0; t < 5 && casts === 0; t += 1 / 60) run(world, 1 / 60);
+    run(world, seconds);
+    return hits;
+  };
+
+  it('雙束連刺連打兩下', () => {
+    expect(hitsOf('enemy.twin_thrust', 0.72)).toBe(2);
+  });
+
+  it('鐵輪迴旋連斬三段', () => {
+    expect(hitsOf('enemy.wheel_whirl', 1.6)).toBe(3);
+  });
+});
+
+describe('鐵輪劍獸與單眼浮體的變化型', () => {
+  const data2 = DataRegistry.load(gameData);
+  it('六個變化型都是對應基本型的特化，也都有 AI 模型', () => {
+    const wheel = data2.enemies.get('enemy.shadow_panther').variants.map((v) => v.enemyId);
+    const eye = data2.enemies.get('enemy.eye_floater').variants.map((v) => v.enemyId);
+    expect(wheel).toEqual(['enemy.ember_wheel', 'enemy.frost_wheel', 'enemy.saw_wheel']);
+    expect(eye).toEqual(['enemy.tri_eye', 'enemy.ember_eye', 'enemy.gazer']);
+    for (const id of [...wheel, ...eye]) expect(MONSTER_MODELS[id]?.skin, id).toBeDefined();
+  });
+
+  const lunge = (enemyId: string, playerAt: [number, number]) => {
+    const { world } = createWorldWithMap(ROOM, [{ enemyId, at: [24, 4] }]);
+    makeInvulnerable(world.player);
+    world.player.position = vec2(...playerAt);
+    world.player.stats.setBase('moveSpeed', 0);
+    const [beast] = enemiesOf(world);
+    beast!.ai!.provokedBy = world.player.id;
+    return { world, beast: beast! };
+  };
+
+  it('熔輪突刺：路線上留下一排六塊火', () => {
+    const { world, beast } = lunge('enemy.ember_wheel', [20, 4]);
+    beast.cooldowns.set('enemy.blade_wave', 99);
+    for (let t = 0; t < 4 && world.scheduler.zones.filter((z) => z.ctx.skill.id === 'enemy.ember_lunge').length < 6; t += 1 / 60) run(world, 1 / 60);
+    const zones = world.scheduler.zones.filter((z) => z.ctx.skill.id === 'enemy.ember_lunge');
+    expect(zones).toHaveLength(6);
+    expect(new Set(zones.map((z) => Math.round(z.position.x))).size).toBe(6);
+  });
+
+  it('鋸輪突刺：撞牆不暈眩，往回彈', () => {
+    // 劍獸在牆邊、面向牆：主角站在牆和牠之間
+    const { world, beast } = lunge('enemy.saw_wheel', [24.5, 4]);
+    beast.position = vec2(26, 4);
+    world.player.position = vec2(29, 4);
+    beast.cooldowns.set('enemy.saw_whirl', 99);
+    beast.cooldowns.set('enemy.blade_wave', 99);
+    let bounced = false;
+    world.events.on('ActorCrashed', (e) => {
+      if (e.actorId === beast.id) bounced = true;
+    });
+    for (let t = 0; t < 4 && !bounced; t += 1 / 60) run(world, 1 / 60);
+    expect(bounced).toBe(true);
+    expect(beast.position.x).toBeLessThan(27);
+    expect(beast.statuses.some((s) => s.kind === 'stun')).toBe(false);
+  });
+});

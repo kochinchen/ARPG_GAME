@@ -113,7 +113,7 @@ export function renderReport(results, targets, { seeds, date, mode = 'snapshot' 
       return `<tr><th>${esc(t.label)}<small>Lv ${all.level ?? '—'}</small></th>
 ${normalFloors.length ? cell(c.normal, pct(s.normalDeath), rangeText(t.normalDeath)) : '<td>—</td>'}
 ${normalFloors.length ? cell(c.rusher, pct(s.rusherDeath), rangeText(t.rusherDeath)) : '<td>—</td>'}
-${cell(c.burst, pct(all.burst1s), `≤ ${pct(t.burst1s)}`)}
+${cell(c.burst, pct(all.burst1s), t.burst1s === null ? '不設限' : `≤ ${pct(t.burst1s)}`)}
 ${cell(c.ttd, sec(all.timeToDie), `≥ ${t.timeToDie} 秒`)}
 <td>${pct(all.burst5s)}</td><td>${sec(all.clearTime)}</td><td>${all.potions ?? '—'}</td><td>${pct(all.minHp)}</td><td>${pct(all.normalTimeout)}</td></tr>`;
     })
@@ -183,7 +183,7 @@ ${cell(c.ttd, sec(all.timeToDie), `≥ ${t.timeToDie} 秒`)}
       { label: '一般怪群', cls: 's1', points: perFloor((s) => s.burst1s) },
       { label: '五秒內受傷（中位數）', cls: 's3', points: perFloor((s) => s.burst5s) },
     ],
-    bands: targets.tiers.map((t) => ({ from: t.floors[0], to: t.floors[1], lo: 0, hi: t.burst1s })),
+    bands: targets.tiers.filter((t) => t.burst1s !== null).map((t) => ({ from: t.floors[0], to: t.floors[1], lo: 0, hi: t.burst1s })),
   });
   const ttdMax = Math.max(12, ...floors.map((f) => stats(byFloor.get(f)).timeToDie ?? 0));
   const ttdChart = lineChart({

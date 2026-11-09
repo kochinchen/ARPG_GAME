@@ -259,6 +259,18 @@ const FLAME_RATE: Record<string, number> = {
   'enemy.lava_trail': 14,
 };
 
+/** 地面持續區域每秒冒出幾次（依屬性與面積） */
+function zoneRate(element: string, radius: number, tier: number): number {
+  const area = radius * radius;
+  const k = [0.6, 1, 1.6][tier - 1]!;
+  // 上限：很多範圍同時出現時不會掉幀（冰柱是一根一根的網格，上限最低）
+  if (element === 'fire') return Math.min(140, Math.max(34, 44 * area) * k);
+  if (element === 'cold') return Math.min(24, Math.max(7, 8 * area) * k);
+  if (element === 'lightning') return Math.min(36, Math.max(7, 7 * area) * k);
+  if (element === 'poison') return Math.min(36, Math.max(6, 7 * area) * k);
+  return 0;
+}
+
 export class ThreeSkillFx implements SkillFxListener {
   readonly group = new THREE.Group();
   private readonly glowTex = softDot();
@@ -336,6 +348,16 @@ export class ThreeSkillFx implements SkillFxListener {
         // 地上的毒液（扇形、冒泡）由 Pixi 的 acid 畫，這裡是立體的噴濺、泡泡與煙
         this.acidSpray(p, i.direction, r, i.angleDeg);
         return false;
+      case 'enemy.gaze_beam':
+        return false;
+      case 'enemy.ember_lunge':
+      case 'enemy.saw_lunge':
+      case 'enemy.wheel_lunge': {
+        const ahead = vec2(p.x + i.direction.x * 0.8, p.y + i.direction.y * 0.8);
+        this.dust(ahead, 26, 2.2);
+        this.debris(ahead, 30, 3.2, ROCK);
+        return false;
+      }
       case 'enemy.eye_leap':
         this.devastate(p, i.direction);
         this.shockRing(p, r, 0xffc880);
@@ -488,7 +510,10 @@ export class ThreeSkillFx implements SkillFxListener {
       }
       if (g.kind === 'zone' && g.skillId === 'magic.absolute_zero') this.zeroZones.set(g.id, { at: g.position, radius: g.radius });
       if (g.kind === 'zone') {
-        const rate = (g.skillId && FLAME_RATE[g.skillId]) || 0;
+        // 有專屬節奏的招式照表；其他只要是燃燒、冰凍、帶電、中毒的地面，都依面積不斷冒出（設計者 2026-11-09）
+        const own = (g.skillId && FLAME_RATE[g.skillId]) || 0;
+        const tier = g.tier ?? 2;
+        const rate = own || (g.element ? zoneRate(g.element, g.radius, tier) : 0);
         if (!rate) continue;
         let timer = (this.emitTimer.get(g.id) ?? 0) - dt * rate;
         while (timer <= 0) {
@@ -497,7 +522,8 @@ export class ThreeSkillFx implements SkillFxListener {
           const d = g.radius * Math.sqrt(Math.random());
           const at = vec2(g.position.x + Math.cos(a) * d, g.position.y + Math.sin(a) * d);
           if (g.skillId === 'magic.absolute_zero') this.fog(at, ICE, 0.5);
-          else this.flameTongue(at, g.skillId === 'magic.firewall' || g.skillId === 'enemy.behemoth_firewall' ? 1 : 0.55);
+          else if (own) this.flameTongue(at, g.skillId === 'magic.firewall' || g.skillId === 'enemy.behemoth_firewall' ? 1 : 0.55);
+          else this.zoneBurst(g.element!, at, tier);
         }
         this.emitTimer.set(g.id, timer);
         live.add(g.id);
@@ -1003,6 +1029,36 @@ export class ThreeSkillFx implements SkillFxListener {
       const a = Math.random() * Math.PI * 2;
       const d = radius * Math.sqrt(Math.random());
       this.flameTongue(vec2(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d), size + rand(0, 0.4));
+    }
+  }
+
+  /** 地面持續區域冒出來的一次：火舌、竄出又碎掉的小冰柱與寒霧、電光、毒泡泡 */
+  private zoneBurst(element: string, at: Vec2, tier: number): void {
+    if (element === 'fire') {
+      this.flameTongue(at, tier === 1 ? rand(0.35, 0.55) : tier === 2 ? rand(0.75, 1.05) : rand(1.15, 1.6));
+      if (tier === 3) {
+        // 白熱的火心
+        if (Math.random() < 0.45) this.glow.add({ p: this.v3(at, 0.05), v: new THREE.Vector3(rand(-0.1, 0.1), rand(1.4, 2.6), rand(-0.1, 0.1)), gravity: -0.6, drag: 0.4, life: rand(0.3, 0.55), size: [rand(26, 40), 6], color: [linear(0xfff6d8), linear(0xffa030)], alpha: [0.85, 0] });
+        if (Math.random() < 0.3) this.smokePuffs(at, 1, 0.15, 1.6);
+      }
+    } else if (element === 'cold') {
+      if (tier === 1) {
+        if (Math.random() < 0.45) this.icePillar(at, rand(0.12, 0.28), rand(0.4, 0.7), 0);
+        this.fog(at, ICE, 0.3);
+      } else if (tier === 2) {
+        this.icePillar(at, rand(0.25, 0.6), rand(0.5, 0.9), 0);
+        this.fog(at, ICE, 0.45);
+      } else {
+        this.icePillar(at, rand(0.7, 1.25), rand(0.6, 1), 0);
+        this.icePillar(vec2(at.x + rand(-0.25, 0.25), at.y + rand(-0.25, 0.25)), rand(0.35, 0.7), rand(0.5, 0.8), 0.05);
+        this.fog(at, ICE, 0.65);
+      }
+    } else if (element === 'lightning') {
+      this.sparksBurst(at, tier === 3 ? 0.8 : 0.45, tier === 3 ? 0xf0e6ff : 0xd8c4ff, [2, 5, 9][tier - 1]!);
+      if (tier === 3 && Math.random() < 0.06) this.thunder(at, 0.35, 0.6);
+    } else if (element === 'poison') {
+      this.bubbles(at, tier === 3 ? 0.4 : 0.25, 0x7ed957, [1, 2, 4][tier - 1]!);
+      if (Math.random() < [0.15, 0.25, 0.6][tier - 1]!) this.fog(at, tier === 3 ? 0x4a7a28 : 0x6aa040, [0.3, 0.4, 0.8][tier - 1]!);
     }
   }
 

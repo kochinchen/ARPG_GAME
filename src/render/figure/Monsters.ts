@@ -4,7 +4,7 @@ import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
 import { LATE_MODELS, WARDEN_GEAR } from './LateMonsters';
 import { SKELETON_GEAR, SKELETON_WARRIOR } from './SkeletonWarrior';
-import { houndLife, monsterAi, wormLife } from './MonsterAI';
+import { houndLife, monsterAi, sixTentacles, wheelBeastLife, wormLife } from './MonsterAI';
 import SKELETON_AI_DATA from './monsters/skeletonAI.json';
 import FROST_SKELETON_AI_DATA from './monsters/frostSkeletonAI.json';
 import ARCHER_AI_DATA from './monsters/skeletonArcherAI.json';
@@ -17,6 +17,9 @@ import ARMORED_AI_DATA from './monsters/armoredSkeletonAI.json';
 import MAGE_AI_DATA from './monsters/skeletonMageAI.json';
 import STORM_MAGE_AI_DATA from './monsters/stormMageAI.json';
 import BONE_HOUND_AI_DATA from './monsters/boneHoundAI.json';
+import WHEEL_SWORD_BEAST_AI_DATA from './monsters/wheelSwordBeastAI.json';
+import EYE_FLOATER_AI_DATA from './monsters/eyeFloaterAI.json';
+import HATCHLING_SPIDER_AI_DATA from './monsters/hatchlingSpiderAI.json';
 import ACID_BEETLE_AI_DATA from './monsters/acidBeetleAI.json';
 import { BONE_HAND } from './BoneHand';
 import { STONE_WALKERS } from './StoneWalkers';
@@ -1010,7 +1013,8 @@ const VISUAL_SCALE: Record<string, number> = {
   // 掠界獸系 → 0.9
   'enemy.bone_hound': 1.64,
   'enemy.blood_lizard': 1.76,
-  'enemy.shadow_panther': 1.8,
+  // 鐵輪劍獸（沿用暗影獵豹的 ID）：設計稿的高度是女主角 1.2 倍
+  'enemy.shadow_panther': 1.14,
   // 甲殼與節肢系 → 0.7
   'enemy.acid_beetle': 2.26,
   'enemy.hatchling_spider': 2.8,
@@ -1045,6 +1049,41 @@ const VISUAL_SCALE: Record<string, number> = {
 const scaled = (models: Record<string, FigureModel>): Record<string, FigureModel> =>
   Object.fromEntries(Object.entries(models).map(([id, m]) => [id, VISUAL_SCALE[id] ? { ...m, visualScale: VISUAL_SCALE[id] } : m]));
 
+// ── 鐵輪劍獸與單眼浮體的變化型（設計者 2026-11-09）：同一個模型換色；鋸輪加鋸齒、三瞳把頭上的小眼放大 ──
+type RecolorTo = { h: number; s: number; l: number };
+const inHue = (c: { h: number }, from: number, to: number) => c.h >= from && c.h <= to;
+const WHEEL_BEAST = (): FigureModel => wheelBeastLife(monsterAi(WHEEL_SWORD_BEAST_AI_DATA, scaled(BEAST_MODELS)['enemy.shadow_panther']!, { rest: 'asModeled', hip: 14, ground: 'none' }));
+const EYE_BEAST = (): FigureModel => sixTentacles(monsterAi(EYE_FLOATER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.eye_floater']!, { rest: 'asModeled', ground: 'none', lift: 6 }));
+const wheelRecolor = (crystal: RecolorTo, shoulder: RecolorTo, wood: RecolorTo, chest?: RecolorTo) =>
+  recolor([
+    { match: (c) => inHue(c, 150, 215) && c.s > 0.12, ...crystal },
+    { match: (c) => inHue(c, 55, 110) && c.s > 0.2, ...shoulder },
+    { match: (c) => inHue(c, 12, 50) && c.s > 0.28 && c.l < 0.5, ...wood },
+    ...(chest ? [{ match: (c: { h: number; s: number }) => (c.h >= 335 || c.h < 8) && c.s > 0.45, ...chest }] : []),
+  ]);
+const eyeRecolor = (flesh: RecolorTo, vein: RecolorTo, star: RecolorTo) =>
+  recolor([
+    { match: (c) => inHue(c, 38, 62) && c.s > 0.6 && c.l > 0.5, ...star },
+    { match: (c) => (c.h >= 340 || c.h < 20) && c.s > 0.5 && c.l > 0.32, ...vein },
+    { match: (c) => inHue(c, 300, 360) && c.s > 0.3, ...flesh },
+  ]);
+const EMBER_WHEEL_AI = paintSkin(WHEEL_BEAST(), wheelRecolor({ h: 26, s: 0.95, l: 1.5 }, { h: 12, s: 0.45, l: 0.55 }, { h: 12, s: 0.9, l: 1.5 }));
+const FROST_WHEEL_AI = paintSkin(WHEEL_BEAST(), wheelRecolor({ h: 200, s: 0.8, l: 1.35 }, { h: 205, s: 0.4, l: 1.35 }, { h: 205, s: 0.28, l: 1.5 }, { h: 215, s: 0.6, l: 1 }));
+/** 鋸齒：一圈往旋轉方向彎的尖齒，掛在輪子的關節上 */
+const sawTeeth = (): Mesh[] =>
+  Array.from({ length: 12 }, (_, i) => {
+    const a = (i / 12) * Math.PI * 2;
+    return spike([0, Math.cos(a) * 12, Math.sin(a) * 12], [0, Math.cos(a + 0.3) * 18, Math.sin(a + 0.3) * 18], 3.4, i % 2 ? 0xb8c2cc : 0x8d97a3);
+  });
+const withParts = (m: FigureModel, add: Partial<Record<Joint, readonly Mesh[]>>): FigureModel => ({ ...m, parts: m.parts.map((p) => (add[p.joint] ? { ...p, meshes: [...p.meshes, ...add[p.joint]!] } : p)) });
+const SAW_WHEEL_AI = withParts(paintSkin(WHEEL_BEAST(), wheelRecolor({ h: 210, s: 0.2, l: 1.25 }, { h: 24, s: 0.4, l: 0.7 }, { h: 215, s: 0.1, l: 0.85 })), { thighL: sawTeeth(), thighR: sawTeeth() });
+/** 三瞳：頭上三隻小眼放大（身體座標） */
+const bigStalkEyes = (): Mesh[] =>
+  ([[12.3, 24, 5], [-12.3, 24, 5], [0, 32, 5]] as V3[]).flatMap((c) => [lowSphere(6.6, 0xf2eadf, c, 9, 6), lowSphere(3.6, 0xff3a24, [c[0], c[1], c[2] + 4.4], 8, 4), lowSphere(1.7, 0x140808, [c[0], c[1], c[2] + 7], 6, 3)]);
+const TRI_EYE_AI = withParts(paintSkin(EYE_BEAST(), eyeRecolor({ h: 278, s: 0.5, l: 1.05 }, { h: 300, s: 0.9, l: 1.25 }, { h: 190, s: 0.95, l: 1 })), { root: bigStalkEyes() });
+const GAZER_AI = paintSkin(EYE_BEAST(), eyeRecolor({ h: 238, s: 0.42, l: 0.9 }, { h: 258, s: 0.85, l: 1.3 }, { h: 240, s: 0.4, l: 1.25 }));
+const EMBER_EYE_AI = paintSkin(EYE_BEAST(), eyeRecolor({ h: 15, s: 0.3, l: 0.55 }, { h: 26, s: 0.98, l: 1.25 }, { h: 26, s: 0.98, l: 1 }));
+
 export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.skeleton': SKELETON_AI,
   'enemy.ghoul': GHOUL_AI,
@@ -1075,6 +1114,10 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.bone_hand': BONE_HAND,
   // 虛空孢子：舊版的觸手末端離地約 6
   'enemy.void_spore': monsterAi(VOID_SPORE_AI_DATA, scaled(ABERRATION_MODELS)['enemy.void_spore']!, { rest: 'asModeled', ground: 'none', lift: 6 }),
+  'enemy.eye_floater': EYE_BEAST(),
+  'enemy.tri_eye': TRI_EYE_AI,
+  'enemy.gazer': GAZER_AI,
+  'enemy.ember_eye': EMBER_EYE_AI,
   // 虛空吞噬者、鑽地寄生蟲：維持舊版的高度（女主角的 1.79、1.28 倍）
   'enemy.void_maw': resized(
     1.13,
@@ -1089,8 +1132,13 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   ),
   // 骨刺獵獸：生成的模型本來就是獵食者的站姿（四肢彎曲），動作只加上舊版和待機的差
   'enemy.bone_hound': houndLife(monsterAi(BONE_HOUND_AI_DATA, scaled(BEAST_MODELS)['enemy.bone_hound']!, { rest: 'asModeled', modeled: QUAD_LIMBS, hip: 18.09, ground: 'paws' })),
+  'enemy.shadow_panther': WHEEL_BEAST(),
+  'enemy.ember_wheel': EMBER_WHEEL_AI,
+  'enemy.frost_wheel': FROST_WHEEL_AI,
+  'enemy.saw_wheel': SAW_WHEEL_AI,
   // 酸液甲蟲：生成的模型有八隻腳（舊版六隻）
   'enemy.acid_beetle': monsterAi(ACID_BEETLE_AI_DATA, { ...scaled(CREATURE_MODELS)['enemy.acid_beetle']!, poses: bugPoses({ legs: 8, hip: 7 }) }, { rest: 'asModeled', ground: 'all', fit: 'height' }),
+  'enemy.hatchling_spider': monsterAi(HATCHLING_SPIDER_AI_DATA, scaled(CREATURE_MODELS)['enemy.hatchling_spider']!, { rest: 'asModeled', ground: 'all', fit: 'height' }),
   'enemy.flame_skeleton': FLAME_SKELETON_AI,
   'enemy.storm_skeleton': STORM_SKELETON_AI,
   'enemy.ember_archer': EMBER_ARCHER_AI,
@@ -1150,7 +1198,16 @@ export const AI_MONSTERS = [
   'enemy.storm_mage_frost',
   'enemy.storm_mage_gold',
   'enemy.bone_hound',
+  'enemy.shadow_panther',
   'enemy.acid_beetle',
+  'enemy.hatchling_spider',
+  'enemy.eye_floater',
+  'enemy.ember_wheel',
+  'enemy.frost_wheel',
+  'enemy.saw_wheel',
+  'enemy.tri_eye',
+  'enemy.gazer',
+  'enemy.ember_eye',
 ];
 
 /** 換成 AI 版之前的舊版模型（比較面數、效能用） */
@@ -1170,7 +1227,10 @@ export const CLASSIC_MODELS: Record<string, FigureModel> = {
   'enemy.chain_warden': LATE_MODELS['enemy.chain_warden']!,
   'enemy.burrower': ABERRATION_MODELS['enemy.burrower']!,
   'enemy.bone_hound': BEAST_MODELS['enemy.bone_hound']!,
+  'enemy.shadow_panther': BEAST_MODELS['enemy.shadow_panther']!,
   'enemy.acid_beetle': CREATURE_MODELS['enemy.acid_beetle']!,
+  'enemy.hatchling_spider': CREATURE_MODELS['enemy.hatchling_spider']!,
+  'enemy.eye_floater': ABERRATION_MODELS['enemy.eye_floater']!,
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;

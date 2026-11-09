@@ -73,7 +73,7 @@ describe('學會法術書', () => {
     const { world } = createWorldWithMap(ROOM, []);
     const actor = world.spawnScaledEnemy(id, floor, vec2(5.5, 1.5));
     (actor as { elite: boolean }).elite = elite;
-    teachSpellbook(actor, { basic: 'enemy.spark_bolt', spells }, floor, data.skills, data.balance.enemyMimic, config);
+    teachSpellbook(actor, { basic: 'enemy.spark_bolt', spells }, floor, data.balance.enemyMimic, config);
     return actor;
   };
 
@@ -88,10 +88,9 @@ describe('學會法術書', () => {
     expect(elite.ai!.specialSkills).toEqual([spell]);
   });
 
-  it('精英會高倍率的招時整隻傷害往下調（隕石比雷擊調更多）', () => {
+  it('精英會高倍率的招時傷害不再往下調（設計者 2026-11-09 取消倍率上限）', () => {
     const bonus = (spell: string) => spawn('enemy.storm_mage', 30, true, [spell]).stats.get('damageBonus');
-    expect(bonus('mimic.magic.thunder_strike')).toBeLessThan(0);
-    expect(bonus('mimic.magic.meteor')).toBeLessThan(bonus('mimic.magic.thunder_strike'));
-    expect(bonus('mimic.magic.chain_lightning')).toBeLessThanOrEqual(0);
+    expect(bonus('mimic.magic.thunder_strike')).toBe(0);
+    expect(bonus('mimic.magic.meteor')).toBe(0);
   });
 });

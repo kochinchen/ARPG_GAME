@@ -755,7 +755,7 @@ export class GameWorld {
       const mimic = mimics[index];
       if (mimic) teachMimic(enemy, mimic);
       const spellbook = spellbooks[index];
-      if (spellbook) teachSpellbook(enemy, spellbook, floor, this.data.skills, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
+      if (spellbook) teachSpellbook(enemy, spellbook, floor, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
       if (enemy.ai && request.pack !== undefined) enemy.ai.pack = { id: request.pack, size: packSizes.get(request.pack)! };
       const actor = this.addActor(enemy);
       spawnedIds.push([actor.id, index]);
@@ -920,7 +920,7 @@ export class GameWorld {
     const mimic = rollMimic(def, floor, true, this.data.skills, this.data.balance.enemyMimic, rng);
     if (mimic) teachMimic(actor, mimic);
     const spellbook = rollSpellbook(def, floor, true, this.data.skills, this.data.balance.mageSpellbook, new Rng(this.seed).fork(`champion-spellbook-${floor}`));
-    if (spellbook) teachSpellbook(actor, spellbook, floor, this.data.skills, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
+    if (spellbook) teachSpellbook(actor, spellbook, floor, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
     this.champion = { actorId: actor.id };
     spawnedIds.push([actor.id, index]);
     return spot;
@@ -1268,7 +1268,7 @@ export class GameWorld {
     }
     actor.innateElements = innateElements;
     const spellbook = rollSpellbook(def, floor, false, this.data.skills, this.data.balance.mageSpellbook, new Rng(this.seed).fork(`spellbook-sim-${this.nextActorId}`));
-    if (spellbook) teachSpellbook(actor, spellbook, floor, this.data.skills, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
+    if (spellbook) teachSpellbook(actor, spellbook, floor, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
     return this.addActor(actor);
   }
 

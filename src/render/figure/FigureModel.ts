@@ -158,7 +158,7 @@ export interface PoseSet {
   /** 從地下垂直鑽出來的姿勢（可省略；蟲：身體豎直、頭朝上，尾巴還埋在地裡） */
   emerge?: Pose;
   /** 依招式區分的多段攻擊（可省略）：橫斬、突刺、上劈 */
-  attackVariants?: Partial<Record<AttackVariant, { windup: Pose[]; strike: Pose[] }>>;
+  attackVariants?: Partial<Record<AttackVariant, { windup: Pose[]; strike: Pose[]; /** 揮出的秒數（省略 = 預設；鐵輪迴旋要轉好幾圈） */ strikeTime?: number }>>;
   /** 受傷的分段反應（頭 → 肩 → 身體 → 骨盆），依序播放後回到原姿勢 */
   hitKeys?: Pose[];
   /** 死亡過程（失去平衡 → 跪倒 → 劍落地 → 倒地），最後一個姿勢為躺在地上 */
@@ -167,7 +167,7 @@ export interface PoseSet {
    * 多段攻擊（可省略）：前搖期間依序經過 windup 的姿勢（預備 → 引拍 → 重心前移 → 揮出），
    * 命中後依序經過 strike 的姿勢（命中 → 收勢），最後收回。沒有時只用 attackWindup / attackStrike。
    */
-  attackChain?: { windup: Pose[]; strike: Pose[] };
+  attackChain?: { windup: Pose[]; strike: Pose[]; strikeTime?: number };
 }
 
 /** 待機怒吼第一次開始的時間（秒）；之後每 period 秒一次 */

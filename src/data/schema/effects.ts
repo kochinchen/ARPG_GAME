@@ -105,6 +105,8 @@ export const DashEffectSchema = z.strictObject({
   passThrough: z.boolean().default(false),
   /** 衝到一半撞到牆（不是停在目標前）：施放者自己暈眩這麼多秒（角甲巨獸） */
   wallStun: z.number().positive().optional(),
+  /** 撞到牆時往回彈這麼多格（鋸輪劍獸；不暈眩） */
+  wallBounce: z.number().positive().optional(),
   /** 對位移路徑上的每個敵人執行（突進斬） */
   get onPath() {
     return z.array(EffectDefSchema).default([]);
@@ -123,6 +125,8 @@ export const ProjectileEffectSchema = z.strictObject({
   count: RankNumberSchema.default(1),
   /** 多發時的總散射角度；≥ 360 為環狀平均分布（可依等級成長） */
   spreadDeg: RankNumberSchema.default(0),
+  /** 每一發再隨機偏轉（總角度，平均分布在左右；鐵輪劍獸的劍氣） */
+  scatterDeg: z.number().nonnegative().default(0),
   /** 可穿透的敵人數（可依等級成長，取整數） */
   pierce: RankNumberSchema.default(0),
   /** 自動修正方向：此角度內有敵人時改朝最近的敵人發射 */
@@ -184,6 +188,8 @@ export const ZoneEffectSchema = z.strictObject({
   exclusive: z.boolean().default(false),
   /** 扇形（朝施放時的方向；省略 = 圓形） */
   angleDeg: z.number().positive().max(360).optional(),
+  /** 殺傷力的外觀階級（省略 = 依每秒傷害自動分；見 render/views/fx/ZoneTier） */
+  fxTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   /** 第一跳等一個間隔才打（省略 = 落地馬上打一跳）：和同招的直接傷害疊在一起會太高時用 */
   delayFirstTick: z.boolean().default(false),
   /** 區域的外觀（省略 = 依元素）：darkDomain = 暗黑領域（黑底紅圈、漂出骷髏），魔王與裝備共用；acid = 酸液（畫面由招式特效 ImpactFx 的 acid 畫，這裡不再畫） */
@@ -205,6 +211,8 @@ export const DelayedEffectSchema = z.strictObject({
   spinDeg: z.number().default(0),
   /** > 0：每次的落點排成一排（與施放方向垂直、以中心點為中央），間隔 spacing 格（火牆） */
   spacing: z.number().nonnegative().default(0),
+  /** > 0：每次的落點沿施放方向往前排，間隔 advance 格（熔輪劍獸的火痕） */
+  advance: z.number().nonnegative().default(0),
   /** > 0：這一次的落點彼此至少相隔幾格（找不到就放在能找到的最遠處） */
   minApart: z.number().nonnegative().default(0),
   get effects() {

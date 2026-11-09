@@ -95,7 +95,7 @@ describe('魔王有預警的招式：跑開就躲得掉', () => {
     ['enemy.horned_brute', 'enemy.horn_charge', 20],
     ['enemy.chain_warden', 'enemy.chain_rush', 25],
     ['enemy.bone_hound', 'enemy.pounce', 15],
-    ['enemy.shadow_panther', 'enemy.shadow_pounce', 20],
+    ['enemy.shadow_panther', 'enemy.wheel_lunge', 20],
   ];
   it.each(NORMAL_DASHES)('一般怪 %s 的 %s：往遠處跑、往旁邊閃都躲得掉', (enemyId, skillId, floor) => {
     expect(dodge(enemyId, skillId, floor, away)).toBe(false);

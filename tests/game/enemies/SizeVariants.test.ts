@@ -69,7 +69,7 @@ describe('體型決定特化型', () => {
 
   it('特化型不在樓層的怪物池裡，由原版決定', () => {
     const variants = new Set(data.enemies.all.flatMap((e) => e.variants.map((v) => v.enemyId)));
-    expect(variants.size).toBe(12);
+    expect(variants.size).toBe(18);
     for (const f of data.floors.all) for (const m of f.monsterPool) expect(variants.has(m.enemyId)).toBe(false);
   });
 });

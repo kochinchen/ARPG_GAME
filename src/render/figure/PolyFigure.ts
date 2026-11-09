@@ -24,6 +24,14 @@ const RECOVER_TIME = 0.22;
 const HIT_TIME = 0.28;
 /** 多段攻擊：命中後「命中 → 收勢」的時間（秒） */
 const CHAIN_STRIKE_TIME = 0.24;
+
+/** 轉了好幾圈的關節換算回 ±π：收勢時不會倒轉回去（鐵輪迴旋、輪子） */
+function unwound(pose: Pose): Pose {
+  const wrap = (x: number) => (Math.abs(x) > Math.PI ? x - 2 * Math.PI * Math.round(x / (2 * Math.PI)) : x);
+  const angles: Pose['angles'] = {};
+  for (const [joint, v] of Object.entries(pose.angles)) if (v) angles[joint as Joint] = [wrap(v[0]), wrap(v[1]), wrap(v[2])];
+  return { ...pose, angles };
+}
 /** 分段受傷反應、死亡過程的長度（秒） */
 const HIT_KEYS_TIME = 0.42;
 const DEATH_TIME = 1.25;
@@ -296,13 +304,15 @@ export class PolyFigure {
     if (this.action) {
       const a = this.action;
       a.elapsed += dt;
-      const chain = a.kind === 'attack' ? ((a.variant && poses.attackVariants?.[a.variant]) ?? poses.attackChain) : undefined;
+      const variant = a.kind === 'attack' && a.variant ? poses.attackVariants?.[a.variant] : undefined;
+      const chain = a.kind === 'attack' ? (variant ?? poses.attackChain) : undefined;
       if (chain) {
         const strikeFrom = chain.windup[chain.windup.length - 1]!;
-        const last = chain.strike[chain.strike.length - 1]!;
+        const last = unwound(chain.strike[chain.strike.length - 1]!);
+        const strikeTime = chain.strikeTime ?? CHAIN_STRIKE_TIME;
         if (a.elapsed < a.windup) return samplePoses([base, ...chain.windup], easeInOut(a.elapsed / a.windup));
-        if (a.elapsed < a.windup + CHAIN_STRIKE_TIME) return samplePoses([strikeFrom, ...chain.strike], (a.elapsed - a.windup) / CHAIN_STRIKE_TIME);
-        if (a.elapsed < a.windup + CHAIN_STRIKE_TIME + RECOVER_TIME) return lerpPose(last, base, easeInOut((a.elapsed - a.windup - CHAIN_STRIKE_TIME) / RECOVER_TIME));
+        if (a.elapsed < a.windup + strikeTime) return samplePoses([strikeFrom, ...chain.strike], (a.elapsed - a.windup) / strikeTime);
+        if (a.elapsed < a.windup + strikeTime + RECOVER_TIME) return lerpPose(last, base, easeInOut((a.elapsed - a.windup - strikeTime) / RECOVER_TIME));
         this.action = null;
         return base;
       }
