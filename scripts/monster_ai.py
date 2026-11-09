@@ -49,7 +49,7 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
+TRIS_OF.update({"blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
 ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
@@ -1172,6 +1172,25 @@ def wheel_beast_zone(p, bone):
     return abs(p.x) < 0.3 or p.z > 0.03
 
 
+def in_lizard_jaw(p):
+    return abs(p.x) < 0.09 and p.y < -0.335 and p.z < 0.02 + (p.y + 0.35) * 0.3
+
+
+def blood_lizard_zone(p, bone):
+    """腿只拿腿的位置：背上的骨板與腹部跟身體；下顎只有嘴的下半部"""
+    if bone == "jaw":
+        return in_lizard_jaw(p)
+    if in_lizard_jaw(p):
+        return False
+    if bone.startswith(("upperArm", "forearm", "hand")):
+        return abs(p.x) > 0.085 and p.y < -0.05 and p.z < 0.05
+    if bone.startswith(("thigh", "shin", "foot")):
+        return abs(p.x) > 0.06 and -0.03 < p.y < 0.2 and p.z < 0.05
+    if bone in ("root", "torso", "neck"):
+        return p.z > -0.11
+    return True
+
+
 def eye_floater_zone(p, bone):
     """眼球（連眼瞼以內）跟 head；觸手只拿身體以下的部分"""
     in_eye = p.y < -0.16 and math.hypot(p.x, (p.z - 0.025) * 1.6) < 0.2
@@ -1343,6 +1362,7 @@ ZONES["venom_ghoul"] = lambda p, bone: (not bone.startswith(("head", "neck")) or
 ZONES["bone_hound"] = bone_hound_zone
 ZONES["wheel_sword_beast"] = wheel_beast_zone
 ZONES["eye_floater"] = eye_floater_zone
+ZONES["blood_lizard"] = blood_lizard_zone
 ZONES["hatchling_spider"] = hatchling_zone
 ZONES["acid_beetle"] = acid_beetle_zone
 ZONES["void_spore"] = lambda p, bone: (bone != "head" or (p.y < -0.3 and math.hypot(p.x, p.z) < 0.17)) and (not re.match(r"(upperArm|forearm|hand|thigh|shin|foot)", bone) or p.z < -0.3)
@@ -1422,6 +1442,28 @@ def acid_beetle():
     return bones + sides(side), {}
 
 
+def blood_lizard():
+    """血鱗獵蜥：四足低伏，關節名稱同 Beasts.beast；下顎 jaw；尾巴三節（ponytail → ex_tail1 → ex_tail2，最後一節連骨球）"""
+    bones = [
+        ("root", None, V((0, 0.0, 0.03)), V((0, 0.2, 0.03)), 0.09),
+        ("torso", "root", V((0, 0.0, 0.03)), V((0, -0.19, 0.03)), 0.1),
+        ("neck", "torso", V((0, -0.2, 0.03)), V((0, -0.33, 0.01)), 0.06),
+        ("head", "neck", V((0, -0.33, 0.01)), V((0, -0.5, -0.03)), 0.07),
+        ("jaw", "head", V((0, -0.34, 0.01)), V((0, -0.49, -0.05)), 0.06),
+        ("ponytail", "root", V((0, 0.21, 0.04)), V((0, 0.29, 0.05)), 0.06),
+        ("ex_tail1", "ponytail", V((0, 0.29, 0.05)), V((0, 0.37, 0.06)), 0.055),
+        ("ex_tail2", "ex_tail1", V((0, 0.37, 0.06)), V((0, 0.5, 0.08)), 0.07),
+    ]
+    arm = [V((0.14, -0.19, 0.04)), V((0.2, -0.155, -0.05)), V((0.19, -0.2, -0.14)), V((0.186, -0.28, -0.175))]
+    leg = [V((0.1, 0.06, 0.03)), V((0.11, 0.125, -0.085)), V((0.135, 0.11, -0.15)), V((0.145, 0.04, -0.175))]
+
+    def side(s, m):
+        out = chain([f"upperArm{s}", f"forearm{s}", f"hand{s}"], "torso", [m(p) for p in arm], [0.06, 0.05, 0.05])
+        return out + chain([f"thigh{s}", f"shin{s}", f"foot{s}"], "root", [m(p) for p in leg], [0.07, 0.05, 0.05])
+
+    return bones + sides(side), {}
+
+
 def eye_floater():
     """單眼浮體：身體（root）、正面的眼（head）、底下六條觸手（四條用舊版的關節名稱，外側兩條是 ex_tent，遊戲端跟著擺動）"""
     bones = [("root", None, V((0, 0.02, -0.08)), V((0, 0.02, 0.2)), 0.24), ("head", "root", V((0, -0.16, 0.025)), V((0, -0.3, 0.025)), 0.1)]
@@ -1476,6 +1518,7 @@ def wheel_sword_beast():
 
 
 SKELETONS = {
+    "blood_lizard": blood_lizard,
     "wheel_sword_beast": wheel_sword_beast,
     "eye_floater": eye_floater,
     "hatchling_spider": hatchling_spider,
@@ -1526,7 +1569,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("eye_floater", "hatchling_spider", "wheel_sword_beast", "bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
+JOINT_SOFT = {n: 0.04 for n in ("blood_lizard", "eye_floater", "hatchling_spider", "wheel_sword_beast", "bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
@@ -1610,13 +1653,13 @@ def hound_joined(bones, ws, c):
     return not (limb and body and c.z < 0.03)
 
 
-if NAME == "bone_hound":
+if NAME in ("bone_hound", "blood_lizard"):
     joined = hound_joined
 tris = [list(p.vertices)[:3] for p in me.polygons]
 
 
 def kept_faces():
-    if NAME == "bone_hound":
+    if NAME in ("bone_hound", "blood_lizard"):
         return [joined({weights[i][0][0] for i in t}, [weights[i] for i in t], sum((co[i] for i in t), Vector()) / 3) for t in tris]
     return [joined({weights[i][0][0] for i in t}, [weights[i] for i in t]) if joined else True for t in tris]
 
@@ -1745,8 +1788,8 @@ if NAME == "eye_floater":
         star = [EYE_STAR_VERTS.get(tuple(round(c, 4) for c in co[i])) for i in f[:3]]
         if all(star):
             f[3] = star[0]
-# 骨刺獵獸：上下顎之間的面張嘴時會被拉開，塗成口腔的暗紅色，看得出嘴是張開的
-if NAME == "bone_hound":
+# 骨刺獵獸、血鱗獵蜥：上下顎之間的面張嘴時會被拉開，塗成口腔的暗紅色，看得出嘴是張開的
+if NAME in ("bone_hound", "blood_lizard"):
     mouth = 0
     for f in faces:
         tops = {weights[i][0][0] for i in f[:3]}

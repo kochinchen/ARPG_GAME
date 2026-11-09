@@ -138,6 +138,11 @@ export class PolyFigure {
   sink: TriangleSink | null = null;
   private time = 0;
   private runPhase = 0;
+
+  /** 沒指定招式的攻擊是否一律播 attackChain */
+  get plainAttackIsChain(): boolean {
+    return this.model.poses.plainAttackIsChain === true;
+  }
   private current: Pose;
   private action: Action | null = null;
   private hitTime = 0;

@@ -757,6 +757,8 @@ const BARRAGE_MOTION = 0.3;
 const SKILL_FX: Record<string, ImpactKind> = {
   'enemy.acid_spray': 'acid',
   'enemy.wheel_whirl': 'whirl',
+  'enemy.tail_sweep': 'tailSweep',
+  'enemy.tail_slam': 'slam',
   'enemy.twin_thrust': 'sickle',
   'enemy.wheel_lunge': 'lunge',
   'enemy.ember_lunge': 'lunge',

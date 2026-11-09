@@ -1208,6 +1208,9 @@ const enemySkills: SkillInput[] = [
 /** 雙束連刺的一下：像重砍的寬扇形，先從左、再從右（設計者 2026-11-09） */
 const twinThrust = (offsetDeg: number): EffectInput => ({ type: 'area', radius: 2.4, angleDeg: 120, offsetDeg, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 0.7 }] });
 
+/** 咬合連擊的一下：前方小扇形 */
+const biteHit: EffectInput = { type: 'area', radius: 1.5, angleDeg: 80, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 0.7 }] };
+
 const creatureSkills: SkillInput[] = [
   {
     id: 'enemy.pounce',
@@ -1365,26 +1368,72 @@ const creatureSkills: SkillInput[] = [
     tags: ['attack', 'melee', 'heavy'],
     effects: [{ type: 'dash', distance: 6, direction: 'forward', passThrough: true, wallBounce: 3, onPath: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1.9 }] }],
   },
+  // 血鱗獵蜥（設計者 2026-11-10）：貼臉咬合、繞到旁邊與背後吃橫掃、拉開距離要躲重砸
+  {
+    id: 'enemy.bite_combo',
+    name: '咬合連擊',
+    description: '血鱗獵蜥伸長脖子張嘴，連咬兩下。',
+    targeting: 'enemy',
+    useAttackSpeed: true,
+    fixedArea: true,
+    tags: ['attack', 'melee'],
+    effects: [biteHit, { type: 'delayed', delay: 0.2, effects: [biteHit] }],
+  },
   {
     id: 'enemy.tail_sweep',
-    name: '甩尾',
-    description: '血鱗獵蜥甩尾攻擊周圍並擊退。',
+    name: '骨球橫掃',
+    description: '血鱗獵蜥扭轉身體，尾端骨球掃過兩側與後方並擊退；正前方是安全的。前搖時地上會顯示範圍。',
     targeting: 'self',
     range: 1.4,
     castTime: 0.9,
     impactAt: 0.55,
     telegraph: true,
+    fixedArea: true,
     cooldown: 6,
     tags: ['attack', 'melee', 'area'],
     effects: [
       {
         type: 'area',
-        radius: 1.8,
+        radius: 2.4,
+        angleDeg: 240,
+        offsetDeg: 180,
         effects: [
-          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1.3 },
+          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1.4 },
           { type: 'knockback', distance: 1.2 },
         ],
       },
+    ],
+  },
+  {
+    id: 'enemy.tail_slam',
+    name: '骨球重砸',
+    description: '血鱗獵蜥後腳蹬起，向前翻筋斗，用骨球砸在地上，碎石飛濺，打中短暫暈眩；之後四腳朝天，要花 2 秒才翻回來。落點地上會預警。',
+    targeting: 'ground',
+    range: 4,
+    minRange: 1.8,
+    // 0.35 秒蹬起（這時往前跳）、落地砸下約在 1.3 秒、之後 2 秒翻回來：整段都在施法，是玩家反擊的空檔
+    castTime: 3.4,
+    impactAt: 0.103,
+    telegraph: true,
+    fixedArea: true,
+    cooldown: 10,
+    tags: ['attack', 'melee', 'heavy'],
+    effects: [
+      {
+        type: 'delayed',
+        delay: 0.95,
+        effects: [
+          {
+            type: 'area',
+            radius: 1.4,
+            effects: [
+              { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 1.8 },
+              { type: 'status', status: 'stun', duration: 0.6 },
+            ],
+          },
+        ],
+      },
+      { type: 'dash', distance: 2, direction: 'forward' },
     ],
   },
   {

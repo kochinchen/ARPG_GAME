@@ -350,6 +350,10 @@ export class ThreeSkillFx implements SkillFxListener {
         return false;
       case 'enemy.gaze_beam':
         return false;
+      case 'enemy.tail_slam':
+        this.dust(p, 20, r);
+        this.debris(p, 26, 3, ROCK);
+        return false;
       case 'enemy.ember_lunge':
       case 'enemy.saw_lunge':
       case 'enemy.wheel_lunge': {

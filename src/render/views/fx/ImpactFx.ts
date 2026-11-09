@@ -42,7 +42,11 @@ export type ImpactKind =
   /** 鐵輪劍獸的突刺：聚焦衝向一方的白色速度線，落點土石紛飛 */
   | 'lunge'
   /** 凝視者的直線光束（radius = 長度） */
-  | 'laser';
+  | 'laser'
+  /** 血鱗獵蜥的骨球橫掃：沿扇形掃過的弧光與揚塵 */
+  | 'tailSweep'
+  /** 血鱗獵蜥的骨球重砸：地面裂開、碎石飛濺（沒有光圈） */
+  | 'slam';
 
 export interface ImpactInput {
   kind: ImpactKind;
@@ -104,9 +108,9 @@ interface Chain {
 }
 
 /** 各招專屬特效（drawSignature 處理） */
-const SIGNATURE = new Set<ImpactKind>(['laser', 'sickle', 'lunge', 'cleave', 'sunder', 'crater', 'shieldBash', 'tremor', 'uppercut', 'execute', 'phantom', 'dash', 'rift', 'flash']);
+const SIGNATURE = new Set<ImpactKind>(['tailSweep', 'slam', 'laser', 'sickle', 'lunge', 'cleave', 'sunder', 'crater', 'shieldBash', 'tremor', 'uppercut', 'execute', 'phantom', 'dash', 'rift', 'flash']);
 /** 這些特效沒有開頭的白色地面閃光（斬擊類只有弧光） */
-const NO_FLASH = new Set<ImpactKind>(['laser', 'sickle', 'lunge', 'acid', 'dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
+const NO_FLASH = new Set<ImpactKind>(['tailSweep', 'slam', 'laser', 'sickle', 'lunge', 'acid', 'dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
 
 const CHAIN_TIME = 0.38;
 const HEIGHT = 30;
@@ -118,6 +122,8 @@ const DURATION: Record<ImpactKind, number> = {
   sickle: 0.42,
   lunge: 0.62,
   laser: 0.3,
+  tailSweep: 0.4,
+  slam: 0.75,
   frost: 0.95,
   lightning: 0.55,
   poison: 0.8,
@@ -337,6 +343,26 @@ export class ImpactFx {
       case 'laser':
         this.addShake(2);
         break;
+      case 'tailSweep': {
+        const base = Math.atan2(input.direction.y, input.direction.x);
+        const span = (input.angleDeg * Math.PI) / 180;
+        for (let i = 0; i < 24; i++) {
+          const a = base + (Math.random() - 0.5) * span;
+          const q = this.screen(vec2(input.position.x + Math.cos(a) * input.radius * rand(0.7, 1), input.position.y + Math.sin(a) * input.radius * rand(0.7, 1)));
+          this.emit('dust', q.x, q.y - 2, 0x8a7a66, 1);
+        }
+        break;
+      }
+      case 'slam': {
+        for (let i = 0; i < 60; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const d = input.radius * Math.sqrt(Math.random());
+          const q = this.screen(vec2(input.position.x + Math.cos(a) * d, input.position.y + Math.sin(a) * d));
+          this.emit(i % 3 ? 'debris' : 'dust', q.x, q.y - 4, i % 2 ? 0x6a5a4a : 0x8a7a66, 1.6);
+        }
+        this.addShake(4);
+        break;
+      }
       case 'lunge': {
         // 落點往前噴的土石
         for (let i = 0; i < 70; i++) {
@@ -885,6 +911,39 @@ export class ImpactFx {
           if (tk <= 0 || tk >= 1) continue;
           const off = (im.seeds[k]! - 0.5) * 1.6;
           this.crescent(im, { span: Math.PI * 0.45, radius: R * (0.8 + im.seeds[k + 5]! * 0.3), width: 0.25, lift: 10 + k * 3, sweep: easeOut(clamp01(tk * 2)), color: 0xc8b4ff, alpha: 0.6 * (1 - tk), edge: 1.5, offset: off });
+        }
+        break;
+      }
+      case 'tailSweep': {
+        if (!live) break;
+        // 骨球拖過的弧光：頭沿扇形從一端掃到另一端
+        const span = (im.angleDeg * Math.PI) / 180;
+        const head = dir - span / 2 + span * easeOut(clamp01(t * 1.6));
+        const edge: number[] = [];
+        const inner: number[] = [];
+        const lift = (p: [number, number]): [number, number] => [p[0], p[1] - 10];
+        for (let i = 0; i <= 20; i++) {
+          const u = i / 20;
+          const a = head - Math.min(1.5, head - (dir - span / 2)) * u;
+          edge.push(...lift(this.at(im, a, im.radius)));
+          inner.unshift(...lift(this.at(im, a, im.radius * (1 - Math.sin((1 - u) * Math.PI * 0.5) * 0.3))));
+        }
+        tg.poly([...edge, ...inner]).fill({ color: 0xeadfc4, alpha: 0.7 * fade });
+        tg.poly(edge, false).stroke({ color: 0xffffff, width: 2.5, alpha: 0.95 * fade });
+        break;
+      }
+      case 'slam': {
+        // 地面往外裂開的深色裂縫，慢慢淡掉
+        const grow = easeOut(clamp01(t * 5));
+        const n = 10;
+        for (let i = 0; i < n; i++) {
+          let a = (i / n) * Math.PI * 2 + im.seeds[i]! * 0.5;
+          const pts: number[] = [];
+          for (let k = 0; k <= 5; k++) {
+            pts.push(...this.at(im, a, (im.radius * (0.7 + im.seeds[i + 12]! * 0.5) * grow * k) / 5));
+            a += (im.seeds[(i * 5 + k) % 48]! - 0.5) * 0.6;
+          }
+          gs.poly(pts, false).stroke({ color: 0x0c0806, width: 4, alpha: 0.85 * fade });
         }
         break;
       }

@@ -397,6 +397,63 @@ export function houndLife(m: FigureModel): FigureModel {
   };
 }
 
+/**
+ * 血鱗獵蜥（設計者 2026-11-10）：尾巴三節像鞭子一樣甩，張嘴咬合；骨球橫掃整個身體轉過去，尾巴掃過身後；
+ * 重砸後腳蹬起、向前翻筋斗，尾巴砸在前方的地上，四腳朝天掙扎，2 秒後才翻回來
+ */
+export function lizardLife(m: FigureModel): FigureModel {
+  type Angles = Pose['angles'];
+  const P = m.poses;
+  const add = (p: Pose, more: Angles): Pose => ({ ...p, angles: { ...p.angles, ...more } });
+  const sway = (t: number, amp: number): Angles => ({ ponytail: [0, amp * Math.sin(t), 0], ex_tail1: [0, amp * 1.2 * Math.sin(t - 0.7), 0], ex_tail2: [0, amp * 1.4 * Math.sin(t - 1.4), 0] });
+  const rest = P.ready(0);
+  const tail = (a: number, b: number, c: number, yaw = 0): Angles => ({ ponytail: [a, yaw, 0], ex_tail1: [b, yaw * 0.6, 0], ex_tail2: [c, yaw * 0.35, 0] });
+  const biteOpen = add(P.attackWindup, { jaw: [0.95, 0, 0], neck: [-0.34, 0, 0], head: [-0.16, 0, 0] });
+  const biteShut = add(P.attackStrike, { jaw: [-0.3, 0, 0], neck: [0.36, 0, 0], head: [0.1, 0, 0] });
+  const biteAgain = add(P.attackWindup, { jaw: [0.7, 0, 0], neck: [-0.12, 0, 0] });
+  /** 整個身體繞著原地轉（body = 弧度），尾巴往反方向落後一點 */
+  const swing = (body: number, lag: number) => add(rest, { ...tail(0, 0, 0, lag), root: [0, body, 0], torso: [0, body * 0.12, 0], neck: [0, -body * 0.12, 0], jaw: [0.3, 0, 0] });
+  /** 翻筋斗的姿勢：pitch = 身體往前翻的角度（π = 四腳朝天）；y = 身體離地的高度 */
+  const flip = (pitch: number, y: number, more: Angles = {}): Pose => ({ ...add(rest, { root: [pitch, 0, 0], jaw: [0.5, 0, 0], ...more }), rootY: y });
+  /** 四腳朝天掙扎：四隻腳交替亂踢，身體左右搖 */
+  const upsideDown = (k: 1 | -1): Pose =>
+    flip(Math.PI, -3, { root: [Math.PI, 0, 0.09 * k], upperArmL: [0.45 * k, 0, 0], upperArmR: [-0.45 * k, 0, 0], thighL: [-0.45 * k, 0, 0], thighR: [0.45 * k, 0, 0], ...tail(-0.12 * k, 0, 0, 0.25 * k), jaw: [0.6, 0, 0] });
+  return {
+    ...m,
+    poses: {
+      ...P,
+      ready: (t) => add(P.ready(t), { ...sway(t * 1.6, 0.12), jaw: [0.06 + 0.04 * Math.sin(t * 2), 0, 0] }),
+      run: (p) => add(P.run(p), { ...sway(p, 0.3), jaw: [0.18, 0, 0] }),
+      ...(P.walk ? { walk: (p: number) => add(P.walk!(p), { ...sway(p, 0.22), jaw: [0.1, 0, 0] }) } : {}),
+      attackChain: { windup: [biteOpen], strike: [biteShut, biteAgain, biteShut], strikeTime: 0.4 },
+      plainAttackIsChain: true,
+      attackVariants: {
+        // 先轉到一側（尾巴繞到前側方），再一口氣轉過 240°，尾巴掃過整個身後
+        slash: { windup: [swing(-2.1, 0.35)], strike: [swing(2.1, -0.5)], strikeTime: 0.32 },
+        overhead: {
+          windup: [flip(-0.24, -2, { ...tail(-0.15, -0.1, 0), neck: [-0.2, 0, 0] })],
+          // 每格 0.3 秒：蹬起 → 翻到半空 → 尾巴砸地（約第 0.95 秒）→ 掙扎 → 翻回來
+          strike: [
+            flip(0.95, 9, { ...tail(0.3, 0.3, 0.2), neck: [-0.3, 0, 0] }),
+            flip(2, 20, tail(0.25, 0.3, 0.3)),
+            flip(3, 9, tail(0.15, 0.1, 0.1)),
+            flip(Math.PI, -3, tail(-0.15, -0.1, 0)),
+            upsideDown(1),
+            upsideDown(-1),
+            upsideDown(1),
+            flip(Math.PI + 0.9, 2),
+            flip(Math.PI + 2.2, 5),
+            flip(Math.PI * 2, 0),
+          ],
+          strikeTime: 3,
+        },
+      },
+      hit: add(P.hit, { jaw: [0.5, 0, 0] }),
+      dead: add(P.dead, { jaw: [0.7, 0, 0] }),
+    },
+  };
+}
+
 /** 單眼浮體的六條觸手：外側兩條（ex_tent）跟著舊版四條的動作，時間差開一點 */
 export function sixTentacles(m: FigureModel): FigureModel {
   const add = (p: Pose, follow: Pose): Pose => {
@@ -517,6 +574,7 @@ export function wheelBeastLife(m: FigureModel): FigureModel {
       hit,
       dead,
       attackChain: { windup: [raised(1)], strike: [swept(1), raised(-1), swept(-1)], strikeTime: 0.4 },
+      plainAttackIsChain: true,
       attackVariants: {
         thrust: { windup: [cocked()], strike: [thrust(1), thrust(-1)] },
         overhead: { windup: [coil(-3), coil(-9)], strike: [extended(-4), extended(2 * Math.PI)], strikeTime: 0.3 },

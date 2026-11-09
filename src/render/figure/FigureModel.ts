@@ -168,6 +168,8 @@ export interface PoseSet {
    * 命中後依序經過 strike 的姿勢（命中 → 收勢），最後收回。沒有時只用 attackWindup / attackStrike。
    */
   attackChain?: { windup: Pose[]; strike: Pose[]; strikeTime?: number };
+  /** 沒指定招式的攻擊一律播 attackChain（attackVariants 是專屬招式的動作，不和普攻輪流；鐵輪劍獸、血鱗獵蜥） */
+  plainAttackIsChain?: boolean;
 }
 
 /** 待機怒吼第一次開始的時間（秒）；之後每 period 秒一次 */

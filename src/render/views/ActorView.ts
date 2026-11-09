@@ -149,7 +149,7 @@ export class ActorView {
    */
   attack(windup: number, kind: ActionKind = 'attack', variant?: AttackVariant): void {
     // 沒指定招式的一般攻擊：橫斬與突刺交替
-    if (!variant) {
+    if (!variant && !this.figure.plainAttackIsChain) {
       this.alternate = !this.alternate;
       variant = this.alternate ? 'slash' : 'thrust';
     }
