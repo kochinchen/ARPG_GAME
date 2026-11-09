@@ -61,6 +61,6 @@ describe('暗黑領域的外觀', () => {
 
   it('其他區域不受影響', () => {
     const zones = data.skills.all.filter((s) => s.id !== 'enemy.lord_domain').flatMap((s) => flattenEffects(s.effects)).filter((e) => e.type === 'zone');
-    for (const zone of zones) expect(zone.type === 'zone' && zone.look).toBeUndefined();
+    for (const zone of zones) expect(zone.type === 'zone' && zone.look).not.toBe('darkDomain');
   });
 });

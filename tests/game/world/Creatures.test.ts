@@ -174,3 +174,32 @@ describe('23～35 樓新怪物的行為', () => {
     expect(fight('enemy.fallen_templar', [5.5, 3.5], 8).casts).toContain('enemy.judgment');
   });
 });
+
+describe('酸液甲蟲：地上的毒液', () => {
+  const spray = (playerAt: [number, number]) => {
+    const { world, events } = createWorldWithMap(ROOM, [{ enemyId: 'enemy.acid_beetle', at: [8, 4] }]);
+    makeInvulnerable(world.player);
+    world.player.position = vec2(9.5, 4);
+    world.player.stats.setBase('moveSpeed', 0);
+    const [beetle] = enemiesOf(world);
+    beetle!.ai!.provokedBy = world.player.id;
+    for (let t = 0; t < 8 && world.scheduler.zones.length === 0; t += 1 / 60) run(world, 1 / 60);
+    const zone = world.scheduler.zones[0]!;
+    expect(zone.angleDeg).toBe(80);
+    world.player.position = vec2(zone.position.x + playerAt[0] * zone.direction.x + playerAt[1] * -zone.direction.y, zone.position.y + playerAt[0] * zone.direction.y + playerAt[1] * zone.direction.x);
+    let ticks = 0;
+    events.on('ActorDamaged', (e) => {
+      if (e.targetId === world.player.id && e.element === 'poison') ticks++;
+    });
+    run(world, 3.3);
+    return ticks;
+  };
+
+  it('站在扇形裡：3 秒內每 0.5 秒一跳，共 6 跳', () => {
+    expect(spray([1.5, 0])).toBe(6);
+  });
+
+  it('站在甲蟲背後（扇形外）不受傷', () => {
+    expect(spray([-1.5, 0])).toBe(0);
+  });
+});

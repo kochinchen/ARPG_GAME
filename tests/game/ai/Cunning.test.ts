@@ -41,7 +41,7 @@ function zone(world: World, position: Vec2, radius: number, seconds = 30): Zone 
     interval: 1,
     timer: 1,
     ticksLeft: 0,
-    followCaster: false,
+    angleDeg: 360, direction: vec2(1, 0), followCaster: false,
     exclusive: false,
     effects: [],
   };

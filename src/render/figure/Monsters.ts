@@ -4,7 +4,7 @@ import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
 import { LATE_MODELS, WARDEN_GEAR } from './LateMonsters';
 import { SKELETON_GEAR, SKELETON_WARRIOR } from './SkeletonWarrior';
-import { monsterAi, wormLife } from './MonsterAI';
+import { houndLife, monsterAi, wormLife } from './MonsterAI';
 import SKELETON_AI_DATA from './monsters/skeletonAI.json';
 import FROST_SKELETON_AI_DATA from './monsters/frostSkeletonAI.json';
 import ARCHER_AI_DATA from './monsters/skeletonArcherAI.json';
@@ -16,6 +16,8 @@ import BURROWER_AI_DATA from './monsters/burrowerAI.json';
 import ARMORED_AI_DATA from './monsters/armoredSkeletonAI.json';
 import MAGE_AI_DATA from './monsters/skeletonMageAI.json';
 import STORM_MAGE_AI_DATA from './monsters/stormMageAI.json';
+import BONE_HOUND_AI_DATA from './monsters/boneHoundAI.json';
+import ACID_BEETLE_AI_DATA from './monsters/acidBeetleAI.json';
 import { BONE_HAND } from './BoneHand';
 import { STONE_WALKERS } from './StoneWalkers';
 import type { FigureModel, Joint, Pose } from './FigureModel';
@@ -23,7 +25,7 @@ import { BONE, BONE_DARK, boneLimb, humanoid, monsterPoses, pelvis, ribcage, sku
 import { box, lowSphere, placeMesh, prism, type Mesh, type V3 } from './Poly3D';
 import { knightStance, skeletonStance } from './HumanoidStance';
 import { bolt, fromHsl, glowEyes, iceCluster, pustule, recolor, rustSpike, toHsl, variant, type Hsl, type RecolorRule } from './Variants';
-import { spike } from './Creatures';
+import { bugPoses, spike } from './Creatures';
 
 /**
  * 怪物的多面體模型（與女主角同一套關節與繪製方式）。
@@ -995,6 +997,9 @@ function burrowerLook(m: FigureModel): FigureModel {
   return { ...m, parts, skin: { ...skin, faces } };
 }
 
+/** 四足獸的四肢關節 */
+const QUAD_LIMBS: Joint[] = ['thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR', 'upperArmL', 'upperArmR', 'forearmL', 'forearmR', 'handL', 'handR'];
+
 /** EnemyDef ID → 模型（沒有對應時 ActorView 使用骷髏戰士） */
 /**
  * 非人形怪物的外觀倍率（只放大畫面，不影響碰撞與數值）。
@@ -1082,6 +1087,10 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
       { amp: 0.22, rate: 11 },
     ),
   ),
+  // 骨刺獵獸：生成的模型本來就是獵食者的站姿（四肢彎曲），動作只加上舊版和待機的差
+  'enemy.bone_hound': houndLife(monsterAi(BONE_HOUND_AI_DATA, scaled(BEAST_MODELS)['enemy.bone_hound']!, { rest: 'asModeled', modeled: QUAD_LIMBS, hip: 18.09, ground: 'paws' })),
+  // 酸液甲蟲：生成的模型有八隻腳（舊版六隻）
+  'enemy.acid_beetle': monsterAi(ACID_BEETLE_AI_DATA, { ...scaled(CREATURE_MODELS)['enemy.acid_beetle']!, poses: bugPoses({ legs: 8, hip: 7 }) }, { rest: 'asModeled', ground: 'all', fit: 'height' }),
   'enemy.flame_skeleton': FLAME_SKELETON_AI,
   'enemy.storm_skeleton': STORM_SKELETON_AI,
   'enemy.ember_archer': EMBER_ARCHER_AI,
@@ -1140,6 +1149,8 @@ export const AI_MONSTERS = [
   'enemy.storm_mage_fire',
   'enemy.storm_mage_frost',
   'enemy.storm_mage_gold',
+  'enemy.bone_hound',
+  'enemy.acid_beetle',
 ];
 
 /** 換成 AI 版之前的舊版模型（比較面數、效能用） */
@@ -1158,6 +1169,8 @@ export const CLASSIC_MODELS: Record<string, FigureModel> = {
   'enemy.ember_archer': EMBER_ARCHER,
   'enemy.chain_warden': LATE_MODELS['enemy.chain_warden']!,
   'enemy.burrower': ABERRATION_MODELS['enemy.burrower']!,
+  'enemy.bone_hound': BEAST_MODELS['enemy.bone_hound']!,
+  'enemy.acid_beetle': CREATURE_MODELS['enemy.acid_beetle']!,
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;

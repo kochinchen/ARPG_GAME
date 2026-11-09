@@ -143,7 +143,8 @@ export class SquadTactics {
   /** 回傳這次用的正面角度（沒有怪在包圍範圍內則為 null） */
   private formUp(target: Actor, members: Actor[], previousFront: number | undefined, hunts: Map<ActorId, Hunt>): number | null {
     // 躲掩護的射手不必在包圍範圍內（在遠處也會走到巨獸背後），巨獸要在範圍內
-    const near = members.filter((m) => !this.takeCover(m, target, members) && distance(m.position, target.position) <= this.config.surroundRange);
+    // 第一次發現主角正在衝刺的不排站位
+    const near = members.filter((m) => !m.ai!.charging && !this.takeCover(m, target, members) && distance(m.position, target.position) <= this.config.surroundRange);
     const hunters = near.filter((m) => m.ai!.tactics.includes('hunt') && m.ai!.keepDistance <= 0);
     const hunting = hunters.length >= this.config.hunt.minHunters;
     if (hunting) hunts.set(target.id, this.hunt(target, hunters));

@@ -26,8 +26,8 @@ export interface MonsterAiOptions {
    * 靜止姿勢：humanoid（預設）= 四肢轉成筆直往下、腰挺直；asModeled = 照生成的樣子（蟲、漂浮的孢子：舊版的靜止姿勢本來就是那個樣子）
    */
   rest?: 'humanoid' | 'asModeled';
-  /** 重新貼地：feet（預設）= 腳底、all = 全身最低點（蟲）、none = 不貼地（漂浮的怪物照舊版的高度） */
-  ground?: 'feet' | 'all' | 'none';
+  /** 重新貼地：feet（預設）= 腳底、paws = 四隻腳掌（四足獸：前撲時前爪不會陷進地面）、all = 全身最低點（蟲）、none = 不貼地（漂浮的怪物照舊版的高度） */
+  ground?: 'feet' | 'paws' | 'all' | 'none';
   /** 漂浮：模型最低點離地多高（遊戲單位；骨盆高度不變，模型整個往上移） */
   lift?: number;
   /**
@@ -53,6 +53,8 @@ export interface MonsterAiOptions {
    * 大小：hip（預設）= 骨盆高度同舊版；height = 整隻的高度同舊版（毒液食屍鬼蹲得很低、背上的膿包很高，用骨盆高度對齊會大一圈）
    */
   fit?: 'hip' | 'height';
+  /** 直接指定骨盆高度（遊戲單位）：背上的刺拉長後，用整隻的高度對齊會把身體縮小 */
+  hip?: number;
   /** 武器尖端（舊版 handR 座標；省略時沿用舊版） */
   weaponTip?: V3;
 }
@@ -81,8 +83,8 @@ export function monsterAi(json: unknown, classic: FigureModel, o: MonsterAiOptio
     return alignDown(sub(J(`hand${s}`), J(`forearm${s}`)));
   };
   const lift = o.lift ?? 0;
-  let hip = classic.hipHeight;
-  if (o.fit === 'height') {
+  let hip = o.hip ?? classic.hipHeight;
+  if (o.fit === 'height' && o.hip === undefined) {
     // 舊版待機時的高度（駝背）↔ AI 模型的高度（腰、頭是生成的駝背樣子）
     const idlePose = classic.poses.ready(0);
     let classicTop = -Infinity;
@@ -190,8 +192,8 @@ export function monsterAi(json: unknown, classic: FigureModel, o: MonsterAiOptio
             : grounded(
                 withHeld,
                 hip,
-                hangDown(withHeld, hip, ground === 'feet' && kind !== 'dead' ? levelFeet(withHeld, hip, relative(p)) : relative(p), o.hang?.joint),
-                kind === 'dead' || ground === 'all' ? 'all' : ['footL', 'footR'],
+                hangDown(withHeld, hip, (ground === 'feet' || ground === 'paws') && kind !== 'dead' ? levelFeet(withHeld, hip, relative(p)) : relative(p), o.hang?.joint),
+                kind === 'dead' || ground === 'all' ? 'all' : ground === 'paws' ? ['footL', 'footR', 'handL', 'handR'] : ['footL', 'footR'],
               ),
         );
   const finalPoses = bowRig && o.bow ? stringPoses(poses, withHeld, hip, bowRig, fistOf('R').center, o.bow.string.color, windupOnly) : poses;
@@ -309,6 +311,88 @@ export function wormLife(m: FigureModel, o: { amp: number; rate: number }): Figu
       castWindup: open(poses.castWindup, o.amp * 2),
       castRelease: open(poses.castRelease, -o.amp * 0.6),
       emerge: { ...up, rootY: -low - (high - low) * 0.25 },
+    },
+  };
+}
+
+/**
+ * 四足獸的步態與咬合（骨刺獵獸；設計者 2026-11-09）。角度都是相對於生成模型的站姿（monsterAi 的 modeled）：
+ * - 走路：四拍（左後 → 左前 → 右後 → 右前），每隻腳輪流抬起，脊椎左右輕擺。
+ * - 跑步：狗的飛奔。e = cos(相位)：e = 1 伸展（腰往下凹、前腳往前伸直、後腳往後蹬直），e = -1 收縮（腰拱起、前後腳收到身體下方）；
+ *   前腳往前收回的半圈手肘折起、後腳往前收回的半圈跗關節折起，伸展與收縮的瞬間身體離地。
+ * - 咬合：前搖張大、出手時用力合上。
+ */
+export function houndLife(m: FigureModel): FigureModel {
+  const PAWS: Joint[] = ['footL', 'footR', 'handL', 'handR'];
+  const settle = (angles: Pose['angles']): Pose => grounded(m.parts, m.hipHeight, levelFeet(m.parts, m.hipHeight, { rootY: 0, angles }), PAWS);
+  const withJaw = (p: Pose, a: number): Pose => ({ ...p, angles: { ...p.angles, jaw: [a, 0, 0] } });
+  const P = m.poses;
+  const walk = (p: number): Pose => {
+    const a: Pose['angles'] = {
+      root: [0, 0.05 * Math.sin(p), 0.02 * Math.sin(p)],
+      torso: [0, -0.09 * Math.sin(p), -0.03 * Math.sin(p)],
+      neck: [0.04 * Math.cos(p * 2), 0.06 * Math.sin(p), 0],
+      head: [-0.03 * Math.cos(p * 2), 0, 0],
+      ponytail: [-0.06, 0.28 * Math.sin(p - 1), 0],
+      jaw: [0.12 + 0.05 * Math.sin(p * 2), 0, 0],
+    };
+    for (const [s, hind, fore] of [['L', p, p - Math.PI / 2], ['R', p + Math.PI, p + Math.PI / 2]] as const) {
+      a[`thigh${s}`] = [-0.3 * Math.sin(hind), 0, 0];
+      a[`shin${s}`] = [0.4 * Math.max(0, Math.cos(hind)), 0, 0];
+      a[`upperArm${s}`] = [-0.3 * Math.sin(fore), 0, 0];
+      a[`forearm${s}`] = [-0.55 * Math.max(0, Math.cos(fore)), 0, 0];
+    }
+    return settle(a);
+  };
+  const run = (p: number): Pose => {
+    const e = Math.cos(p);
+    const a: Pose['angles'] = {
+      // 腰：伸展時屁股翹、胸口抬（腰往下凹），收縮時相反（拱背）
+      root: [0.13 * e, 0.03 * Math.sin(p), 0],
+      torso: [-0.3 * e, -0.05 * Math.sin(p), 0],
+      // 頭維持看前方
+      neck: [0.12 * e, 0, 0],
+      head: [0.04 * e, 0, 0],
+      ponytail: [-0.12 + 0.34 * Math.cos(p - 0.9), 0.12 * Math.sin(p), 0],
+      jaw: [0.34 + 0.14 * Math.sin(p * 2), 0, 0],
+    };
+    // 兩側差一點相位（左腳領先）
+    for (const [side, lead] of [['L', 0.28], ['R', 0]] as const) {
+      const f = p + lead;
+      const fe = Math.cos(f);
+      const upper = -0.275 - 0.675 * fe;
+      const fore = 0.54 + 0.24 * fe - 0.95 * Math.max(0, -Math.sin(f));
+      a[`upperArm${side}`] = [upper, 0, 0];
+      a[`forearm${side}`] = [fore, 0, 0];
+      a[`hand${side}`] = [-(upper + fore) * 0.75, 0, 0];
+      // 後腳：伸展時大腿往後、跗關節以下也往後甩；收縮時整條腿收到肚子下方
+      const h = p + lead - 0.2;
+      const he = Math.cos(h);
+      const thigh = 0.75 * he;
+      const shin = -0.375 - 0.375 * he + 0.45 * Math.max(0, Math.sin(h));
+      a[`thigh${side}`] = [thigh, 0, 0];
+      a[`shin${side}`] = [shin, 0, 0];
+      a[`foot${side}`] = [0.325 + 0.525 * he - thigh - shin, 0, 0];
+    }
+    // 飛奔時腳掌跟著腿甩（不放平），伸展與收縮的瞬間離地
+    const p0 = grounded(m.parts, m.hipHeight, { rootY: 0, angles: a }, PAWS);
+    return { ...p0, rootY: p0.rootY + 1.8 * e * e };
+  };
+  return {
+    ...m,
+    // 平常的速度（3.6）用走路動作，跑步速度（EnemyDef.run）才用飛奔
+    walkBelow: 4.2,
+    poses: {
+      ...P,
+      ready: (t) => withJaw(P.ready(t), 0.12 + 0.08 * Math.sin(t * 2.4)),
+      walk,
+      run,
+      attackWindup: withJaw(P.attackWindup, 0.85),
+      attackStrike: withJaw(P.attackStrike, -0.35),
+      castWindup: withJaw(P.castWindup, 0.8),
+      castRelease: withJaw(P.castRelease, 0.95),
+      hit: withJaw(P.hit, 0.5),
+      dead: withJaw(P.dead, 0.65),
     },
   };
 }

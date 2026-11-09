@@ -34,7 +34,9 @@ export type ImpactKind =
   | 'rift'
   | 'flash'
   /** 鑽地、破土：土石紛飛，地上留一個洞 */
-  | 'dirt';
+  | 'dirt'
+  /** 酸液噴灑：扇形的毒液，留在地上冒泡、冒煙 */
+  | 'acid';
 
 export interface ImpactInput {
   kind: ImpactKind;
@@ -94,7 +96,7 @@ interface Chain {
 /** 各招專屬特效（drawSignature 處理） */
 const SIGNATURE = new Set<ImpactKind>(['cleave', 'sunder', 'crater', 'shieldBash', 'tremor', 'uppercut', 'execute', 'phantom', 'dash', 'rift', 'flash']);
 /** 這些特效沒有開頭的白色地面閃光（斬擊類只有弧光） */
-const NO_FLASH = new Set<ImpactKind>(['dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
+const NO_FLASH = new Set<ImpactKind>(['acid', 'dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
 
 const CHAIN_TIME = 0.38;
 const HEIGHT = 30;
@@ -102,6 +104,7 @@ const HEIGHT = 30;
 const DURATION: Record<ImpactKind, number> = {
   fire: 0.75,
   dirt: 1.1,
+  acid: 2,
   frost: 0.95,
   lightning: 0.55,
   poison: 0.8,
@@ -222,6 +225,18 @@ export class ImpactFx {
     };
     const size = Math.min(2.2, 0.6 + input.radius * 0.45) * (input.big ? 1.4 : 1);
     switch (input.kind) {
+      case 'acid': {
+        // 從嘴往前濺出的酸液滴
+        const base = Math.atan2(input.direction.y, input.direction.x);
+        const span = (input.angleDeg * Math.PI) / 180;
+        for (let i = 0; i < 26; i++) {
+          const a = base + (Math.random() - 0.5) * span;
+          const d = input.radius * (0.2 + 0.8 * Math.sqrt(Math.random()));
+          const q = this.screen(vec2(input.position.x + Math.cos(a) * d, input.position.y + Math.sin(a) * d));
+          this.emit('drop', q.x, q.y - 6, i % 3 ? c : 0xd8ff80, 0.7);
+        }
+        break;
+      }
       case 'dirt':
         // 土塊往上噴再落下、塵土散開
         burst('debris', Math.round(34 * size), 0x9a7a54, size * 1.3, 6);
@@ -461,6 +476,25 @@ export class ImpactFx {
       return;
     }
     switch (im.kind) {
+      case 'acid': {
+        // 扇形的毒液：邊緣不規則，往外濺開，停留到毒區結束（約 3 秒）再淡掉；上面一顆顆鼓起、破掉的泡泡
+        const a = clamp01((1.72 - t) / 0.25);
+        const base = Math.atan2(im.direction.y, im.direction.x);
+        const span = (im.angleDeg * Math.PI) / 180;
+        const grow = easeOut(clamp01(t * 8));
+        const pts: number[] = [...this.at(im, base, 0)];
+        for (let i = 0; i <= 18; i++) pts.push(...this.at(im, base + (i / 18 - 0.5) * span, R * grow * (0.78 + im.seeds[i]! * 0.22)));
+        gs.poly(pts).fill({ color: 0x1c3a10, alpha: 0.62 * a });
+        gg.poly(pts).stroke({ color: 0x9fe83e, width: 1.2, alpha: 0.35 * a });
+        for (let i = 0; i < 14; i++) {
+          const phase = (t * (3 + im.seeds[i + 20]! * 2.4) + im.seeds[i + 34]!) % 1;
+          const [x, y] = this.at(im, base + (im.seeds[i]! - 0.5) * span * 0.88, R * (0.22 + 0.72 * Math.sqrt(im.seeds[i + 10]!)) * grow);
+          const size = (2.5 + im.seeds[i + 5]! * 5) * phase;
+          gs.circle(x, y - phase * 3, size).fill({ color: 0x8fe03a, alpha: 0.4 * a }).stroke({ color: 0xd8ff90, width: 1.1, alpha: 0.9 * a });
+          gg.circle(x - size * 0.3, y - phase * 3 - size * 0.3, size * 0.22).fill({ color: 0xf0ffd0, alpha: 0.8 * a });
+        }
+        break;
+      }
       case 'dirt': {
         // 地上的洞：深色的圓，邊緣一圈翻起的土，慢慢淡掉
         const a = clamp01(1.5 - t * 1.5);

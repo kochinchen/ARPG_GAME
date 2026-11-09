@@ -148,6 +148,7 @@ export class EnemyFactory {
               keepDistance: def.ai === 'ranged' ? def.keepDistance : 0,
               solitary: def.treasure,
               tactics: def.tactics,
+              ...(def.run && def.moveSpeed > 0 ? { run: { bonus: def.run.speed / def.moveSpeed - 1, beyond: def.run.beyond, charge: def.run.charge } } : {}),
             }),
       skillRanks: new Map(def.skills.map((skillId) => [skillId, 1])),
       isBoss: def.boss,

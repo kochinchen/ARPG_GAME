@@ -7,6 +7,7 @@ AI 生成的怪物（微軟 TRELLIS 用設計圖四視圖生成的 .glb）→ �
   蜘蛛女王：art/monsters/spider_queen → src/render/figure/bosses/spiderQueenAI.json
   深淵魔王：art/monsters/abyss_lord → src/render/figure/bosses/abyssLordAI.json
   深淵統御者：art/monsters/abyss_sovereign → src/render/figure/bosses/abyssSovereignAI.json（另有巨劍、盾牌）
+  骨刺獵獸 / 酸液甲蟲：art/monsters/<bone_hound|acid_beetle> → src/render/figure/monsters/<boneHoundAI|acidBeetleAI>.json
   石頭獸（結晶獸四種屬性共用）：art/monsters/stone_walker → src/render/figure/monsters/stoneWalkerAI.json
   骨龍（巨口、四根觸手、四隻腳）：art/monsters/bone_dragon → src/render/figure/bosses/boneDragonAI.json
   隱藏魔王「眼」（巨大眼球、八根花瓣爪、大翅膀）：art/monsters/abyss_dragon → bosses/abyssDragonAI.json；尾巴另外生成、第三階段脫離：同一個資料夾加第三個參數 tail → bosses/abyssDragonTailAI.json
@@ -47,7 +48,7 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800})
+TRIS_OF.update({"burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
 ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
@@ -61,6 +62,8 @@ CLEANUP = {
     "bone_dragon": lambda p: 0.05 < p.y < 0.255 and 0.14 < abs(p.x) < 0.31 and p.z < -0.225,
     # 手：TRELLIS 每邊生成 6 隻腳（設計是 4 隻），切掉前後第二隻
     "abyss_hand": lambda p: abs(p.x) > HAND_LEG_CUT_X and any(abs(p.y - y) < 0.052 for y in HAND_CUT_LEGS),
+    # 酸液甲蟲（設計者 2026-11-09）：拿掉大顎外側那兩根觸鬚，和原本的短管與兩顆液滴（換成砲管）
+    "acid_beetle": lambda p: (0.168 < abs(p.x) < 0.34 and p.y < -0.3 and p.z < -0.1) or (abs(p.x) < 0.055 and p.y < -0.345 and -0.2 < p.z < -0.07),
 }
 
 
@@ -275,7 +278,84 @@ BURROWER_LIP_Y = -0.43
 MAW_RING_BONES = 6
 MAW_RING = (0.025, 0.055, 0.125, 0.155)
 MAW_RING_Y = -0.385
-RESHAPE = {"burrower": reshape_burrower, "void_maw": reshape_maw_mouth, "void_spore": reshape_spore_eye, "abyss_dragon": reshape_eye, "bone_hand": reshape_bone_hand, "abyss_hand": reshape_hand_body, "abyss_hand_hand": reshape_hand_arm}
+# 骨刺獵獸（設計者 2026-11-09）：胸部之後到尾巴之前，背上的骨刺拉長 2 倍（只沿著刺的方向拉，根部與粗細不變）
+HOUND_CLAW_Z = -0.19
+HOUND_CLAW_LONGER = 0.012
+HOUND_SPIKE = {"from": -0.13, "to": 0.34, "min_z": 0.09, "scale": 2.0}
+
+
+def reshape_bone_hound(bm):
+    img = max(bpy.data.images, key=lambda i: i.size[0])
+    tw, th = img.size
+    px = img.pixels[:]
+    uv = bm.loops.layers.uv.active
+
+    def color(v):
+        acc = [0.0, 0.0, 0.0]
+        for l in v.link_loops:
+            u = l[uv].uv
+            i = (min(th - 1, int(u.y * th)) * tw + min(tw - 1, int(u.x * tw))) * 4
+            for k in range(3):
+                acc[k] += px[i + k]
+        n = len(v.link_loops) or 1
+        return [a / n for a in acc]
+
+    def is_bone(v):
+        r, g, b = color(v)
+        return r > 0.6 and g > 0.5 and b > 0.33 and g > r * 0.72
+
+    bone = {v for v in bm.verts if is_bone(v)}
+    seen = set()
+    stretched = 0
+    claws = 0
+    floor = min(v.co.z for v in bm.verts)
+    for start in bone:
+        if start in seen:
+            continue
+        comp, stack = [], [start]
+        seen.add(start)
+        while stack:
+            v = stack.pop()
+            comp.append(v)
+            for e in v.link_edges:
+                o = e.other_vert(v)
+                if o in bone and o not in seen:
+                    seen.add(o)
+                    stack.append(o)
+        center = sum((v.co for v in comp), Vector()) / len(comp)
+        # 腳趾（設計者 2026-11-09）：往前收成尖端，尖端壓到地面（根部不動）
+        if center.z < HOUND_CLAW_Z and abs(center.x) > 0.1 and len(comp) >= 3:
+            ys = [v.co.y for v in comp]
+            y0, y1 = min(ys), max(ys)
+            if y1 - y0 < 1e-4:
+                continue
+            base = sum((v.co for v in comp if v.co.y > y1 - (y1 - y0) * 0.3), Vector())
+            base /= sum(1 for v in comp if v.co.y > y1 - (y1 - y0) * 0.3)
+            front = [v.co for v in comp if v.co.y < y0 + (y1 - y0) * 0.25]
+            old_tip = sum(front, Vector()) / len(front)
+            new_tip = Vector((old_tip.x, y0 - HOUND_CLAW_LONGER, floor))
+            for v in comp:
+                t = min(1.0, max(0.0, (y1 - v.co.y) / (y1 - y0)))
+                v.co = base.lerp(new_tip, t) + (v.co - base.lerp(old_tip, t)) * (1 - t)
+            claws += 1
+            continue
+        if len(comp) < 10 or not HOUND_SPIKE["from"] < center.y < HOUND_SPIKE["to"] or center.z < HOUND_SPIKE["min_z"]:
+            continue
+        # 刺尖 = 最高的點（往後的刺也算），根部 = 離刺尖最遠的那一圈
+        tip = max(comp, key=lambda v: v.co.z + v.co.y * 0.4).co.copy()
+        along = (tip - center).normalized()
+        ts = [(v.co - center).dot(along) for v in comp]
+        t0 = min(ts)
+        ring = [v.co for v, t in zip(comp, ts) if t < t0 + (max(ts) - t0) * 0.25]
+        base = sum(ring, Vector()) / len(ring)
+        axis = (tip - base).normalized()
+        for v in comp:
+            v.co += axis * max(0.0, (v.co - base).dot(axis)) * (HOUND_SPIKE["scale"] - 1)
+        stretched += 1
+    print("拉長的背刺", stretched, "捏尖的腳趾", claws)
+
+
+RESHAPE = {"bone_hound": reshape_bone_hound, "burrower": reshape_burrower, "void_maw": reshape_maw_mouth, "void_spore": reshape_spore_eye, "abyss_dragon": reshape_eye, "bone_hand": reshape_bone_hand, "abyss_hand": reshape_hand_body, "abyss_hand_hand": reshape_hand_arm}
 # 尾巴：中段重複成 TAIL_COPIES 段（每段自己封口、互相重疊一點，彎曲時不會破洞），總長約 3 倍；再整體縮到接在本體上的大小
 TAIL_BAND = (-0.34, -0.06)
 TAIL_COPIES = 6
@@ -309,7 +389,36 @@ def lengthen_tail(bm):
 
 
 # 減面後改形狀（切開的部位減面後才複製，面數才算得準）
-AFTER_DECIMATE = {"abyss_dragon_tail": lengthen_tail}
+# 酸液甲蟲的砲管：從頭的正面往前伸的短管，末端是往內凹的洞。減面後才加（不要被減掉）；顏色在下面照位置上
+BEETLE_GUN = {"base": (0, -0.335, -0.135), "tip": (0, -0.42, -0.1455), "sides": 12, "bore": 0.015}
+BEETLE_GUN_VERTS = set()
+
+
+def add_beetle_gun(bm):
+    base, tip = Vector(BEETLE_GUN["base"]), Vector(BEETLE_GUN["tip"])
+    axis = (tip - base).normalized()
+    u = axis.cross(Vector((0, 0, 1))).normalized()
+    v = axis.cross(u).normalized()
+    n = BEETLE_GUN["sides"]
+    # 剖面（半徑, 沿砲管的比例）：後端粗（兩倍直徑）往前收細 → 砲口內緣 → 洞壁 → 洞底
+    bore = BEETLE_GUN["bore"]
+    profile = [(0.044, 0.0), (0.033, 0.5), (0.022, 1.0), (bore, 1.0), (bore, 0.5), (0.001, 0.5)]
+    length = (tip - base).length
+    rings = []
+    for r, t in profile:
+        c = base + axis * (length * t)
+        rings.append([bm.verts.new(c + (u * math.cos(2 * math.pi * k / n) + v * math.sin(2 * math.pi * k / n)) * r) for k in range(n)])
+    for ring in rings:
+        for x in ring:
+            BEETLE_GUN_VERTS.add(tuple(round(c, 4) for c in x.co))
+    for a, b in zip(rings, rings[1:]):
+        for k in range(n):
+            k2 = (k + 1) % n
+            bm.faces.new((a[k], b[k], b[k2]))
+            bm.faces.new((a[k], b[k2], a[k2]))
+
+
+AFTER_DECIMATE = {"abyss_dragon_tail": lengthen_tail, "acid_beetle": add_beetle_gun}
 
 
 def to_int(r, g, b):
@@ -340,7 +449,7 @@ def load(path, tris, name, cut=None):
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(cut(v.co) for v in f.verts)], context="FACES")
         bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
         # 骨龍：切掉多餘的腳留下的開口補起來，否則從旁邊看得到身體裡面（補的面沒有貼圖，下面當黑面處理）
-        if name.startswith(("bone_dragon", "abyss_hand")):
+        if name.startswith(("bone_dragon", "abyss_hand", "acid_beetle")):
             bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
     base = name[:-3] if name.endswith("_ai") else name
     if base in RESHAPE:
@@ -1004,6 +1113,45 @@ PRIEST_ARMS = limb_zone(lambda p: -0.125 < p.z < 0.17 and abs(p.x) > 0.195 and p
 STONE_ARMS = limb_zone(lambda p: p.z < 0.12 and abs(p.x) > (0.2 if p.z < -0.25 else 0.22) and (p.z > -0.25 or p.y < 0.12), lambda p: True)
 
 # 限制某些頂點只能跟哪些骨頭（zone(頂點, 骨頭名稱) → 可以或不可以）；沒有列出的怪物只看距離
+
+# 下顎：絞鏈（嘴角）；嘴的分界線（絞鏈 → 上犬齒後方）與喉嚨的分界線（絞鏈 → 下巴後方）
+HOUND_JAW_HINGE = (0, -0.345, -0.02)
+
+
+def in_hound_jaw(p):
+    return abs(p.x) < 0.08 and p.y > -0.45 and p.z < -0.02 + (p.y + 0.345) * 0.65 and p.y < -0.345
+
+
+def bone_hound_zone(p, bone):
+    """腿只能拿腿的位置：肋骨與背上的骨刺跟身體，腳掌不被身體搶走；下顎只有嘴下半部"""
+    if bone == "jaw":
+        return in_hound_jaw(p)
+    if in_hound_jaw(p):
+        return False
+    if bone.startswith(("upperArm", "forearm", "hand")):
+        # 手肘的後半（帶兩根小骨刺）在肋骨外側
+        return abs(p.x) > 0.06 and (p.y < -0.055 or (abs(p.x) > 0.16 and p.z < 0.06 and p.y < 0.0))
+    if bone.startswith(("thigh", "shin", "foot")):
+        return p.y > 0.06 and p.z < 0.1
+    if bone in ("root", "torso", "neck"):
+        return p.z > -0.16
+    return True
+
+
+def acid_beetle_zone(p, bone):
+    """甲殼的邊緣跟身體，不跟著腳動"""
+    if bone.startswith(("upperArm", "forearm", "hand", "thigh", "ex_leg")):
+        # 只拿腳本身的粗細以內：甲殼下緣和腹部不跟著腳動
+        a, b = next((a, b) for name, _, a, b, _ in bones if name == bone)
+        return p.z < -0.02 and seg_dist(p, a, b) < 0.1
+    if bone.startswith("shin") and abs(p.x) < 0.075:
+        # 砲管跟頭，不跟大顎
+        return False
+    if bone == "head" or bone.startswith("shin"):
+        return p.y < -0.2 and p.z < 0.03
+    return True
+
+
 ZONES = {
     # 深淵統御者：手臂在身體兩側前半、大腿外側；翅膀在背後高處
     "abyss_sovereign": limb_zone(
@@ -1114,6 +1262,8 @@ _GHOUL_ARMS = limb_zone(lambda p: ((p.z > 0.08 and abs(p.x) > 0.17) or abs(p.x) 
 ZONES["ghoul"] = lambda p, bone: (not bone.startswith(("head", "neck")) or p.y < -0.06) and _GHOUL_ARMS(p, bone)
 _VENOM_ARMS = limb_zone(lambda p: ((p.z > 0.08 and abs(p.x) > 0.2) or abs(p.x) > 0.285) and p.y < 0.08 and p.z < 0.25, lambda p: True)
 ZONES["venom_ghoul"] = lambda p, bone: (not bone.startswith(("head", "neck")) or p.y < -0.1) and _VENOM_ARMS(p, bone)
+ZONES["bone_hound"] = bone_hound_zone
+ZONES["acid_beetle"] = acid_beetle_zone
 ZONES["void_spore"] = lambda p, bone: (bone != "head" or (p.y < -0.3 and math.hypot(p.x, p.z) < 0.17)) and (not re.match(r"(upperArm|forearm|hand|thigh|shin|foot)", bone) or p.z < -0.3)
 def mage_zone(in_arm, boot_z):
     """長袍的法師：靴子（長袍下擺以下）只跟腳；大腿、小腿不帶動長袍；手臂區同其他人形"""
@@ -1142,6 +1292,53 @@ JOINED["bone_dragon"] = lambda bones, ws: not {"head", "jaw"} <= bones
 # 眼：爪碰到翅膀的三角形，收合時會被拉成長條
 JOINED["abyss_dragon"] = lambda bones, ws: not (any(b.startswith("ex_claw") for b in bones) and any(b.startswith("ex_wing") for b in bones))
 
+def bone_hound():
+    """骨刺獵獸：四足，關節名稱同 Beasts.beast。root 放在身體中段（遊戲把 root 放在角色位置），root 的線段往後涵蓋臀部；
+    後腿用腳尖站：大腿 → 膝、小腿 → 跗關節、foot = 跗關節到腳趾（遊戲的後腳保持水平，這段不會歪）"""
+    bones = [
+        ("root", None, V((0, 0.07, 0.03)), V((0, 0.27, 0.04)), 0.1),
+        ("torso", "root", V((0, 0.03, 0.04)), V((0, -0.2, 0.05)), 0.11),
+        ("neck", "torso", V((0, -0.2, 0.06)), V((0, -0.33, 0.03)), 0.07),
+        ("head", "neck", V((0, -0.33, 0.03)), V((0, -0.49, -0.02)), 0.09),
+        ("ponytail", "root", V((0, 0.33, 0.015)), V((0, 0.5, -0.1)), 0.02),
+        ("jaw", "head", V(HOUND_JAW_HINGE), V((0, -0.42, -0.15)), 0.1),
+    ]
+    arm = [V((0.12, -0.14, 0.07)), V((0.165, -0.09, -0.066)), V((0.19, -0.18, -0.204)), V((0.195, -0.29, -0.254))]
+    leg = [V((0.11, 0.17, 0.04)), V((0.155, 0.16, -0.08)), V((0.19, 0.29, -0.107)), V((0.2, 0.173, -0.254))]
+
+    def side(s, m):
+        out = chain([f"upperArm{s}", f"forearm{s}", f"hand{s}"], "torso", [m(p) for p in arm], [0.06, 0.05, 0.05])
+        return out + chain([f"thigh{s}", f"shin{s}", f"foot{s}"], "root", [m(p) for p in leg], [0.07, 0.055, 0.065])
+
+    return bones + sides(side), {}
+
+
+# 甲蟲八隻腳（由前到後，左半邊）：腳根 → 膝 → 腳尖；遊戲的動作只轉腳根（整隻腳一起動），外段是不動的子骨頭，只用來分權重
+BEETLE_LEGS = [
+    ("upperArm", (0.07, -0.133, -0.1), (0.3, -0.225, -0.06), (0.44, -0.283, -0.275)),
+    ("forearm", (0.126, -0.047, -0.1), (0.33, -0.056, -0.06), (0.47, -0.063, -0.275)),
+    ("hand", (0.15, 0.086, -0.1), (0.34, 0.13, -0.06), (0.47, 0.17, -0.275)),
+    ("thigh", (0.1, 0.204, -0.1), (0.21, 0.3, -0.06), (0.29, 0.369, -0.275)),
+]
+
+
+def acid_beetle():
+    """酸液甲蟲：大甲殼（root）、頭、一對大顎（shinL/R，掛在頭上）、八隻腳（關節名稱同 Creatures.arthropod 的 LEG_JOINTS）"""
+    bones = [
+        ("root", None, V((0, 0.03, -0.02)), V((0, 0.3, 0.0)), 0.26),
+        ("head", "root", V((0, -0.24, -0.1)), V((0, -0.46, -0.16)), 0.1),
+    ]
+
+    def side(s, m):
+        out = [(f"shin{s}", "head", m(V((0.125, -0.3, -0.11))), m(V((0.11, -0.45, -0.13))), 0.06)]
+        for i, (joint, a, b, c) in enumerate(BEETLE_LEGS):
+            out.append((f"{joint}{s}", "root", m(V(a)), m(V(b)), 0.05))
+            out.append((f"ex_leg{s}{i}", f"{joint}{s}", m(V(b)), m(V(c)), 0.05))
+        return out
+
+    return bones + sides(side), {}
+
+
 SKELETONS = {
     "spider_queen": spider_queen,
     "abyss_lord": abyss_lord,
@@ -1168,6 +1365,8 @@ SKELETONS = {
     "void_spore": void_spore,
     "void_maw": void_maw,
     "burrower": void_maw,
+    "bone_hound": bone_hound,
+    "acid_beetle": acid_beetle,
 }
 bones, extra = SKELETONS[NAME]()
 
@@ -1188,7 +1387,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
+JOINT_SOFT = {n: 0.04 for n in ("bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}
@@ -1263,10 +1462,23 @@ def G(v):
 
 faces = []
 joined = JOINED.get(NAME)
+
+
+def hound_joined(bones, ws, c):
+    """骨刺獵獸（設計者 2026-11-09）：前腳、後腿在肩膀與髖以下和身體切開，腿往前後伸展時不會拉出長長的三角形"""
+    limb = any(b.startswith(("upperArm", "forearm", "hand", "thigh", "shin", "foot")) for b in bones)
+    body = any(b in ("root", "torso", "neck") for b in bones)
+    return not (limb and body and c.z < 0.03)
+
+
+if NAME == "bone_hound":
+    joined = hound_joined
 tris = [list(p.vertices)[:3] for p in me.polygons]
 
 
 def kept_faces():
+    if NAME == "bone_hound":
+        return [joined({weights[i][0][0] for i in t}, [weights[i] for i in t], sum((co[i] for i in t), Vector()) / 3) for t in tris]
     return [joined({weights[i][0][0] for i in t}, [weights[i] for i in t]) if joined else True for t in tris]
 
 
@@ -1375,6 +1587,28 @@ if NAME == "abyss_dragon":
                     u = dz / (WING_EYE_DISC * SLIT_H)
                     slit = abs(u) < 1 and abs(dx) < WING_EYE_DISC * SLIT_W * (1 - u * u)
                     f[3] = 0x0a0204 if slit else (0xe02418 if d < 0.6 else 0xa8140e)
+# 酸液甲蟲的砲管：砲身與砲口用背上酸液的亮綠色，洞裡用腳爪的深色
+if NAME == "acid_beetle":
+    gun_base, gun_tip = Vector(BEETLE_GUN["base"]), Vector(BEETLE_GUN["tip"])
+    gun_axis = (gun_tip - gun_base).normalized()
+    painted = 0
+    for f in faces:
+        pts = [co[i] for i in f[:3]]
+        if not all(tuple(round(c, 4) for c in q) in BEETLE_GUN_VERTS for q in pts):
+            continue
+        radial = [((q - gun_base) - gun_axis * (q - gun_base).dot(gun_axis)).length for q in pts]
+        f[3] = 0x2a2630 if max(radial) < BEETLE_GUN["bore"] + 0.002 else (0xa8ec48 if sum(pts, Vector()).z / 3 > gun_base.z - 0.02 else 0x8fd63a)
+        painted += 1
+    print("砲管的面", painted)
+# 骨刺獵獸：上下顎之間的面張嘴時會被拉開，塗成口腔的暗紅色，看得出嘴是張開的
+if NAME == "bone_hound":
+    mouth = 0
+    for f in faces:
+        tops = {weights[i][0][0] for i in f[:3]}
+        if "jaw" in tops and "head" in tops:
+            f[3] = 0x3a0a0c
+            mouth += 1
+    print("口腔的面", mouth)
 # 虛空吞噬者：洞裡（喉嚨往後推的部分與洞壁）塗成黑色
 if NAME in ("void_maw", "burrower"):
     black = 0

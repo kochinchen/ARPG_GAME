@@ -550,6 +550,8 @@ export const enemies: z.input<typeof EnemyDefSchema>[] = [
     damage: atk(3, 6),
     defense: 6,
     moveSpeed: 3.6,
+    // 主角跑遠（6 格外）就用跑的追上；第一次發現主角時一路跑到撲擊距離直接撲
+    run: { speed: 5.4, beyond: 6, charge: true },
     radius: 0.34,
     attackRange: 0.4,
     attackSpeed: 1.2,

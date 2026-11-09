@@ -28,12 +28,18 @@ export class ChaseState implements IAiState {
     const { self, brain, targeting } = ctx;
     self.repathCooldown = 0;
     brain.retreating = false;
+    if (brain.run?.charge && !brain.charged) {
+      brain.charged = true;
+      brain.charging = true;
+    }
     this.act(ctx, brain.targetId === null ? null : targeting.getValidTarget(self, brain.targetId));
   }
 
   update(ctx: AiContext) {
     const { self, brain, targeting } = ctx;
     const target = brain.targetId === null ? null : targeting.getValidTarget(self, brain.targetId);
+    // 衝刺到出招為止（目標不見也結束）
+    if (brain.charging && (!target || self.cast)) brain.charging = false;
     if (!target) return 'return' as const;
     if (brain.callPacks.length > 0) return 'call' as const;
     if (!self.cast) {
@@ -63,11 +69,11 @@ export class ChaseState implements IAiState {
     }
     if (target && this.retreat(ctx, target)) return;
     // 等候補位、守著召喚者、圍獵繞圈或還沒輪到撲上去：不出手
-    if (brain.waiting || brain.huntHold > 0) {
+    if (!brain.charging && (brain.waiting || brain.huntHold > 0)) {
       this.holdStation(ctx);
       return;
     }
-    if (brain.flanking && brain.slot) {
+    if (!brain.charging && brain.flanking && brain.slot) {
       this.flank(ctx, brain.slot);
       return;
     }
@@ -81,7 +87,7 @@ export class ChaseState implements IAiState {
       }
     }
     // SkillSystem 在目標暫時無效時會清掉意圖，這裡持續維持主要攻擊（站位每次重新分配都會變）
-    const approach = brain.slot ?? undefined;
+    const approach = brain.charging ? undefined : (brain.slot ?? undefined);
     if (self.intent?.targetId === brain.targetId && self.intent.skillId === brain.skillId) {
       self.intent.approach = approach;
       self.intent.lead = ctx.lead;

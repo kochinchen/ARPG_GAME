@@ -106,6 +106,12 @@ export interface AiBrain {
   kamikaze: boolean;
   /** 下次逃跑（FleeState）的秒數；null = 照誘敵的 maxTime */
   fleeFor: number | null;
+  /** 跑步（EnemyDef.run）：相對於走路速度的加成、目標多遠才跑、第一次發現時衝刺；null = 沒有 */
+  run: { bonus: number; beyond: number; charge: boolean } | null;
+  /** 第一次發現目標的衝刺已經用過 */
+  charged: boolean;
+  /** 正在衝刺：不論距離都跑，跑到特殊技能的距離就出招，不等圍獵繞圈 */
+  charging: boolean;
 }
 
 export interface BrainOptions {
@@ -115,6 +121,7 @@ export interface BrainOptions {
   keepDistance?: number;
   solitary?: boolean;
   tactics?: readonly EnemyTactic[];
+  run?: { bonus: number; beyond: number; charge: boolean };
 }
 
 export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
@@ -148,6 +155,9 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     dodgeTimer: 0,
     dodgeCooldown: 0,
     tactics: options.tactics ?? [],
+    run: options.run ?? null,
+    charged: false,
+    charging: false,
     errand: null,
     drankPotion: false,
     eats: 0,

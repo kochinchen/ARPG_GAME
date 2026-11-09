@@ -200,6 +200,8 @@ export interface FigureModel {
   secondary?: Partial<Record<Joint, { rate: number; gravity?: number; clampTo?: Joint; maxZ?: number }>>;
   /** 背光面的暖色輪廓光強度（0～1） */
   rimLight?: number;
+  /** 移動速度（格 / 秒）低於此值時用走路動畫（有 walk 的模型；省略 = 2.6） */
+  walkBelow?: number;
   /** 走路 / 跑步的步頻倍率（沉重的魔王 < 1） */
   gaitRate?: number;
   /** 柔和光線（wrap lighting）：背光面不會一下子變很暗，明暗沿著表面漸變 */

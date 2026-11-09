@@ -7,12 +7,25 @@ import type { NavGrid } from '../movement/NavGrid';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { EffectContext, EffectSchedulerPort } from './effects/IEffect';
 
+/** 目標在區域的扇形裡（圓形的區域一律算在裡面；站在正中心也算） */
+function inSector(p: Vec2, zone: Pick<Zone, 'position' | 'angleDeg' | 'direction'>): boolean {
+  if (zone.angleDeg >= 360) return true;
+  const dx = p.x - zone.position.x;
+  const dy = p.y - zone.position.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return true;
+  return (dx * zone.direction.x + dy * zone.direction.y) / len >= Math.cos(((zone.angleDeg / 2) * Math.PI) / 180);
+}
+
 /** 地面持續區域（火牆、火焰區） */
 export interface Zone {
   id: number;
   ctx: EffectContext;
   position: Vec2;
   radius: number;
+  /** 扇形的角度與朝向（360 = 圓形） */
+  angleDeg: number;
+  direction: Vec2;
   remaining: number;
   interval: number;
   timer: number;
@@ -76,9 +89,12 @@ export class EffectScheduler implements EffectSchedulerPort {
       ctx: { ...ctx, origin: position },
       position,
       radius,
-      remaining: duration,
+      angleDeg: def.angleDeg ?? 360,
+      direction: ctx.direction,
+      // 第一跳延後時，最後一跳剛好在時間到的那一刻：多留一點，避免浮點誤差少打一跳
+      remaining: def.delayFirstTick ? duration + 0.05 : duration,
       interval: def.interval,
-      timer: 0,
+      timer: def.delayFirstTick ? def.interval : 0,
       ticksLeft: Math.max(1, Math.round(duration / def.interval)),
       followCaster: def.followCaster,
       exclusive: def.exclusive,
@@ -220,6 +236,7 @@ export class EffectScheduler implements EffectSchedulerPort {
         zone.timer += zone.interval;
         zone.ticksLeft--;
         for (const target of this.targeting.hostilesWithin(zone.ctx.caster, zone.position, zone.radius)) {
+          if (!inSector(target.position, zone)) continue;
           zone.ctx.run(zone.effects, { ...zone.ctx, target, origin: zone.position });
         }
       }

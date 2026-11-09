@@ -45,6 +45,22 @@ const softDot = () =>
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, s, s);
   });
+/** 泡泡：半透明的球、亮邊與一點反光 */
+const bubbleTex = () =>
+  canvasTexture(64, (ctx, s) => {
+    const c = s / 2;
+    ctx.beginPath();
+    ctx.arc(c, c, s * 0.42, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.fill();
+    ctx.lineWidth = s * 0.07;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(c - s * 0.15, c - s * 0.15, s * 0.08, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,1)';
+    ctx.fill();
+  });
 /** 煙：邊緣不規則的柔團 */
 const puffTex = () =>
   canvasTexture(64, (ctx, s) => {
@@ -252,6 +268,8 @@ export class ThreeSkillFx implements SkillFxListener {
   private readonly crackTex = crackTex();
   private readonly glow = new Particles(this.glowTex, THREE.AdditiveBlending, 3000);
   private readonly smoke = new Particles(this.puffTex, THREE.NormalBlending, 1200);
+  /** 酸液的泡泡：空心的圓，上面一點反光 */
+  private readonly bubbleDots = new Particles(bubbleTex(), THREE.NormalBlending, 300);
   private readonly items: Item[] = [];
   private readonly later: Later[] = [];
   private time = 0;
@@ -285,7 +303,7 @@ export class ThreeSkillFx implements SkillFxListener {
   private readonly arrowGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.75, 5);
 
   constructor(private readonly pxPerHeight: number) {
-    this.group.add(this.glow.points, this.smoke.points);
+    this.group.add(this.glow.points, this.smoke.points, this.bubbleDots.points);
     this.iceGeo.translate(0, 0.5, 0);
   }
 
@@ -314,6 +332,10 @@ export class ThreeSkillFx implements SkillFxListener {
       return true;
     }
     switch (id) {
+      case 'enemy.acid_spray':
+        // 地上的毒液（扇形、冒泡）由 Pixi 的 acid 畫，這裡是立體的噴濺、泡泡與煙
+        this.acidSpray(p, i.direction, r, i.angleDeg);
+        return false;
       case 'enemy.eye_leap':
         this.devastate(p, i.direction);
         this.shockRing(p, r, 0xffc880);
@@ -424,6 +446,7 @@ export class ThreeSkillFx implements SkillFxListener {
     this.hookFrom = this.hookAt = null;
     this.glow.clear();
     this.smoke.clear();
+    this.bubbleDots.clear();
   }
 
   // ─────────── 每幀 ───────────
@@ -451,6 +474,7 @@ export class ThreeSkillFx implements SkillFxListener {
     }
     this.glow.update(dt, scale);
     this.smoke.update(dt, scale);
+    this.bubbleDots.update(dt, scale);
   }
 
   /** 持續的效果：火牆的火焰、隕石坑的岩漿、絕對零度的寒霧、隕石落下（熔岩巨獸的火牆、岩漿足跡也是） */
@@ -1167,6 +1191,39 @@ export class ThreeSkillFx implements SkillFxListener {
         if (k === 1 && t < fall + 0.02) this.dust(p, 1, 0.1);
         if (t > fall + 2.2) m.position.y -= (t - fall - 2.2) * 0.6;
       }, () => (m.material as THREE.Material).dispose());
+    }
+  }
+
+  /**
+   * 酸液噴灑（設計者 2026-11-09）：從嘴往前濺出酸液，噴到的扇形區域一波波冒毒泡泡與綠煙，持續到地上的毒區結束（約 3 秒）
+   */
+  private acidSpray(at: Vec2, direction: Vec2, radius: number, angleDeg: number): void {
+    const base = Math.atan2(direction.y, direction.x);
+    const span = (angleDeg * Math.PI) / 180;
+    const spot = () => {
+      const a = base + (Math.random() - 0.5) * span * 0.92;
+      const d = radius * (0.2 + 0.8 * Math.sqrt(Math.random()));
+      return vec2(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);
+    };
+    for (let i = 0; i < 34; i++) {
+      const a = base + (Math.random() - 0.5) * span;
+      const speed = rand(2.2, 5.2) * Math.min(1.4, radius / 2.4);
+      this.glow.add({ p: this.v3(at, 0.5), v: new THREE.Vector3(Math.cos(a) * speed, rand(0.8, 2.2), Math.sin(a) * speed), gravity: 6, drag: 0.4, life: rand(0.35, 0.6), size: [rand(9, 15), rand(5, 9)], color: [linear(0xd0ff70), linear(0x6cc828)], alpha: [0.95, 0.4] });
+    }
+    for (let wave = 0; wave < 9; wave++) {
+      this.later.push({
+        at: this.time + wave * 0.32,
+        run: () => {
+          for (let i = 0; i < 7; i++) {
+            const q = spot();
+            this.bubbleDots.add({ p: this.v3(q, 0.04), v: new THREE.Vector3(rand(-0.08, 0.08), rand(0.25, 0.7), rand(-0.08, 0.08)), gravity: 0, drag: 0.2, life: rand(0.45, 0.85), size: [rand(7, 12), rand(18, 32)], color: [linear(0xa8ec48), linear(0x7ed957)], alpha: [0.95, 0.7] });
+          }
+          for (let i = 0; i < 5; i++) {
+            const q = spot();
+            this.smoke.add({ p: this.v3(q, rand(0.05, 0.25)), v: new THREE.Vector3(rand(-0.15, 0.15), rand(0.4, 0.9), rand(-0.15, 0.15)), gravity: 0, drag: 0.4, life: rand(1.1, 1.8), size: [rand(26, 40), rand(84, 120)], color: [linear(0x9ee850), linear(0x3f6a28)], alpha: [0.5, 0] });
+          }
+        },
+      });
     }
   }
 

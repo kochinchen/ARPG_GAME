@@ -750,6 +750,7 @@ const BARRAGE_MOTION = 0.3;
 
 /** 各招專屬的命中特效（沒有列出的依元素 / 標籤 / 範圍決定） */
 const SKILL_FX: Record<string, ImpactKind> = {
+  'enemy.acid_spray': 'acid',
   'melee.heavy_slash': 'cleave',
   'melee.armor_break': 'sunder',
   'melee.earth_break': 'shockwave',

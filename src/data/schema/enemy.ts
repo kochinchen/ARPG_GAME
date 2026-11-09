@@ -79,6 +79,11 @@ export const EnemyDefSchema = z
   defense: z.number().nonnegative(),
   /** Tile / 秒；0 = 不會移動（例如訓練木樁） */
   moveSpeed: z.number().nonnegative(),
+  /**
+   * 跑步（設計者 2026-11-09）：moveSpeed 是走路的速度；追擊時目標在 beyond 格外用 speed（Tile / 秒）跑著追，取代 balance.enemyTactics.pace 的 sprint。
+   * charge = 第一次發現目標時不論距離，一路跑到特殊技能的距離、直接出招（不等圍獵繞圈）
+   */
+  run: z.strictObject({ speed: z.number().positive(), beyond: z.number().positive(), charge: z.boolean().default(false) }).optional(),
   /** 碰撞半徑（Tile） */
   radius: z.number().positive().max(0.5).default(0.35),
   attackRange: z.number().positive(),

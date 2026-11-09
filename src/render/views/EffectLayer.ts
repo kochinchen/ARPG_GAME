@@ -269,6 +269,7 @@ export class EffectLayer {
     const seen = new Set<number>();
     for (const zone of zones) {
       seen.add(zone.id);
+      if (zone.look === 'acid') continue;
       if (zone.look === 'darkDomain') {
         this.syncDomain(zone, dt);
         continue;

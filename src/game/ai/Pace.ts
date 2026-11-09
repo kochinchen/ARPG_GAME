@@ -11,7 +11,7 @@ const RANGE_STEP = 0.05;
 
 /**
  * 移動速度隨狀況變化（balance.enemyTactics.pace，乘在基本速度上）：
- * - 追擊時主角在 sprintDistance 格外：追趕 + sprint
+ * - 追擊時主角在 sprintDistance 格外：追趕 + sprint（有 EnemyDef.run 的怪改用自己的跑步速度與距離；第一次發現主角的衝刺全程都跑）
  * - 誘敵逃跑、傳令兵求援、跑去撿藥水：+ errand
  * - 遊擊繞到背後的途中：+ flank
  * - 靈活派（弓手）被貼近後退：+ retreat
@@ -27,9 +27,10 @@ export function updatePace(ctx: AiContext): void {
     switch (brain.state) {
       case 'chase':
         if (brain.kamikaze) bonus = pace.sprint;
+        else if (brain.charging && !self.cast) bonus = brain.run!.bonus;
         else if (brain.flanking) bonus = pace.flank;
         else if (brain.retreating && brain.tactics.includes('agile')) bonus = pace.retreat;
-        else if (target && !self.cast && distance(self.position, target.position) > pace.sprintDistance) bonus = pace.sprint;
+        else if (target && !self.cast && distance(self.position, target.position) > (brain.run?.beyond ?? pace.sprintDistance)) bonus = brain.run?.bonus ?? pace.sprint;
         break;
       case 'flee':
       case 'call':

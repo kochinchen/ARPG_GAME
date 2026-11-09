@@ -257,7 +257,7 @@ export class PolyFigure {
     }
     this.time += dt;
     this.stepDt = dt;
-    const walking = state.moving && !!this.poses.walk && (state.speed ?? Infinity) < WALK_BELOW;
+    const walking = state.moving && !!this.poses.walk && (state.speed ?? Infinity) < (this.model.walkBelow ?? WALK_BELOW);
     if (state.moving) this.runPhase += dt * (walking ? 7.5 : 11) * (this.model.gaitRate ?? 1);
     this.hitTime = Math.max(0, this.hitTime - dt);
     const target = this.targetPose(state, dt, walking);

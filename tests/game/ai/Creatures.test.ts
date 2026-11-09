@@ -106,6 +106,7 @@ describe('圍獵：野獸先繞圈，再一起撲', () => {
   it('先在外圍繞圈不出手，之後撲上去、一隻接一隻', () => {
     const { world, events } = setup(hounds());
     const pack = enemiesOf(world);
+    for (const h of pack) h.ai!.charged = true;
     provoke(world, ...pack);
     const firstCast = new Map<number, number>();
     let t = 0;
@@ -129,6 +130,7 @@ describe('圍獵：野獸先繞圈，再一起撲', () => {
   it('繞圈時被打，就馬上一起撲上去', () => {
     const { world, events } = setup(hounds());
     const pack = enemiesOf(world);
+    for (const h of pack) h.ai!.charged = true;
     provoke(world, ...pack);
     run(world, 0.8);
     let casts = 0;
@@ -136,6 +138,39 @@ describe('圍獵：野獸先繞圈，再一起撲', () => {
     pack[0]!.ai!.angerTimer = 4;
     run(world, 1);
     expect(casts).toBeGreaterThan(0);
+  });
+
+  it('第一次發現主角：不繞圈，用跑步速度跑到撲擊距離就直接撲', () => {
+    const { world, events } = setup([at('bone_hound', 16, 3), at('bone_hound', 16, 5.5), at('bone_hound', 16, 8)]);
+    const pack = enemiesOf(world);
+    const walk = pack[0]!.moveSpeed;
+    const casts: string[] = [];
+    events.on('SkillCast', (e) => casts.push(e.skillId));
+    provoke(world, ...pack);
+    run(world, 0.3);
+    for (const h of pack) {
+      expect(h.ai!.charging).toBe(true);
+      expect(h.ai!.waiting).toBe(false);
+      expect(h.moveSpeed).toBeCloseTo(5.4);
+    }
+    run(world, 3);
+    expect(casts.filter((c) => c === 'enemy.pounce').length).toBe(3);
+    // 衝刺結束：之後在近距離就恢復走路的速度
+    for (const h of pack) expect(h.ai!.charging).toBe(false);
+    expect(walk).toBeCloseTo(3.6);
+  });
+
+  it('主角跑遠就用跑的追，靠近後用走的', () => {
+    const { world } = setup([at('bone_hound', 10, 5.5)]);
+    const [hound] = enemiesOf(world);
+    hound!.ai!.charged = true;
+    hound!.cooldowns.set('enemy.pounce', 99);
+    provoke(world, hound!);
+    run(world, 0.2);
+    expect(hound!.moveSpeed).toBeCloseTo(3.6);
+    hound!.position = vec2(14, 5.5);
+    run(world, 0.2);
+    expect(hound!.moveSpeed).toBeCloseTo(5.4);
   });
 
   it('只有一隻就不繞圈', () => {

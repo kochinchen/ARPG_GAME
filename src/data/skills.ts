@@ -1261,7 +1261,7 @@ const creatureSkills: SkillInput[] = [
   {
     id: 'enemy.acid_spray',
     name: '酸液噴灑',
-    description: '酸液甲蟲往前方噴出酸液，造成毒素傷害並降低防禦。',
+    description: '酸液甲蟲往前方噴出酸液，造成毒素傷害並降低防禦；地上留下一片毒液，站在上面持續受到毒素傷害。',
     targeting: 'enemy',
     range: 2,
     castTime: 1.1,
@@ -1279,6 +1279,8 @@ const creatureSkills: SkillInput[] = [
           { type: 'status', status: 'armorBreak', duration: 4, magnitude: 0.3 },
         ],
       },
+      // 地上的毒液（設計者 2026-11-09）：和噴灑同樣大小的扇形，3 秒、每 0.5 秒一跳；第一跳延後，不和噴灑的傷害疊在一起
+      { type: 'zone', radius: 2.4, angleDeg: 80, duration: 3, interval: 0.5, delayFirstTick: true, look: 'acid', effects: [{ type: 'damage', element: 'poison', scaling: 'weapon', multiplier: 0.25 }] },
     ],
   },
   {
