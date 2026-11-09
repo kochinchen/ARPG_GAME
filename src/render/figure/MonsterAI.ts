@@ -398,6 +398,53 @@ export function houndLife(m: FigureModel): FigureModel {
 }
 
 /**
+ * 毒沫噴吐者（設計者 2026-11-10）：蟾蜍一跳一跳地移動（蹬直後腿、前腳往前伸，落地蹲回去）；
+ * 吐毒前抬頭、喉囊往兩側鼓起，吐的時候頭往前甩、嘴張大
+ */
+export function toadLife(m: FigureModel): FigureModel {
+  type Angles = Pose['angles'];
+  const P = m.poses;
+  const add = (p: Pose, more: Angles, rootY = p.rootY): Pose => ({ ...p, rootY, angles: { ...p.angles, ...more } });
+  const rest = P.ready(0);
+  const sac = (open: number, puff: number): Angles => ({ jaw: [open, 0, 0], ex_sacL: [0, 0, puff], ex_sacR: [0, 0, -puff] });
+  const hop = (p: number): Pose => {
+    const up = Math.max(0, Math.sin(p));
+    const land = Math.max(0, -Math.sin(p));
+    return add(rest, {
+      root: [-0.22 * up + 0.08 * land, 0, 0],
+      neck: [0.1 * up, 0, 0],
+      thighL: [0.75 * up, 0, 0],
+      thighR: [0.75 * up, 0, 0],
+      shinL: [-0.45 * up, 0, 0],
+      shinR: [-0.45 * up, 0, 0],
+      footL: [0.45 * up, 0, 0],
+      footR: [0.45 * up, 0, 0],
+      upperArmL: [-0.55 * up, 0, 0],
+      upperArmR: [-0.55 * up, 0, 0],
+      ...sac(0.04 + 0.1 * up, 0.05 * land),
+    }, 7 * up - 1.2 * land);
+  };
+  const breathe = (t: number) => sac(0.05, 0.12 + 0.1 * Math.sin(t * 2.2));
+  const gulp = add(rest, { root: [-0.18, 0, 0], torso: [-0.14, 0, 0], neck: [-0.28, 0, 0], head: [-0.1, 0, 0], ...sac(0.18, 0.5) }, -1.5);
+  const spit = add(rest, { root: [0.12, 0, 0], torso: [0.2, 0, 0], neck: [0.34, 0, 0], ...sac(0.72, 0.08) }, 1.5);
+  return {
+    ...m,
+    poses: {
+      ...P,
+      ready: (t) => add(P.ready(t), breathe(t)),
+      run: hop,
+      walk: hop,
+      castWindup: gulp,
+      castRelease: spit,
+      attackWindup: gulp,
+      attackStrike: spit,
+      hit: add(P.hit, sac(0.45, 0.2)),
+      dead: add(P.dead, sac(0.6, 0.1)),
+    },
+  };
+}
+
+/**
  * 血鱗獵蜥（設計者 2026-11-10）：尾巴三節像鞭子一樣甩，張嘴咬合；骨球橫掃整個身體轉過去，尾巴掃過身後；
  * 重砸後腳蹬起、向前翻筋斗，尾巴砸在前方的地上，四腳朝天掙扎，2 秒後才翻回來
  */
