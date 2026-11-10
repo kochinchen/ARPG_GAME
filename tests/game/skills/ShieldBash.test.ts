@@ -67,13 +67,18 @@ describe('盾擊', () => {
   });
 
   it('命中後暈眩並擊退 1 格；換掉盾牌後又不能用', () => {
-    const { world, target, cast } = setup('enemy.skeleton');
+    const { world, target, cast, events } = setup('enemy.skeleton');
     target.stats.setBase('moveSpeed', 0.01);
     gear(world, 'weapon.short_sword');
     gear(world, 'shield.wood');
     const before = distance(world.player.position, target.position);
+    // 暈眩只有 0.6 秒：記下有沒有上暈眩，不看 cast() 結束（1 秒後）的狀態
+    let stunned = false;
+    events.on('StatusApplied', (e) => {
+      if (e.actorId === target.id && e.kind === 'stun') stunned = true;
+    });
     cast();
-    expect(target.hasStatus('stun')).toBe(true);
+    expect(stunned).toBe(true);
     expect(distance(world.player.position, target.position)).toBeGreaterThan(before + 0.5);
     world.equipment.unequip('shield');
     expect(world.weaponDenial(SKILL)).toBe('需要裝備盾牌');

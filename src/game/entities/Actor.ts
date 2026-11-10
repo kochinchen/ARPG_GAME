@@ -10,6 +10,9 @@ import type { ActorId, Faction } from './ActorTypes';
 
 export type { ActorId, Faction } from './ActorTypes';
 
+/** 身體地面輪廓的一個點：[右手邊, 前方]（格；見 BodyShape） */
+export type BodyPoint = readonly [number, number];
+
 export interface ActorInit {
   id: ActorId;
   faction: Faction;
@@ -20,6 +23,8 @@ export interface ActorInit {
   radius: number;
   /** 外觀大小（碰撞半徑有上限，外觀可以更大：隨機體型、Boss）；省略 = radius */
   visualRadius?: number;
+  /** 身體的地面範圍（見 BodyShape）；省略 = 用 radius 的圓 */
+  body?: readonly BodyPoint[];
   stats: StatBlock;
   ai?: AiBrain | null;
   /** 會的技能與等級 */
@@ -147,6 +152,8 @@ export class Actor {
   radius: number;
   /** 外觀大小（Render 依此縮放模型） */
   readonly visualRadius: number;
+  /** 身體的地面範圍（[右手邊, 前方] 格；null = 用 radius 的圓）；碰撞、索敵、命中都算到這個輪廓的邊緣 */
+  readonly body: readonly BodyPoint[] | null;
   /** 外觀倍率（食屍鬼吃屍體變大）；碰撞半徑不變 */
   growth = 1;
 
@@ -188,6 +195,7 @@ export class Actor {
     this.prevPosition = init.position;
     this.radius = init.radius;
     this.visualRadius = init.visualRadius ?? init.radius;
+    this.body = init.body ?? null;
     this.stats = init.stats;
     this.ai = init.ai ?? null;
     this.isBoss = init.isBoss ?? false;

@@ -1,3 +1,4 @@
+import { surfaceGap } from '../../../src/game/entities/BodyShape';
 import { describe, expect, it } from 'vitest';
 import { distance, vec2, type Vec2 } from '../../../src/core/math/Vec2';
 import type { Actor } from '../../../src/game/entities/Actor';
@@ -69,10 +70,10 @@ describe('躲開地上的範圍傷害', () => {
     let closest = Infinity;
     run(world, 6, () => {
       if (distance(skeleton.position, fire.position) < fire.radius) inside++;
-      closest = Math.min(closest, distance(skeleton.position, world.player.position));
+      closest = Math.min(closest, surfaceGap(skeleton, world.player));
     });
     expect(inside).toBe(0);
-    expect(closest).toBeLessThan(1.2);
+    expect(closest).toBeLessThan(0.6);
   });
 
   it('站在區域裡的怪走出來', () => {
@@ -96,7 +97,7 @@ describe('躲開地上的範圍傷害', () => {
     run(world, 1.5);
     expect(distance(skeleton.position, world.player.position)).toBeGreaterThan(2);
     run(world, data.balance.enemyTactics.avoidZones.patience + 1.5);
-    expect(distance(skeleton.position, world.player.position)).toBeLessThan(1.2);
+    expect(surfaceGap(skeleton, world.player)).toBeLessThan(0.6);
   });
 });
 

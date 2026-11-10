@@ -2,6 +2,7 @@ import { add, distance, scale, sub, type Vec2 } from '../../../core/math/Vec2';
 import type { DashEffectDef } from '../../../data/schema/effects';
 import type { EffectContext, IEffect } from './IEffect';
 import { directionBetween, slide } from './movement';
+import { edgeGap, surfaceGap } from '../../entities/BodyShape';
 
 /** 路徑命中的寬度（從施放者邊緣算起） */
 export const PATH_REACH = 0.8;
@@ -20,7 +21,7 @@ export class DashEffect implements IEffect<'dash'> {
     const direction = def.direction === 'forward' ? forward : scale(forward, -1);
     const stop =
       def.direction === 'forward' && target && !def.passThrough
-        ? () => distance(caster.position, target.position) <= caster.radius + target.radius + 0.3
+        ? () => surfaceGap(caster, target) <= 0.3
         : undefined;
     const start = caster.position;
     const full = def.distance * (1 + ctx.mods.movementSpeed);
@@ -50,7 +51,7 @@ export class DashEffect implements IEffect<'dash'> {
     const center = scale(add(start, end), 0.5);
     const victims = ctx.services.targeting
       .hostilesWithin(caster, center, distance(start, end) / 2 + reach)
-      .filter((v) => distanceToSegment(v.position, start, end) <= reach + v.radius);
+      .filter((v) => (v.body ? edgeGap(v, closestOnSegment(v.position, start, end)) <= reach : distanceToSegment(v.position, start, end) <= reach + v.radius));
     ctx.services.events.emit('AreaTriggered', {
       skillId: ctx.skill.id,
       position: end,
@@ -71,4 +72,11 @@ function distanceToSegment(p: Vec2, a: Vec2, b: Vec2): number {
   const len2 = ab.x * ab.x + ab.y * ab.y;
   const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, (ap.x * ab.x + ap.y * ab.y) / len2));
   return distance(p, add(a, scale(ab, t)));
+}
+
+function closestOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
+  const ab = sub(b, a);
+  const len2 = ab.x * ab.x + ab.y * ab.y;
+  const t = len2 > 1e-12 ? Math.max(0, Math.min(1, ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / len2)) : 0;
+  return add(a, scale(ab, t));
 }

@@ -13,6 +13,7 @@ import { combatCategory, type CombatCategory } from './skillCategory';
 import type { StatusEffectSystem } from '../combat/StatusEffectSystem';
 import type { StatusKind } from '../../data/schema/effects';
 import { flattenEffects } from '../../data/skillAnalysis';
+import { surfaceGap } from '../entities/BodyShape';
 
 /** 怪物的普通攻擊（範圍不隨樓層放大） */
 const BASIC_ATTACK = 'basic.attack';
@@ -96,7 +97,7 @@ export class SkillSystem {
     switch (skill.targeting) {
       case 'enemy': {
         const target = intent.targetId === null ? null : this.targeting.getValidTarget(actor, intent.targetId);
-        const inReach = target !== null && distance(actor.position, target.position) <= skillReach(actor, skill) + target.radius;
+        const inReach = target !== null && surfaceGap(actor, target) <= castRange(actor, skill);
         // 原地施放：不追目標；目標不在範圍內就朝游標方向出手（投射物照樣飛出、揮砍打到前方的敵人）
         if (intent.stationary && !inReach) {
           actor.path = [];

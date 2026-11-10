@@ -1,4 +1,5 @@
-import { distance, normalize, rotate, sub } from '../../../core/math/Vec2';
+import { distance, normalize, rotate, sub, vec2, type Vec2 } from '../../../core/math/Vec2';
+import { nearestBodyPoint } from '../../entities/BodyShape';
 import { rankValue, type Element } from '../../../data/schema/common';
 import { nestedEffects, type AreaEffectDef, type EffectDef } from '../../../data/schema/effects';
 import type { EffectContext, IEffect } from './IEffect';
@@ -31,18 +32,24 @@ export class AreaEffect implements IEffect<'area'> {
       // 直線：沿方向 0～length、左右各 width / 2（加上目標半徑）
       const { length, width } = def.line;
       victims = victims.filter((v) => {
-        const rel = sub(v.position, center);
+        // 有身體輪廓的目標：取輪廓上最靠近直線中線的點來判定
+        const pad = v.body ? 0 : v.radius;
+        const t = Math.max(0, Math.min(length, (v.position.x - center.x) * direction.x + (v.position.y - center.y) * direction.y));
+        const p = v.body ? nearestBodyPoint(v, vec2(center.x + direction.x * t, center.y + direction.y * t)) : v.position;
+        const rel = sub(p, center);
         const along = rel.x * direction.x + rel.y * direction.y;
         const across = Math.abs(-rel.x * direction.y + rel.y * direction.x);
-        return along >= -v.radius && along <= length + v.radius && across <= width / 2 + v.radius;
+        return along >= -pad && along <= length + pad && across <= width / 2 + pad;
       });
     } else if (def.angleDeg !== undefined && def.angleDeg < 360) {
       const halfCos = Math.cos(((def.angleDeg / 2) * Math.PI) / 180);
-      victims = victims.filter((v) => {
-        if (distance(v.position, center) < 1e-6) return true;
-        const d = normalize(sub(v.position, center));
+      const inside = (p: Vec2) => {
+        if (distance(p, center) < 1e-6) return true;
+        const d = normalize(sub(p, center));
         return d.x * direction.x + d.y * direction.y >= halfCos;
-      });
+      };
+      // 有身體輪廓的目標：中心或輪廓上最靠近施放點的地方在扇形裡就算
+      victims = victims.filter((v) => inside(v.position) || (v.body !== null && inside(nearestBodyPoint(v, center))));
     }
     // 主要目標一定命中（近戰揮砍：目標在出招途中稍微移動也不會落空）
     // 怪物的招式跑開就躲得掉，只有普通攻擊保留（魔王的普通攻擊要目標還在範圍外一點點才算）；主角的技能不受影響（設計者 2026-11-03）

@@ -6,6 +6,7 @@ import type { Actor } from '../entities/Actor';
 import type { GameEventBus } from '../GameEvents';
 import type { DamageDealer, DamageRequest, DamageResult } from './DamageRequest';
 import type { StatusEffectSystem } from './StatusEffectSystem';
+import { surfaceGap } from '../entities/BodyShape';
 
 export type { DamageRequest, DamageResult } from './DamageRequest';
 
@@ -127,14 +128,14 @@ export class DamagePipeline implements DamageDealer {
   private tryThorns(attacker: Actor, defender: Actor): void {
     const thorns = defender.stats.get('thorns');
     if (thorns <= 0 || !attacker.alive || !defender.alive) return;
-    if (distance(attacker.position, defender.position) > attacker.radius + defender.radius + COUNTER_REACH) return;
+    if (surfaceGap(attacker, defender) > COUNTER_REACH) return;
     this.apply({ source: defender, target: attacker, min: thorns, max: thorns, element: 'physical', canCrit: false, noCounter: true });
   }
 
   /** 目標身上有「反擊」且攻擊者在近戰範圍內：以目標的武器傷害 × 倍率反擊 */
   private tryCounter(attacker: Actor, defender: Actor): void {
     if (!attacker.alive || defender.hp <= 0 || !defender.hasStatus('counter')) return;
-    if (distance(attacker.position, defender.position) > attacker.radius + defender.radius + COUNTER_REACH) return;
+    if (surfaceGap(attacker, defender) > COUNTER_REACH) return;
     const counter = this.statuses.consume(defender, 'counter');
     if (!counter) return;
     this.apply({

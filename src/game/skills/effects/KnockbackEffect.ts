@@ -2,6 +2,7 @@ import { rankValue } from '../../../data/schema/common';
 import type { KnockbackEffectDef } from '../../../data/schema/effects';
 import type { EffectContext, IEffect } from './IEffect';
 import { directionBetween, slide } from './movement';
+import { surfaceGap } from '../../entities/BodyShape';
 
 /** 被拉到距離施放者邊緣多近時停下（Tile） */
 const PULL_STOP_GAP = 0.3;
@@ -19,7 +20,7 @@ export class KnockbackEffect implements IEffect<'knockback'> {
     if (distance < 0) {
       // 拉：朝施放者移動，停在施放者面前（不重疊、不穿牆）
       const caster = ctx.caster;
-      const gap = () => Math.hypot(caster.position.x - target.position.x, caster.position.y - target.position.y) - caster.radius - target.radius;
+      const gap = () => surfaceGap(caster, target);
       slide(target, directionBetween(target.position, caster.position, ctx.direction), -distance, ctx.services.nav, () => gap() <= PULL_STOP_GAP);
       return;
     }

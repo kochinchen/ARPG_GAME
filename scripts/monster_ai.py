@@ -49,7 +49,7 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
+TRIS_OF.update({"horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
 ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
@@ -1172,6 +1172,18 @@ def wheel_beast_zone(p, bone):
     return abs(p.x) < 0.3 or p.z > 0.03
 
 
+def horned_brute_zone(p, bone):
+    """腿只拿腿：垂在腿外側的背甲片跟身體"""
+    leg_area = p.z < -0.03 and (abs(p.x) < 0.23 or p.z < -0.12)
+    if bone.startswith(("upperArm", "forearm", "hand")):
+        return leg_area and abs(p.x) > 0.07 and p.y < 0.04
+    if bone.startswith(("thigh", "shin", "foot")):
+        return leg_area and abs(p.x) > 0.07 and p.y > 0.07
+    if bone in ("root", "torso"):
+        return p.z > -0.13
+    return True
+
+
 def in_toad_jaw(p):
     return abs(p.x) < 0.235 and p.y < -0.1 and p.z < 0.03
 
@@ -1383,6 +1395,7 @@ ZONES["wheel_sword_beast"] = wheel_beast_zone
 ZONES["eye_floater"] = eye_floater_zone
 ZONES["blood_lizard"] = blood_lizard_zone
 ZONES["poison_spitter"] = poison_spitter_zone
+ZONES["horned_brute"] = horned_brute_zone
 ZONES["hatchling_spider"] = hatchling_zone
 ZONES["acid_beetle"] = acid_beetle_zone
 ZONES["void_spore"] = lambda p, bone: (bone != "head" or (p.y < -0.3 and math.hypot(p.x, p.z) < 0.17)) and (not re.match(r"(upperArm|forearm|hand|thigh|shin|foot)", bone) or p.z < -0.3)
@@ -1462,6 +1475,25 @@ def acid_beetle():
             out.append((f"{joint}{s}", "root", m(V(a)), m(V(b)), 0.05))
             out.append((f"ex_leg{s}{i}", f"{joint}{s}", m(V(b)), m(V(c)), 0.05))
         return out
+
+    return bones + sides(side), {}
+
+
+def horned_brute():
+    """角甲巨獸：四足、背上一片片甲殼；頭連犀角是 head；短尾 ponytail"""
+    bones = [
+        ("root", None, V((0, 0.12, 0.05)), V((0, 0.38, 0.07)), 0.16),
+        ("torso", "root", V((0, 0.12, 0.05)), V((0, -0.15, 0.04)), 0.16),
+        ("neck", "torso", V((0, -0.17, 0.0)), V((0, -0.27, -0.03)), 0.09),
+        ("head", "neck", V((0, -0.27, -0.03)), V((0, -0.42, -0.1)), 0.09),
+        ("ponytail", "root", V((0, 0.38, 0.03)), V((0, 0.5, -0.02)), 0.05),
+    ]
+    arm = [V((0.15, -0.08, 0.03)), V((0.18, -0.1, -0.115)), V((0.18, -0.17, -0.24)), V((0.185, -0.2, -0.27))]
+    leg = [V((0.14, 0.2, 0.03)), V((0.16, 0.23, -0.13)), V((0.157, 0.21, -0.22)), V((0.157, 0.16, -0.27))]
+
+    def side(s, m):
+        out = chain([f"upperArm{s}", f"forearm{s}", f"hand{s}"], "torso", [m(p) for p in arm], [0.07, 0.06, 0.06])
+        return out + chain([f"thigh{s}", f"shin{s}", f"foot{s}"], "root", [m(p) for p in leg], [0.07, 0.06, 0.06])
 
     return bones + sides(side), {}
 
@@ -1562,6 +1594,7 @@ def wheel_sword_beast():
 
 
 SKELETONS = {
+    "horned_brute": horned_brute,
     "poison_spitter": poison_spitter,
     "blood_lizard": blood_lizard,
     "wheel_sword_beast": wheel_sword_beast,
@@ -1614,7 +1647,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("poison_spitter", "blood_lizard", "eye_floater", "hatchling_spider", "wheel_sword_beast", "bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
+JOINT_SOFT = {n: 0.04 for n in ("horned_brute", "poison_spitter", "blood_lizard", "eye_floater", "hatchling_spider", "wheel_sword_beast", "bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}

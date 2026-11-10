@@ -1,3 +1,4 @@
+import BODY_SHAPES from './bodyShapes.json';
 import type { z } from 'zod';
 import { bossEnemies } from './bosses';
 import type { EnemyDefSchema } from './schema/enemy';
@@ -12,7 +13,7 @@ const LARGE_ENEMY_DAMAGE = 1.3;
 const atk = (min: number, max: number): [number, number] => [min * ENEMY_DAMAGE, max * ENEMY_DAMAGE];
 const heavyAtk = (min: number, max: number): [number, number] => [min * LARGE_ENEMY_DAMAGE, max * LARGE_ENEMY_DAMAGE];
 
-export const enemies: z.input<typeof EnemyDefSchema>[] = [
+const enemyList: z.input<typeof EnemyDefSchema>[] = [
   {
     // 測試傷害用：不會移動、不會反擊，有一點防禦以驗證減傷
     id: 'enemy.training_dummy',
@@ -1309,3 +1310,9 @@ export const enemies: z.input<typeof EnemyDefSchema>[] = [
   },
   ...bossEnemies,
 ];
+
+/** 身體的地面範圍（模型投影到地面的輪廓），由 tests/data/BodyShapes.test.ts 產生 */
+export const enemies: z.input<typeof EnemyDefSchema>[] = enemyList.map((e) => {
+  const body = (BODY_SHAPES as unknown as Record<string, [number, number][] | undefined>)[e.id];
+  return body ? { ...e, body } : e;
+});

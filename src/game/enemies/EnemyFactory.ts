@@ -135,6 +135,8 @@ export class EnemyFactory {
       position,
       radius: Math.min(def.boss ? MAX_BOSS_RADIUS : MAX_RADIUS, def.radius * def.size * size.scale * (e?.radiusMultiplier ?? 1)),
       visualRadius: visualRadiusOf(def, size, e?.radiusMultiplier),
+      // 輪廓是標準體型量的：隨體型與精英的外觀一起放大
+      ...(def.body ? { body: def.body.map(([r, f]): [number, number] => [r * visualRadiusOf(def, size, e?.radiusMultiplier) / (def.radius * def.size), f * visualRadiusOf(def, size, e?.radiusMultiplier) / (def.radius * def.size)]) } : {}),
       stats,
       elite: elite !== undefined,
       summonedBy,

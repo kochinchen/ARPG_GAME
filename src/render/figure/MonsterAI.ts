@@ -397,6 +397,16 @@ export function houndLife(m: FigureModel): FigureModel {
   };
 }
 
+/** 角甲巨獸（設計者 2026-11-10）：衝鋒前壓低身體、低頭把犀角對準前方，衝出去時頭往上一挑 */
+export function bruteLife(m: FigureModel): FigureModel {
+  const P = m.poses;
+  const add = (p: Pose, more: Pose['angles'], rootY = p.rootY): Pose => ({ ...p, rootY, angles: { ...p.angles, ...more } });
+  const rest = P.ready(0);
+  const lowered = add(rest, { root: [0.14, 0, 0], torso: [0.08, 0, 0], neck: [0.45, 0, 0], head: [0.3, 0, 0], ponytail: [0.3, 0, 0] }, -2.5);
+  const gore = add(rest, { root: [0.05, 0, 0], torso: [-0.05, 0, 0], neck: [-0.2, 0, 0], head: [-0.25, 0, 0], ponytail: [-0.2, 0, 0] }, 1);
+  return { ...m, poses: { ...P, attackVariants: { ...P.attackVariants, overhead: { windup: [lowered, lowered], strike: [gore], strikeTime: 0.3 } } } };
+}
+
 /**
  * 毒沫噴吐者（設計者 2026-11-10）：蟾蜍一跳一跳地移動（蹬直後腿、前腳往前伸，落地蹲回去）；
  * 吐毒前抬頭、喉囊往兩側鼓起，吐的時候頭往前甩、嘴張大

@@ -1,5 +1,6 @@
 import { distance, type Vec2 } from '../../core/math/Vec2';
 import type { Actor, ActorId, Faction } from '../entities/Actor';
+import { edgeGap } from '../entities/BodyShape';
 
 /** 以 World 座標點選時的容許誤差（Tile） */
 const PICK_TOLERANCE = 0.4;
@@ -26,10 +27,10 @@ export class TargetingService {
     return target;
   }
 
-  /** 以 center 為圓心、半徑 radius 內（含目標自身半徑）所有活著的敵對角色 */
+  /** 以 center 為圓心、半徑 radius 內（算到目標身體的邊緣）所有活著的敵對角色 */
   hostilesWithin(source: Actor, center: Vec2, radius: number): Actor[] {
     return this.actors.filter(
-      (a) => a.alive && !a.vanished && this.isHostile(source.faction, a.faction) && distance(a.position, center) <= radius + a.radius,
+      (a) => a.alive && !a.vanished && this.isHostile(source.faction, a.faction) && edgeGap(a, center) <= radius,
     );
   }
 
@@ -39,7 +40,7 @@ export class TargetingService {
     let bestDistance = Infinity;
     for (const actor of this.actors) {
       if (!actor.alive || actor.vanished || !this.isHostile(source.faction, actor.faction)) continue;
-      const d = distance(actor.position, source.position) - actor.radius;
+      const d = edgeGap(actor, source.position);
       if (d <= range && d < bestDistance) {
         best = actor;
         bestDistance = d;
@@ -54,8 +55,8 @@ export class TargetingService {
     let bestDistance = Infinity;
     for (const actor of this.actors) {
       if (!actor.alive || actor.vanished || !this.isHostile(source.faction, actor.faction)) continue;
-      const d = distance(actor.position, worldPos);
-      if (d <= actor.radius + PICK_TOLERANCE && d < bestDistance) {
+      const d = edgeGap(actor, worldPos);
+      if (d <= PICK_TOLERANCE && d < bestDistance) {
         best = actor;
         bestDistance = d;
       }

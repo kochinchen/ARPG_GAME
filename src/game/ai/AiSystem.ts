@@ -21,6 +21,7 @@ import { IdleState } from './states/IdleState';
 import { ReturnState } from './states/ReturnState';
 import { updatePace } from './Pace';
 import { SquadTactics } from './SquadTactics';
+import { edgeGap } from '../entities/BodyShape';
 
 /** 被打中後持續追擊的秒數（超過 Leash 也不回家） */
 const ANGER_SECONDS = 4;
@@ -302,7 +303,7 @@ export class AiSystem {
 }
 
 /** 兩者邊緣之間的距離 */
-const gap = (self: Actor, other: Actor): number => distance(self.position, other.position) - other.radius;
+const gap = (self: Actor, other: Actor): number => edgeGap(other, self.position);
 
 /** 最近的敵對目標（不含機關）：主角、召喚物 */
 function nearestHostile(self: Actor, actors: readonly Actor[], targeting: TargetingService): Actor | null {

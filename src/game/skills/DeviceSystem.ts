@@ -8,6 +8,7 @@ import type { NavGrid } from '../movement/NavGrid';
 import { StatBlock } from '../stats/StatBlock';
 import type { TargetingService } from '../targeting/TargetingService';
 import type { EffectContext } from './effects/IEffect';
+import { edgeGap, nearestBodyPoint, surfaceGap } from '../entities/BodyShape';
 
 /** 機關的碰撞半徑（Tile）：怪物攻擊它時站的距離 */
 const DEVICE_RADIUS = 0.4;
@@ -170,10 +171,12 @@ export class DeviceSystem {
     const half = line.length / 2;
     for (const enemy of this.targeting.hostilesWithin(owner, actor.position, half + line.width)) {
       if (device.tripped.has(enemy.id)) continue;
-      const local = sub(enemy.position, actor.position);
+      // 有身體輪廓的敵人：取輪廓上最靠近機關的點
+      const pad = enemy.body ? 0 : enemy.radius;
+      const local = sub(enemy.body ? nearestBodyPoint(enemy, actor.position) : enemy.position, actor.position);
       const along = Math.abs(local.x * axis.x + local.y * axis.y);
       const across = Math.abs(local.x * dir.x + local.y * dir.y);
-      if (along > half + enemy.radius || across > line.width / 2 + enemy.radius) continue;
+      if (along > half + pad || across > line.width / 2 + pad) continue;
       device.tripped.add(enemy.id);
       this.fire(actor, device.def.onTrigger, enemy);
       if (--device.triggersLeft <= 0) {
@@ -213,7 +216,7 @@ export class DeviceSystem {
       if (distance(actor.position, owner.position) > MINION_LEASH) this.step(actor, owner.position, dt);
       return;
     }
-    const gap = distance(actor.position, target.position) - actor.radius - target.radius;
+    const gap = surfaceGap(actor, target);
     if (gap > device.def.triggerRadius) {
       this.step(actor, target.position, dt);
       return;
@@ -274,7 +277,7 @@ export function nearestDevice(self: Actor, actors: readonly Actor[], aggroRange:
   let bestDistance = aggroRange;
   for (const other of actors) {
     if (!other.device || !other.alive) continue;
-    const d = distance(self.position, other.position) - other.radius;
+    const d = edgeGap(other, self.position);
     if (d <= bestDistance) {
       best = other;
       bestDistance = d;

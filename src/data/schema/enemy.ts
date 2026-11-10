@@ -133,6 +133,8 @@ export const EnemyDefSchema = z
   size: z.number().positive().default(1),
   /** 固定全抗性（物理減傷與四種元素抗性；取代魔王 / 精英的樓層減傷） */
   fixedResist: z.number().min(0).max(1).optional(),
+  /** 身體的地面範圍：模型投影到地面的輪廓（[右手邊, 前方] 格，逆時針），由 tests/data/BodyShapes.test.ts 從模型產生；省略 = 用 radius 的圓 */
+  body: z.array(z.tuple([z.number(), z.number()])).min(3).optional(),
   /**
    * 天生的元素抗性（與怪物的屬性相同：火焰身體的怪抗火、會下毒的怪抗毒）。
    * 疊加在樓層減傷之上；實際抗性上限見 balance.combat.maxResist。

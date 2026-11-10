@@ -1,6 +1,7 @@
 import { add, distance, normalize, scale, sub, type Vec2 } from '../../../core/math/Vec2';
 import type { Actor } from '../../entities/Actor';
-import { skillReach } from '../../skills/SkillSystem';
+import { surfaceGap } from '../../entities/BodyShape';
+import { castRange } from '../../skills/SkillSystem';
 import { pickErrand, pickLure } from '../Errands';
 import { findPathFor, type AiContext, type IAiState } from '../IAiState';
 
@@ -141,14 +142,11 @@ export class ChaseState implements IAiState {
       if ((self.cooldowns.get(id) ?? 0) > 0 || !skills.has(id)) continue;
       const skill = skills.get(id);
       // 地面技能：施放距離；對自己施放（旋風、召喚）：range 是「目標在多近時使用」
-      const reach =
-        skill.targeting === 'ground'
-          ? (skill.range ?? 0)
-          : skill.targeting === 'self'
-            ? (skill.range ?? 0) + self.radius + target.radius
-            : skillReach(self, skill) + target.radius;
+      // 距離算到雙方身體的邊緣（大型怪的頭碰到主角就打得到）；minRange 照舊看中心距離
       const gap = distance(self.position, target.position);
-      if (gap <= reach && gap >= (skill.minRange ?? 0)) return id;
+      const edge = surfaceGap(self, target);
+      const inReach = skill.targeting === 'ground' ? gap <= (skill.range ?? 0) : skill.targeting === 'self' ? edge <= (skill.range ?? 0) : edge <= castRange(self, skill);
+      if (inReach && gap >= (skill.minRange ?? 0)) return id;
     }
     return null;
   }

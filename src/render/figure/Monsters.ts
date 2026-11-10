@@ -4,7 +4,7 @@ import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
 import { LATE_MODELS, WARDEN_GEAR } from './LateMonsters';
 import { SKELETON_GEAR, SKELETON_WARRIOR } from './SkeletonWarrior';
-import { houndLife, lizardLife, monsterAi, sixTentacles, toadLife, wheelBeastLife, wormLife } from './MonsterAI';
+import { bruteLife, houndLife, lizardLife, monsterAi, sixTentacles, toadLife, wheelBeastLife, wormLife } from './MonsterAI';
 import SKELETON_AI_DATA from './monsters/skeletonAI.json';
 import FROST_SKELETON_AI_DATA from './monsters/frostSkeletonAI.json';
 import ARCHER_AI_DATA from './monsters/skeletonArcherAI.json';
@@ -19,6 +19,7 @@ import STORM_MAGE_AI_DATA from './monsters/stormMageAI.json';
 import BONE_HOUND_AI_DATA from './monsters/boneHoundAI.json';
 import BLOOD_LIZARD_AI_DATA from './monsters/bloodLizardAI.json';
 import POISON_SPITTER_AI_DATA from './monsters/poisonSpitterAI.json';
+import HORNED_BRUTE_AI_DATA from './monsters/hornedBruteAI.json';
 import WHEEL_SWORD_BEAST_AI_DATA from './monsters/wheelSwordBeastAI.json';
 import EYE_FLOATER_AI_DATA from './monsters/eyeFloaterAI.json';
 import HATCHLING_SPIDER_AI_DATA from './monsters/hatchlingSpiderAI.json';
@@ -1136,6 +1137,7 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.bone_hound': houndLife(monsterAi(BONE_HOUND_AI_DATA, scaled(BEAST_MODELS)['enemy.bone_hound']!, { rest: 'asModeled', modeled: QUAD_LIMBS, hip: 18.09, ground: 'paws' })),
   'enemy.blood_lizard': lizardLife(monsterAi(BLOOD_LIZARD_AI_DATA, scaled(BEAST_MODELS)['enemy.blood_lizard']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
   'enemy.poison_spitter': toadLife(monsterAi(POISON_SPITTER_AI_DATA, scaled(CREATURE_MODELS)['enemy.poison_spitter']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
+  'enemy.horned_brute': bruteLife(monsterAi(HORNED_BRUTE_AI_DATA, scaled(BEAST_MODELS)['enemy.horned_brute']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
   'enemy.shadow_panther': WHEEL_BEAST(),
   'enemy.ember_wheel': EMBER_WHEEL_AI,
   'enemy.frost_wheel': FROST_WHEEL_AI,
@@ -1204,6 +1206,7 @@ export const AI_MONSTERS = [
   'enemy.bone_hound',
   'enemy.blood_lizard',
   'enemy.poison_spitter',
+  'enemy.horned_brute',
   'enemy.shadow_panther',
   'enemy.acid_beetle',
   'enemy.hatchling_spider',
@@ -1235,6 +1238,7 @@ export const CLASSIC_MODELS: Record<string, FigureModel> = {
   'enemy.bone_hound': BEAST_MODELS['enemy.bone_hound']!,
   'enemy.blood_lizard': BEAST_MODELS['enemy.blood_lizard']!,
   'enemy.poison_spitter': CREATURE_MODELS['enemy.poison_spitter']!,
+  'enemy.horned_brute': BEAST_MODELS['enemy.horned_brute']!,
   'enemy.shadow_panther': BEAST_MODELS['enemy.shadow_panther']!,
   'enemy.acid_beetle': CREATURE_MODELS['enemy.acid_beetle']!,
   'enemy.hatchling_spider': CREATURE_MODELS['enemy.hatchling_spider']!,

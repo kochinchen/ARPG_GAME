@@ -1,3 +1,4 @@
+import { surfaceGap } from '../../../src/game/entities/BodyShape';
 import { describe, expect, it } from 'vitest';
 import { distance, normalize, sub, vec2 } from '../../../src/core/math/Vec2';
 import { NO_MODS } from '../../../src/game/combo/StepMods';
@@ -305,7 +306,8 @@ describe('鑽地寄生蟲鑽地閃避', () => {
     expect(worm!.vanished).toBe(false);
     // 從背後（左邊）鑽出來
     expect(worm!.position.x).toBeLessThan(world.player.position.x);
-    expect(distance(worm!.position, world.player.position)).toBeLessThan(2);
+    // 身體很長：量身體邊緣到主角的距離
+    expect(surfaceGap(worm!, world.player)).toBeLessThan(1);
   });
 });
 
