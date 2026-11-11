@@ -3,6 +3,7 @@ import type { IsoProjection } from '../../../core/math/IsoProjection';
 import { vec2, type Vec2 } from '../../../core/math/Vec2';
 import { mix, type FxParticleKind } from './FxColors';
 import { SPECIAL } from './ProjectileArt';
+import { drawWeb } from './WebFx';
 
 /**
  * 命中與範圍特效：粒子（火星、冰晶、碎石、煙塵…）、範圍爆發（火焰爆炸、冰刺、落雷、重擊震波與地裂、
@@ -37,6 +38,8 @@ export type ImpactKind =
   | 'dirt'
   /** 酸液噴灑：扇形的毒液，留在地上冒泡、冒煙 */
   | 'acid'
+  /** 吐網：落地攤開一張沾著毒液的小蜘蛛網，冒綠色泡泡 */
+  | 'poisonWeb'
   /** 鐵輪劍獸的連刺：從側面掃到正前方、往前送的鐮刀 */
   | 'sickle'
   /** 鐵輪劍獸的突刺：聚焦衝向一方的白色速度線，落點土石紛飛 */
@@ -110,7 +113,7 @@ interface Chain {
 /** 各招專屬特效（drawSignature 處理） */
 const SIGNATURE = new Set<ImpactKind>(['tailSweep', 'slam', 'laser', 'sickle', 'lunge', 'cleave', 'sunder', 'crater', 'shieldBash', 'tremor', 'uppercut', 'execute', 'phantom', 'dash', 'rift', 'flash']);
 /** 這些特效沒有開頭的白色地面閃光（斬擊類只有弧光） */
-const NO_FLASH = new Set<ImpactKind>(['tailSweep', 'slam', 'laser', 'sickle', 'lunge', 'acid', 'dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
+const NO_FLASH = new Set<ImpactKind>(['tailSweep', 'slam', 'laser', 'sickle', 'lunge', 'acid', 'poisonWeb', 'dirt', 'slash', 'whirl', 'cleave', 'sunder', 'uppercut', 'execute', 'phantom', 'dash', 'shieldBash']);
 
 const CHAIN_TIME = 0.38;
 const HEIGHT = 30;
@@ -119,6 +122,7 @@ const DURATION: Record<ImpactKind, number> = {
   fire: 0.75,
   dirt: 1.1,
   acid: 2,
+  poisonWeb: 2.2,
   sickle: 0.42,
   lunge: 0.62,
   laser: 0.3,
@@ -543,6 +547,19 @@ export class ImpactFx {
           const size = (2.5 + im.seeds[i + 5]! * 5) * phase;
           gs.circle(x, y - phase * 3, size).fill({ color: 0x8fe03a, alpha: 0.4 * a }).stroke({ color: 0xd8ff90, width: 1.1, alpha: 0.9 * a });
           gg.circle(x - size * 0.3, y - phase * 3 - size * 0.3, size * 0.22).fill({ color: 0xf0ffd0, alpha: 0.8 * a });
+        }
+        break;
+      }
+      case 'poisonWeb': {
+        // 蜘蛛網從落點往外攤開，沾著綠色毒液；結束前淡掉，網上一顆顆冒泡
+        const a = clamp01((2.2 - t) / 0.4);
+        const grow = easeOut(clamp01(t * 6));
+        drawWeb(gs, im.position.x, im.position.y, R * grow, Math.floor(im.seeds[0]! * 1000), { strand: 0xe4ffd0, under: 0x2e5a1a, ground: 0x3a7a20 }, (x, y) => this.screen(vec2(x, y)), a);
+        for (let i = 0; i < 9; i++) {
+          const phase = (t * (2.6 + im.seeds[i + 20]! * 2.2) + im.seeds[i + 34]!) % 1;
+          const [x, y] = this.at(im, im.seeds[i]! * Math.PI * 2, R * (0.15 + 0.75 * Math.sqrt(im.seeds[i + 10]!)) * grow);
+          const size = (2 + im.seeds[i + 5]! * 3.5) * phase;
+          gs.circle(x, y - phase * 3, size).fill({ color: 0x8fe03a, alpha: 0.45 * a }).stroke({ color: 0xd8ff90, width: 1, alpha: 0.85 * a });
         }
         break;
       }

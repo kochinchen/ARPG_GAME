@@ -10,7 +10,7 @@ import { mix, type FxParticleKind } from './FxColors';
  */
 
 export type ArrowKind = 'plain' | 'pierce' | 'wind' | 'charge' | 'small' | 'dust' | 'weak' | 'rapid' | 'spin' | 'execute' | 'phantom' | 'bone' | 'knife' | 'hook' | 'vblade';
-export type OrbKind = 'fire' | 'ice' | 'spark' | 'lance' | 'frostBolt' | 'poison' | 'spore' | 'glob' | 'shard' | 'axe' | 'bolt' | 'spider';
+export type OrbKind = 'fire' | 'ice' | 'spark' | 'lance' | 'frostBolt' | 'poison' | 'spore' | 'glob' | 'shard' | 'axe' | 'bolt' | 'spider' | 'web';
 
 export interface ProjectileArt {
   type: 'arrow' | 'orb';
@@ -54,6 +54,8 @@ const ARTS: Record<string, ProjectileArt> = {
   'enemy.frost_bolt': orb('frostBolt', 0x7fc8ff, 0xe0f4ff, 'flake', 0.8, 20),
   'enemy.poison_spit': orb('poison', 0x7ed957, 0xd8ffb0, 'drop', 0.85, 20),
   'enemy.frost_spores': orb('spore', 0x8fe8ff, 0xe8ffff, 'flake', 0.8, 18),
+  // 卵囊母體的吐網：飛出去是一團旋轉的蛛網，中間一坨毒液
+  'enemy.web_spit': orb('web', 0x9ad86a, 0xf4ffe8, 'drop', 1, 14),
   'enemy.fire_glob': orb('glob', 0xff7a2a, 0xffd080, 'ember', 0.9, 30),
   'utility.poison_knife': arrow('knife', 0x7ed957, 0xdfe6ea, 'drop', 1, 14),
   'utility.grapple_hook': arrow('hook', 0xc8a878, 0xc8ccd4),
@@ -355,6 +357,27 @@ function drawOrb(g: Graphics, art: ProjectileArt, t: number): void {
       g.poly(pts, false).stroke({ color: c, width: 4 * k, alpha: 0.35 });
       g.poly(pts, false).stroke({ color: core, width: 1.6 * k });
       g.circle(L * 0.5, 0, 4 * k).fill({ color: core, alpha: 0.9 });
+      break;
+    }
+    case 'web': {
+      // 一團旋轉的蛛網：外圈、輻線、兩圈橫絲，中間一坨綠色毒液
+      const r = 7 * k;
+      const spin = t * 9;
+      g.circle(0, 0, r * 1.5).fill({ color: c, alpha: 0.15 });
+      for (let i = 0; i < 7; i++) {
+        const a = spin + (i / 7) * Math.PI * 2;
+        g.moveTo(0, 0).lineTo(Math.cos(a) * r, Math.sin(a) * r).stroke({ color: core, width: 1, alpha: 0.85 });
+      }
+      for (const rr of [0.45, 0.8]) {
+        const pts: number[] = [];
+        for (let i = 0; i <= 7; i++) {
+          const a = spin + (i / 7) * Math.PI * 2;
+          pts.push(Math.cos(a) * r * rr, Math.sin(a) * r * rr);
+        }
+        g.poly(pts, false).stroke({ color: core, width: 1, alpha: 0.75 });
+      }
+      g.circle(0, 0, r * 0.32).fill({ color: c });
+      g.circle(-r * 0.1, -r * 0.1, r * 0.12).fill({ color: core, alpha: 0.8 });
       break;
     }
     case 'spore': {

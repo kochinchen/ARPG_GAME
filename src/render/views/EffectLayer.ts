@@ -14,6 +14,7 @@ import { ELEMENT_COLORS } from '../palette';
 import { DarkDomainFx } from './fx/DarkDomainFx';
 import { ImpactFx, type ImpactInput } from './fx/ImpactFx';
 import { drawProjectile, projectileArt, specialArt, type ProjectileArt } from './fx/ProjectileArt';
+import { drawWeb, webNodes } from './fx/WebFx';
 
 const TELEGRAPH_COLOR = 0xff4a3a;
 /** 投射物的飛行高度（px） */
@@ -41,6 +42,9 @@ interface ProjectileView {
   /** 會發光（法術的光球、元素箭）：Three.js 畫法的光源 */
   glows: boolean;
   /** 有 3D 模型的投射物（迴旋飛斧） */
+  /** 原始的招式 ID 與最後的位置（投射物消失時在那裡放特效） */
+  skillId: string;
+  at: Vec2;
   model?: { figure: PolyFigure; three: FlyingFigure | null };
 }
 
@@ -62,6 +66,9 @@ export interface FxGlow {
   strength: number;
   radius: number;
   t: number;
+  /** 地面持續區域還剩幾秒、形狀的種子（晶網的冰錐長在網的節點上，活到網消失） */
+  life?: number;
+  seed?: number;
 }
 
 /** 開始施放（Three.js 畫法的出招特效：蓄力光、拋射的箭、突進的風、從天而降的火球…） */
@@ -276,6 +283,31 @@ export class EffectLayer {
     return !this.listener || (element === 'lightning' && tier >= 2);
   }
 
+  /** 晶網：地上的蜘蛛網從中心張開，節點長出冰錐（Three.js 畫立體的；沒有 Three.js 時畫在網上），結束前淡掉 */
+  private syncIceWeb(zone: Zone, dt: number): void {
+    let g = this.zoneViews.get(zone.id);
+    if (!g) {
+      g = new Graphics();
+      const toScreen = (x: number, y: number) => this.projection.toScreen(vec2(x, y));
+      drawWeb(g, zone.position.x, zone.position.y, zone.radius, zone.id, { strand: 0xdff0ff, under: 0x5a4a9a, ground: 0x6a70c0 }, toScreen);
+      if (!this.listener) {
+        for (const n of webNodes(zone.radius, zone.id)) {
+          const p = toScreen(zone.position.x + n.x, zone.position.y + n.y);
+          g.poly([p.x - 3, p.y, p.x, p.y - 14, p.x + 3, p.y, p.x, p.y + 2]).fill({ color: 0xa8e0ff, alpha: 0.9 });
+        }
+      }
+      const c = toScreen(zone.position.x, zone.position.y);
+      g.pivot.set(c.x, c.y);
+      g.position.set(c.x, c.y);
+      g.scale.set(0.05);
+      this.ground.addChild(g);
+      this.zoneViews.set(zone.id, g);
+    }
+    g.scale.set(Math.min(1, g.scale.x + dt / 0.28));
+    g.alpha = Math.min(1, zone.remaining / 0.35);
+    this.glows.push({ skillId: originalSkillId(zone.ctx.skill.id), element: 'cold', tier: 1, id: `z${zone.id}`, kind: 'zone', position: zone.position, height: ZONE_GLOW_HEIGHT, color: 0xa8d8ff, strength: 0.5 * g.alpha, radius: zone.radius, t: 0, life: zone.remaining, seed: zone.id });
+  }
+
   /** 地面持續區域：半透明圓，閃爍表示仍在作用 */
   private syncZones(zones: readonly Zone[], dt: number): void {
     const seen = new Set<number>();
@@ -284,6 +316,10 @@ export class EffectLayer {
       const element = zone.followCaster ? null : zoneFxElement(zone);
       const tier = zoneTier(zone);
       if (zone.look === 'acid') continue;
+      if (zone.look === 'iceWeb') {
+        this.syncIceWeb(zone, dt);
+        continue;
+      }
       if (zone.look === 'darkDomain') {
         this.syncDomain(zone, dt);
         continue;
@@ -461,12 +497,13 @@ export class EffectLayer {
         container.addChild(shadow, art);
         // 物理箭不發光；法術的光球與元素箭會照亮周圍
         const glows = base.type === 'orb' || (element !== null && element !== 'physical');
-        view = { container, shadow, art, style, special, age: 0, trailTimer: 0, glows };
+        view = { container, shadow, art, style, special, age: 0, trailTimer: 0, glows, skillId: originalSkillId(p.skill.id), at: p.position };
         this.projectileViews.set(p.id, view);
         this.objectLayer.addChild(container);
         this.attachFlying(view, p);
       }
       view.age += dt;
+      view.at = vec2(p.position.x, p.position.y);
       const pos = {
         x: p.prevPosition.x + (p.position.x - p.prevPosition.x) * alpha,
         y: p.prevPosition.y + (p.position.y - p.prevPosition.y) * alpha,
@@ -500,6 +537,8 @@ export class EffectLayer {
     }
     for (const [id, view] of this.projectileViews) {
       if (seen.has(id)) continue;
+      // 吐網：投射物消失（命中或飛到盡頭）的地方攤開一張毒網
+      if (view.skillId === 'enemy.web_spit') this.spawnImpact({ kind: 'poisonWeb', position: view.at, radius: 0.85, color: 0x7ed957, direction: vec2(1, 0), angleDeg: 360, big: false, special: false, skillId: 'enemy.web_spit', element: 'poison' });
       view.model?.three?.dispose();
       view.container.destroy({ children: true });
       this.projectileViews.delete(id);

@@ -193,7 +193,7 @@ export const ZoneEffectSchema = z.strictObject({
   /** 第一跳等一個間隔才打（省略 = 落地馬上打一跳）：和同招的直接傷害疊在一起會太高時用 */
   delayFirstTick: z.boolean().default(false),
   /** 區域的外觀（省略 = 依元素）：darkDomain = 暗黑領域（黑底紅圈、漂出骷髏），魔王與裝備共用；acid = 酸液（畫面由招式特效 ImpactFx 的 acid 畫，這裡不再畫） */
-  look: z.enum(['darkDomain', 'acid']).optional(),
+  look: z.enum(['darkDomain', 'acid', 'iceWeb']).optional(),
   get effects() {
     return z.array(EffectDefSchema).min(1);
   },

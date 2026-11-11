@@ -1208,6 +1208,9 @@ const enemySkills: SkillInput[] = [
 /** 雙束連刺的一下：像重砍的寬扇形，先從左、再從右（設計者 2026-11-09） */
 const twinThrust = (offsetDeg: number): EffectInput => ({ type: 'area', radius: 2.4, angleDeg: 120, offsetDeg, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 0.7 }] });
 
+/** 鉤爪蟲的一道鐮刀（設計者 2026-11-11：特效參考雙束連刺） */
+const hookSickle = (offsetDeg: number, multiplier: number, more: EffectInput[] = []): EffectInput => ({ type: 'area', radius: 1.4, angleDeg: 100, offsetDeg, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier }, ...more] });
+
 /** 咬合連擊的一下：前方小扇形 */
 const biteHit: EffectInput = { type: 'area', radius: 1.5, angleDeg: 80, effects: [{ type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 0.7 }] };
 
@@ -1495,17 +1498,20 @@ const creatureSkills: SkillInput[] = [
     cooldown: 5,
     tags: ['attack', 'melee'],
     effects: [
-      {
-        type: 'area',
-        radius: 1.4,
-        angleDeg: 100,
-        includeTarget: true,
-        effects: [
-          { type: 'damage', element: 'physical', scaling: 'weapon', hits: 2, multiplier: 0.9 },
-          { type: 'status', status: 'armorBreak', duration: 3, magnitude: 0.2 },
-        ],
-      },
+      hookSickle(-12, 0.9, [{ type: 'status', status: 'armorBreak', duration: 3, magnitude: 0.2 }]),
+      { type: 'delayed', delay: 0.28, effects: [hookSickle(12, 0.9)] },
     ],
+  },
+  {
+    // 鉤爪蟲的普通攻擊：和鐵輪劍獸的雙束連刺一樣，左右各揮出一道鐮刀；兩下加起來等於一次普攻的傷害
+    id: 'enemy.hook_swipe',
+    name: '鉤爪揮擊',
+    description: '鉤爪蟲的雙鐮先左後右，揮出兩道往前送的鐮刀。',
+    targeting: 'enemy',
+    useAttackSpeed: true,
+    fixedArea: true,
+    tags: ['attack', 'melee'],
+    effects: [hookSickle(-12, 0.5), { type: 'delayed', delay: 0.28, effects: [hookSickle(12, 0.5)] }],
   },
   {
     id: 'enemy.horn_charge',
@@ -2146,6 +2152,7 @@ const creatureSkills: SkillInput[] = [
         radius: 1.4,
         duration: 3,
         interval: 0.5,
+        look: 'iceWeb',
         effects: [
           { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 0.3 },
           { type: 'status', status: 'slow', duration: 1, magnitude: 0.5 },

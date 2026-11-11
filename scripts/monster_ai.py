@@ -49,9 +49,9 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
+TRIS_OF.update({"crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
-ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90}
+ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90, "hook_claw": 180}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
 SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032, "abyss_hand": 0.04, "abyss_hand_hand": 0.032}
 
@@ -69,6 +69,8 @@ CLEANUP = {
     "bone_dragon": lambda p: 0.05 < p.y < 0.255 and 0.14 < abs(p.x) < 0.31 and p.z < -0.225,
     # 手：TRELLIS 每邊生成 6 隻腳（設計是 4 隻），切掉前後第二隻
     "abyss_hand": lambda p: abs(p.x) > HAND_LEG_CUT_X and any(abs(p.y - y) < 0.052 for y in HAND_CUT_LEGS),
+    # 鉤爪蟲：TRELLIS 把側面圖一前一後的手臂混在一起，頭的正前方多浮著一把鐮刀
+    "hook_claw": lambda p: abs(p.x) < 0.09 and (p.y < -0.31 or (p.y < -0.27 and p.z < 0.16)),
     # 酸液甲蟲（設計者 2026-11-09）：拿掉大顎外側那兩根觸鬚，和原本的短管與兩顆液滴（換成砲管）
     "acid_beetle": lambda p: (0.168 < abs(p.x) < 0.34 and p.y < -0.3 and p.z < -0.1) or (abs(p.x) < 0.055 and p.y < -0.345 and -0.2 < p.z < -0.07),
 }
@@ -1184,6 +1186,112 @@ def horned_brute_zone(p, bone):
     return True
 
 
+def in_hook_arm(p):
+    edge = -0.03 if p.y < 0.2 else -0.03 - (p.y - 0.2) * 0.95
+    return abs(p.x) > (0.105 if p.y < 0.065 or p.z > 0.06 else 0.13) and p.y > -0.08 and p.z > edge
+
+
+def hook_claw_zone(p, bone):
+    """手臂（細臂、護甲、鐮刀）和腹部、後腳在空間裡重疊，要分清楚"""
+    arm = in_hook_arm(p)
+    strip = p.y < 0.065 or (p.y < 0.135 and p.z < 0.128 - (p.y - 0.055) * 0.9)
+    if bone.startswith("upperArm"):
+        return arm and strip
+    if bone.startswith(("forearm", "hand")):
+        return arm and not strip
+    if arm:
+        return bone in ("root", "torso") and abs(p.x) < 0.125 and p.y < 0.065
+    if bone.startswith("ex_l"):
+        return abs(p.x) > 0.09 and p.z < -0.02
+    if abs(p.x) > 0.15 and p.z < -0.05:
+        return False
+    if bone in ("ponytail", "ex_tail1"):
+        return p.y > 0.05
+    return True
+
+
+FIRE_SAC_CENTER = V((0, 0.036, 0.117))
+
+
+def fire_crawler_zone(p, bone):
+    """背上的火囊整顆是 ex_sac（中心在球心，遊戲端用 scale 脹大）；下顎只有嘴的下半部；腿只拿腿的位置"""
+    sac = (p - FIRE_SAC_CENTER).length < 0.25 and p.z > -0.03
+    if bone == "ex_sac":
+        return sac
+    if sac:
+        return False
+    jaw = abs(p.x) < 0.1 and p.y < -0.32 and p.z < -0.15
+    if bone == "jaw":
+        return jaw
+    if jaw:
+        return False
+    leg_area = p.z < -0.06 and abs(p.x) > 0.13
+    if bone.startswith(("upperArm", "forearm", "hand")):
+        return leg_area and p.y < -0.02
+    if bone.startswith(("thigh", "shin", "foot")):
+        return leg_area and p.y > 0.02
+    return True
+
+
+EGG_SAC_CENTER = V((0, 0.17, 0.03))
+
+
+def egg_matron_zone(p, bone):
+    """卵囊（ponytail）與頂上兩根管子（ex_tube）；前面兩根觸肢（shin）跟頭；腳只拿腳的位置"""
+    tube = 0.03 < abs(p.x) < 0.17 and 0.05 < p.y < 0.23 and p.z > 0.19
+    if bone.startswith("ex_tube"):
+        return tube
+    if tube:
+        return False
+    sac = (p - EGG_SAC_CENTER).length < (0.25 if abs(p.x) > 0.1 and p.y < 0.14 and p.z < 0.07 else 0.29) and not (abs(p.x) > 0.1 and p.y < 0.1 and p.z < -0.02)
+    sac = sac or p.y > 0.24
+    if bone == "ponytail":
+        return sac
+    if sac:
+        return False
+    palp = 0.09 < abs(p.x) < 0.19 and p.y < -0.17 and p.z < -0.02
+    if bone.startswith("shin"):
+        return palp
+    if palp:
+        return False
+    if bone.startswith(("upperArm", "forearm", "hand", "ex_leg")):
+        return abs(p.x) > 0.11
+    return abs(p.x) < 0.19
+
+
+def crystal_weaver_zone(p, bone):
+    """腹部與腳在兩側重疊，用左右距離分開；毒牙（shin）跟頭"""
+    fang = 0.055 < abs(p.x) < 0.16 and p.y < -0.38 and p.z < -0.12
+    if bone.startswith("shin"):
+        return fang
+    if fang:
+        return False
+    if bone.startswith(("upperArm", "forearm", "hand", "thigh", "ex_leg")):
+        return abs(p.x) > (0.1 if p.y < -0.12 else 0.17)
+    if bone == "ponytail":
+        return p.y > -0.12 and abs(p.x) < 0.225
+    return abs(p.x) < 0.16 and p.y < -0.05
+
+
+def in_molten_jaw(p):
+    return p.y < -0.26 and p.z < -0.03 + (p.y + 0.26) * 0.25 and abs(p.x) < (0.15 if p.z > -0.22 else 0.095)
+
+
+def molten_brute_zone(p, bone):
+    """下顎只有嘴的下半部；腿只拿腿的位置，背上的岩塊跟身體"""
+    if bone == "jaw":
+        return in_molten_jaw(p)
+    if in_molten_jaw(p):
+        return False
+    paw = p.z < -0.22 and abs(p.x) > 0.095
+    leg_area = paw or (p.z < 0.02 and abs(p.x) > 0.12)
+    if bone.startswith(("upperArm", "forearm", "hand")):
+        return leg_area and p.y < 0.07
+    if bone.startswith(("thigh", "shin", "foot")):
+        return leg_area and p.y > 0.07
+    return not paw
+
+
 def in_toad_jaw(p):
     return abs(p.x) < 0.235 and p.y < -0.1 and p.z < 0.03
 
@@ -1396,6 +1504,11 @@ ZONES["eye_floater"] = eye_floater_zone
 ZONES["blood_lizard"] = blood_lizard_zone
 ZONES["poison_spitter"] = poison_spitter_zone
 ZONES["horned_brute"] = horned_brute_zone
+ZONES["molten_brute"] = molten_brute_zone
+ZONES["hook_claw"] = hook_claw_zone
+ZONES["fire_crawler"] = fire_crawler_zone
+ZONES["egg_matron"] = egg_matron_zone
+ZONES["crystal_weaver"] = crystal_weaver_zone
 ZONES["hatchling_spider"] = hatchling_zone
 ZONES["acid_beetle"] = acid_beetle_zone
 ZONES["void_spore"] = lambda p, bone: (bone != "head" or (p.y < -0.3 and math.hypot(p.x, p.z) < 0.17)) and (not re.match(r"(upperArm|forearm|hand|thigh|shin|foot)", bone) or p.z < -0.3)
@@ -1498,6 +1611,127 @@ def horned_brute():
     return bones + sides(side), {}
 
 
+def molten_brute():
+    """熔顎巨獸：四足、背上一排岩塊；jaw 是下顎；尾巴兩節（ponytail → ex_tail1）"""
+    bones = [
+        ("root", None, V((0, 0.05, 0.03)), V((0, 0.27, 0.0)), 0.17),
+        ("torso", "root", V((0, 0.05, 0.03)), V((0, -0.17, 0.03)), 0.17),
+        ("neck", "torso", V((0, -0.19, 0.03)), V((0, -0.27, 0.02)), 0.1),
+        ("head", "neck", V((0, -0.27, 0.03)), V((0, -0.46, 0.04)), 0.09),
+        ("jaw", "head", V((0, -0.28, -0.04)), V((0, -0.45, -0.17)), 0.08),
+        ("ponytail", "root", V((0, 0.29, -0.03)), V((0, 0.39, -0.07)), 0.07),
+        ("ex_tail1", "ponytail", V((0, 0.39, -0.07)), V((0, 0.5, -0.1)), 0.05),
+    ]
+    arm = [V((0.22, -0.09, 0.0)), V((0.25, -0.09, -0.14)), V((0.27, -0.11, -0.26)), V((0.28, -0.25, -0.31))]
+    leg = [V((0.2, 0.2, 0.0)), V((0.24, 0.22, -0.17)), V((0.26, 0.26, -0.27)), V((0.27, 0.13, -0.31))]
+
+    def side(s, m):
+        out = chain([f"upperArm{s}", f"forearm{s}", f"hand{s}"], "torso", [m(p) for p in arm], [0.1, 0.09, 0.07])
+        return out + chain([f"thigh{s}", f"shin{s}", f"foot{s}"], "root", [m(p) for p in leg], [0.1, 0.09, 0.07])
+
+    return bones + sides(side), {}
+
+
+def hook_claw():
+    """鉤爪蟲：螳螂，胸節挺起（torso）、腹部兩節（ponytail → ex_tail1）；六隻腳（ex_lf 前、ex_lm 中、ex_lr 後）。
+    手臂：upperArm 是連到護甲的細臂，forearm（護甲）與 hand（鐮刀）。TRELLIS 把鐮刀生成在身體後方，遊戲端用姿勢轉到前面"""
+    bones = [
+        ("root", None, V((0, 0.0, -0.1)), V((0, 0.15, -0.08)), 0.07),
+        ("torso", "root", V((0, -0.02, -0.08)), V((0, -0.17, 0.12)), 0.08),
+        ("neck", "torso", V((0, -0.17, 0.12)), V((0, -0.21, 0.18)), 0.04),
+        ("head", "neck", V((0, -0.21, 0.18)), V((0, -0.3, 0.22)), 0.07),
+        ("ponytail", "root", V((0, 0.12, -0.06)), V((0, 0.3, -0.08)), 0.1),
+        ("ex_tail1", "ponytail", V((0, 0.3, -0.08)), V((0, 0.49, -0.18)), 0.07),
+    ]
+    arm = [V((0.08, -0.08, 0.02)), V((0.165, 0.1, 0.12)), V((0.24, 0.22, 0.06)), V((0.22, 0.38, -0.17))]
+    legs = {
+        "lf": [V((0.1, -0.05, -0.1)), V((0.2, -0.14, -0.13)), V((0.27, -0.2, -0.24)), V((0.31, -0.24, -0.34))],
+        "lm": [V((0.1, 0.03, -0.1)), V((0.23, 0.07, -0.13)), V((0.3, 0.085, -0.24)), V((0.345, 0.085, -0.34))],
+        "lr": [V((0.1, 0.1, -0.1)), V((0.16, 0.2, -0.16)), V((0.18, 0.27, -0.25)), V((0.2, 0.33, -0.34))],
+    }
+
+    def side(s, m):
+        out = chain([f"upperArm{s}", f"forearm{s}", f"hand{s}"], "torso", [m(p) for p in arm], [0.04, 0.09, 0.06])
+        for n, pts in legs.items():
+            out += chain([f"ex_{n}{s}0", f"ex_{n}{s}1", f"ex_{n}{s}2"], "root", [m(p) for p in pts], [0.05, 0.04, 0.04])
+        return out
+
+    return bones + sides(side), {}
+
+
+def fire_crawler():
+    """火囊爬行者：四足貼地、背上一顆大火囊（ex_sac，骨頭從球心往上）、下顎 jaw、尾巴兩節"""
+    bones = [
+        ("root", None, V((0, 0.05, -0.1)), V((0, 0.25, -0.09)), 0.12),
+        ("torso", "root", V((0, 0.05, -0.1)), V((0, -0.2, -0.1)), 0.13),
+        ("neck", "torso", V((0, -0.2, -0.08)), V((0, -0.29, -0.07)), 0.08),
+        ("head", "neck", V((0, -0.29, -0.07)), V((0, -0.48, -0.12)), 0.08),
+        ("jaw", "head", V((0, -0.33, -0.15)), V((0, -0.49, -0.18)), 0.06),
+        ("ex_sac", "root", FIRE_SAC_CENTER, FIRE_SAC_CENTER + V((0, 0, 0.17)), 0.24),
+        ("ponytail", "root", V((0, 0.27, -0.1)), V((0, 0.38, -0.1)), 0.07),
+        ("ex_tail1", "ponytail", V((0, 0.38, -0.1)), V((0, 0.47, 0.01)), 0.05),
+    ]
+    arm = [V((0.15, -0.16, -0.1)), V((0.22, -0.2, -0.16)), V((0.22, -0.24, -0.23)), V((0.24, -0.33, -0.27))]
+    leg = [V((0.15, 0.13, -0.1)), V((0.22, 0.16, -0.16)), V((0.24, 0.14, -0.23)), V((0.27, 0.06, -0.27))]
+
+    def side(s, m):
+        out = chain([f"upperArm{s}", f"forearm{s}", f"hand{s}"], "torso", [m(p) for p in arm], [0.07, 0.07, 0.06])
+        return out + chain([f"thigh{s}", f"shin{s}", f"foot{s}"], "root", [m(p) for p in leg], [0.07, 0.07, 0.06])
+
+    return bones + sides(side), {}
+
+
+def egg_matron():
+    """卵囊母體：頭胸（root）、卵囊（ponytail，支點在腰）、頂上兩根管子（ex_tube）、頭、兩根觸肢（shinL/R，掛在頭上）；
+    六隻腳，關節名稱同 Creatures.arthropod 的前三對"""
+    bones = [
+        ("root", None, V((0, -0.1, -0.06)), V((0, 0.05, -0.04)), 0.1),
+        ("ponytail", "root", V((0, 0.06, -0.03)), V((0, 0.36, 0.05)), 0.24),
+        ("head", "root", V((0, -0.2, -0.06)), V((0, -0.38, -0.1)), 0.08),
+    ]
+    legs = [
+        ("upperArm", (0.1, -0.13, -0.06), (0.22, -0.15, 0.02), (0.39, -0.26, -0.26)),
+        ("forearm", (0.12, -0.04, -0.06), (0.26, -0.04, 0.02), (0.47, -0.04, -0.26)),
+        ("hand", (0.12, 0.03, -0.06), (0.26, 0.08, 0.02), (0.47, 0.17, -0.26)),
+    ]
+
+    def side(s, m):
+        out = [
+            (f"shin{s}", "head", m(V((0.13, -0.2, -0.08))), m(V((0.13, -0.37, -0.2))), 0.05),
+            (f"ex_tube{s}", "ponytail", m(V((0.085, 0.135, 0.19))), m(V((0.085, 0.135, 0.27))), 0.05),
+        ]
+        for i, (joint, a, b, c) in enumerate(legs):
+            out.append((f"{joint}{s}", "root", m(V(a)), m(V(b)), 0.06))
+            out.append((f"ex_leg{s}{i}", f"{joint}{s}", m(V(b)), m(V(c)), 0.06))
+        return out
+
+    return bones + sides(side), {}
+
+
+def crystal_weaver():
+    """晶刺織網蛛：頭胸（root）、腹部（ponytail）、頭、兩根毒牙（shinL/R，掛在頭上）、八隻腳（關節名稱同 Creatures.arthropod）"""
+    bones = [
+        ("root", None, V((0, -0.2, -0.08)), V((0, -0.08, -0.05)), 0.12),
+        ("ponytail", "root", V((0, -0.06, -0.02)), V((0, 0.4, -0.03)), 0.22),
+        ("head", "root", V((0, -0.32, -0.1)), V((0, -0.47, -0.14)), 0.09),
+    ]
+    legs = [
+        ("upperArm", (0.1, -0.28, -0.1), (0.234, -0.378, 0.03), (0.324, -0.44, -0.31)),
+        ("forearm", (0.15, -0.15, -0.1), (0.3, -0.19, 0.04), (0.477, -0.22, -0.31)),
+        ("hand", (0.17, 0.03, -0.1), (0.32, 0.04, 0.04), (0.495, 0.045, -0.31)),
+        ("thigh", (0.17, 0.11, -0.1), (0.29, 0.17, 0.03), (0.414, 0.22, -0.31)),
+    ]
+
+    def side(s, m):
+        out = [(f"shin{s}", "head", m(V((0.1, -0.4, -0.13))), m(V((0.1, -0.47, -0.23))), 0.05)]
+        for i, (joint, a, b, c) in enumerate(legs):
+            out.append((f"{joint}{s}", "root", m(V(a)), m(V(b)), 0.07))
+            out.append((f"ex_leg{s}{i}", f"{joint}{s}", m(V(b)), m(V(c)), 0.07))
+        return out
+
+    return bones + sides(side), {}
+
+
 def poison_spitter():
     """毒沫噴吐者：蟾蜍，四足外張；jaw 是下顎連喉囊，ex_sacL/R 是喉囊的左右半邊（往外轉就是鼓起來）"""
     bones = [
@@ -1595,6 +1829,11 @@ def wheel_sword_beast():
 
 SKELETONS = {
     "horned_brute": horned_brute,
+    "hook_claw": hook_claw,
+    "fire_crawler": fire_crawler,
+    "egg_matron": egg_matron,
+    "crystal_weaver": crystal_weaver,
+    "molten_brute": molten_brute,
     "poison_spitter": poison_spitter,
     "blood_lizard": blood_lizard,
     "wheel_sword_beast": wheel_sword_beast,
@@ -1647,7 +1886,7 @@ def seg_dist(p, a, b):
 SOFT = 0.012
 # 關節處（最近的兩根骨頭是父子，例如肩膀的鎖骨與上臂、髖的骨盆與大腿）漸變的寬度：
 # 只用 SOFT 時接縫很硬，手舉起來肩膀的三角形會被拉長好幾倍
-JOINT_SOFT = {n: 0.04 for n in ("horned_brute", "poison_spitter", "blood_lizard", "eye_floater", "hatchling_spider", "wheel_sword_beast", "bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
+JOINT_SOFT = {n: 0.04 for n in ("crystal_weaver", "egg_matron", "fire_crawler", "hook_claw", "molten_brute", "horned_brute", "poison_spitter", "blood_lizard", "eye_floater", "hatchling_spider", "wheel_sword_beast", "bone_hound", "acid_beetle", "storm_mage", "skeleton_mage", "burrower", "void_spore", "void_maw", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "bone_hand", "bone_dragon", "abyss_dragon", "abyss_hand", "abyss_hand_hand")}
 # 這些骨頭彼此之間（長袍的四片）也要漸變，否則擺動時接縫被拉開
 SOFT_GROUP = {"fallen_priest": {"root", "cloth", "clothBack", "ex_tassetL", "ex_tassetR"}}
 parent_of = {name: parent for name, parent, *_ in bones}

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { vec2, type Vec2 } from '../../core/math/Vec2';
 import type { FxCast, FxFlying, FxGlow, SkillFxListener } from '../views/EffectLayer';
 import type { ImpactInput } from '../views/fx/ImpactFx';
+import { webNodes } from '../views/fx/WebFx';
 
 /**
  * Three.js 畫法的招式特效（立體、會被照亮、會投影子的部分；數值不變，只改外觀）：
@@ -294,6 +295,8 @@ export class ThreeSkillFx implements SkillFxListener {
   /** 絕對零度的冰柱（冰凍區域結束時碎裂）、進行中的冰凍區域 */
   private zeroPillars: { at: Vec2; cut: () => void }[] = [];
   private readonly zeroZones = new Map<string, { at: Vec2; radius: number }>();
+  /** 已經長好冰錐的晶網 */
+  private readonly webSpikes = new Set<string>();
   /** 劍刃旋舞的劍風（依區域的 id） */
   private readonly whirls = new Map<string, THREE.Group>();
   private readonly rockGeo = new THREE.IcosahedronGeometry(1, 0);
@@ -339,11 +342,15 @@ export class ThreeSkillFx implements SkillFxListener {
     const id = i.skillId ?? '';
     const p = i.position;
     const r = i.radius;
-    if (id.startsWith('enemy.eye_breath')) {
+    if (id.startsWith('enemy.eye_breath') || id === 'enemy.magma_breath') {
       this.breath(p, i.direction, r, i.element ?? null);
       return true;
     }
     switch (id) {
+      case 'enemy.web_spit':
+        // 地上的毒網由 Pixi 畫，這裡是濺開的毒液泡泡與綠煙
+        this.bubbles(p, r * 0.5, 0x7ed957, 8);
+        return false;
       case 'enemy.acid_spray':
         // 地上的毒液（扇形、冒泡）由 Pixi 的 acid 畫，這裡是立體的噴濺、泡泡與煙
         this.acidSpray(p, i.direction, r, i.angleDeg);
@@ -468,6 +475,7 @@ export class ThreeSkillFx implements SkillFxListener {
     this.whirls.clear();
     this.zeroPillars = [];
     this.zeroZones.clear();
+    this.webSpikes.clear();
     this.emitTimer.clear();
     this.hookFrom = this.hookAt = null;
     this.glow.clear();
@@ -513,6 +521,10 @@ export class ThreeSkillFx implements SkillFxListener {
         continue;
       }
       if (g.kind === 'zone' && g.skillId === 'magic.absolute_zero') this.zeroZones.set(g.id, { at: g.position, radius: g.radius });
+      if (g.kind === 'zone' && g.skillId === 'enemy.crystal_web' && !this.webSpikes.has(g.id)) {
+        this.webSpikes.add(g.id);
+        this.webIce(g);
+      }
       if (g.kind === 'zone') {
         // 有專屬節奏的招式照表；其他只要是燃燒、冰凍、帶電、中毒的地面，都依面積不斷冒出（設計者 2026-11-09）
         const own = (g.skillId && FLAME_RATE[g.skillId]) || 0;
@@ -556,6 +568,7 @@ export class ThreeSkillFx implements SkillFxListener {
       }
     }
     for (const id of this.emitTimer.keys()) if (!live.has(id)) this.emitTimer.delete(id);
+    for (const id of this.webSpikes) if (!live.has(id)) this.webSpikes.delete(id);
     for (const [id, z] of this.zeroZones) {
       if (live.has(id)) continue;
       this.zeroZones.delete(id);
@@ -1064,6 +1077,16 @@ export class ThreeSkillFx implements SkillFxListener {
       this.bubbles(at, tier === 3 ? 0.4 : 0.25, 0x7ed957, [1, 2, 4][tier - 1]!);
       if (Math.random() < [0.15, 0.25, 0.6][tier - 1]!) this.fog(at, tier === 3 ? 0x4a7a28 : 0x6aa040, [0.3, 0.4, 0.8][tier - 1]!);
     }
+  }
+
+  /** 晶網：冰錐從網的節點由內往外依序長出，留到網消失；越靠內越高 */
+  private webIce(g: FxGlow): void {
+    const life = g.life ?? 3;
+    for (const n of webNodes(g.radius, g.seed ?? 0)) {
+      const delay = 0.05 + n.ring * 0.07 + rand(0, 0.05);
+      this.icePillar(vec2(g.position.x + n.x, g.position.y + n.y), rand(0.5, 0.85) * (1 - n.ring * 0.16), life - delay, delay);
+    }
+    this.frostBlast(g.position, g.radius * 0.5, 0.6);
   }
 
   private smokePuffs(at: Vec2, n: number, radius: number, rise = 1): void {

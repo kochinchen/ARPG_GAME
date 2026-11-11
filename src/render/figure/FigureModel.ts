@@ -141,6 +141,8 @@ export interface Pose {
   /** 骨盆往角色前方的位移（攻擊時重心前移；省略為 0） */
   rootZ?: number;
   angles: Partial<Record<Joint, V3>>;
+  /** 關節的等比縮放（省略為 1；只用在沒有子關節的部位，例如火囊脹大） */
+  scale?: Partial<Record<Joint, number>>;
 }
 
 /** 各種樣態的姿勢（t = 秒，p = 0～1 的進度） */
@@ -170,6 +172,8 @@ export interface PoseSet {
   attackChain?: { windup: Pose[]; strike: Pose[]; strikeTime?: number };
   /** 沒指定招式的攻擊一律播 attackChain（attackVariants 是專屬招式的動作，不和普攻輪流；鐵輪劍獸、血鱗獵蜥） */
   plainAttackIsChain?: boolean;
+  /** 動作預覽「T 字」按鈕專用（手臂生成在奇怪方向的模型）：手臂往兩側伸直；bent = 前臂再往前彎 90° */
+  tPose?: (bent: boolean) => Pose;
 }
 
 /** 待機怒吼第一次開始的時間（秒）；之後每 period 秒一次 */
@@ -284,7 +288,15 @@ export function lerpPose(a: Pose, b: Pose, k: number): Pose {
   }
   const az = a.rootZ ?? 0;
   const bz = b.rootZ ?? 0;
-  return { rootY: a.rootY + (b.rootY - a.rootY) * k, ...(az || bz ? { rootZ: az + (bz - az) * k } : {}), angles };
+  let scale: Partial<Record<Joint, number>> | undefined;
+  if (a.scale || b.scale) {
+    scale = {};
+    for (const j of Object.keys({ ...a.scale, ...b.scale }) as Joint[]) {
+      const x = a.scale?.[j] ?? 1;
+      scale[j] = x + ((b.scale?.[j] ?? 1) - x) * k;
+    }
+  }
+  return { rootY: a.rootY + (b.rootY - a.rootY) * k, ...(az || bz ? { rootZ: az + (bz - az) * k } : {}), angles, ...(scale ? { scale } : {}) };
 }
 
 /** 依序經過多個姿勢：t = 0～1，平均分段，每段 easeOut */
@@ -312,7 +324,8 @@ export function solveJoints(
   for (const part of parts) {
     const raw = pose.angles[part.joint] ?? [0, 0, 0];
     const angles = adjust && part.parent !== null ? adjust(part.joint, raw, world.get(part.parent)!.m, world) : raw;
-    const local = jointRotation(angles);
+    const size = pose.scale?.[part.joint];
+    const local = size === undefined ? jointRotation(angles) : (jointRotation(angles).map((v) => v * size) as unknown as M3);
     if (part.parent === null) {
       const z = pose.rootZ ?? 0;
       world.set(part.joint, { m: mul(rotY(yaw), local), p: [Math.sin(yaw) * z, hipHeight + pose.rootY, Math.cos(yaw) * z] });

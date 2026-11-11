@@ -408,6 +408,202 @@ export function bruteLife(m: FigureModel): FigureModel {
 }
 
 /**
+ * 晶刺織網蛛：射晶刺前腹部翹起蓄力、毒牙張開，射出時腹部往下一甩；
+ * 織網（attackVariants.overhead）腹部高高翹起、尾端對準前方，抖兩下把網吐出去
+ */
+export function weaverLife(m: FigureModel): FigureModel {
+  type Angles = Pose['angles'];
+  const P = m.poses;
+  const add = (p: Pose, more: Angles): Pose => ({ ...p, angles: { ...p.angles, ...more } });
+  const fangs = (open: number): Angles => ({ shinL: [-open, open * 0.6, 0], shinR: [-open, -open * 0.6, 0] });
+  const rest = P.ready(0);
+  const arch = (lift: number, k: number): Pose => add(rest, { root: [-0.14, 0.04 * k, 0], ponytail: [lift, 0.06 * k, 0], head: [-0.08, 0, 0], ...fangs(0.25) });
+  return {
+    ...m,
+    poses: {
+      ...P,
+      ready: (t) => add(P.ready(t), { ponytail: [0.03 * Math.sin(t * 1.4), 0.03 * Math.sin(t * 0.8), 0] }),
+      castWindup: add(P.castWindup, { root: [-0.14, 0, 0], ponytail: [0.42, 0, 0], head: [-0.2, 0, 0], ...fangs(0.5) }),
+      castRelease: add(P.castRelease, { root: [0.1, 0, 0], ponytail: [-0.16, 0, 0], head: [0.2, 0, 0], ...fangs(0.1) }),
+      attackVariants: { ...P.attackVariants, overhead: { windup: [arch(0.5, 1), arch(0.72, -1), arch(0.82, 1)], strike: [arch(0.95, -1), arch(0.7, 1), arch(0.92, -1), arch(0.2, 0)], strikeTime: 0.5 } },
+    },
+  };
+}
+
+/**
+ * 卵囊母體：卵囊隨呼吸脹縮；吐網前抬頭、觸肢張開，吐的時候頭往前壓；
+ * 產卵（attackVariants.overhead）卵囊翹起、一下一下收縮，兩根管子跟著鼓起
+ */
+export function eggLife(m: FigureModel): FigureModel {
+  type Angles = Pose['angles'];
+  const P = m.poses;
+  const add = (p: Pose, more: Angles, sac: number, tube = 1): Pose => ({ ...p, angles: { ...p.angles, ...more }, scale: { ponytail: sac, ex_tubeL: tube, ex_tubeR: tube } });
+  const rest = P.ready(0);
+  const push = (lift: number, sac: number, tube: number): Pose => add(rest, { root: [-0.04, 0, 0], ponytail: [lift, 0, 0], head: [0.1, 0, 0] }, sac, tube);
+  return {
+    ...m,
+    poses: {
+      ...P,
+      ready: (t) => add(P.ready(t), {}, 1 + 0.025 * Math.sin(t * 1.7)),
+      run: (p) => add(P.run(p), {}, 1 + 0.03 * Math.sin(p * 2)),
+      ...(P.walk ? { walk: (p: number) => add(P.walk!(p), {}, 1 + 0.03 * Math.sin(p * 2)) } : {}),
+      castWindup: add(P.castWindup, { head: [-0.32, 0, 0], ponytail: [0, 0, 0] }, 1.03),
+      castRelease: add(P.castRelease, { head: [0.3, 0, 0], ponytail: [0, 0, 0] }, 0.97),
+      attackVariants: { ...P.attackVariants, overhead: { windup: [push(0.2, 1.12, 1.15), push(0.26, 0.96, 1.5), push(0.3, 1.14, 1.15), push(0.34, 0.94, 1.6)], strike: [push(0.36, 1.1, 1.9), push(0.12, 0.98, 1)], strikeTime: 0.4 } },
+      hit: add(P.hit, {}, 1.05),
+      dead: add(P.dead, {}, 0.92),
+    },
+  };
+}
+
+/**
+ * 火囊爬行者：背上的火囊隨呼吸脹縮；噴火球前抬頭、火囊鼓起，噴的時候頭往前甩、嘴張開、火囊一下癟掉；
+ * 自爆（attackVariants.overhead）全身發抖、火囊越脹越大；死掉時火囊微微癟掉（縮太多邊緣會被拉成花瓣）
+ */
+export function crawlerLife(m: FigureModel): FigureModel {
+  type Angles = Pose['angles'];
+  const P = m.poses;
+  const add = (p: Pose, more: Angles, sac: number, rootY = p.rootY): Pose => ({ ...p, rootY, angles: { ...p.angles, ...more }, scale: { ex_sac: sac } });
+  const sway = (t: number, amp: number): Angles => ({ ponytail: [0, amp * Math.sin(t), 0], ex_tail1: [0, amp * 1.4 * Math.sin(t - 0.7), 0] });
+  const rest = P.ready(0);
+  const gulp = add(rest, { root: [-0.06, 0, 0], torso: [-0.06, 0, 0], neck: [-0.3, 0, 0], head: [-0.12, 0, 0], jaw: [-0.2, 0, 0] }, 1.16, 0.6);
+  const spit = add(rest, { root: [0.05, 0, 0], torso: [0.06, 0, 0], neck: [0.28, 0, 0], head: [-0.05, 0, 0], jaw: [0.55, 0, 0] }, 0.86, -0.4);
+  /** 自爆前的抖動：k 是左右，sac 是火囊大小 */
+  const shake = (k: 1 | -1, sac: number): Pose => add(rest, { root: [-0.05, 0.06 * k, 0.05 * k], torso: [-0.04, 0.05 * k, 0], neck: [-0.22, -0.08 * k, 0], jaw: [0.4, 0, 0], ponytail: [-0.3, 0.2 * k, 0], ex_tail1: [-0.2, 0.25 * k, 0] }, sac, 0.4);
+  const burst = add(rest, { root: [0.08, 0, 0], neck: [0.2, 0, 0], jaw: [0.7, 0, 0] }, 1.9, -1);
+  return {
+    ...m,
+    poses: {
+      ...P,
+      ready: (t) => add(P.ready(t), { ...sway(t * 1.3, 0.1), jaw: [-0.08 + 0.04 * Math.sin(t * 2), 0, 0] }, 1 + 0.035 * Math.sin(t * 2.4)),
+      run: (p) => add(P.run(p), { ...sway(p, 0.22), jaw: [-0.05, 0, 0] }, 1 + 0.04 * Math.sin(p * 2)),
+      ...(P.walk ? { walk: (p: number) => add(P.walk!(p), { ...sway(p, 0.16), jaw: [-0.06, 0, 0] }, 1 + 0.03 * Math.sin(p * 2)) } : {}),
+      castWindup: gulp,
+      castRelease: spit,
+      attackWindup: gulp,
+      attackStrike: spit,
+      attackVariants: { ...P.attackVariants, overhead: { windup: [shake(1, 1.15), shake(-1, 1.3), shake(1, 1.45), shake(-1, 1.6), shake(1, 1.75)], strike: [burst], strikeTime: 0.12 } },
+      hit: add(P.hit, { jaw: [0.3, 0, 0] }, 1.08),
+      dead: add(P.dead, { jaw: [0.5, 0, 0] }, 0.86),
+    },
+  };
+}
+
+/**
+ * 鉤爪蟲：TRELLIS 把鐮刀生成在身體後方，所有姿勢都用方向重新擺手臂（往前伸到頭前、鐮刀垂在臉前）；六隻腳三腳步態；
+ * 攻擊舉起雙鐮，左右輪流往下撕裂
+ */
+export function hookLife(m: FigureModel): FigureModel {
+  type Angles = Pose['angles'];
+  const LEGS = ['lf', 'lm', 'lr'] as const;
+  // 手臂用「方向」來擺（設計者 2026-11-11：側面看，手臂往前伸到頭的前方、手肘抬高，鐮刀從手肘垂在臉前）：
+  // 上臂從肩膀指向 elbow 方向，鐮刀（護甲＋刀身）指向 blade 方向；座標是 [右手邊, 上, 前]，以左臂（+X）為準，右臂左右鏡像。
+  // TRELLIS 的上臂太短，伸不到頭前，所以上臂拉長 ARM_LENGTH 倍、前臂縮回 1 倍（只有細臂變長，護甲與鐮刀大小不變）
+  const ARM_LENGTH = 1.9;
+  const UPPER_REST: V3 = [0.085, 0.1, -0.18];
+  const BLADE_REST: V3 = [0.055, -0.29, -0.28];
+  const unit = (v: V3): V3 => {
+    const l = Math.hypot(v[0], v[1], v[2]) || 1;
+    return [v[0] / l, v[1] / l, v[2] / l];
+  };
+  /** 把方向 a 轉到方向 b 的最小旋轉 */
+  const between = (from: V3, to: V3): M3 => {
+    const a = unit(from);
+    const b = unit(to);
+    const c = Math.min(1, Math.max(-1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]));
+    const k0: V3 = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const sn = Math.hypot(k0[0], k0[1], k0[2]);
+    if (sn < 1e-9) return [1, 0, 0, 0, 1, 0, 0, 0, 1];
+    const [x, y, z] = [k0[0] / sn, k0[1] / sn, k0[2] / sn];
+    const t = 1 - c;
+    return [c + x * x * t, x * y * t - z * sn, x * z * t + y * sn, y * x * t + z * sn, c + y * y * t, y * z * t - x * sn, z * x * t - y * sn, z * y * t + x * sn, c + z * z * t];
+  };
+  const euler = (f: M3): V3 => [Math.asin(Math.max(-1, Math.min(1, -f[5]))), Math.atan2(f[2], f[8]), Math.atan2(f[3], f[4])];
+  const mirror = (v: V3, s: 'L' | 'R'): V3 => (s === 'L' ? v : [-v[0], v[1], v[2]]);
+  const arm = (s: 'L' | 'R', elbow: V3, blade: V3): Angles => {
+    const u = between(mirror(UPPER_REST, s), mirror(elbow, s));
+    const ut: M3 = [u[0], u[3], u[6], u[1], u[4], u[7], u[2], u[5], u[8]];
+    return { [`upperArm${s}`]: euler(u), [`forearm${s}`]: euler(mul(ut, between(mirror(BLADE_REST, s), mirror(blade, s)))) };
+  };
+  const arms = (elbow: V3, blade: V3): Angles => ({ ...arm('L', elbow, blade), ...arm('R', elbow, blade) });
+  const SCALE = { upperArmL: ARM_LENGTH, upperArmR: ARM_LENGTH, forearmL: 1 / ARM_LENGTH, forearmR: 1 / ARM_LENGTH };
+  const REST = { elbow: [0.25, 0.45, 0.86] as V3, blade: [-0.22, -0.95, -0.2] as V3 };
+  const RAISED = { elbow: [0.35, 0.75, 0.55] as V3, blade: [-0.1, 0.55, 0.83] as V3 };
+  const SNAP = { elbow: [0.15, 0.15, 1] as V3, blade: [-0.3, -0.55, 0.78] as V3 };
+  const legs = (swing: (i: number, side: 1 | -1) => number, lift: (i: number, side: 1 | -1) => number): Angles => {
+    const a: Angles = {};
+    for (const side of [1, -1] as const) LEGS.forEach((n, i) => (a[`ex_${n}${side === 1 ? 'L' : 'R'}0` as Joint] = [0, swing(i, side), lift(i, side) * side]));
+    return a;
+  };
+  const pose = (rootY: number, angles: Angles): Pose => ({ rootY, angles, scale: SCALE });
+  const abdomen = (t: number, amp: number): Angles => ({ ponytail: [Math.sin(t) * amp, 0, 0], ex_tail1: [Math.sin(t - 0.8) * amp * 1.3, 0, 0] });
+  const gait = (p: number, amp: number) => legs((i, side) => Math.sin(p + (i + (side === 1 ? 0 : 1)) * Math.PI) * amp, (i, side) => Math.max(0, Math.cos(p + (i + (side === 1 ? 0 : 1)) * Math.PI)) * 0.3);
+  const raised: Angles = { torso: [-0.22, 0, 0], neck: [0.1, 0, 0], ...arms(RAISED.elbow, RAISED.blade) };
+  /** 一邊的鐮刀往前下方猛砸，另一邊還舉著 */
+  const slash = (s: 'L' | 'R'): Pose => {
+    const o = s === 'L' ? 'R' : 'L';
+    const yaw = s === 'L' ? 0.3 : -0.3;
+    return pose(-0.5, { torso: [0.26, yaw, 0], neck: [-0.1, -yaw * 0.5, 0], ...arm(s, SNAP.elbow, SNAP.blade), ...arm(o, RAISED.elbow, RAISED.blade) });
+  };
+  const sway = (t: number): Angles => arms([REST.elbow[0], REST.elbow[1] + Math.sin(t * 1.6) * 0.05, REST.elbow[2]], [REST.blade[0], REST.blade[1], REST.blade[2] + Math.sin(t * 1.6 + 0.6) * 0.08]);
+  const ready = (t: number): Pose => pose(Math.sin(t * 2) * 0.15, { ...sway(t), ...legs((i) => Math.sin(t * 3 + i) * 0.03, () => 0), ...abdomen(t * 1.8, 0.04), head: [0, Math.sin(t * 0.9) * 0.1, 0] });
+  const run = (p: number): Pose => pose(Math.abs(Math.sin(p)) * 0.5, { ...arms([0.25, 0.5, 0.82], [-0.2, -0.9, -0.3]), torso: [0.1, 0, 0], ...gait(p, 0.38), ...abdomen(p * 2, 0.05) });
+  const windup = pose(1, raised);
+  const strike = slash('L');
+  // T 字：上臂往兩側伸直，鐮刀從手臂末端垂下（bent = 往前）
+  const tPose = (bent: boolean): Pose => pose(0, arms([1, 0, 0], bent ? [0, 0, 1] : [0, -1, 0]));
+  return {
+    ...m,
+    poses: {
+      ...m.poses,
+      ready,
+      run,
+      walk: (p) => pose(Math.abs(Math.sin(p)) * 0.3, { ...arms(REST.elbow, REST.blade), ...gait(p, 0.26), ...abdomen(p * 2, 0.04) }),
+      attackWindup: windup,
+      attackStrike: strike,
+      attackChain: { windup: [windup], strike: [slash('L'), windup, slash('R')], strikeTime: 0.42 },
+      plainAttackIsChain: true,
+      tPose,
+      castWindup: windup,
+      castRelease: strike,
+      hit: pose(0.5, { torso: [-0.18, 0, 0.08], ...arms([0.35, 0.55, 0.75], [-0.1, -0.9, -0.4]) }),
+      dead: pose(-3, { root: [0, 0, Math.PI / 2], ...arms([0.5, 0.2, 0.6], [0.2, -0.9, 0.2]), ...legs(() => 0, () => -0.5), ponytail: [-0.25, 0, 0] }),
+    },
+  };
+}
+
+/**
+ * 熔顎巨獸：平常嘴半閉、呼吸時微微開合；咬合張大再闔上；噴熔岩前抬頭、嘴闔緊蓄力，噴的時候頭往前壓、下顎張到最大
+ * （模型本身是張著嘴的，所以 jaw 負值 = 闔起來）
+ */
+export function moltenLife(m: FigureModel): FigureModel {
+  type Angles = Pose['angles'];
+  const P = m.poses;
+  const add = (p: Pose, more: Angles, rootY = p.rootY): Pose => ({ ...p, rootY, angles: { ...p.angles, ...more } });
+  const sway = (t: number, amp: number): Angles => ({ ponytail: [0, amp * Math.sin(t), 0], ex_tail1: [0, amp * 1.3 * Math.sin(t - 0.7), 0] });
+  const rest = P.ready(0);
+  const gather = add(rest, { root: [-0.08, 0, 0], torso: [-0.1, 0, 0], neck: [-0.34, 0, 0], head: [-0.16, 0, 0], jaw: [-0.34, 0, 0], ponytail: [-0.2, 0, 0] }, 1.5);
+  const breath = add(rest, { root: [0.08, 0, 0], torso: [0.1, 0, 0], neck: [0.3, 0, 0], head: [-0.12, 0, 0], jaw: [0.3, 0, 0], ponytail: [0.15, 0, 0] }, -2);
+  const biteOpen = add(P.attackWindup, { jaw: [0.35, 0, 0], neck: [-0.3, 0, 0], head: [-0.14, 0, 0] });
+  const biteShut = add(P.attackStrike, { jaw: [-0.42, 0, 0], neck: [0.34, 0, 0], head: [0.1, 0, 0] });
+  return {
+    ...m,
+    poses: {
+      ...P,
+      ready: (t) => add(P.ready(t), { ...sway(t * 1.2, 0.08), jaw: [-0.16 + 0.05 * Math.sin(t * 1.8), 0, 0] }),
+      run: (p) => add(P.run(p), { ...sway(p, 0.18), jaw: [-0.1, 0, 0] }),
+      ...(P.walk ? { walk: (p: number) => add(P.walk!(p), { ...sway(p, 0.14), jaw: [-0.14, 0, 0] }) } : {}),
+      attackChain: { windup: [biteOpen], strike: [biteShut], strikeTime: 0.3 },
+      plainAttackIsChain: true,
+      castWindup: gather,
+      castRelease: breath,
+      hit: add(P.hit, { jaw: [0.2, 0, 0] }),
+      dead: add(P.dead, { jaw: [0.3, 0, 0] }),
+    },
+  };
+}
+
+/**
  * 毒沫噴吐者（設計者 2026-11-10）：蟾蜍一跳一跳地移動（蹬直後腿、前腳往前伸，落地蹲回去）；
  * 吐毒前抬頭、喉囊往兩側鼓起，吐的時候頭往前甩、嘴張大
  */

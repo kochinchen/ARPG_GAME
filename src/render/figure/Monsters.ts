@@ -4,7 +4,7 @@ import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
 import { LATE_MODELS, WARDEN_GEAR } from './LateMonsters';
 import { SKELETON_GEAR, SKELETON_WARRIOR } from './SkeletonWarrior';
-import { bruteLife, houndLife, lizardLife, monsterAi, sixTentacles, toadLife, wheelBeastLife, wormLife } from './MonsterAI';
+import { bruteLife, crawlerLife, eggLife, hookLife, houndLife, lizardLife, moltenLife, monsterAi, sixTentacles, toadLife, weaverLife, wheelBeastLife, wormLife } from './MonsterAI';
 import SKELETON_AI_DATA from './monsters/skeletonAI.json';
 import FROST_SKELETON_AI_DATA from './monsters/frostSkeletonAI.json';
 import ARCHER_AI_DATA from './monsters/skeletonArcherAI.json';
@@ -20,6 +20,11 @@ import BONE_HOUND_AI_DATA from './monsters/boneHoundAI.json';
 import BLOOD_LIZARD_AI_DATA from './monsters/bloodLizardAI.json';
 import POISON_SPITTER_AI_DATA from './monsters/poisonSpitterAI.json';
 import HORNED_BRUTE_AI_DATA from './monsters/hornedBruteAI.json';
+import MOLTEN_BRUTE_AI_DATA from './monsters/moltenBruteAI.json';
+import HOOK_CLAW_AI_DATA from './monsters/hookClawAI.json';
+import FIRE_CRAWLER_AI_DATA from './monsters/fireCrawlerAI.json';
+import EGG_MATRON_AI_DATA from './monsters/eggMatronAI.json';
+import CRYSTAL_WEAVER_AI_DATA from './monsters/crystalWeaverAI.json';
 import WHEEL_SWORD_BEAST_AI_DATA from './monsters/wheelSwordBeastAI.json';
 import EYE_FLOATER_AI_DATA from './monsters/eyeFloaterAI.json';
 import HATCHLING_SPIDER_AI_DATA from './monsters/hatchlingSpiderAI.json';
@@ -1138,6 +1143,11 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.blood_lizard': lizardLife(monsterAi(BLOOD_LIZARD_AI_DATA, scaled(BEAST_MODELS)['enemy.blood_lizard']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
   'enemy.poison_spitter': toadLife(monsterAi(POISON_SPITTER_AI_DATA, scaled(CREATURE_MODELS)['enemy.poison_spitter']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
   'enemy.horned_brute': bruteLife(monsterAi(HORNED_BRUTE_AI_DATA, scaled(BEAST_MODELS)['enemy.horned_brute']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
+  'enemy.molten_brute': moltenLife(monsterAi(MOLTEN_BRUTE_AI_DATA, scaled(BEAST_MODELS)['enemy.molten_brute']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
+  'enemy.hook_claw': hookLife(monsterAi(HOOK_CLAW_AI_DATA, scaled(CREATURE_MODELS)['enemy.hook_claw']!, { rest: 'asModeled', ground: 'all', fit: 'height' })),
+  'enemy.fire_crawler': crawlerLife(monsterAi(FIRE_CRAWLER_AI_DATA, scaled(CREATURE_MODELS)['enemy.fire_crawler']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
+  'enemy.egg_matron': eggLife(monsterAi(EGG_MATRON_AI_DATA, scaled(CREATURE_MODELS)['enemy.egg_matron']!, { rest: 'asModeled', ground: 'all', fit: 'height' })),
+  'enemy.crystal_weaver': weaverLife(monsterAi(CRYSTAL_WEAVER_AI_DATA, scaled(LATE_MODELS)['enemy.crystal_weaver']!, { rest: 'asModeled', ground: 'all', fit: 'height' })),
   'enemy.shadow_panther': WHEEL_BEAST(),
   'enemy.ember_wheel': EMBER_WHEEL_AI,
   'enemy.frost_wheel': FROST_WHEEL_AI,
@@ -1207,6 +1217,11 @@ export const AI_MONSTERS = [
   'enemy.blood_lizard',
   'enemy.poison_spitter',
   'enemy.horned_brute',
+  'enemy.molten_brute',
+  'enemy.hook_claw',
+  'enemy.fire_crawler',
+  'enemy.egg_matron',
+  'enemy.crystal_weaver',
   'enemy.shadow_panther',
   'enemy.acid_beetle',
   'enemy.hatchling_spider',
@@ -1239,6 +1254,11 @@ export const CLASSIC_MODELS: Record<string, FigureModel> = {
   'enemy.blood_lizard': BEAST_MODELS['enemy.blood_lizard']!,
   'enemy.poison_spitter': CREATURE_MODELS['enemy.poison_spitter']!,
   'enemy.horned_brute': BEAST_MODELS['enemy.horned_brute']!,
+  'enemy.molten_brute': BEAST_MODELS['enemy.molten_brute']!,
+  'enemy.hook_claw': CREATURE_MODELS['enemy.hook_claw']!,
+  'enemy.fire_crawler': CREATURE_MODELS['enemy.fire_crawler']!,
+  'enemy.egg_matron': CREATURE_MODELS['enemy.egg_matron']!,
+  'enemy.crystal_weaver': LATE_MODELS['enemy.crystal_weaver']!,
   'enemy.shadow_panther': BEAST_MODELS['enemy.shadow_panther']!,
   'enemy.acid_beetle': CREATURE_MODELS['enemy.acid_beetle']!,
   'enemy.hatchling_spider': CREATURE_MODELS['enemy.hatchling_spider']!,

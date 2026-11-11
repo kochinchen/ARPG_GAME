@@ -162,7 +162,7 @@ export class Renderer {
       this.effects.cast({ skillId: originalSkillId(e.skillId), caster: attacker.position, point: target?.position ?? e.point, direction: e.direction, impactIn: e.impactIn, ...castExtras(skill, attacker.position, target?.position, e.direction) });
       if (skill.telegraph) {
         // 前搖提示：在地上畫出攻擊範圍，填滿時命中
-        const motion = this.motionFor(attacker, skill.tags);
+        const motion = this.motionFor(attacker, skill.tags, skill.id);
         this.actorViews.get(e.actorId)?.attack(e.impactIn, motion.kind, motion.variant);
         // 衝鋒類（先位移再攻擊）：範圍畫在落點（目標位置）；同一招有多個範圍（例如裂地的分支）時每個都畫
         const dash = skill.effects.find((effect) => effect.type === 'dash');
@@ -185,7 +185,7 @@ export class Renderer {
         return;
       }
       // 所有出手都揮動手臂（前搖期間舉起、命中時揮下）；法術播放施法動作；對單一敵人的技能（近戰）再加上前衝
-      const motion = this.motionFor(attacker, skill.tags);
+      const motion = this.motionFor(attacker, skill.tags, skill.id);
       this.actorViews.get(e.actorId)?.attack(e.impactIn, motion.kind, motion.variant);
       // 射箭、法杖施法站定出手，不前衝
       if (e.targetId === null || motion.variant === 'shoot' || motion.variant === 'staff') return;
@@ -666,7 +666,9 @@ export class Renderer {
   }
 
   /** 出手動作：主角拿弓射遠程技能 → 拉弓；拿法杖施法 → 舉杖施法；其他依技能標籤 */
-  private motionFor(actor: Actor, tags: readonly string[]): { kind: ActionKind; variant: AttackVariant | undefined } {
+  private motionFor(actor: Actor, tags: readonly string[], skillId?: string): { kind: ActionKind; variant: AttackVariant | undefined } {
+    // 火囊自爆、產卵、織網有專屬動作，不播一般的施法
+    if (skillId === 'enemy.fire_sac_burst' || skillId === 'enemy.spawn_brood' || skillId === 'enemy.crystal_web') return { kind: 'attack', variant: 'overhead' };
     const spell = tags.includes('spell');
     if (actor === this.world.player) {
       const weapon = weaponLookFor(this.world.equipment.get('weapon'), this.data)?.look.kind;
@@ -760,6 +762,8 @@ const SKILL_FX: Record<string, ImpactKind> = {
   'enemy.tail_sweep': 'tailSweep',
   'enemy.tail_slam': 'slam',
   'enemy.twin_thrust': 'sickle',
+  'enemy.hook_rend': 'sickle',
+  'enemy.hook_swipe': 'sickle',
   'enemy.wheel_lunge': 'lunge',
   'enemy.ember_lunge': 'lunge',
   'enemy.saw_lunge': 'lunge',

@@ -723,7 +723,7 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     attackSpeed: 1.1,
     detectRange: 7,
     ai: 'melee',
-    skills: ['basic.attack', 'enemy.hook_rend'],
+    skills: ['enemy.hook_swipe', 'enemy.hook_rend'],
     lootTable: 'loot.skeleton',
     xp: 26,
   },
