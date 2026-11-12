@@ -49,9 +49,9 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"rampart_golem": 3400, "fallen_templar": 3200, "abyss_priest": 3200, "brain_floater": 2800, "crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
+TRIS_OF.update({"frost_sporeling": 3000, "rampart_golem": 3400, "fallen_templar": 3200, "abyss_priest": 3200, "brain_floater": 2800, "crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
-ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90, "hook_claw": 180, "rampart_golem": -90, "brain_floater": 180}
+ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90, "hook_claw": 180, "rampart_golem": -90, "brain_floater": 180, "frost_sporeling": -90}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
 SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032, "abyss_hand": 0.04, "abyss_hand_hand": 0.032}
 
@@ -254,6 +254,19 @@ def reshape_maw_mouth(bm):
 BURROWER_GEMS = []
 
 
+# 鑽地寄生蟲（設計者 2026-11-11 新版）：頭後面的身體沿長軸拉長 1.5 倍（生成的全長只有頭高的 3.2 倍，設計是 4～6 倍）
+BURROWER_NECK_Y = -0.24
+BURROWER_STRETCH = 1.5
+# 三片大顎的根部（嘴的後緣）
+BURROWER_HINGE_Y = -0.375
+
+
+def stretch_burrower(bm):
+    for v in bm.verts:
+        if v.co.y > BURROWER_NECK_Y:
+            v.co.y = BURROWER_NECK_Y + (v.co.y - BURROWER_NECK_Y) * BURROWER_STRETCH
+
+
 def reshape_burrower(bm):
     """
     鑽地寄生蟲：用虛空吞噬者的模型（設計者 2026-11-07），身上的寶石拿掉大部分：
@@ -366,7 +379,7 @@ def reshape_bone_hound(bm):
     print("拉長的背刺", stretched, "捏尖的腳趾", claws)
 
 
-RESHAPE = {"bone_hound": reshape_bone_hound, "burrower": reshape_burrower, "void_maw": reshape_maw_mouth, "void_spore": reshape_spore_eye, "abyss_dragon": reshape_eye, "bone_hand": reshape_bone_hand, "abyss_hand": reshape_hand_body, "abyss_hand_hand": reshape_hand_arm}
+RESHAPE = {"bone_hound": reshape_bone_hound, "burrower": stretch_burrower, "void_maw": reshape_maw_mouth, "void_spore": reshape_spore_eye, "abyss_dragon": reshape_eye, "bone_hand": reshape_bone_hand, "abyss_hand": reshape_hand_body, "abyss_hand_hand": reshape_hand_arm}
 # 尾巴：中段重複成 TAIL_COPIES 段（每段自己封口、互相重疊一點，彎曲時不會破洞），總長約 3 倍；再整體縮到接在本體上的大小
 TAIL_BAND = (-0.34, -0.06)
 TAIL_COPIES = 6
@@ -830,6 +843,27 @@ def void_maw():
     for i in range(MAW_RING_BONES):
         a = 2 * math.pi * i / MAW_RING_BONES
         bones.append((f"ex_mouth{i}", "head", center.copy(), V((MAW_MOUTH[0] + math.cos(a) * 0.09, -0.44, MAW_MOUTH[1] + math.sin(a) * 0.09)), 0.01))
+    return bones, {}
+
+
+def burrower():
+    """
+    鑽地寄生蟲（新版：筆直一整條的巨大地蟲）：頭朝 -Y、身體由前到後 head → neck → torso → root → ponytail → thighL → shinL → footL（同舊版的關節）；
+    嘴的三片大顎：上顎 ex_jawU、下顎左右 handL / handR（支點在嘴的後緣；生成的模型張著嘴，遊戲端闔成尖錐）
+    """
+    path = [(-0.38, 0.0), (-0.24, -0.025), (-0.08, -0.035), (0.08, -0.045), (0.24, -0.05), (0.4, -0.055), (0.56, -0.06), (0.72, -0.065), (0.87, -0.07)]
+    P = [V((0, y, z)) for y, z in path]
+    bones = [
+        ("root", None, P[4], P[3], 0.1),
+        ("torso", "root", P[3], P[2], 0.1),
+        ("neck", "torso", P[2], P[1], 0.11),
+        ("head", "neck", P[1], P[0], 0.15),
+    ]
+    bones += chain(["ponytail", "thighL", "shinL", "footL"], "root", [P[4], P[5], P[6], P[7], P[8]], [0.09, 0.085, 0.08, 0.07])
+    h = BURROWER_HINGE_Y
+    bones.append(("ex_jawU", "head", V((0, h, 0.06)), V((0, -0.5, 0.11)), 0.01))
+    bones.append(("handL", "head", V((0.05, h, -0.07)), V((0.05, -0.5, -0.11)), 0.01))
+    bones.append(("handR", "head", V((-0.05, h, -0.07)), V((-0.05, -0.5, -0.11)), 0.01))
     return bones, {}
 
 
@@ -1580,7 +1614,20 @@ def brain_floater_zone(p, bone):
 
 
 ZONES["brain_floater"] = brain_floater_zone
-ZONES["void_maw"] = ZONES["burrower"] =lambda p, bone: not bone.startswith("ex_mouth")
+ZONES["void_maw"] = lambda p, bone: not bone.startswith("ex_mouth")
+
+
+def burrower_zone(p, bone):
+    """嘴的三片大顎（上顎 ex_jawU、下顎左右 handL / handR）只拿嘴的部分；嘴的根部和頭混合"""
+    jaw = {"ex_jawU": p.z > -0.005, "handL": p.z <= -0.005 and p.x >= 0, "handR": p.z <= -0.005 and p.x < 0}
+    if bone in jaw:
+        return p.y < BURROWER_HINGE_Y and jaw[bone]
+    if p.y < BURROWER_HINGE_Y - 0.025:
+        return False
+    return True
+
+
+ZONES["burrower"] = burrower_zone
 JOINED = {n: limbs_joined for n in ("storm_mage", "skeleton_mage", "armored_skeleton", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "skeleton", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "rampart_golem", "fallen_templar", "abyss_priest")}
 # 骨龍：嘴裡的東西碰到上顎的三角形，張嘴時會被拉成長條
 # 鐵輪劍獸：輪子是獨立的剛體，輪面和輪軸、身體之間的三角形切開，轉動時才不會拉出長條
@@ -1944,7 +1991,43 @@ def brain_floater():
     return bones, {}
 
 
+# 寒霜孢子體的四隻腳（轉 90° 之後的腳掌中心）：左右（upperArm）、前（thighL）、後（thighR）
+SPORELING_FEET = {"upperArmL": (0.31, -0.15), "upperArmR": (-0.31, -0.15), "thighL": (0.0, -0.33), "thighR": (0.0, 0.32)}
+SPORELING_NAMES = {"upperArm": ("upperArm", "forearm", "hand"), "thigh": ("thigh", "shin", "foot")}
+
+
+def frost_sporeling():
+    """寒霜孢子體（設計者 2026-11-12）：冰藍蕈菇，傘蓋與菌柄（root，含傘蓋下的三根孢子管）、四隻拱起的短腳（關節名稱同舊版的四條根鬚）；臉不動（head 不帶動頂點）"""
+    bones = [("root", None, V((0, 0, -0.32)), V((0, 0, 0.3)), 0.3), ("head", "root", V((0, -0.2, -0.15)), V((0, -0.3, -0.15)), 0.01)]
+    for key, (fx, fy) in SPORELING_FEET.items():
+        r = math.hypot(fx, fy)
+        dx, dy = fx / r, fy / r
+        pts = [V((dx * 0.12, dy * 0.12, -0.3)), V((dx * 0.25, dy * 0.25, -0.34)), V((fx, fy, -0.41)), V((fx, fy, -0.495))]
+        bones += chain([n + key[-1] for n in SPORELING_NAMES[key[:-1]]], "root", pts, [0.06, 0.06, 0.06])
+    return bones, {}
+
+
+def sporeling_leg_of(p):
+    """頂點屬於哪一隻腳（依水平方向最接近的腳掌）"""
+    a = math.atan2(p.y, p.x)
+    return min(SPORELING_FEET, key=lambda k: abs((math.atan2(SPORELING_FEET[k][1], SPORELING_FEET[k][0]) - a + math.pi) % (2 * math.pi) - math.pi))
+
+
+def frost_sporeling_zone(p, bone):
+    """腳只拿菌柄外側、身體下方的部分，而且只拿最靠近自己的那一隻；菌柄與傘蓋跟 root"""
+    leg = p.z < -0.27 and math.hypot(p.x, p.y) > 0.13
+    if bone == "head":
+        return False
+    if bone == "root":
+        return not leg or p.z > -0.33
+    return leg and bone[-1] == sporeling_leg_of(p)[-1] and bone.startswith(("upperArm", "forearm", "hand") if sporeling_leg_of(p).startswith("upperArm") else ("thigh", "shin", "foot"))
+
+
+ZONES["frost_sporeling"] = frost_sporeling_zone
+
+
 SKELETONS = {
+    "frost_sporeling": frost_sporeling,
     "rampart_golem": rampart_golem,
     "fallen_templar": fallen_templar,
     "abyss_priest": abyss_priest,
@@ -1984,7 +2067,7 @@ SKELETONS = {
     "venom_ghoul": venom_ghoul,
     "void_spore": void_spore,
     "void_maw": void_maw,
-    "burrower": void_maw,
+    "burrower": burrower,
     "bone_hound": bone_hound,
     "acid_beetle": acid_beetle,
 }
@@ -2039,7 +2122,7 @@ if NAME == "abyss_dragon":
         weights[i] = [[n, round(w, 3)] for n, w in ws if w > 0.02]
 
 # 蟲的嘴：口緣跟著一圈骨頭，依角度混合相鄰兩根（洞的深處與嘴外面維持跟頭）
-if NAME in ("void_maw", "burrower"):
+if NAME == "void_maw":
     r0, r1, r2, r3 = MAW_RING
     for i, c in enumerate(co):
         r = math.hypot(c.x - MAW_MOUTH[0], c.z - MAW_MOUTH[1])
@@ -2262,7 +2345,7 @@ if NAME in ("bone_hound", "blood_lizard", "poison_spitter"):
             mouth += 1
     print("口腔的面", mouth)
 # 虛空吞噬者：洞裡（喉嚨往後推的部分與洞壁）塗成黑色
-if NAME in ("void_maw", "burrower"):
+if NAME == "void_maw":
     black = 0
     for f in faces:
         c = sum((co[i] for i in f[:3]), Vector()) / 3

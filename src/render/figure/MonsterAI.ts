@@ -316,6 +316,72 @@ export function wormLife(m: FigureModel, o: { amp: number; rate: number }): Figu
 }
 
 /**
+ * 鑽地寄生蟲（設計者 2026-11-11 新版：筆直一整條的巨大地蟲）。生成的模型三片大顎張得很開（約 70°）：
+ * 平常闔成一個尖錐（三片都轉到指向嘴前方的同一點），咬之前整個張開；
+ * 從地下鑽出來時前半身豎直、嘴大張，後半身埋在地裡（只露出一半）；倒地時整條躺在地上。
+ */
+const JAW_CLOSE = 1.3;
+export function burrowerLife(m: FigureModel): FigureModel {
+  const skin = m.skin!;
+  const JAWS: Joint[] = ['ex_jawU' as Joint, 'handL', 'handR'];
+  const vertsOf = (j: Joint) => skin.verts.filter((_, i) => skin.infl[i]!.some((x) => x.joint === j && x.w > 0.6));
+  const hinge = (j: Joint) => skin.rest[j]!;
+  const all = JAWS.flatMap(vertsOf);
+  // 尖錐的尖端：三片大顎最前緣的前方，高度在上下顎的支點中間
+  const front = Math.max(...all.map((v) => v[2]));
+  const tip: V3 = [0, (hinge(JAWS[0]!)[1] + hinge('handL')[1]) / 2, front];
+  const unit = (v: V3): V3 => {
+    const l = Math.hypot(v[0], v[1], v[2]);
+    return [v[0] / l, v[1] / l, v[2] / l];
+  };
+  /** 每片大顎：從張開（模型）轉到閉合的旋轉軸與角度 */
+  const close = JAWS.map((j) => {
+    const vs = vertsOf(j);
+    const h = hinge(j);
+    const c = vs.reduce<V3>((s, v) => [s[0] + v[0] / vs.length, s[1] + v[1] / vs.length, s[2] + v[2] / vs.length], [0, 0, 0]);
+    const a = unit(sub(c, h));
+    const b = unit(sub(tip, h));
+    const axis = unit([a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]);
+    return { j, axis, angle: Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) };
+  });
+  const rot = (k: V3, t: number): M3 => {
+    const [x, y, z] = k;
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    const u = 1 - c;
+    return [c + x * x * u, x * y * u - z * s, x * z * u + y * s, y * x * u + z * s, c + y * y * u, y * z * u - x * s, z * x * u - y * s, z * y * u + x * s, c + z * z * u];
+  };
+  /** open：0 = 闔成尖錐、1 = 模型張開的樣子 */
+  const jaws = (p: Pose, open: number): Pose => {
+    const angles = { ...p.angles } as Record<string, V3>;
+    // 只轉到指向尖端時三片之間還有縫（大顎有厚度），多闔一些
+    for (const c of close) angles[c.j] = eulerOf(rot(c.axis, c.angle * JAW_CLOSE * (1 - open)));
+    return { ...p, angles: angles as Pose['angles'] };
+  };
+  const P = m.poses;
+  const up = jaws({ ...P.ready(0), angles: { ...P.ready(0).angles, root: [-1.35, 0, 0], torso: [0.12, 0, 0], neck: [0.12, 0, 0], head: [0.1, 0, 0] } }, 1);
+  const ys = skinVerts(skin, solveJoints(m.parts, m.hipHeight, { ...up, rootY: 0 })).map((v) => v[1]);
+  const [low, high] = [Math.min(...ys), Math.max(...ys)];
+  return {
+    ...m,
+    poses: {
+      ...P,
+      ready: (t) => jaws(P.ready(t), 0.06 + 0.06 * Math.sin(t * 3)),
+      run: (p) => jaws(P.run(p), 0),
+      ...(P.walk ? { walk: (p: number) => jaws(P.walk!(p), 0) } : {}),
+      attackWindup: jaws(P.attackWindup, 1),
+      attackStrike: jaws(P.attackStrike, 0.1),
+      castWindup: jaws(P.castWindup, 0),
+      castRelease: jaws(P.castRelease, 0),
+      hit: jaws(P.hit, 0.5),
+      dead: jaws(P.dead, 0.7),
+      // 只露出一半：最低點往下埋到整個高度的一半
+      emerge: { ...up, rootY: -low - (high - low) * 0.5 },
+    },
+  };
+}
+
+/**
  * 四足獸的步態與咬合（骨刺獵獸；設計者 2026-11-09）。角度都是相對於生成模型的站姿（monsterAi 的 modeled）：
  * - 走路：四拍（左後 → 左前 → 右後 → 右前），每隻腳輪流抬起，脊椎左右輕擺。
  * - 跑步：狗的飛奔。e = cos(相位)：e = 1 伸展（腰往下凹、前腳往前伸直、後腳往後蹬直），e = -1 收縮（腰拱起、前後腳收到身體下方）；

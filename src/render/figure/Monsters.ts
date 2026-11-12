@@ -4,7 +4,7 @@ import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
 import { LATE_MODELS, PRIEST_GEAR, TEMPLAR_GEAR, WARDEN_GEAR } from './LateMonsters';
 import { SKELETON_GEAR, SKELETON_WARRIOR } from './SkeletonWarrior';
-import { bruteLife, crawlerLife, eggLife, hookLife, houndLife, lizardLife, moltenLife, monsterAi, sixTentacles, toadLife, weaverLife, wheelBeastLife, wormLife } from './MonsterAI';
+import { bruteLife, burrowerLife, crawlerLife, eggLife, hookLife, houndLife, lizardLife, moltenLife, monsterAi, sixTentacles, toadLife, weaverLife, wheelBeastLife, wormLife } from './MonsterAI';
 import SKELETON_AI_DATA from './monsters/skeletonAI.json';
 import FROST_SKELETON_AI_DATA from './monsters/frostSkeletonAI.json';
 import ARCHER_AI_DATA from './monsters/skeletonArcherAI.json';
@@ -30,6 +30,7 @@ import EYE_FLOATER_AI_DATA from './monsters/eyeFloaterAI.json';
 import HATCHLING_SPIDER_AI_DATA from './monsters/hatchlingSpiderAI.json';
 import ACID_BEETLE_AI_DATA from './monsters/acidBeetleAI.json';
 import RAMPART_GOLEM_AI_DATA from './monsters/rampartGolemAI.json';
+import FROST_SPORELING_AI_DATA from './monsters/frostSporelingAI.json';
 import BRAIN_FLOATER_AI_DATA from './monsters/brainFloaterAI.json';
 import ABYSS_PRIEST_AI_DATA from './monsters/abyssPriestAI.json';
 import FALLEN_TEMPLAR_AI_DATA from './monsters/fallenTemplarAI.json';
@@ -499,6 +500,8 @@ const shieldOf = (color?: (c: number) => number) => ({
  * （npm run docs:models 的 manifest.js 量的，正面待機），只放大畫面上的模型，碰撞與數值不變
  */
 const asTallAsHeroine = (ratio: number, m: FigureModel): FigureModel => resized(ratio, 1, m);
+/** 鑽地寄生蟲躺著時的高度（女主角的幾倍，未調整時；由設計文件的模型圖量出） */
+const BURROWER_HEIGHT = 0.62;
 /** 高度（相對女主角）從 from 調成 to：生成的模型比例和舊版不同，維持舊版在遊戲裡的大小 */
 const resized = (from: number, to: number, m: FigureModel): FigureModel => ({
   ...m,
@@ -993,48 +996,6 @@ const CHAIN_WARDEN_AI = monsterAi(SKELETON_AI_DATA, LATE_MODELS['enemy.chain_war
   hang: { joint: 'ex_lantern', parent: 'handL', meshes: WARDEN_GEAR.lantern(), scale: 2 },
 });
 
-/**
- * 鑽地寄生蟲的外觀（設計者 2026-11-07，照舊版）：虛空吞噬者的紫黑換成大地的土色（環節縫是深褐、唇是暗紅、牙與嘴裡的黑洞不變），
- * 頭上剩下的紫色寶石變成橘色的眼睛，身上每一節長幾根往後斜的微刺
- */
-const BURROWER_LOOK = { eye: 0xff8040, spike: 0x5a4234 };
-function burrowerLook(m: FigureModel): FigureModel {
-  const skin = m.skin!;
-  const headZ = skin.rest.head![2];
-  const earth = recolor([
-    // 沒有大獠牙（設計者 2026-11-08）：壓平的牙齒換成肉色的口緣；嘴裡的黑洞不變
-    { match: (c) => c.s < 0.3 && c.l > 0.35, h: 12, s: 0.3, l: 0.7 },
-    { match: (c) => c.l < 0.04 },
-    { match: (c) => (c.h >= 330 || c.h < 15) && c.s >= 0.5, h: 8, s: 0.45, l: 1.15 },
-    { match: (c) => c.h >= 260 && c.h < 295 && c.s >= 0.5, h: 22, s: 0.3, l: 1.35 },
-    { match: () => true, h: 18, s: 0.24, l: 2.4 },
-  ]);
-  const faces = skin.faces.map((f) => {
-    const z = (skin.verts[f.idx[0]]![2] + skin.verts[f.idx[1]]![2] + skin.verts[f.idx[2]]![2]) / 3;
-    const c = toHsl(f.color);
-    const gem = c.h >= 255 && c.h < 310 && c.s >= 0.45 && c.l >= 0.38;
-    return { ...f, color: gem && z > headZ - 2 ? BURROWER_LOOK.eye : earth(f.color) };
-  });
-  // 微刺：每一節（身體的關節）上半圈 5 根，插在那一節中段的表面上（往那個方向最外面的頂點），往後斜
-  const segs: Joint[] = ['neck', 'torso', 'root', 'ponytail', 'thighL', 'shinL', 'footL'];
-  const parts = m.parts.map((p) => {
-    if (!segs.includes(p.joint)) return p;
-    const at = skin.rest[p.joint]!;
-    const mine = skin.verts.filter((_, i) => skin.infl[i]![0]?.joint === p.joint).map((v): V3 => [v[0] - at[0], v[1] - at[1], v[2] - at[2]]);
-    if (!mine.length) return p;
-    const mid = mine.reduce((sum, v) => sum + v[2], 0) / mine.length;
-    const spikes = [-1.3, -0.65, 0, 0.65, 1.3].flatMap((a, i) => {
-      const near = mine.filter((v) => Math.abs(Math.atan2(v[0], v[1]) - a) < 0.3 && Math.abs(v[2] - mid) < 1.6);
-      if (!near.length) return [];
-      const r = Math.max(...near.map((v) => Math.hypot(v[0], v[1])));
-      const dir: V3 = [Math.sin(a), Math.cos(a), 0];
-      const len = r * (0.16 + (i % 2) * 0.07);
-      return [spike([dir[0] * r * 0.9, dir[1] * r * 0.9, mid], [dir[0] * (r + len), dir[1] * (r + len), mid - len * 0.5], r * 0.06, BURROWER_LOOK.spike)];
-    });
-    return { ...p, meshes: [...p.meshes, ...spikes] };
-  });
-  return { ...m, parts, skin: { ...skin, faces } };
-}
 
 /** 四足獸的四肢關節 */
 const QUAD_LIMBS: Joint[] = ['thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR', 'upperArmL', 'upperArmR', 'forearmL', 'forearmR', 'handL', 'handR'];
@@ -1261,6 +1222,8 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.crystal_weaver': weaverLife(monsterAi(CRYSTAL_WEAVER_AI_DATA, scaled(LATE_MODELS)['enemy.crystal_weaver']!, { rest: 'asModeled', ground: 'all', fit: 'height' })),
   'enemy.cultist': CULTIST_AI,
   'enemy.rampart_golem': RAMPART_GOLEM_AI,
+  // 寒霜孢子體（設計者 2026-11-12）：四隻拱起的短腳踩在地上，動作同舊版（四條根鬚）
+  'enemy.frost_sporeling': monsterAi(FROST_SPORELING_AI_DATA, scaled(ABERRATION_MODELS)['enemy.frost_sporeling']!, { rest: 'asModeled', ground: 'all', fit: 'height' }),
   'enemy.brain_floater': BRAIN_FLOATER_AI,
   'enemy.abyss_priest': ABYSS_PRIEST_AI,
   'enemy.fallen_templar': FALLEN_TEMPLAR_AI,
@@ -1278,7 +1241,8 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.venom_archer': VENOM_ARCHER_AI,
   'enemy.chain_warden': CHAIN_WARDEN_AI,
   // 鑽地寄生蟲：虛空吞噬者的模型，身上的寶石拿掉大部分（scripts/monster_ai.py 的 burrower），換成舊版的土色、橘眼、微刺；動作照舊版
-  'enemy.burrower': resized(0.71, 1.28, burrowerLook(wormLife(monsterAi(BURROWER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.burrower']!, { rest: 'asModeled', ground: 'all' }), { amp: 0.28, rate: 15 }))),
+  // 鑽地寄生蟲（設計者 2026-11-11 新版）：筆直的巨大地蟲，整條躺在地上時頭的高度和女主角一樣（BURROWER_HEIGHT = 模型躺著的高度 / 女主角）
+  'enemy.burrower': asTallAsHeroine(BURROWER_HEIGHT, burrowerLife(monsterAi(BURROWER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.burrower']!, { rest: 'asModeled', ground: 'all' }))),
 };
 
 /**
@@ -1353,6 +1317,7 @@ export const AI_MONSTERS = [
   'enemy.brain_floater',
   'enemy.abyss_priest',
   'enemy.fallen_templar',
+  'enemy.frost_sporeling',
 ];
 
 /** 換成 AI 版之前的舊版模型（比較面數、效能用） */
@@ -1389,6 +1354,7 @@ export const CLASSIC_MODELS: Record<string, FigureModel> = {
   'enemy.brain_floater': ABERRATION_MODELS['enemy.brain_floater']!,
   'enemy.abyss_priest': LATE_MODELS['enemy.abyss_priest']!,
   'enemy.fallen_templar': LATE_MODELS['enemy.fallen_templar']!,
+  'enemy.frost_sporeling': ABERRATION_MODELS['enemy.frost_sporeling']!,
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;
