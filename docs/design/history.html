@@ -101,7 +101,7 @@ h2 { font-size: clamp(24px, 4vw, 30px); font-weight: 900; }
 
 /* Chart */
 .chart { display: grid; gap: 8px; padding: 20px; border: 1px solid var(--line); border-radius: 10px; }
-.row { display: grid; grid-template-columns: 44px 1fr 40px; gap: 12px; align-items: center; font-size: 13px; }
+.row { display: grid; grid-template-columns: 56px 1fr 40px; gap: 12px; align-items: center; font-size: 13px; }
 .row .lbl { color: var(--muted); }
 .row .bar { height: 14px; background: var(--bar); border-radius: 0 3px 3px 0; }
 .row.hi .bar { background: var(--bar-hi); }
@@ -129,9 +129,9 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
     <h1>先拆解，做出 <em>MVP</em>，<br>再一層一層補強</h1>
     <p class="lede">一款 Diablo 式 2D 等角 ARPG，用 TypeScript + PixiJS + Vue 從零開始寫。這頁整理這次開發的方法論，以及從架構文件到可攜版遊戲包的實際過程。</p>
     <div class="facts">
-      <span><b class="mono">120</b> 多個 commit</span>
+      <span><b class="mono">190</b> 多個 commit</span>
       <span>M0～M9 共 <b class="mono">11</b> 個 Milestone（含臨時插入的 M7.5）</span>
-      <span>M7 完成時 <b class="mono">260</b> 個測試通過，目前 <b class="mono">1348</b> 個</span>
+      <span>M7 完成時 <b class="mono">260</b> 個測試通過，11/12 是 <b class="mono">1371</b> 個</span>
       <span>核心 MVP 用時 <b>2 天</b></span>
     </div>
   </header>
@@ -731,20 +731,28 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
   <section>
     <div class="sec-head">
       <div class="eyebrow">品質</div>
-      <h2>測試數量隨 Milestone 累積</h2>
-      <p>取自架構文件各 Milestone 的完成紀錄；M8、M9 未記錄數量，不列入。「目前」為 11/1 的 npm test 結果。</p>
+      <h2>測試數量的累積</h2>
+      <p>M0～M7 取自架構文件各 Milestone 的完成紀錄（M8、M9 未記錄數量）；之後以重大修改分界，數字是在當時的 commit 實際執行 npm test 的結果。</p>
     </div>
-    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、目前 1348">
-      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.7%"></div><span class="val mono">28</span></div>
-      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:5.0%"></div><span class="val mono">52</span></div>
-      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:7.8%"></div><span class="val mono">81</span></div>
-      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:9.1%"></div><span class="val mono">94</span></div>
-      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:11.0%"></div><span class="val mono">114</span></div>
-      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:13.2%"></div><span class="val mono">137</span></div>
-      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:17.3%"></div><span class="val mono">179</span></div>
-      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:25.1%"></div><span class="val mono">260</span></div>
-      <div class="row hi"><span class="lbl mono">目前</span><div class="bar" style="width:100%"></div><span class="val mono">1348</span></div>
-      <p class="cap">M7 單次增加 81 個測試，主要來自樓層、難度倍率與存檔點的規則；MVP 之後的內容擴充再累積到 1348 個（v0.4.0 的武器規則、戰術技能、機關、Combo 池回歸測試約 60 個；v0.4.1 的盾擊與新組合技約 10 個；v0.5.0 的鑲嵌與融合約 80 個；之後的裝備、Three.js 與技能調整約 60 個；故事、過場與井誌約 30 個；怪物戰術與習得技能 18 個；背包整理保留熔核 1 個；通道加寬 1 個；怪物屍體 4 個；閃避、繞後與求援 7 個；躲範圍傷害、預判射擊、誘敵、撿藥水與處理屍體 11 個；速度隨狀況與弓手的箭 4 個；非人形怪物的行為 15 個；飛斧來回、鑽地破土與法師法術書 40 個）。</p>
+    <div class="chart" role="img" aria-label="測試數量：M0 28、M1 52、M2 81、M3 94、M4 114、M5 137、M6 179、M7 260、v0.3.0 781、v0.4.0 830、v0.4.1 841、v0.5.0 915、10/31 1000、11/01 1035、11/04 1254、11/08 1300、11/12 1371">
+      <div class="row"><span class="lbl mono">M0</span><div class="bar" style="width:2.0%"></div><span class="val mono">28</span></div>
+      <div class="row"><span class="lbl mono">M1</span><div class="bar" style="width:3.8%"></div><span class="val mono">52</span></div>
+      <div class="row"><span class="lbl mono">M2</span><div class="bar" style="width:5.9%"></div><span class="val mono">81</span></div>
+      <div class="row"><span class="lbl mono">M3</span><div class="bar" style="width:6.9%"></div><span class="val mono">94</span></div>
+      <div class="row"><span class="lbl mono">M4</span><div class="bar" style="width:8.3%"></div><span class="val mono">114</span></div>
+      <div class="row"><span class="lbl mono">M5</span><div class="bar" style="width:10.0%"></div><span class="val mono">137</span></div>
+      <div class="row"><span class="lbl mono">M6</span><div class="bar" style="width:13.1%"></div><span class="val mono">179</span></div>
+      <div class="row"><span class="lbl mono">M7</span><div class="bar" style="width:19.0%"></div><span class="val mono">260</span></div>
+      <div class="row"><span class="lbl mono">v0.3.0</span><div class="bar" style="width:57.0%"></div><span class="val mono">781</span></div>
+      <div class="row"><span class="lbl mono">v0.4.0</span><div class="bar" style="width:60.5%"></div><span class="val mono">830</span></div>
+      <div class="row"><span class="lbl mono">v0.4.1</span><div class="bar" style="width:61.3%"></div><span class="val mono">841</span></div>
+      <div class="row"><span class="lbl mono">v0.5.0</span><div class="bar" style="width:66.7%"></div><span class="val mono">915</span></div>
+      <div class="row"><span class="lbl mono">10/31</span><div class="bar" style="width:72.9%"></div><span class="val mono">1000</span></div>
+      <div class="row"><span class="lbl mono">11/01</span><div class="bar" style="width:75.5%"></div><span class="val mono">1035</span></div>
+      <div class="row"><span class="lbl mono">11/04</span><div class="bar" style="width:91.5%"></div><span class="val mono">1254</span></div>
+      <div class="row"><span class="lbl mono">11/08</span><div class="bar" style="width:94.8%"></div><span class="val mono">1300</span></div>
+      <div class="row hi"><span class="lbl mono">11/12</span><div class="bar" style="width:100.0%"></div><span class="val mono">1371</span></div>
+      <p class="cap">M7 單次增加 81 個，主要來自樓層、難度倍率與存檔點。之後各段：<b>v0.3.0</b>（10/18）含 M8、M9 的 HUD 與存檔、裝備擴充，累積到 781；<b>v0.4.0</b> 戰術技能、機關與武器規則 +49；<b>v0.4.1</b> 盾擊與新組合技 +11；<b>v0.5.0</b> 鑲嵌與融合 +74；<b>10/31</b> Three.js 正式版、AI 女主角、怪物戰術與屍體 +85；<b>11/01</b> 過場影片與井誌 +35；<b>11/04</b> 三隻隱藏魔王、魔王範圍躲得掉、共用倉庫 +219；<b>11/08</b> 怪物閃避、繞後、求援、圍獵等行為 +46；<b>11/12</b> 一般怪換 AI 模型、法師法術書、身體地面範圍 +71。</p>
     </div>
   </section>
 
