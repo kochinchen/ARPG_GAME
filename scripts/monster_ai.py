@@ -49,9 +49,9 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
+TRIS_OF.update({"rampart_golem": 3400, "fallen_templar": 3200, "abyss_priest": 3200, "brain_floater": 2800, "crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
-ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90, "hook_claw": 180}
+ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90, "hook_claw": 180, "rampart_golem": -90, "brain_floater": 180}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
 SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032, "abyss_hand": 0.04, "abyss_hand_hand": 0.032}
 
@@ -72,6 +72,8 @@ CLEANUP = {
     # 鉤爪蟲：TRELLIS 把側面圖一前一後的手臂混在一起，頭的正前方多浮著一把鐮刀
     "hook_claw": lambda p: abs(p.x) < 0.09 and (p.y < -0.31 or (p.y < -0.27 and p.z < 0.16)),
     # 酸液甲蟲（設計者 2026-11-09）：拿掉大顎外側那兩根觸鬚，和原本的短管與兩顆液滴（換成砲管）
+    # 要塞魔像（設計者 2026-11-12）：左手改成五指握拳，切掉左臂最下面那節石環（砲口），拳頭由遊戲端畫
+    "rampart_golem": lambda p: p.x > 0.26 and p.z < -0.17,
     "acid_beetle": lambda p: (0.168 < abs(p.x) < 0.34 and p.y < -0.3 and p.z < -0.1) or (abs(p.x) < 0.055 and p.y < -0.345 and -0.2 < p.z < -0.07),
 }
 
@@ -1531,8 +1533,55 @@ def mage_zone(in_arm, boot_z):
 
 ZONES["skeleton_mage"] = mage_zone(lambda p: abs(p.x) > (0.13 if p.z > 0.1 else 0.155 if p.z > -0.08 else 0.2) and -0.2 < p.z < 0.24, -0.41)
 ZONES["storm_mage"] = mage_zone(lambda p: abs(p.x) > (0.13 if p.z > 0.1 else 0.15 if p.z > 0 else 0.16) and -0.2 < p.z < 0.36, -0.385)
-ZONES["void_maw"] = ZONES["burrower"] = lambda p, bone: not bone.startswith("ex_mouth")
-JOINED = {n: limbs_joined for n in ("storm_mage", "skeleton_mage", "armored_skeleton", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "skeleton", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker")}
+# 要塞魔像：手臂在身體外側、肩膀以下；肩上的城垛塔跟鎖骨（手臂舉起時塔不會跟著甩）
+ZONES["rampart_golem"] = limb_zone(lambda p: abs(p.x) > 0.265 and -0.31 < p.z < 0.1, lambda p: True)
+_TEMPLAR_ARMS = limb_zone(lambda p: abs(p.x) > (0.18 if p.z < 0.06 else 0.2) and -0.23 < p.z < 0.12, lambda p: True)
+ZONES["fallen_templar"] = _TEMPLAR_ARMS
+
+
+def in_priest_ring(p):
+    return p.y > 0.07 and p.z > 0.12 and (abs(p.x) > 0.13 or p.z > 0.33)
+
+
+_PRIEST = mage_zone(lambda p: p.y < 0.07 and abs(p.x) > (0.15 if p.z > 0.05 else 0.175) and -0.28 < p.z < 0.15, -0.465)
+
+
+def abyss_priest_zone(p, bone):
+    """背後的符文圈只跟 scarfB；其他同長袍的法師"""
+    ring = in_priest_ring(p)
+    if bone == "scarfB":
+        return ring
+    return not ring and _PRIEST(p, bone)
+
+
+ZONES["abyss_priest"] = abyss_priest_zone
+
+
+def brain_tentacle_of(p):
+    """頂點最靠近哪一條觸手（觸手的四個點連成的折線）"""
+    best, which = 9.0, None
+    for names, pts in brain_tentacles():
+        for a, b in zip(pts, pts[1:]):
+            ab = b - a
+            t = max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
+            d = (p - (a + ab * t)).length
+            if d < best:
+                best, which = d, names
+    return which
+
+
+def brain_floater_zone(p, bone):
+    """大腦跟 root；觸手只拿大腦以下、而且只拿最靠近自己的那一條"""
+    if bone == "head":
+        return False
+    if bone == "root":
+        return p.z > -0.22
+    return p.z < -0.16 and bone in brain_tentacle_of(p)
+
+
+ZONES["brain_floater"] = brain_floater_zone
+ZONES["void_maw"] = ZONES["burrower"] =lambda p, bone: not bone.startswith("ex_mouth")
+JOINED = {n: limbs_joined for n in ("storm_mage", "skeleton_mage", "armored_skeleton", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "skeleton", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "rampart_golem", "fallen_templar", "abyss_priest")}
 # 骨龍：嘴裡的東西碰到上顎的三角形，張嘴時會被拉成長條
 # 鐵輪劍獸：輪子是獨立的剛體，輪面和輪軸、身體之間的三角形切開，轉動時才不會拉出長條
 JOINED["wheel_sword_beast"] = lambda bones, ws: not (any(b.startswith("thigh") for b in bones) and any(not b.startswith("thigh") for b in bones))
@@ -1827,7 +1876,79 @@ def wheel_sword_beast():
     return bones + sides(side), {}
 
 
+def rampart_golem():
+    """要塞魔像（設計者 2026-11-12 的四視圖）：粗壯的石塊人形，肩上一對城垛塔（跟鎖骨，不跟手臂）、兩條環節石臂垂到膝下，小頭縮在肩膀之間"""
+    return monster_humanoid(
+        [(0, -0.01, -0.16), (0, 0.0, -0.08), (0, -0.02, 0.2), (0, -0.03, 0.235), (0, -0.04, 0.34)], [0.13, 0.17, 0.06, 0.08],
+        [(0.27, 0.0, 0.14), (0.355, -0.03, -0.02), (0.37, -0.06, -0.17), (0.37, -0.07, -0.28)], [0.1, 0.11, 0.1],
+        [(0.11, -0.02, -0.15), (0.14, -0.03, -0.26), (0.15, -0.04, -0.33), (0.15, -0.17, -0.37)], [0.09, 0.09, 0.08],
+        (0.08, 0.0, 0.15), 0.12,
+    ), {}
+
+
+def fallen_templar():
+    """墮落聖殿騎士（設計者 2026-11-12）：黑金板甲、尖肩甲、桶盔、頭後的碎光環（跟頭）、腰前的深紅罩布；空手（連枷與塔盾由遊戲端畫）"""
+    return monster_humanoid(
+        [(0, 0.0, -0.19), (0, 0.0, -0.11), (0, 0.0, 0.265), (0, 0.0, 0.29), (0, 0.0, 0.46)], [0.11, 0.14, 0.05, 0.1],
+        [(0.19, 0.0, 0.13), (0.235, 0.0, 0.0), (0.25, -0.01, -0.12), (0.25, -0.02, -0.21)], [0.07, 0.065, 0.05],
+        [(0.1, 0.0, -0.2), (0.12, 0.0, -0.33), (0.145, 0.0, -0.43), (0.15, -0.12, -0.5)], [0.08, 0.07, 0.06],
+        (0.05, 0.0, 0.2), 0.1,
+    ), {}
+
+
+# 深淵祭司背後的符文圈：中心（跟 scarfB，遊戲端只輕輕晃，不整圈轉）
+PRIEST_RING_CENTER = (0, 0.12, 0.29)
+
+
+def abyss_priest():
+    """深淵祭司（設計者 2026-11-12）：拖地長袍（腿不帶動長袍，只有靴子跟著腳）、喇叭袖與爪手、角冠；背後一圈符文石（scarfB）；空手（權杖由遊戲端畫）"""
+    bones = monster_humanoid(
+        [(0, 0.0, -0.1), (0, 0.0, -0.03), (0, -0.02, 0.2), (0, -0.03, 0.225), (0, -0.03, 0.38)], [0.12, 0.13, 0.05, 0.09],
+        [(0.16, 0.0, 0.15), (0.235, 0.0, 0.0), (0.25, -0.01, -0.13), (0.25, -0.03, -0.25)], [0.06, 0.08, 0.04],
+        [(0.08, 0.0, -0.12), (0.1, 0.0, -0.3), (0.12, -0.02, -0.465), (0.12, -0.12, -0.5)], [0.02, 0.03, 0.05],
+        (0.04, 0.0, 0.15), 0.08,
+    )
+    cx, cy, cz = PRIEST_RING_CENTER
+    bones.append(("scarfB", "torso", V((cx, cy, cz)), V((cx, cy + 0.06, cz)), 0.25))
+    return bones, {}
+
+
+# 腦海浮體的六條觸手（左半邊與正中間；根 → 末端）：前左右（upperArm）、後左右（thigh）、正前（ex_tentL）、正後（ex_tentR）
+BRAIN_TENTACLES = {
+    "upperArmL": [(0.1, -0.16, -0.2), (0.165, -0.225, -0.28), (0.164, -0.218, -0.36), (0.148, -0.187, -0.45)],
+    "thighL": [(0.1, 0.15, -0.2), (0.15, 0.22, -0.27), (0.16, 0.215, -0.36), (0.155, 0.18, -0.45)],
+    "ex_tentL": [(0.0, -0.13, -0.2), (0.0, -0.165, -0.3), (0.0, -0.168, -0.39), (0.0, -0.16, -0.485)],
+    "ex_tentR": [(0.0, 0.1, -0.2), (0.0, 0.13, -0.3), (0.0, 0.15, -0.39), (0.0, 0.15, -0.485)],
+}
+BRAIN_TENT_NAMES = {"upperArm": ("upperArm", "forearm", "hand"), "thigh": ("thigh", "shin", "foot"), "ex_tentL": ("ex_tentL0", "ex_tentL1", "ex_tentL2"), "ex_tentR": ("ex_tentR0", "ex_tentR1", "ex_tentR2")}
+
+
+def brain_tentacles():
+    """每條觸手：(三根骨頭的名稱, 四個點)"""
+    out = []
+    for key, pts in BRAIN_TENTACLES.items():
+        if key.startswith("ex_"):
+            out.append((BRAIN_TENT_NAMES[key], [V(p) for p in pts]))
+            continue
+        base = key[:-1]
+        for s, sx in (("L", 1), ("R", -1)):
+            out.append(([n + s for n in BRAIN_TENT_NAMES[base]], [V((p[0] * sx, p[1], p[2])) for p in pts]))
+    return out
+
+
+def brain_floater():
+    """腦海浮體（設計者 2026-11-12）：一顆大腦（root），白色那塊是正面（生成的模型朝 +Y，轉 180°），底下六條彎鉤狀的觸手；沒有臉（head 不帶動頂點）"""
+    bones = [("root", None, V((0, 0.0, -0.18)), V((0, 0.0, 0.3)), 0.3), ("head", "root", V((0, -0.2, -0.05)), V((0, -0.3, -0.05)), 0.01)]
+    for names, pts in brain_tentacles():
+        bones += chain(list(names), "root", pts, [0.05, 0.045, 0.035])
+    return bones, {}
+
+
 SKELETONS = {
+    "rampart_golem": rampart_golem,
+    "fallen_templar": fallen_templar,
+    "abyss_priest": abyss_priest,
+    "brain_floater": brain_floater,
     "horned_brute": horned_brute,
     "hook_claw": hook_claw,
     "fire_crawler": fire_crawler,

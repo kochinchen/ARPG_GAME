@@ -68,6 +68,28 @@ describe.each(CASES)('%s', (id, tier, branches) => {
   });
 });
 
+describe('深淵祭司（高階法師，設計者 2026-11-12）', () => {
+  const id = 'enemy.abyss_priest';
+  it('固定會火牆與雷擊，越深越有機會多會隕星或雷暴；普通攻擊是連鎖雷', () => {
+    for (const seed of SEEDS) {
+      const r = roll(id, 30, true, seed);
+      const spells = r.spells.map(tree);
+      expect(spells.filter((t) => t.tier === 3).map((t) => t.branch).sort()).toEqual(['A', 'C']);
+      for (const t of spells) expect(t.tier).toBeLessThanOrEqual(4);
+      expect(r.basic).toBe('enemy.chain_bolt');
+    }
+    const rate = (floor: number) => SEEDS.filter((s) => roll(id, floor, false, s).spells.some((x) => tree(x).tier === 4)).length / SEEDS.length;
+    expect(rate(30)).toBeGreaterThan(rate(6));
+  });
+
+  it('學會法術後還會召喚小惡魔', () => {
+    const { world } = createWorldWithMap(ROOM, []);
+    const actor = world.spawnScaledEnemy(id, 30, vec2(5.5, 1.5));
+    teachSpellbook(actor, { basic: 'enemy.chain_bolt', spells: ['mimic.magic.firewall'] }, 30, data.balance.enemyMimic, config);
+    expect(actor.ai!.specialSkills).toEqual(['mimic.magic.firewall', 'enemy.summon_imps']);
+  });
+});
+
 describe('學會法術書', () => {
   const spawn = (id: string, floor: number, elite: boolean, spells: string[]): Actor => {
     const { world } = createWorldWithMap(ROOM, []);

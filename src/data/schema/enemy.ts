@@ -110,11 +110,11 @@ export const EnemyDefSchema = z
   variantScale: z.number().positive().optional(),
   /**
    * 法師的法術書（balance.mageSpellbook）：schools = 會的魔法系（branch：A 火、B 冰、C 雷；basic = 那一系的普通攻擊，
-   * 多系的每隻隨機用一種）；固定會 tier 階；低機率多一招 tier + 1（越深機率越高）；精英低機率再多一招 tier + 2
+   * 多系的每隻隨機用一種）；固定會 tier 階（1 低階、2 中階、3 高階）；低機率多一招 tier + 1（越深機率越高）；精英低機率再多一招 tier + 2
    */
   spellbook: z
     .strictObject({
-      tier: z.int().min(1).max(2),
+      tier: z.int().min(1).max(3),
       schools: z.array(z.strictObject({ branch: z.enum(['A', 'B', 'C']), basic: IdSchema })).min(1),
     })
     .optional(),

@@ -22,7 +22,7 @@ const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id
 const modelId = ids.includes(`enemy.${params.get('model')}`) ? `enemy.${params.get('model')}` : 'enemy.abyss_sovereign';
 /** ?glow=fire,poison：骨龍的兩種屬性 */
 const glow = params.get('glow')?.split(',') as [GlowElement, GlowElement] | undefined;
-const baseModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : modelId === 'enemy.bone_hand' ? BONE_HAND : BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId] ?? MONSTER_MODELS[modelId]!;
+const baseModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : modelId === 'enemy.bone_hand' ? BONE_HAND : (AI_MONSTERS.includes(modelId) ? MONSTER_MODELS[modelId] : undefined) ?? BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId] ?? MONSTER_MODELS[modelId]!;
 /** ?bones=1：蒙皮網格每個面依權重最大的骨頭上色（手臂 = 黃 / 橘 / 紅、鎖骨 = 白，其他依名稱），檢查分區 */
 const BONE_COLORS: Record<string, number> = { upperArm: 0xffe040, forearm: 0xff8a20, hand: 0xff3030, ex_fingers: 0xff40c0, ex_clav: 0xffffff };
 const model: FigureModel =

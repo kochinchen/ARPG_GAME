@@ -250,6 +250,8 @@ const brokenHalo = (): Mesh[] => [
   seg([-6.8, -3.6, -2.2], [-7.6, -5.2, -2.4], 0.45, 0.45, T.halo, 5),
   seg([-4.4, -6.6, -1.8], [-3, -7.4, -2], 0.45, 0.45, T.halo, 5),
 ];
+/** AI 版墮落聖殿騎士手上的連枷與塔盾（生成的四視圖是空手） */
+export const TEMPLAR_GEAR = { flail, towerShield } as const;
 const FALLEN_TEMPLAR = withParts({
   hipHeight: 29,
   referenceRadius: 0.3,
@@ -572,6 +574,8 @@ const runeHalo = (): Mesh[] => [
   ...ring(8, [0, 0, 0.4], 5, 0.2, 0.2 + Math.PI * 2 * (7 / 8), 0, (p) => [plate(p, [0, 0, -1], 1.2, 1.2, 0.3, P.eye)]),
   lowSphere(1, P.rune, [0, 0, 0.6], 7, 4),
 ];
+/** AI 版深淵祭司手上的骷髏權杖 */
+export const PRIEST_GEAR = { scepter } as const;
 const ABYSS_PRIEST = withParts(
   {
     hipHeight: 29,

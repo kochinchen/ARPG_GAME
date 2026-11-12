@@ -1712,10 +1712,57 @@ const creatureSkills: SkillInput[] = [
     name: '心靈飛彈',
     description: '腦海浮體的遠程法術。',
     targeting: 'enemy',
-    range: 7,
+    // 腦海浮體站在後排（keepDistance 6），射程要搆得到
+    range: 9,
     castTime: 0.8,
     tags: ['spell', 'projectile', 'lightning'],
-    effects: [{ type: 'projectile', speed: 8, radius: 0.22, range: 10, onHit: [{ type: 'damage', element: 'lightning', scaling: 'weapon', multiplier: 0.9 }] }],
+    effects: [{ type: 'projectile', speed: 8, radius: 0.22, range: 12, onHit: [{ type: 'damage', element: 'lightning', scaling: 'weapon', multiplier: 0.9 }] }],
+  },
+  {
+    // 腦海浮體的削弱（設計者 2026-11-12）：降抗性
+    id: 'enemy.mind_erode',
+    name: '心靈侵蝕',
+    description: '腦海浮體在目標腳下展開心靈侵蝕，範圍內的敵人火焰、冰寒、閃電抗性 −20%、物理抗性 −10%，持續 6 秒。前搖時地上會顯示範圍。',
+    targeting: 'ground',
+    range: 9,
+    castTime: 1.1,
+    impactAt: 0.8,
+    telegraph: true,
+    cooldown: 9,
+    tags: ['spell', 'area', 'lightning'],
+    effects: [
+      {
+        type: 'area',
+        radius: 1.8,
+        effects: [
+          { type: 'damage', element: 'lightning', scaling: 'weapon', multiplier: 0.4 },
+          { type: 'status', status: 'expose', duration: 6, magnitude: 0.2, physicalMagnitude: 0.1 },
+        ],
+      },
+    ],
+  },
+  {
+    // 腦海浮體的削弱（設計者 2026-11-12）：降防禦
+    id: 'enemy.mind_shatter',
+    name: '心智瓦解',
+    description: '腦海浮體在目標腳下引爆心智瓦解，範圍內的敵人防禦力 −25%，持續 6 秒。前搖時地上會顯示範圍。',
+    targeting: 'ground',
+    range: 9,
+    castTime: 1.1,
+    impactAt: 0.8,
+    telegraph: true,
+    cooldown: 9,
+    tags: ['spell', 'area', 'lightning'],
+    effects: [
+      {
+        type: 'area',
+        radius: 1.8,
+        effects: [
+          { type: 'damage', element: 'lightning', scaling: 'weapon', multiplier: 0.4 },
+          { type: 'status', status: 'armorBreak', duration: 6, magnitude: 0.25 },
+        ],
+      },
+    ],
   },
   {
     id: 'enemy.mind_blast',
@@ -2138,7 +2185,7 @@ const creatureSkills: SkillInput[] = [
   {
     id: 'enemy.crystal_web',
     name: '晶網',
-    description: '晶刺織網蛛在目標腳下織出 3 秒的晶刺網，持續傷害並大幅緩速。前搖時地上會顯示範圍。',
+    description: '晶刺織網蛛在目標腳下織出 3 秒的晶刺網，持續冰寒傷害並大幅緩速。前搖時地上會顯示範圍。',
     targeting: 'ground',
     range: 7,
     castTime: 1.2,
@@ -2154,7 +2201,7 @@ const creatureSkills: SkillInput[] = [
         interval: 0.5,
         look: 'iceWeb',
         effects: [
-          { type: 'damage', element: 'physical', scaling: 'weapon', multiplier: 0.3 },
+          { type: 'damage', element: 'cold', scaling: 'weapon', multiplier: 0.3 },
           { type: 'status', status: 'slow', duration: 1, magnitude: 0.5 },
         ],
       },

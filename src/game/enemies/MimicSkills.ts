@@ -88,14 +88,15 @@ export function rollSpellbook(def: EnemyDef, floor: number, elite: boolean, skil
   return { basic: pick(basicRoll).basic, spells: spells.filter((id): id is string => id !== undefined) };
 }
 
-/** 學會法術書：招式等級隨樓層（一般法師有上限）；精英固定 1 級 */
+/** 學會法術書：招式等級隨樓層（一般法師有上限）；精英固定 1 級；原本的特殊技能保留 */
 export function teachSpellbook(actor: Actor, roll: SpellbookRoll, floor: number, mimic: Balance['enemyMimic'], config: Balance['mageSpellbook']): void {
   if (!actor.ai) return;
   const rank = actor.elite ? 1 : Math.min(config.maxRank, mimicRank(floor, mimic));
   actor.skillRanks.set(roll.basic, 1);
   actor.ai.skillId = roll.basic;
   for (const id of roll.spells) actor.skillRanks.set(id, rank);
-  actor.ai.specialSkills = roll.spells;
+  // 原本就有的特殊技能（深淵祭司的召喚小惡魔）排在法術後面，不會被換掉
+  actor.ai.specialSkills = [...roll.spells, ...actor.ai.specialSkills.filter((id) => id !== roll.basic && !id.startsWith(MIMIC_PREFIX))];
 }
 
 /** 物理系 / 法術系：原本的技能有 spell 標籤就是法術系 */

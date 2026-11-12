@@ -1042,11 +1042,11 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     xp: 28,
   },
   {
-    // 心靈飛彈；冷卻好時在玩家腳下引爆心靈衝擊（暈眩，有地面提示）
+    // 削弱型（設計者 2026-11-12）：心靈飛彈；輪流在玩家腳下放心靈侵蝕（降抗性）與心智瓦解（降防禦），有地面提示；永遠站在後排、躲在巨獸背後
     id: 'enemy.brain_floater',
     name: '腦海浮體',
     family: 'floater',
-    lore: '裸露的大腦，以心靈衝擊暈眩敵人。',
+    lore: '裸露的大腦，躲在其他怪物後面，以心靈侵蝕削弱敵人的抗性與防禦。',
     hp: 36,
     damage: atk(4, 7),
     defense: 5,
@@ -1056,8 +1056,8 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     attackRange: 0.4,
     detectRange: 9,
     ai: 'ranged',
-    keepDistance: 4,
-    skills: ['enemy.mind_bolt', 'enemy.mind_blast'],
+    keepDistance: 6,
+    skills: ['enemy.mind_bolt', 'enemy.mind_erode', 'enemy.mind_shatter'],
     tactics: ['cover'],
     lootTable: 'loot.skeleton',
     xp: 36,
@@ -1247,11 +1247,11 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     xp: 82,
   },
   {
-    // 深淵神殿：遠程祭司，連鎖雷 + 召喚小惡魔（優先處理的目標）
+    // 深淵神殿：遠程祭司（高階法師），連鎖雷 + 火、雷高階法術 + 召喚小惡魔（優先處理的目標）
     id: 'enemy.abyss_priest',
     name: '深淵祭司',
     family: 'demon',
-    lore: '侍奉深淵魔王的惡魔祭司，背後浮著一圈符文。放出在目標之間跳躍的閃電，並不斷召喚小惡魔。',
+    lore: '侍奉深淵魔王的惡魔祭司，背後浮著一圈符文。精通火與雷的高階法術，放出在目標之間跳躍的閃電，並不斷召喚小惡魔。',
     hp: 52,
     damage: atk(4, 7),
     defense: 8,
@@ -1263,6 +1263,9 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     ai: 'ranged',
     keepDistance: 4.5,
     skills: ['enemy.chain_bolt', 'enemy.summon_imps'],
+    // 高階法師（設計者 2026-11-12）：火、雷兩系，固定會魔法 3 階（火牆、雷擊），越深越有機會多會 4 階（隕星或雷暴）；
+    // 普通攻擊維持連鎖雷，召喚小惡魔照舊
+    spellbook: { tier: 3, schools: [{ branch: 'A', basic: 'enemy.chain_bolt' }, { branch: 'C', basic: 'enemy.chain_bolt' }] },
     tactics: ['potion', 'cover'],
     lootTable: 'loot.skeleton',
     xp: 46,

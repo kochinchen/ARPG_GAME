@@ -1,8 +1,8 @@
 import { ABERRATION_MODELS } from './Aberrations';
-import { BEAST_MODELS } from './Beasts';
+import { BEAST_MODELS, mass } from './Beasts';
 import { BOSS_MODELS } from './Bosses';
 import { CREATURE_MODELS } from './Creatures';
-import { LATE_MODELS, WARDEN_GEAR } from './LateMonsters';
+import { LATE_MODELS, PRIEST_GEAR, TEMPLAR_GEAR, WARDEN_GEAR } from './LateMonsters';
 import { SKELETON_GEAR, SKELETON_WARRIOR } from './SkeletonWarrior';
 import { bruteLife, crawlerLife, eggLife, hookLife, houndLife, lizardLife, moltenLife, monsterAi, sixTentacles, toadLife, weaverLife, wheelBeastLife, wormLife } from './MonsterAI';
 import SKELETON_AI_DATA from './monsters/skeletonAI.json';
@@ -29,6 +29,10 @@ import WHEEL_SWORD_BEAST_AI_DATA from './monsters/wheelSwordBeastAI.json';
 import EYE_FLOATER_AI_DATA from './monsters/eyeFloaterAI.json';
 import HATCHLING_SPIDER_AI_DATA from './monsters/hatchlingSpiderAI.json';
 import ACID_BEETLE_AI_DATA from './monsters/acidBeetleAI.json';
+import RAMPART_GOLEM_AI_DATA from './monsters/rampartGolemAI.json';
+import BRAIN_FLOATER_AI_DATA from './monsters/brainFloaterAI.json';
+import ABYSS_PRIEST_AI_DATA from './monsters/abyssPriestAI.json';
+import FALLEN_TEMPLAR_AI_DATA from './monsters/fallenTemplarAI.json';
 import { BONE_HAND } from './BoneHand';
 import { STONE_WALKERS } from './StoneWalkers';
 import type { FigureModel, Joint, Pose } from './FigureModel';
@@ -849,6 +853,30 @@ const MAGE_AI = lowMage(275, null);
 const MAGE_FIRE_AI = lowMage(18, { robe: (c) => ({ h: 6, s: 0.72, l: c.l * 1.05 }), eyes: [0xffd080, 0xff6020] });
 const MAGE_FROST_AI = lowMage(195, { robe: (c) => ({ h: 205, s: 0.65, l: c.l * 1.15 }), eyes: [0xd8f4ff, 0x50b8ff] });
 const MAGE_WHITE_AI = lowMage(48, { robe: (c) => ({ h: 45, s: 0.08, l: Math.min(0.9, 0.5 + c.l * 1.2) }), eyes: [0xffffff, 0xffe080] });
+/**
+ * 狂熱信徒（設計者 2026-11-11）：骷髏法師的模型，灰黑色的袍子，臉和手（骨頭）塗黑，只剩一雙火紅的眼睛；法杖是火系
+ */
+const CULTIST_AI = ((): FigureModel => {
+  const m = lowMage(18, { robe: (c) => ({ h: 20, s: 0.05, l: c.l * 0.55 }), eyes: [0xffb070, 0xff4020] });
+  const skin = m.skin!;
+  const eyes = new Set<number>([0xffb070, 0xff4020]);
+  // 骨頭（淡色、低飽和）：臉、手指與胸前的小骨頭（手指在另外掛的網格上，一起換）
+  const black = <F extends { color: number }>(f: F): F => {
+    if (eyes.has(f.color)) return f;
+    // 象牙白在 HSL 裡飽和度偏高，改用亮度與色彩濃度判斷：很亮、又不太濃的就是骨頭（金邊較暗、杖頭太濃，都不會被換掉）
+    const r = (f.color >> 16) & 255;
+    const g = (f.color >> 8) & 255;
+    const b = f.color & 255;
+    const hi = Math.max(r, g, b) / 255;
+    const lo = Math.min(r, g, b) / 255;
+    return hi > 0.6 && hi - lo < 0.45 ? { ...f, color: fromHsl({ h: 20, s: 0.06, l: 0.05 + lo * 0.1 }) } : f;
+  };
+  return {
+    ...m,
+    parts: m.parts.map((p) => (p.joint.startsWith('weapon') ? p : { ...p, meshes: p.meshes.map((mesh) => ({ ...mesh, faces: mesh.faces.map(black) })) })),
+    skin: { ...skin, faces: skin.faces.map(black) },
+  };
+})();
 const stormMage = (hue: number, look: RobeLook | null): FigureModel => {
   const m = tallMage(STORM_MAGE_AI_DATA, { ...STORM_MAGE, poses: MAGE_STAFF.poses }, mageStaffOf(hue, look ? [] : STORM_STAFF_BOLTS()));
   return look ? robeSkin(m, STORM_ROBE, look) : m;
@@ -1062,6 +1090,89 @@ type RecolorTo = { h: number; s: number; l: number };
 const inHue = (c: { h: number }, from: number, to: number) => c.h >= from && c.h <= to;
 const WHEEL_BEAST = (): FigureModel => wheelBeastLife(monsterAi(WHEEL_SWORD_BEAST_AI_DATA, scaled(BEAST_MODELS)['enemy.shadow_panther']!, { rest: 'asModeled', hip: 14, ground: 'none' }));
 const EYE_BEAST = (): FigureModel => sixTentacles(monsterAi(EYE_FLOATER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.eye_floater']!, { rest: 'asModeled', ground: 'none', lift: 6 }));
+// ── 要塞魔像、腦海浮體、深淵祭司、墮落聖殿騎士（設計者 2026-11-12 的四視圖）：動作、大小沿用舊版 ──
+// 走路時右手（舊版扛石砲在肩上）的手肘、手腕只折一半（設計者 2026-11-12：AI 版的手臂粗，折太多會穿進肩膀）
+const RAMPART_GOLEM_AI = ((): FigureModel => {
+  const m = monsterAi(RAMPART_GOLEM_AI_DATA, scaled(LATE_MODELS)['enemy.rampart_golem']!, { fit: 'height' });
+  const half = (p: Pose): Pose => {
+    const angles = { ...p.angles };
+    for (const j of ['forearmR', 'handR'] as const) {
+      const a = angles[j];
+      if (a) angles[j] = [a[0] / 2, a[1] / 2, a[2] / 2];
+    }
+    return { ...p, angles };
+  };
+  return withGolemFist({ ...m, poses: { ...m.poses, run: (p) => half(m.poses.run(p)) } });
+})();
+/**
+ * 要塞魔像的左拳（設計者 2026-11-12：左手五指握拳）：左臂最下面那節石環（砲口）在 monster_ai.py 切掉，
+ * 這裡依切口的大小接一個石拳：掌心朝內、手背朝外（手背上一道符文光），四指往掌心捲、拇指從前面扣住食指
+ */
+function withGolemFist(m: FigureModel): FigureModel {
+  const skin = m.skin!;
+  // 切口的頂點跟前臂（手腕以下沒有頂點），拳頭也掛在前臂上，手腕轉動時才不會和手臂分開
+  const at = skin.rest.forearmL!;
+  const armIdx = skin.verts.map((_, i) => i).filter((i) => skin.infl[i]!.some((x) => (x.joint === 'forearmL' || x.joint === 'handL') && x.w > 0.5));
+  const arm = armIdx.map((i) => skin.verts[i]!).map((v): V3 => [v[0] - at[0], v[1] - at[1], v[2] - at[2]]);
+  const ys = arm.map((v) => v[1]);
+  const low = Math.min(...ys);
+  const end = arm.filter((v) => v[1] < low + (Math.max(...ys) - low) * 0.15);
+  const span = (k: 0 | 2) => [Math.min(...end.map((v) => v[k])), Math.max(...end.map((v) => v[k]))] as const;
+  const [x0, x1] = span(0);
+  const [z0, z1] = span(2);
+  const cx = (x0 + x1) / 2;
+  const cz = (z0 + z1) / 2;
+  const w = (x1 - x0) * 0.95;
+  const d = (z1 - z0) * 0.95;
+  const h = Math.max(w, d) * 0.85;
+  const top = low + h * 0.12;
+  // 石頭的深淺取左臂本身的顏色（亮度排序後的 50%、85%）
+  const armSet = new Set(armIdx);
+  const lum = (c: number) => ((c >> 16) & 255) * 0.3 + ((c >> 8) & 255) * 0.59 + (c & 255) * 0.11;
+  const cols = skin.faces.filter((f) => f.idx.every((i) => armSet.has(i))).map((f) => f.color).sort((a, b) => lum(a) - lum(b));
+  const dark = cols[Math.floor(cols.length * 0.5)] ?? 0x4a4e58;
+  const light = cols[Math.floor(cols.length * 0.85)] ?? 0x6a7080;
+  const rune = 0x5ad0ff;
+  const y = (k: number) => top - h * k;
+  const fist: Mesh[] = [
+    mass(dark, [cx, y(0.45), cz], [w * 0.42, h * 0.45, d * 0.42], 0.15, 10, 6),
+    mass(light, [cx + w * 0.18, y(0.42), cz], [w * 0.3, h * 0.42, d * 0.45], 0.15, 10, 6),
+    box(w * 0.05, h * 0.5, d * 0.1, rune, [cx + w * 0.47, y(0.45), cz]),
+    ...[-0.36, -0.12, 0.12, 0.36].flatMap((t, i): Mesh[] => {
+      const z = cz + d * t;
+      return [
+        mass(i % 2 ? light : dark, [cx + w * 0.12, y(0.84), z], [w * 0.22, h * 0.2, d * 0.15], 0.12, 7, 5),
+        mass(light, [cx - w * 0.16, y(0.76), z], [w * 0.2, h * 0.2, d * 0.14], 0.12, 7, 5),
+        mass(dark, [cx - w * 0.32, y(0.5), z], [w * 0.15, h * 0.17, d * 0.13], 0.12, 7, 4),
+      ];
+    }),
+    // 拇指：從手的前面往下扣住食指
+    mass(light, [cx - w * 0.12, y(0.36), cz + d * 0.5], [w * 0.17, h * 0.28, d * 0.15], 0.12, 7, 5),
+    mass(dark, [cx - w * 0.26, y(0.6), cz + d * 0.44], [w * 0.15, h * 0.16, d * 0.14], 0.12, 7, 4),
+  ];
+  return { ...m, parts: m.parts.map((p) => (p.joint === 'forearmL' ? { ...p, meshes: [...p.meshes, ...fist] } : p)) };
+}
+// 舊版的觸手末端離地約 6；六條觸手（正前、正後兩條跟著另外四條擺）
+const BRAIN_FLOATER_AI = sixTentacles(monsterAi(BRAIN_FLOATER_AI_DATA, scaled(ABERRATION_MODELS)['enemy.brain_floater']!, { rest: 'asModeled', ground: 'none', lift: 6, hip: 23 }));
+// 連枷與塔盾照舊版（握點在手腕）
+// 待機、走路、受傷時右手（連枷）舉高一些（設計者 2026-11-12：放大後的鐵球垂到地上）；攻擊動作照舊
+const TEMPLAR_FLAIL_UP = { upperArmR: [-0.35, 0, 0], forearmR: [-0.55, 0, 0] } as const;
+const FALLEN_TEMPLAR_AI = ((): FigureModel => {
+  const m = monsterAi(FALLEN_TEMPLAR_AI_DATA, scaled(LATE_MODELS)['enemy.fallen_templar']!, {
+    fit: 'height',
+    held: { handR: TEMPLAR_GEAR.flail(), handL: TEMPLAR_GEAR.towerShield() },
+    // 連枷與塔盾放大 2.5 倍（設計者 2026-11-12）
+    heldScale: 2.5,
+  });
+  const up = (p: Pose) => plusAngles(p, TEMPLAR_FLAIL_UP);
+  return { ...m, poses: { ...m.poses, ready: (t) => up(m.poses.ready(t)), run: (p) => up(m.poses.run(p)), hit: up(m.poses.hit) } };
+})();
+// 背後的符文圈（scarfB）只輕輕擺動：生成的符文圈下方是開口，整圈轉起來開口會跟著轉
+const ABYSS_PRIEST_AI = ((): FigureModel => {
+  const m = monsterAi(ABYSS_PRIEST_AI_DATA, scaled(LATE_MODELS)['enemy.abyss_priest']!, { fit: 'height', held: { handL: PRIEST_GEAR.scepter() } });
+  const sway = (p: Pose, t: number): Pose => ({ ...p, angles: { ...p.angles, scarfB: [0, 0, Math.sin(t * 0.8) * 0.1] } });
+  return { ...m, poses: { ...m.poses, ready: (t) => sway(m.poses.ready(t), t), run: (p) => sway(m.poses.run(p), p * 0.5) } };
+})();
 const wheelRecolor = (crystal: RecolorTo, shoulder: RecolorTo, wood: RecolorTo, chest?: RecolorTo) =>
   recolor([
     { match: (c) => inHue(c, 150, 215) && c.s > 0.12, ...crystal },
@@ -1148,6 +1259,11 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.fire_crawler': crawlerLife(monsterAi(FIRE_CRAWLER_AI_DATA, scaled(CREATURE_MODELS)['enemy.fire_crawler']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
   'enemy.egg_matron': eggLife(monsterAi(EGG_MATRON_AI_DATA, scaled(CREATURE_MODELS)['enemy.egg_matron']!, { rest: 'asModeled', ground: 'all', fit: 'height' })),
   'enemy.crystal_weaver': weaverLife(monsterAi(CRYSTAL_WEAVER_AI_DATA, scaled(LATE_MODELS)['enemy.crystal_weaver']!, { rest: 'asModeled', ground: 'all', fit: 'height' })),
+  'enemy.cultist': CULTIST_AI,
+  'enemy.rampart_golem': RAMPART_GOLEM_AI,
+  'enemy.brain_floater': BRAIN_FLOATER_AI,
+  'enemy.abyss_priest': ABYSS_PRIEST_AI,
+  'enemy.fallen_templar': FALLEN_TEMPLAR_AI,
   'enemy.shadow_panther': WHEEL_BEAST(),
   'enemy.ember_wheel': EMBER_WHEEL_AI,
   'enemy.frost_wheel': FROST_WHEEL_AI,
@@ -1222,6 +1338,7 @@ export const AI_MONSTERS = [
   'enemy.fire_crawler',
   'enemy.egg_matron',
   'enemy.crystal_weaver',
+  'enemy.cultist',
   'enemy.shadow_panther',
   'enemy.acid_beetle',
   'enemy.hatchling_spider',
@@ -1232,6 +1349,10 @@ export const AI_MONSTERS = [
   'enemy.tri_eye',
   'enemy.gazer',
   'enemy.ember_eye',
+  'enemy.rampart_golem',
+  'enemy.brain_floater',
+  'enemy.abyss_priest',
+  'enemy.fallen_templar',
 ];
 
 /** 換成 AI 版之前的舊版模型（比較面數、效能用） */
@@ -1259,10 +1380,15 @@ export const CLASSIC_MODELS: Record<string, FigureModel> = {
   'enemy.fire_crawler': CREATURE_MODELS['enemy.fire_crawler']!,
   'enemy.egg_matron': CREATURE_MODELS['enemy.egg_matron']!,
   'enemy.crystal_weaver': LATE_MODELS['enemy.crystal_weaver']!,
+  'enemy.cultist': BOSS_MODELS['enemy.cultist']!,
   'enemy.shadow_panther': BEAST_MODELS['enemy.shadow_panther']!,
   'enemy.acid_beetle': CREATURE_MODELS['enemy.acid_beetle']!,
   'enemy.hatchling_spider': CREATURE_MODELS['enemy.hatchling_spider']!,
   'enemy.eye_floater': ABERRATION_MODELS['enemy.eye_floater']!,
+  'enemy.rampart_golem': LATE_MODELS['enemy.rampart_golem']!,
+  'enemy.brain_floater': ABERRATION_MODELS['enemy.brain_floater']!,
+  'enemy.abyss_priest': LATE_MODELS['enemy.abyss_priest']!,
+  'enemy.fallen_templar': LATE_MODELS['enemy.fallen_templar']!,
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;
