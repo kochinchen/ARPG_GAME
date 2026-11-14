@@ -125,6 +125,16 @@ export interface FigureDebug {
  * 多面體角色：依狀態選姿勢（待機 / 跑步 / 攻擊 / 施法 / 受傷 / 倒地），
  * 面向量化成八個方向，每幀投影成 45° 等角並以平面著色畫出（不畫邊線）。
  */
+/**
+ * 拿盾時的左臂（設計者 2026-11-14：手握盾牌背面的把手往前伸，盾牌與地板約 100 度，手不要伸太直）：
+ * 上臂往前抬 SHIELD_UPPER、往外張 SHIELD_OUT，手肘彎 SHIELD_ELBOW（手肘內角約 120 度）；兩者加起來手臂比水平高約 10 度，
+ * 盾面朝手臂方向，所以盾牌上緣往自己這邊傾約 10 度。原本姿勢的手臂擺動保留 SHIELD_SWAY 的比例。
+ */
+const SHIELD_UPPER = -0.7;
+const SHIELD_OUT = 0.3;
+const SHIELD_ELBOW = -1.05;
+const SHIELD_SWAY = 0.25;
+
 export class PolyFigure {
   /** 所有角色共用的除錯疊圖設定 */
   static debug: FigureDebug = {};
@@ -273,7 +283,7 @@ export class PolyFigure {
     const walking = state.moving && !!this.poses.walk && (state.speed ?? Infinity) < (this.model.walkBelow ?? WALK_BELOW);
     if (state.moving) this.runPhase += dt * (walking ? 7.5 : 11) * (this.model.gaitRate ?? 1);
     this.hitTime = Math.max(0, this.hitTime - dt);
-    const target = this.targetPose(state, dt, walking);
+    const target = this.shieldArm(this.targetPose(state, dt, walking));
     // 動作（攻擊 / 施法 / 死亡過程）直接用時間軸的姿勢，其他狀態平滑過渡
     this.phaseBlend = Math.max(0, this.phaseBlend - dt);
     const k = this.action || this.emergeTime !== null || (this.death && this.poses.deathKeys) ? 1 : Math.min(1, dt * (this.phaseBlend > 0 ? 3 : 14));
@@ -334,6 +344,19 @@ export class PolyFigure {
       return lerpPose(base, poses.hit, Math.sin((this.hitTime / HIT_TIME) * Math.PI));
     }
     return base;
+  }
+
+  /**
+   * 拿盾時左臂握著盾牌往前伸（設計者 2026-11-14：原本盾牌壓在臉上）。
+   * 只在換裝有盾牌（outfit 的 weaponL）時調整；空手、拿弓（弓在 mount、不在 outfit）不受影響。
+   */
+  private shieldArm(pose: Pose): Pose {
+    if (!this.outfit?.get('weaponL')?.length || !pose.angles) return pose;
+    const u = pose.angles.upperArmL ?? [0, 0, 0];
+    return {
+      ...pose,
+      angles: { ...pose.angles, upperArmL: [SHIELD_UPPER + (u[0] + 0.25) * SHIELD_SWAY, u[1] * SHIELD_SWAY, SHIELD_OUT], forearmL: [SHIELD_ELBOW, 0, 0], handL: [0, 0, 0] },
+    };
   }
 
   /** 平常拿武器的角度（WeaponMount.rest）疊加到武器關節 */

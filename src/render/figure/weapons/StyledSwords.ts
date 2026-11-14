@@ -1,6 +1,6 @@
 import type { Mesh, V3 } from '../Poly3D';
 import { depthFor, glowTones, ring, rod, type Badge } from './StyledWeapons';
-import { chain, darken, edge, gem, GOLD, lighten, taper, type Tones } from './WeaponParts';
+import { chain, darken, edge, gem, GOLD, lighten, sweep, taper, type Tones } from './WeaponParts';
 import type { SwordSpec, SwordStyle } from './WeaponSpec';
 
 /**
@@ -37,19 +37,22 @@ interface Sec {
   h: number;
   t: number;
 }
-/** 依截面串起劍身（菱形截面，看得出刃） */
-const blade = (secs: Sec[], colors: Tones): Mesh[] =>
-  secs.slice(0, -1).map((a, i) => {
-    const b = secs[i + 1]!;
-    return edge([0, a.y, a.c ?? 0], [0, b.y, b.c ?? 0], [a.t, a.h], [b.t, b.h], colors);
-  });
+/** 依截面串起劍身（菱形截面，看得出刃）；有 tip 就連劍尖一起，整條是一個網格，轉折處不會裂開 */
+const blade = (secs: Sec[], colors: Tones, tip?: V3): Mesh[] => [
+  sweep(
+    [...secs.map((a): V3 => [0, a.y, a.c ?? 0]), ...(tip ? [tip] : [])],
+    [...secs.map((a): [number, number] => [a.t, a.h]), ...(tip ? [[0.03, 0.05] as [number, number]] : [])],
+    colors,
+  ),
+];
 /** 方形截面的一段（墓碑石板、凸起的框）；h、t 是半寬、半厚 */
 export const slab = (a: V3, b: V3, t: number, h: number, colors: Tones, t1 = t, h1 = h, seed = 0): Mesh =>
   taper(a, b, [t * 1.41, h * 1.41], [t1 * 1.41, h1 * 1.41], colors, 4, seed, Math.PI / 4);
 /** 貼在劍身上的一條凸起的平帶（光溝、鑲邊、寄生組織）：方形截面，半厚 t 要比劍身厚一點才蓋得住，半寬從 h0 漸變到 h1 */
 export const groove = (pts: readonly V3[], t: number, h0: number, h1: number, colors: Tones): Mesh[] => {
   const n = pts.length - 1;
-  return pts.slice(0, -1).map((p, i) => slab(p, pts[i + 1]!, t, h0 + ((h1 - h0) * i) / n, colors, t, h0 + ((h1 - h0) * (i + 1)) / n, i));
+  // 多加 0.2 厚：劍身加密後表面會起伏 ±0.09，太貼的話劍身會從光溝裡透出來（看起來像破洞）
+  return [sweep(pts, pts.map((_, i): [number, number] => [(t + 0.2) * 1.41, (h0 + ((h1 - h0) * i) / n) * 1.41]), colors, 4, Math.PI / 4)];
 };
 /** Z 鏡射（面的頂點順序也要反過來，法線才會朝外） */
 const mirrorZ = (m: Mesh): Mesh => ({ ...m, verts: m.verts.map(([x, y, z]) => [x, y, -z] as V3), faces: m.faces.map((f) => ({ ...f, idx: [...f.idx].reverse() })) });
@@ -73,9 +76,8 @@ function crescent(c: Ctx): Built {
   const hs = [0.62, 0.82, 0.95, 1, 0.92, 0.7, 0.4];
   const at = (k: number) => -bend * k * k + w * 0.1;
   const secs: Sec[] = ks.map((k, i) => ({ y: Y0 - L * k, c: at(k), h: w * hs[i]!, t }));
-  c.meshes.push(...blade(secs, c.s.colors));
   const tip: V3 = [0, Y0 - L - 3, at(1) - bend * 0.55];
-  c.meshes.push(edge([0, Y0 - L, at(1)], tip, [t, w * 0.4], [0.03, 0.05], c.s.colors));
+  c.meshes.push(...blade(secs, c.s.colors, tip));
   // 刀背：發光的一道（比刀身厚，兩面都看得到）＋最外緣的金邊
   const back = (k: number, f: number): V3 => [0, Y0 - L * k, at(k) - w * hs[Math.min(6, Math.round(k * 6))]! * f];
   c.meshes.push(...groove([0.02, 0.2, 0.4, 0.6, 0.8, 0.95].map((k) => back(k, 0.42)), t * 1.1, w * 0.24, w * 0.1, glowTones(glow)));
@@ -103,9 +105,8 @@ function knight(c: Ctx): Built {
   const t = 0.28 * Math.max(1, w / 1.8);
   const ks = [0, 0.25, 0.5, 0.75, 0.88];
   const hs = [0.95, 1, 0.98, 0.9, 0.78];
-  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors));
   const tip: V3 = [0, Y0 - L - 3, 0];
-  c.meshes.push(edge([0, Y0 - L * 0.88, 0], tip, [t, w * 0.78], [0.03, 0.05], c.s.colors));
+  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors, tip));
   c.meshes.push(...groove([[0, Y0 - 0.4, 0], [0, Y0 - L * 0.45, 0], [0, Y0 - L * 0.86, 0]], t * 1.1, w * 0.2, w * 0.08, glowTones(glow)));
   for (const sd of [1, -1]) c.meshes.push(...groove([[0, Y0 - 0.3, sd * w * 0.32], [0, Y0 - L * 0.45, sd * w * 0.3], [0, Y0 - L * 0.84, sd * w * 0.14]], t * 1.12, 0.12, 0.06, trim));
   c.meshes.push(edge([0, Y0 + 0.1, 0], [0, Y0 - L * 0.14, 0], [t * 1.3, w * 1.02], [t * 1.25, w * 0.5], trim));
@@ -134,9 +135,8 @@ function bone(c: Ctx): Built {
   const ws = [1, 1.12, 0.95, 1.08, 0.92, 0.8, 0.62];
   const n = ws.length - 1;
   const pts: V3[] = ws.map((_, i) => [0, Y0 - (L * i) / n, (i % 2 ? 0.12 : -0.08) * w]);
-  for (let i = 0; i < n; i++) c.meshes.push(edge(pts[i]!, pts[i + 1]!, [t, w * ws[i]!], [t, w * ws[i + 1]!], c.s.colors));
   const tip: V3 = [0, Y0 - L - 3, w * 0.25];
-  c.meshes.push(edge(pts[n]!, tip, [t, w * ws[n]!], [0.03, 0.05], c.s.colors));
+  c.meshes.push(sweep([...pts, tip], [...ws.map((k): [number, number] => [t, w * k]), [0.03, 0.05]], c.s.colors));
   for (const i of [1, 3]) {
     const y = Y0 - (L * (i + 0.5)) / n;
     c.meshes.push(edge([0, y + 0.45, 0], [0, y - 0.45, 0], [t * 1.6, w * 1.02], [t * 1.6, w * 0.98], c.grip));
@@ -164,9 +164,8 @@ function parasite(c: Ctx): Built {
   const t = 0.27 * Math.max(1, w / 1.8);
   const ks = [0, 0.3, 0.6, 0.85];
   const hs = [1, 0.98, 0.9, 0.72];
-  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors));
   const tip: V3 = [0, Y0 - L - 2.8, -w * 0.1];
-  c.meshes.push(edge([0, Y0 - L * 0.85, 0], tip, [t, w * 0.72], [0.03, 0.05], c.s.colors));
+  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors, tip));
   // 寄生組織：蓋住 +Z 半邊、往劍尖越來越細，外側長出大小不一的晶刺
   c.meshes.push(...groove([0.02, 0.2, 0.42, 0.62, 0.8].map((k): V3 => [0, Y0 - L * k, w * (0.55 - k * 0.12)]), t * 1.3, w * 0.5, w * 0.22, spikes));
   for (let i = 0; i < 8; i++) {
@@ -195,9 +194,8 @@ function rift(c: Ctx): Built {
   const t = 0.42;
   const ks = [0, 0.25, 0.5, 0.75, 0.9];
   const hs = [0.95, 0.88, 1, 0.82, 0.66];
-  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, c: (i % 2 ? 0.06 : -0.06) * w, h: w * hs[i]!, t })), c.s.colors));
   const tip: V3 = [0, Y0 - L - 2.4, w * 0.1];
-  c.meshes.push(edge([0, Y0 - L * 0.9, 0], tip, [t, w * 0.66], [0.04, 0.06], c.s.colors));
+  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, c: (i % 2 ? 0.06 : -0.06) * w, h: w * hs[i]!, t })), c.s.colors, tip));
   for (let i = 0; i < 10; i++) {
     const k = 0.04 + i * 0.094;
     const sd = i % 2 ? 1 : -1;
@@ -225,9 +223,8 @@ function eternal(c: Ctx): Built {
   const t = 0.26 * Math.max(1, w / 1.8);
   const ks = [0, 0.3, 0.6, 0.86];
   const hs = [0.85, 0.95, 0.9, 0.74];
-  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors));
   const tip: V3 = [0, Y0 - L - 3.4, 0];
-  c.meshes.push(edge([0, Y0 - L * 0.86, 0], tip, [t, w * 0.74], [0.03, 0.05], c.s.colors));
+  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors, tip));
   // 金色凹槽在每顆星點處斷開（整條穿過星點的話，畫的順序會把星點蓋掉）
   const stars = [0, 1, 2, 3, 4, 5, 6].map((i) => 0.08 + i * 0.12);
   const cuts = [-0.3 / L, ...stars, 0.9];
@@ -254,15 +251,16 @@ function eternal(c: Ctx): Built {
   return { tip, badge: badge(1.15, 0.85) };
 }
 
-/** 墓守巨劍：墓碑石板般的方形巨刃，中央凹進去一塊發光的符文板，鎖鏈斜纏；護手兩端各一個骷髏，往下垂著鎖鏈 */
+/** 墓守巨劍：墓碑石板般的方形巨刃（平頂、沒有尖刃，設計者 2026-11-14），中央凹進去一塊發光的符文板，鎖鏈斜纏；護手兩端各一個骷髏，往下垂著鎖鏈 */
 function tomb(c: Ctx): Built {
   const { L, glow, trim, spikes } = c;
   const w = c.w * 2.2;
   const t = 0.5;
   const top = Y0 - L * 0.92;
   c.meshes.push(slab([0, Y0, 0], [0, top, 0], t, w, c.s.colors, t, w * 0.97));
-  const tip: V3 = [0, top - w * 0.9, 0];
-  c.meshes.push(edge([0, top, 0], tip, [t, w * 0.97], [t * 0.6, 0.08], c.s.colors));
+  // 平頂：頂端一圈石框收邊（劍尖的位置 = 石板頂端）
+  const tip: V3 = [0, top, 0];
+  c.meshes.push(slab([0, top + 0.35, 0], [0, top - 0.25, 0], t * 1.16, w * 1.02, trim, t * 1.16, w * 1.02, 1));
   // 石框（兩側凸起）、深色的符文板、亮的符文
   for (const sd of [1, -1]) c.meshes.push(slab([0, Y0 - 0.4, sd * w * 0.48], [0, top + 0.6, sd * w * 0.48], t * 1.16, 0.22, trim, t * 1.16, 0.2, 1));
   c.meshes.push(slab([0, Y0 - 0.7, 0], [0, top + 0.9, 0], t * 1.06, w * 0.36, glowTones(darken(glow, 0.55))));
@@ -293,7 +291,7 @@ function tomb(c: Ctx): Built {
     c.meshes.push(gem(0.88, [0, GUARD - 0.1, z], BONE_C, [0.95, 1, 0.95], 6, 4), gem(0.5, [0, GUARD + 0.65, z], darken(BONE_C, 0.1), [0.85, 0.6, 0.8], 6, 3));
     for (const x of [0.62, -0.62]) c.meshes.push(gem(0.24, [x, GUARD - 0.2, z + sd * 0.1], 0x1a1410, [0.5, 1, 0.9], 4, 3), gem(0.24, [x, GUARD - 0.2, z - sd * 0.32], 0x1a1410, [0.5, 1, 0.9], 4, 3));
     const hang: V3[] = [[0, GUARD + 0.9, z], [0, 0.4, z * 1.02], [0, 2, z * 0.94], [0, 3.2, z * 0.9]];
-    for (let j = 0; j < hang.length - 1; j++) c.meshes.push(taper(hang[j]!, hang[j + 1]!, [0.17, 0.17], [0.17, 0.17], spikes, 6, j, Math.PI / 6));
+    c.meshes.push(...chain(hang, [0.17, 0.17], [0.17, 0.17], spikes, false));
   }
   hilt(c, 0.7, [0.3, 1.9]);
   c.meshes.push(slab([0, 2.7, 0], [0, 3.1, 0], 0.8, 0.8, trim), gem(0.75, [0, 3.9, 0], glow, [1.05, 1.45, 1.05], 4, 3));
@@ -307,9 +305,8 @@ function saint(c: Ctx): Built {
   const t = 0.28 * Math.max(1, w / 1.8);
   const ks = [0, 0.3, 0.6, 0.86];
   const hs = [0.92, 1, 0.92, 0.72];
-  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors));
   const tip: V3 = [0, Y0 - L - 3, 0];
-  c.meshes.push(edge([0, Y0 - L * 0.86, 0], tip, [t, w * 0.72], [0.03, 0.05], c.s.colors));
+  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors, tip));
   c.meshes.push(...groove([0.02, 0.25, 0.5, 0.75, 0.9].map((k): V3 => [0, Y0 - L * k, w * (0.72 - k * 0.12)]), t * 1.06, w * 0.2, w * 0.1, spikes));
   const crack: V3[] = [];
   for (let i = 0; i <= 7; i++) crack.push([0, Y0 - 0.3 - (L * 0.95 * i) / 7, (i % 2 ? 1 : -1) * w * 0.12]);
@@ -344,9 +341,8 @@ function fallen(c: Ctx): Built {
   const t = 0.3 * Math.max(1, w / 1.8);
   const ks = [0, 0.3, 0.6, 0.85];
   const hs = [0.95, 1, 0.92, 0.76];
-  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors));
   const tip: V3 = [0, Y0 - L - 3, 0];
-  c.meshes.push(edge([0, Y0 - L * 0.85, 0], tip, [t, w * 0.76], [0.03, 0.05], c.s.colors));
+  c.meshes.push(...blade(ks.map((k, i) => ({ y: Y0 - L * k, h: w * hs[i]!, t })), c.s.colors, tip));
   const FIRE = 0xff3a2a, ICE_C = 0x3a8cff, BOLT = 0xffc030;
   for (const [z, col] of [[-0.42, FIRE], [0, ICE_C], [0.42, BOLT]] as const) {
     c.meshes.push(...groove([[0, Y0 - 0.5, z * w], [0, Y0 - L * 0.45, z * w * 0.95], [0, Y0 - L * 0.84, z * w * 0.6]], t * 1.1, w * 0.1, w * 0.05, glowTones(col)));

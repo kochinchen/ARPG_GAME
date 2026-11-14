@@ -80,15 +80,86 @@ export function darken(color: number, k: number): number {
   return (c(16) << 16) | (c(8) << 8) | c(0);
 }
 
-/** 沿一條折線放置錐形段（半徑從 r0 漸變到 r1）：彎刀、弓臂、彎曲的杖頭 */
+const norm = (v: V3): V3 => {
+  const l = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / l, v[1] / l, v[2] / l];
+};
+const crs = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dt = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+/**
+ * 沿折線的連續管狀體：整條是一個網格，相鄰段共用同一圈頂點，轉折處不會裂開（設計者 2026-11-14：劍、斧不能有裂縫）。
+ * 每一圈的截面垂直於前後兩段方向的平均（斜接，彎的那個方向放寬，厚度不變）；radii[i] 同 taper 的 [X 方向, 另一方向]。
+ * sides = 4、phase = 0 是菱形截面（劍身、刃），四個側面依序 亮 / 中 / 暗 / 中，同 edge。
+ */
+export function sweep(points: readonly V3[], radii: readonly (readonly [number, number])[], colors: Tones, sides = 4, phase = 0, seed = 0): Mesh {
+  const n = points.length;
+  const dirs = points.slice(0, -1).map((p, i) => norm(sub(points[i + 1]!, p)));
+  // 每段的「X 方向」同 taper（水平、垂直於這段的水平投影）；整條對齊同一側，明暗才不會一段一段翻面
+  let prevU: V3 | undefined;
+  const segU = dirs.map((d) => {
+    const y = Math.hypot(d[0], d[2]) < 1e-6 ? 0 : Math.atan2(d[0], d[2]);
+    let u: V3 = [Math.cos(y), 0, -Math.sin(y)];
+    if (prevU && dt(u, prevU) < 0) u = [-u[0], -u[1], -u[2]];
+    return (prevU = u);
+  });
+  const verts: V3[] = [];
+  for (let k = 0; k < n; k++) {
+    const dIn = dirs[Math.max(0, k - 1)]!, dOut = dirs[Math.min(dirs.length - 1, k)]!;
+    const T = norm([dIn[0] + dOut[0], dIn[1] + dOut[1], dIn[2] + dOut[2]]);
+    const u0 = segU[Math.max(0, k - 1)]!, u1 = segU[Math.min(segU.length - 1, k)]!;
+    let U: V3 = [u0[0] + u1[0], u0[1] + u1[1], u0[2] + u1[2]];
+    U = norm(sub(U, [T[0] * dt(U, T), T[1] * dt(U, T), T[2] * dt(U, T)]));
+    const V = crs(U, T);
+    // 斜接：沿彎的方向放寬 1 / cos(半角)
+    const bend = sub(dOut, dIn);
+    const bl = Math.hypot(bend[0], bend[1], bend[2]);
+    const B: V3 | null = bl > 1e-4 ? norm(sub(bend, [T[0] * dt(bend, T), T[1] * dt(bend, T), T[2] * dt(bend, T)])) : null;
+    const f = 1 / Math.max(0.5, dt(dIn, T));
+    const [rx, rz] = radii[k]!;
+    const p = points[k]!;
+    for (let i = 0; i < sides; i++) {
+      const a = phase + (i / sides) * Math.PI * 2;
+      let o: V3 = [U[0] * Math.cos(a) * rx + V[0] * Math.sin(a) * rz, U[1] * Math.cos(a) * rx + V[1] * Math.sin(a) * rz, U[2] * Math.cos(a) * rx + V[2] * Math.sin(a) * rz];
+      if (B) {
+        const s = dt(o, B) * (f - 1);
+        o = [o[0] + B[0] * s, o[1] + B[1] * s, o[2] + B[2] * s];
+      }
+      verts.push([p[0] + o[0], p[1] + o[1], p[2] + o[2]]);
+    }
+  }
+  const diamond = sides === 4 && phase === 0;
+  const side = (i: number) => (diamond ? [colors[0], colors[1], colors[2], colors[3] ?? colors[1]][i]! : colors[0]!);
+  const faces: Mesh['faces'] = [];
+  const center = (k: number): V3 => points[k]!;
+  for (let k = 0; k < n - 1; k++) {
+    const mid: V3 = [(center(k)[0] + center(k + 1)[0]) / 2, (center(k)[1] + center(k + 1)[1]) / 2, (center(k)[2] + center(k + 1)[2]) / 2];
+    for (let i = 0; i < sides; i++) {
+      const j = (i + 1) % sides;
+      const idx = [k * sides + i, k * sides + j, (k + 1) * sides + j, (k + 1) * sides + i];
+      const fc = idx.reduce<V3>((s, v) => [s[0] + verts[v]![0] / 4, s[1] + verts[v]![1] / 4, s[2] + verts[v]![2] / 4], [0, 0, 0]);
+      const a = verts[idx[0]!]!, b = verts[idx[1]!]!, d = verts[idx[3]!]!;
+      if (dt(crs(sub(b, a), sub(d, a)), sub(fc, mid)) < 0) idx.reverse();
+      faces.push({ idx, color: side(i) });
+    }
+  }
+  // 兩端封口：法線朝外（頭端朝 -方向、尾端朝 +方向）
+  for (const [k, out] of [[0, -1], [n - 1, 1]] as const) {
+    const idx = Array.from({ length: sides }, (_, i) => k * sides + i);
+    const d = dirs[k === 0 ? 0 : dirs.length - 1]!;
+    const a = verts[idx[0]!]!, b = verts[idx[1]!]!, c = verts[idx[2]!]!;
+    if (dt(crs(sub(b, a), sub(c, a)), d) * out < 0) idx.reverse();
+    faces.push({ idx, color: colors[1] ?? colors[0]! });
+  }
+  const mesh: Mesh = { verts, faces };
+  return diamond ? mesh : tone(mesh, colors, seed);
+}
+
+/** 沿一條折線的連續錐形體（半徑從 r0 漸變到 r1）：彎刀、弓臂、彎曲的杖頭、鉤爪、鎖鏈 */
 export function chain(points: readonly V3[], r0: [number, number], r1: [number, number], colors: Tones, diamond = true): Mesh[] {
   const n = points.length - 1;
-  const lerp = (t: number): [number, number] => [r0[0] + (r1[0] - r0[0]) * t, r0[1] + (r1[1] - r0[1]) * t];
-  return points.slice(0, -1).map((p, i) => {
-    const a = lerp(i / n);
-    const b = lerp((i + 1) / n);
-    return diamond ? edge(p, points[i + 1]!, a, b, colors) : taper(p, points[i + 1]!, a, b, colors, 6, i, Math.PI / 6);
-  });
+  const radii = points.map((_, i): [number, number] => [r0[0] + ((r1[0] - r0[0]) * i) / n, r0[1] + ((r1[1] - r0[1]) * i) / n]);
+  return [diamond ? sweep(points, radii, colors) : sweep(points, radii, colors, 6, Math.PI / 6)];
 }
 
 // ─────────────────────────── 劍 ───────────────────────────
@@ -131,22 +202,22 @@ export function blade(o: BladeOptions): { meshes: Mesh[]; tip: V3 } {
         pts.push([0, s - L * k, z]);
       }
       const widths = o.shape === 'leaf' ? [0.8, 1.05, 1.2, 1.1, 0.8, 0.5] : [1, 1, 0.98, 0.94, 0.88, 0.8];
-      for (let i = 0; i < n; i++) meshes.push(edge(pts[i]!, pts[i + 1]!, [t, w * widths[i]!], [t * 0.95, w * widths[i + 1]!], o.colors));
       const end = pts[n]!;
       tip = [0, end[1] - 3.2, end[2] + (o.shape === 'curved' ? (o.curve ?? 3) * 0.35 : 0)];
-      meshes.push(edge(end, tip, [t * 0.9, w * widths[n]!], [0.03, 0.05], o.colors));
+      // 劍身連劍尖是一整條（轉折處不裂開）
+      meshes.push(sweep([...pts, tip], [...widths.map((h, i): [number, number] => [i ? t * 0.95 : t, w * h]), [0.03, 0.05]], o.colors));
       break;
     }
     case 'flame': {
       const n = 6;
-      let prev: V3 = [0, s, 0];
+      const pts: V3[] = [[0, s, 0]];
+      const radii: [number, number][] = [[t, w]];
       for (let i = 1; i <= n; i++) {
-        const next: V3 = [0, s - (L * i) / n, i === n ? 0 : (i % 2 ? 1 : -1) * w * 0.35];
-        meshes.push(edge(prev, next, [t, w * (1 - (i - 1) * 0.04)], [t, w * (1 - i * 0.04)], o.colors));
-        prev = next;
+        pts.push([0, s - (L * i) / n, i === n ? 0 : (i % 2 ? 1 : -1) * w * 0.35]);
+        radii.push([t, w * (1 - i * 0.04)]);
       }
-      tip = [0, prev[1] - 3.4, 0];
-      meshes.push(edge(prev, tip, [t, w * 0.76], [0.03, 0.05], o.colors));
+      tip = [0, pts[n]![1] - 3.4, 0];
+      meshes.push(sweep([...pts, tip], [...radii, [0.03, 0.05]], o.colors));
       break;
     }
     case 'crystal': {
@@ -165,8 +236,7 @@ export function blade(o: BladeOptions): { meshes: Mesh[]; tip: V3 } {
     case 'rift': {
       // 兩片平行的刃，中間裂開（裂縫由光芒填滿）
       for (const side of [1, -1]) {
-        meshes.push(edge([0, s, side * w * 0.55], [0, s - L, side * w * 0.45], [t, w * 0.42], [t, w * 0.36], o.colors));
-        meshes.push(edge([0, s - L, side * w * 0.45], [0, s - L - 3, side * w * 0.12], [t, w * 0.36], [0.03, 0.05], o.colors));
+        meshes.push(sweep([[0, s, side * w * 0.55], [0, s - L, side * w * 0.45], [0, s - L - 3, side * w * 0.12]], [[t, w * 0.42], [t, w * 0.36], [0.03, 0.05]], o.colors));
       }
       tip = [0, s - L - 3, 0];
       break;

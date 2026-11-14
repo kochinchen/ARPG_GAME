@@ -19,11 +19,45 @@ import { TileMapView } from '../render/views/TileMapView';
 import { BOSS_ARENAS } from '../render/themes';
 import type { DungeonTheme } from '../data/schema/floor';
 import { WeaponGlowView } from '../render/views/WeaponGlowView';
-import { lookByKey, mountFor, tierLook, UNIQUE_WEAPON_IDS, uniqueLook, type WeaponLook } from '../render/figure/weapons/WeaponLooks';
+import { HOLD, lookByKey as gameLookByKey, mountFor, tierLook, UNIQUE_WEAPON_IDS, uniqueLook, type WeaponLook } from '../render/figure/weapons/WeaponLooks';
+import { apply, jointRotation, placeMesh, type V3 } from '../render/figure/Poly3D';
+import AXE_BASE from '../render/figure/weapons/axeBase.json';
 import type { WeaponType } from '../data/schema/item';
 import { RARITIES, type Rarity } from '../data/schema/item';
 import { armorSpec, heroineOutfit, uniqueArmorSpec } from '../render/figure/gear/ArmorLooks';
 import type { GearTheme } from '../render/figure/gear/GearTheme';
+
+/**
+ * ?weapon=trellis:axe：主角拿 TRELLIS 生成的雙刃斧（重甲骷髏那把，設計者 2026-11-14 想看主角拿起來的樣子）。
+ * 縮到 T5 斧頭的長度（柄尾 +3 到斧頭頂 -22.5），座標同遊戲的斧頭（斧柄沿 -Y、斧刃往 ±Z），拿法同遊戲的斧頭（HOLD）。
+ */
+function trellisAxe(): WeaponLook {
+  const p = (AXE_BASE as unknown as { props: { axe: { verts: number[][]; faces: number[][] } } }).props.axe;
+  const ys = p.verts.map((v) => v[1]!);
+  const lo = Math.min(...ys);
+  const k = 25.5 / (Math.max(...ys) - lo);
+  const handle = p.verts.filter((v) => v[1]! < lo + (25.5 / k) * 0.3);
+  const cx = handle.reduce((a, v) => a + v[0]!, 0) / handle.length;
+  const cz = handle.reduce((a, v) => a + v[2]!, 0) / handle.length;
+  const verts = p.verts.map((v): V3 => [(v[2]! - cz) * k, 3 - (v[1]! - lo) * k, (v[0]! - cx) * k]);
+  const zMax = Math.max(...verts.map((v) => v[2]));
+  const edge = verts.filter((v) => v[2] > zMax * 0.85);
+  const top = edge.reduce((a, v) => (v[1] > a[1] ? v : a));
+  const bottom = edge.reduce((a, v) => (v[1] < a[1] ? v : a));
+  const head = verts.filter((v) => Math.abs(v[2]) > zMax * 0.3);
+  const focus: V3 = [0, head.reduce((a, v) => a + v[1], 0) / head.length, 0];
+  const rot = HOLD.axe;
+  const m = jointRotation(rot);
+  return {
+    kind: 'axe',
+    hand: 'right',
+    meshes: [placeMesh({ verts, faces: p.faces.map((f) => ({ idx: [f[0]!, f[1]!, f[2]!], color: f[3]! })) }, rot, [0, 0, 0])],
+    tip: apply(m, bottom),
+    axis: [apply(m, top), apply(m, bottom)],
+    focus: apply(m, focus),
+  };
+}
+const lookByKey = (key: string): WeaponLook | null => (key === 'trellis:axe' ? trellisAxe() : gameLookByKey(key));
 
 /** 畫面上的八個方向（欄）與對應的 World 面向 */
 const DIRECTIONS: { label: string; facing: Vec2 }[] = [

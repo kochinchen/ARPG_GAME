@@ -1,5 +1,6 @@
 import type { Joint } from '../FigureModel';
 import { facetize, loft, refine, tone, type Ring } from '../Facets';
+import { aiPauldronRings } from '../HeroineAI';
 import { lowSphere, prism, type Mesh, type V3 } from '../Poly3D';
 import { chain, darken, gem, lighten, taper, type Tones } from '../weapons/WeaponParts';
 
@@ -27,6 +28,8 @@ export interface StyledArmorSpec {
   shoulder?: Tones;
   /** 詞條小裝飾：肩上兩根小尖刺（荊棘） */
   spikes?: Tones;
+  /** 一般盔甲的階級（1～8）：肩甲與胸甲的細節依階級不同 */
+  tier?: number;
 }
 
 const FACETS = { size: 1.2, bump: 0.18, vary: 0.06 };
@@ -888,10 +891,12 @@ export interface StyledArmor {
 function plain(s: StyledArmorSpec): StyledArmor {
   const parts = new Map<Joint, Mesh[]>();
   const { mat, trim, glow, style = 'plate', pauldron = 1 } = s;
+  const tier = s.tier ?? 3;
   const shoulderMat = s.shoulder ?? mat;
   const plate: Tones = [lighten(mat[0]!, 0.14), mat[3]!, mat[2]!, mat[0]!];
   const chest: Mesh[] = [F(loft(OBSIDIAN_CHEST, style === 'chain' ? 18 : 14, mat, 1), 1, 0.12)];
   const top = (x: number, y: number) => frontZ(OBSIDIAN_CHEST, x, y) + 0.1;
+  const rivet = (x: number, y: number, colors: Tones, r = 0.28) => gem(r, [x, y, top(x, y) + 0.05], colors[0]!, [1, 1, 0.6], 5, 3);
   if (style !== 'cloth') {
     // 兩片胸板、中央一道細脊
     if (style === 'plate') {
@@ -903,20 +908,83 @@ function plain(s: StyledArmorSpec): StyledArmor {
     // 繫帶的 V 領
     for (const [i, y] of [4.6, 3.7, 2.8].entries()) chest.push(...line(top, [[-0.55 - (2 - i) * 0.1, y], [0.55 + (2 - i) * 0.1, y - 0.5]], trim, 0.1), ...line(top, [[0.55 + (2 - i) * 0.1, y], [-0.55 - (2 - i) * 0.1, y - 0.5]], trim, 0.1));
   }
+  // ── 各階的胸甲細節（設計者 2026-11-14：八階要看得出不同，但仍樸實） ──
+  // T2：斜背的皮帶；T4：領口一排鉚釘；T5：腹部多一圈甲片；T6：胸板周圍骨白鉚釘；T7：胸口的小日輪；T8：胸板上兩道 V 形甲線
+  if (tier === 2) chest.push(...line(top, [[-3.4, 5.2], [-1, 3.2], [1.4, 1.2], [3.6, -0.6]], s.shoulder ?? trim, 0.32));
+  if (tier === 4) for (const x of [-2.6, -1.6, 1.6, 2.6]) chest.push(rivet(x, x < 0 ? 5.3 + x * 0.12 : 5.3 - x * 0.12, trim));
+  if (tier === 5) chest.push(F(tone(prism(14, -0.6, -1.7, [3.75, 3.45], [3.6, 3.3], mat[1]!, [0, 0, 2.4]), plate, 7), 7, 0.1));
+  if (tier === 6) for (const x of [-1, 1]) for (const [dx, y] of [[1.1, 4.6], [3.1, 4.2], [3.6, 2.2], [2.6, 1]] as const) chest.push(rivet(x * dx, y, trim, 0.26));
+  if (tier === 7) chest.push(gem(0.95, [0, 2.2, top(0, 2.2) + 0.15], trim[0]!, [1, 1, 0.35], 10, 3), gem(0.5, [0, 2.2, top(0, 2.2) + 0.4], trim[2]!, [1, 1, 0.4], 6, 3));
+  if (tier === 8) for (const y of [2.1, 0.8]) chest.push(...[-1, 1].flatMap((x) => line(top, [[0, y - 0.8], [x * 1.6, y], [x * 3.1, y + 0.6]], trim, 0.13)));
   chest.push(tone(prism(14, -1.15, -0.8, [3.7, 3.4], [3.72, 3.42], trim[1]!, [0, 0, 2.4]), trim, 5));
-  chest.push(F(tone(prism(10, 5.7, 6.7, [3.5, 3], [3.25, 2.8], mat[1]!, [0, 0, 1.25]), mat, 4), 4, 0.08));
+  // 領口：高階的領子比較高（T5、T7、T8 是護頸）
+  const collar = tier === 5 || tier === 7 || tier === 8 ? 7.5 : 6.7;
+  chest.push(F(tone(prism(10, 5.7, collar, [3.5, 3], [3.25, 2.8], mat[1]!, [0, 0, 1.25]), mat, 4), 4, 0.08));
+  if (collar > 7) chest.push(tone(prism(10, collar - 0.05, collar + 0.22, [3.3, 2.85], [3.25, 2.8], trim[1]!, [0, 0, 1.25]), trim, 4));
   if (glow !== 0xffffff) chest.push(gem(0.5, [0, 4.1, top(0, 4.1) + 0.12], glow, [0.85, 1.1, 0.5], 6, 3));
   parts.set('chest', chest);
-  const k = 0.54 + pauldron * 0.2;
-  both((side) => {
-    const out = shoulder(side, shoulderMat, k, 30);
-    // 肩甲下緣的飾邊（高度跟著肩甲大小）
-    const y = -3.85 * k;
-    out.push(tone(prism(10, y, y - 0.25, [3.27 * k, 3 * k], [3.32 * k, 3.05 * k], trim[1]!, [side * 1.3, 0, 1.8]), trim, 34));
-    if (s.spikes) for (const dz of [-0.9, 0.9]) out.push(dense(taper([side * (1 + 2 * k * 0.5), 1.1 * k, 1.8 + dz], [side * (1.7 + 2 * k * 0.5), 2.7 * k, 1.8 + dz], [0.42, 0.42], [0.04, 0.04], s.spikes, 5, 36, 0.3), 36));
-    return out;
-  }, parts);
+  both((side) => plainShoulder(side, s, tier, shoulderMat, pauldron), parts);
   return { parts, hide: ['chest', 'pauldronL', 'pauldronR'] };
+}
+
+/**
+ * 一般盔甲的肩甲（設計者 2026-11-14：原本的小肩甲蓋不住藏起來的設計圖護肩，手臂上看得到破洞）：
+ * 先用袖子包住整個護肩的範圍（依 AI 版女主角的護肩形狀，aiPauldronRings），再依階級疊上肩蓋與甲片。
+ * T1 皮墊；T2 皮肩蓋＋鎖子袖；T3 鋼肩蓋＋兩片甲；T4 圓肩蓋＋鉚釘；T5 厚肩蓋＋冠脊＋三片甲；
+ * T6 稜角肩蓋＋骨白邊；T7 立起的護頸片＋三片甲；T8 四片外翻的尖甲。
+ */
+function plainShoulder(side: 1 | -1, s: StyledArmorSpec, tier: number, shoulderMat: Tones, pauldron: number): Mesh[] {
+  const { mat, trim } = s;
+  const rings = aiPauldronRings(side === 1 ? 'L' : 'R');
+  // 袖子：比護肩大一圈（前後至少 2.0、左右至少 1.5），中心前後取平均，避免護肩上的皮帶把形狀拉歪
+  const cz = rings.reduce((a, r) => a + r.cz, 0) / rings.length;
+  const sleeveRings: Ring[] = rings.map((r) => ({ y: r.y, cx: r.cx, cz, rx: Math.max(r.rx, 1.5) + 0.3, rz: Math.max(r.rz, 2) + 0.3 })).reverse();
+  const sleeveMat: Tones = tier === 1 ? shoulderMat : tier === 2 ? mat : [mat[1]!, mat[2]!, darken(mat[2]!, 0.15), mat[3]!];
+  const out: Mesh[] = [F(loft(sleeveRings, 12, sleeveMat, 31), 31, 0.1)];
+  const at = (y: number) => {
+    // 這個高度的袖子截面（內插）
+    const lo = [...sleeveRings].reverse().find((r) => r.y <= y) ?? sleeveRings[0]!;
+    return lo;
+  };
+  const yTop = rings[0]!.y;
+  const yBottom = rings[rings.length - 1]!.y;
+  const capMat = tier <= 2 ? shoulderMat : mat;
+  const k = 0.85 + pauldron * 0.2;
+  // 肩蓋：包住袖子的上端（中心在袖子頂下方，往下蓋過第一圈）；T1 是扁的皮墊；T6 是稜角（經線少）；其他是圓肩蓋
+  const flat = tier === 1 ? 0.5 : 0.8;
+  const R = Math.max(2.3, at(yTop - 1.2).rz + 0.35) * k;
+  const capC: V3 = [rings[1]!.cx + side * 0.15, yTop - 1.35, cz];
+  const lon = tier === 6 ? 5 : 8;
+  out.push(F(tone(lowSphere(R, capMat[0]!, capC, lon, 5, [0.95, flat, 1.05], (c) => c[1] > capC[1] - 0.35 * R), capMat, 32), 32, 0.16));
+  /** 肩蓋表面上的點：u = 往外（side）的比例、h = 高度比例、dz = 前後 */
+  const onCap = (u: number, h: number, dz: number): V3 => [capC[0] + side * u * R * 0.95, capC[1] + h * R * flat, cz + dz];
+  // 甲片：一圈圈往下、越下面越外翻
+  const lames = [0, 0, 2, 2, 3, 2, 3, 4][tier - 1]!;
+  for (let i = 0; i < lames; i++) {
+    const y0 = yTop - 1.4 - i * 1.15;
+    const r = at(y0 - 0.5);
+    const flare = 0.35 + i * 0.14;
+    const sides = tier === 8 ? 6 : 10;
+    out.push(F(tone(prism(sides, y0, y0 - 1.25, [r.rx + flare - 0.1, r.rz + flare - 0.1], [r.rx + flare + 0.12, r.rz + flare + 0.12], mat[0]!, [r.cx ?? 0, 0, cz]), mat, 33 + i), 33 + i, 0.12));
+    if (tier >= 3) out.push(tone(prism(sides, y0 - 1.2, y0 - 1.38, [r.rx + flare + 0.14, r.rz + flare + 0.14], [r.rx + flare + 0.16, r.rz + flare + 0.16], trim[1]!, [r.cx ?? 0, 0, cz]), trim, 40 + i));
+  }
+  // 袖口：皮革 / 鎖子袖的下緣一圈飾邊
+  const hem = at(yBottom + 0.1);
+  out.push(tone(prism(12, yBottom + 0.35, yBottom - 0.05, [hem.rx + 0.08, hem.rz + 0.08], [hem.rx + 0.1, hem.rz + 0.1], trim[1]!, [hem.cx ?? 0, 0, cz]), trim, 45));
+  // 各階的小特色
+  if (tier === 2) out.push(tone(prism(10, yTop - 1.3, yTop - 1.75, [at(yTop - 1.5).rx + 0.2, at(yTop - 1.5).rz + 0.2], [at(yTop - 1.5).rx + 0.2, at(yTop - 1.5).rz + 0.2], shoulderMat[2]!, [capC[0], 0, cz]), shoulderMat, 46));
+  if (tier === 4) for (const dz of [-1.1, 0, 1.1]) out.push(gem(0.26, onCap(0.8, 0.55, dz), trim[0]!, [1, 1, 1], 5, 3));
+  // T5、T8：肩蓋頂上一道前後向的冠脊
+  if (tier === 5 || tier === 8) out.push(F(taper(onCap(0.3, 0.97, -R * 0.75), onCap(0.3, 0.97, R * 0.75), [0.3, 0.5], [0.3, 0.42], [mat[3]!, mat[0]!, mat[2]!, mat[1]!], 4, 47, 0), 47, 0.08));
+  // T6：肩蓋外側兩根骨白短刺
+  if (tier === 6) out.push(...[-1, 1].map((dz) => tone(taper(onCap(0.75, 0.45, dz * 1.1), onCap(1.15, 0.75, dz * 1.4), [0.3, 0.3], [0.05, 0.05], trim, 4, 48, Math.PI / 4), trim, 48)));
+  // T7：肩蓋靠脖子那側立起來的護頸片
+  if (tier === 7) {
+    const [x, y] = [capC[0] - side * R * 0.35, capC[1] + R * flat * 0.6];
+    out.push(F(tone(prism(8, y, y + 1.5, [0.4, R * 0.85], [0.35, R * 0.75], mat[0]!, [x, 0, cz]), mat, 49), 49, 0.08), tone(prism(8, y + 1.45, y + 1.65, [0.42, R * 0.77], [0.4, R * 0.75], trim[1]!, [x, 0, cz]), trim, 49));
+  }
+  if (s.spikes) for (const dz of [-0.9, 0.9]) out.push(dense(taper(onCap(0.4, 0.85, dz), onCap(0.75, 1.9, dz), [0.42, 0.42], [0.04, 0.04], s.spikes, 5, 36, 0.3), 36));
+  return out;
 }
 
 const LOOKS: Record<ArmorLook, (s: StyledArmorSpec) => StyledArmor> = { obsidian, carapace, robe, barbed, abyss, undying, fallen, spider, sovereign, plain };

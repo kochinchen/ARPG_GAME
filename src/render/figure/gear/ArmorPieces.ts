@@ -137,6 +137,8 @@ export interface ArmorSpec {
   glow?: number;
   /** 專屬造型的布條顏色 */
   cloth?: Tones;
+  /** 一般盔甲（look: 'plain'）的階級 1～8 */
+  tier?: number;
 }
 
 /** 胸甲（chest 關節）：包住胸口的外殼、領口、中央稜線、甲殼、肋條、紋章、符文 */
@@ -473,7 +475,7 @@ export interface ShieldSpec {
 }
 
 /** 盾面的輪廓（Y = 高、Z = 寬；盾面朝 +X） */
-function shieldOutline(shape: ShieldSpec['shape'], k: number): [number, number][] {
+export function shieldOutline(shape: ShieldSpec['shape'], k: number): [number, number][] {
   const scaled = (pts: [number, number][]) => pts.map(([y, z]) => [y * k, z * k] as [number, number]);
   const ring = (n: number, ry: number, rz: number) => Array.from({ length: n }, (_, i) => [Math.cos((i / n) * Math.PI * 2) * ry, Math.sin((i / n) * Math.PI * 2) * rz] as [number, number]);
   switch (shape) {
@@ -532,8 +534,13 @@ export function shieldMeshes(s: ShieldSpec): Mesh[] {
   return out;
 }
 
-/** 盾牌拿在左手（weaponL 關節）：盾面朝外側偏前、在前臂旁；放大 1.9 × 1.7 倍（設計者 2026-10-22 加大到 1.7 倍） */
-export const placeShield = (meshes: Mesh[]): Mesh[] => scaleMeshes(meshes, 1.9 * 1.7, [0, 0, 0]).map((m) => placeMesh(m, [0, -1, 0], [2, 4.6, 1.3]));
+/**
+ * 盾牌拿在左手（weaponL 關節 = 拳頭）：想像盾牌背面有把手，手握著把手往前伸（設計者 2026-11-14：原本貼在前臂旁、會壓到臉）。
+ * 盾面（+X）朝手指方向（-Y），盾牌的高（Y）沿關節的 +Z（手臂往前伸時朝上），寬（Z）沿 -X；把手（原點）在拳頭前一點。
+ * 放大 1.9 × 1.7 倍（設計者 2026-10-22）。手臂的角度見 PolyFigure.shieldArm（盾面與地板約 100 度）。
+ */
+export const placeShield = (meshes: Mesh[]): Mesh[] =>
+  scaleMeshes(meshes, 1.9 * 1.7, [0, 0, 0]).map((m) => mapVerts(m, ([x, y, z]) => [-z, -x - 0.4, y]));
 
 export function scaleMeshes(meshes: readonly Mesh[], s: number, [ox, oy, oz]: V3): Mesh[] {
   return meshes.map((m) => mapVerts(m, ([x, y, z]) => [x * s + ox, y * s + oy, z * s + oz]));

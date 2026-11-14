@@ -206,7 +206,7 @@ function warden(c: Ctx): void {
   c.meshes.push(slab([0, Y, -1], [0, Y, -s * 0.5], 1.25, 1.4, trim, 1.3, 1.45, 1));
   c.meshes.push(gem(0.6, [1.35, Y, -s * 0.32], glow, [0.8, 1.3, 1.3], 6, 4), gem(0.6, [-1.35, Y, -s * 0.32], glow, [0.8, 1.3, 1.3], 6, 4));
   const hang: V3[] = [[0, Y + 1.5, -s * 0.36], [0, Y + 3, -s * 0.4], [0, Y + 4.4, -s * 0.36], [0, Y + 5.6, -s * 0.38]];
-  for (let j = 0; j < hang.length - 1; j++) c.meshes.push(taper(hang[j]!, hang[j + 1]!, [0.18, 0.18], [0.18, 0.18], spikes, 6, j, Math.PI / 6));
+  c.meshes.push(...chain(hang, [0.18, 0.18], [0.18, 0.18], spikes, false));
   c.meshes.push(gem(0.75, [0, Y + 6.4, -s * 0.38], 0xd8d0b8, [0.95, 1, 0.95], 6, 4), gem(0.2, [0.6, Y + 6.3, -s * 0.38], glow, [0.5, 1, 1], 4, 3), gem(0.2, [-0.6, Y + 6.3, -s * 0.38], glow, [0.5, 1, 1], 4, 3));
   c.meshes.push(edge([0, Y - 1.7, 0], [0, Y - 1.7 - s * 0.35, 0], [0.7, 0.75], [0.05, 0.06], trim));
   butt(c, 1.8);

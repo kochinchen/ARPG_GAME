@@ -193,15 +193,82 @@ function plaque(c: V3, trim: Tones, lit: Tones): Mesh[] {
 
 // ─────────────────────────── 紅 風暴之冠 ───────────────────────────
 
-/** 拿掉盔殼正面的臉部（開放式頭盔：臉從開口露出來） */
-function openFace(m: Mesh, below: number, angle = 1.15): Mesh {
-  return {
-    ...m,
-    faces: m.faces.filter((f) => {
-      const c = [0, 1, 2].map((k) => f.idx.reduce((a, i) => a + m.verts[i]![k]!, 0) / f.idx.length);
-      return !(c[1]! < below && Math.atan2(Math.abs(c[0]!), c[2]! + 0.4) < angle);
-    }),
+/**
+ * 露臉的盔殼：同 Facets.loft 的放樣，但臉孔開口（y < below、正面左右各 angle 以內，角度以 atan2(|x|, z + 0.4) 量）
+ * 用弧形的截面做出來，開口的邊是乾淨的線（設計者 2026-11-14：原本刪掉整格四邊形，臉頰旁邊的邊緣是鋸齒狀）。
+ * 開口上緣在 y = below 的那一圈；邊緣的頂點不起伏，其他頂點同 loft 有 ±3% 的固定起伏。
+ */
+function openLoft(rings: readonly Ring[], sides: number, colors: Tones, seed: number, below: number, angle = 1.15): Mesh {
+  // 相鄰截面之間插一層（同 loft），再在 below 的高度插一圈（開口上緣）
+  const all: Ring[] = [];
+  const lerp = (a: Ring, b: Ring, t: number): Ring => ({ y: a.y + (b.y - a.y) * t, rx: a.rx + (b.rx - a.rx) * t, rz: a.rz + (b.rz - a.rz) * t, cx: (a.cx ?? 0) + ((b.cx ?? 0) - (a.cx ?? 0)) * t, cz: (a.cz ?? 0) + ((b.cz ?? 0) - (a.cz ?? 0)) * t });
+  rings.forEach((r, k) => {
+    const next = rings[k + 1];
+    all.push(r);
+    if (!next) return;
+    for (const t of [0.5]) all.push(lerp(r, next, t));
+  });
+  const cut = all.findIndex((r, k) => k > 0 && all[k - 1]!.y < below && r.y >= below);
+  if (cut > 0) all.splice(cut, 0, lerp(all[cut - 1]!, all[cut]!, (below - all[cut - 1]!.y) / (all[cut]!.y - all[cut - 1]!.y)));
+  // 截面上的點：θ = 0 在正面（+Z），往 +X 轉
+  const at = (r: Ring, th: number, j = 1): V3 => [(r.cx ?? 0) + Math.sin(th) * r.rx * j, r.y, (r.cz ?? 0) + Math.cos(th) * r.rz * j];
+  /** 這一圈開口的半角（θ）：atan2(|x|, z + 0.4) = angle 的地方 */
+  const half = (r: Ring) => {
+    let lo = 0, hi = Math.PI;
+    for (let i = 0; i < 30; i++) {
+      const m = (lo + hi) / 2;
+      const p = at(r, m);
+      if (Math.atan2(Math.abs(p[0]), p[2] + 0.4) < angle) lo = m;
+      else hi = m;
+    }
+    return lo;
   };
+  const verts: V3[] = [];
+  const faces: Mesh['faces'] = [];
+  const c0 = colors[0]!;
+  /** 一段截面連到下一段（同樣點數）；closed = 整圈 */
+  const strip = (a: number, b: number, n: number, closed: boolean, k: number) => {
+    for (let i = 0; i < (closed ? n : n - 1); i++) {
+      const j = (i + 1) % n;
+      const [p, q, r2, s2] = [a + i, a + j, b + j, b + i];
+      if ((i + k) % 2) faces.push({ idx: [p, q, r2], color: c0 }, { idx: [p, r2, s2], color: c0 });
+      else faces.push({ idx: [p, q, s2], color: c0 }, { idx: [q, r2, s2], color: c0 });
+    }
+  };
+  const jit = (k: number, i: number, edge: boolean) => (edge ? 1 : 0.97 + rand(k * 31 + i + seed * 7) * 0.06);
+  let prev = -1;
+  let prevOpen = false;
+  all.forEach((r, k) => {
+    const open = r.y < below - 1e-6;
+    const start = verts.length;
+    const last = k === all.length - 1;
+    if (open) {
+      // 開口以下：從開口的一邊繞過後腦到另一邊（sides + 1 點，不閉合）
+      const h = half(r);
+      for (let i = 0; i <= sides; i++) verts.push(at(r, h + ((Math.PI * 2 - 2 * h) * i) / sides, jit(k, i, i === 0 || i === sides || k === 0)));
+    } else {
+      for (let i = 0; i < sides; i++) verts.push(at(r, (Math.PI * 2 * i) / sides, jit(k, i, last || Math.abs(r.y - below) < 1e-6)));
+    }
+    if (prev >= 0 && open === prevOpen) strip(prev, start, open ? sides + 1 : sides, !open, k);
+    prev = start;
+    prevOpen = open;
+  });
+  // 頭頂封口
+  const top = all.length - 1;
+  const topStart = verts.length - sides;
+  const apex = verts.push([all[top]!.cx ?? 0, all[top]!.y + 0.2, all[top]!.cz ?? 0]) - 1;
+  for (let i = 0; i < sides; i++) faces.push({ idx: [topStart + i, topStart + ((i + 1) % sides), apex], color: c0 });
+  // 讓每個面的頂點順序朝外（同 loft：以中心判斷）
+  const c = verts.reduce<V3>((s, v) => [s[0] + v[0], s[1] + v[1], s[2] + v[2]], [0, 0, 0]).map((x) => x / verts.length) as V3;
+  for (const f of faces) {
+    const [a, b, d] = [verts[f.idx[0]!]!, verts[f.idx[1]!]!, verts[f.idx[2]!]!];
+    const u: V3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v: V3 = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+    const n: V3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const fc = f.idx.reduce<V3>((s, i) => [s[0] + verts[i]![0], s[1] + verts[i]![1], s[2] + verts[i]![2]], [0, 0, 0]).map((x) => x / 3) as V3;
+    if (n[0] * (fc[0] - c[0]) + n[1] * (fc[1] - c[1]) + n[2] * (fc[2] - c[2]) < 0) f.idx.reverse();
+  }
+  return tone({ verts, faces }, colors, seed);
 }
 
 /** 鋸齒狀的閃電晶片：從 a 往 dir 長 len，中間折兩次 */
@@ -220,7 +287,7 @@ function stormCrown(s: StyledHelmetSpec): StyledHelmet {
   // 銀尖、頰甲、眉帶用亮銀色（trim），盔殼是暗一點的鋼藍（mat）
   const plate: Tones = [trim[0]!, trim[1]!, trim[2]!, trim[3]!];
   const z = (x: number, y: number) => frontZ(KNIGHT_SHELL, x, y);
-  const head: Mesh[] = [F(openFace(loft(KNIGHT_SHELL, 16, mat, 3), 7.6), 3, 0.14)];
+  const head: Mesh[] = [F(openLoft(KNIGHT_SHELL, 24, mat, 3, 7.6), 3, 0.14)];
 
   // 臉孔開口上緣的眉帶（往中央收成 V），中間一顆大藍晶
   head.push(tone(prism(16, 7.3, 7.9, [5.05, 5.75], [4.85, 5.55], trim[1]!, [0, 0, -0.6]), trim, 14));
@@ -293,7 +360,7 @@ function plumed(s: StyledHelmetSpec): StyledHelmet {
   const leaf: Tones = [lighten(plume[0]!, 0.18), plume[0]!, plume[2]!, plume[3]!];
   const plate: Tones = [lighten(mat[0]!, 0.18), mat[0]!, mat[2]!, mat[3]!];
   const z = (x: number, y: number) => frontZ(KNIGHT_SHELL, x, y);
-  const head: Mesh[] = [F(openFace(loft(KNIGHT_SHELL, 16, mat, 8), 7.6), 8, 0.14)];
+  const head: Mesh[] = [F(openLoft(KNIGHT_SHELL, 24, mat, 8, 7.6), 8, 0.14)];
 
   // 盔殼的金色環帶（同墮落騎士盔；下緣的金邊會橫過喉嚨，開放式不加）、額前往下收的尖角
   head.push(tone(prism(16, 6.9, 7.35, [5.05, 5.75], [4.75, 5.45], trim[1]!, [0, 0, -0.6]), trim, 14));
@@ -342,7 +409,7 @@ function plumed(s: StyledHelmetSpec): StyledHelmet {
 // ─────────────────────────── 開放式（臉露出來）的共用零件 ───────────────────────────
 
 /** 墮落騎士盔的盔殼拿掉面甲 */
-const openShell = (mat: Tones, seed = 3) => F(openFace(loft(KNIGHT_SHELL, 16, mat, seed), 7.6), seed, 0.14);
+const openShell = (mat: Tones, seed = 3) => F(openLoft(KNIGHT_SHELL, 24, mat, seed, 7.6), seed, 0.14);
 const shellZ = (x: number, y: number) => frontZ(KNIGHT_SHELL, x, y);
 
 /** 盔殼的環帶（額頭以上）與兩側往下的線 */
@@ -597,6 +664,6 @@ export function styledHelmet(s: StyledHelmetSpec): StyledHelmet {
   // 物品圖示：沒有戴在頭上，露臉的頭盔底下墊一層完整的盔殼（兩頰與後腦勺做滿），開口只留臉、裡面是深色
   const scaled = (k: number) => KNIGHT_SHELL.map((r) => ({ ...r, rx: r.rx * k, rz: r.rz * k }));
   const dark = darken(s.mat[2]!, 0.35);
-  const under = fitHead([F(openFace(loft(scaled(0.97), 16, s.mat, 8), 6.6, 0.62), 8, 0.14), tone(loft(scaled(0.92), 16, [dark, dark, dark, dark], 9), [dark, darken(dark, 0.1)], 9)]);
+  const under = fitHead([F(openLoft(scaled(0.97), 24, s.mat, 8, 6.6, 0.62), 8, 0.14), tone(loft(scaled(0.92), 16, [dark, dark, dark, dark], 9), [dark, darken(dark, 0.1)], 9)]);
   return { ...helmet, parts: new Map([...helmet.parts].map(([j, meshes]) => [j, j === 'head' ? [...under, ...meshes] : meshes])) };
 }

@@ -5,6 +5,9 @@ import type { ItemInstance } from '../../../game/items/ItemInstance';
 import { refine } from '../Facets';
 import { apply, jointRotation, placeMesh, stretchMeshes, type Mesh, type V3 } from '../Poly3D';
 import { SWORD_CANT } from '../heroine/HeroineWeapon';
+import { BASE_MESHES, trellisAxe } from './TrellisAxes';
+import { blenderSword } from './BlenderSwords';
+import { blenderBow, blenderStaff } from './BlenderBowStaff';
 import type { WeaponMount } from '../PolyFigure';
 import type { Joint } from '../FigureModel';
 import {
@@ -119,9 +122,9 @@ function axeLook(s: AxeOptions): RawLook {
   return { meshes: a.meshes, tip: a.edgeBottom, axis: [a.edgeTop, a.edgeBottom], focus: a.head };
 }
 
-function bowLook(s: BowOptions): RawLook {
+function bowLook(s: BowOptions, build: typeof bow = bow): RawLook {
   // 以握點為中心整把放大；代表物件鑲在握把正中央
-  const b = s.style ? styledBow({ ...s, style: s.style }) : bow(s);
+  const b = s.style ? styledBow({ ...s, style: s.style }) : build(s);
   const k = (v: V3): V3 => scaleAround(v, [0, 0, 0], BOW_SCALE);
   const grip: V3 = [0, 0, s.bend * 0.25];
   return {
@@ -136,10 +139,10 @@ function bowLook(s: BowOptions): RawLook {
 /** 法杖的握點在杖身從下算起的比例 */
 const STAFF_GRIP = 2 / 3;
 
-function staffLook(s: StaffOptions): RawLook {
+function staffLook(s: StaffOptions, build: typeof staff = staff): RawLook {
   // 杖頭（杖身末端以外的零件：套環、寶珠、尖角）以杖身末端為中心放大
   const styled = s.style ? styledStaff({ ...s, style: s.style }) : null;
-  const st = styled ?? staff(s);
+  const st = styled ?? build(s);
   const end: V3 = [0, 1 - s.length, 0];
   const isHead = (m: Mesh) => m.verts.every((v) => v[1] <= end[1] + 0.01);
   // 橘 / 紅的基本款杖頭照設計稿再大一點
@@ -338,18 +341,55 @@ export const HOLD: Record<WeaponType, V3> = {
 
 function build(spec: Spec, emblem?: Emblem): WeaponLook {
   const raw = spec.kind === 'sword' ? swordLook(spec.spec) : spec.kind === 'axe' ? axeLook(spec.spec) : spec.kind === 'bow' ? bowLook(spec.spec) : staffLook(spec.spec);
+  return hold(spec.kind, raw, emblem);
+}
+
+/**
+ * 試作（設計者 2026-11-14）：底稿改出來的各階級武器（劍：Blender 建的 BlenderSwords.ts；斧：TRELLIS 生成的 TrellisAxes.ts），
+ * 弓、杖：Blender 建的 BlenderBowStaff.ts（弓梢裝飾與杖頭仍是程式畫的）。大小、配色、拿法、詞綴主題同 themedLook。
+ * 武器預覽頁（weapon-viewer.html）用，遊戲還沒換。
+ */
+export function baseModelLook(kind: WeaponType, tier: number, rarity: Rarity = 'normal', themes: readonly GearTheme[] = []): WeaponLook {
+  const key = `base:${kind}:${tier}:${rarity}:${themes.join(',')}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const list = TIERS[kind];
+  let spec = list[Math.min(list.length, Math.max(1, tier)) - 1]!;
+  const themed = rarity !== 'normal' && themes.length > 0;
+  if (themed) spec = themedSpec(spec, rarity, themes);
+  let look: WeaponLook;
+  if (spec.kind === 'sword') {
+    const b = blenderSword(spec.spec, SWORD_LENGTH_SCALE);
+    look = hold('sword', { meshes: b.meshes, tip: b.tip, axis: [[0, -3, 0], b.tip] }, undefined, 'program');
+  } else if (spec.kind === 'axe') {
+    const a = trellisAxe({ ...spec.spec, size: spec.spec.size * AXE_HEAD_SCALE });
+    look = hold('axe', { meshes: a.meshes, tip: a.edgeBottom, axis: [a.edgeTop, a.edgeBottom], focus: a.head }, undefined, 'program');
+  } else if (spec.kind === 'bow') look = hold('bow', bowLook(spec.spec, blenderBow), undefined, 'program');
+  else look = hold('staff', staffLook(spec.spec, blenderStaff), undefined, 'program');
+  if (themed) {
+    const { main } = themeColors(themes);
+    const style = THEMES[main ?? themes[0]!];
+    look = { ...look, glow: { color: style.color, particle: style.particle } };
+  }
+  cache.set(key, look);
+  return look;
+}
+
+/** 轉成拿在手上的角度（HOLD），代表物件鑲上去；facets = 每個零件加上細小的構面（'program' = 底稿的網格除外） */
+function hold(kind: WeaponType, raw: RawLook, emblem?: Emblem, facets: boolean | 'program' = true): WeaponLook {
   // 代表物件（橘 / 紅）：鑲在造型指定的位置；沒有指定位置的舊造型放在光芒的聚焦點
   if (emblem) {
     const b = raw.badge ?? { at: raw.focus ?? raw.axis[0], size: 1, depth: 2.4, rot: 0 };
     raw.meshes = [...raw.meshes, ...emblemMeshes(emblem, b.at, b.size, b.depth, b.rot)];
   }
-  const rot = HOLD[spec.kind];
+  const rot = HOLD[kind];
   const m = jointRotation(rot);
   return {
-    kind: spec.kind,
-    hand: spec.kind === 'bow' ? 'left' : 'right',
+    kind,
+    hand: kind === 'bow' ? 'left' : 'right',
     meshes: raw.meshes.map((part, i) => {
-      const mesh = refine(part, { ...WEAPON_FACETS, seed: i });
+      const fine = facets === true || (facets === 'program' && !BASE_MESHES.has(part));
+      const mesh = fine ? refine(part, { ...WEAPON_FACETS, seed: i }) : part;
       const placed = placeMesh(mesh, rot, [0, 0, 0]);
       if (mesh.lod) placed.lod = mesh.lod;
       return placed;

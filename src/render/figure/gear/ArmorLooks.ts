@@ -90,14 +90,14 @@ const HELMETS: HelmetSpec[] = [
 ];
 
 const ARMORS: ArmorSpec[] = [
-  { mat: CLOTH, trim: HIDE_DARK, style: 'cloth', pauldron: 0.2, pauldronMat: HIDE, look: 'plain' },
-  { mat: PLAIN_IRON, trim: HIDE_DARK, style: 'chain', pauldron: 0.5, pauldronMat: HIDE, look: 'plain' },
-  { mat: PLAIN_STEEL, trim: GOLD, style: 'plate', pauldron: 1, look: 'plain' },
-  { mat: PLAIN_SILVER, trim: PLAIN_SILVER_TRIM, style: 'plate', pauldron: 1.1, emblem: 0x4aa8ff, look: 'plain' },
-  { mat: BLACK_STEEL, trim: DARK_STEEL, style: 'plate', pauldron: 1.45, look: 'plain' },
-  { mat: PLAIN_BLOOD, trim: BONE, style: 'plate', pauldron: 1.1, look: 'plain' },
-  { mat: PLAIN_ANCIENT, trim: GOLD, style: 'plate', pauldron: 1.3, look: 'plain' },
-  { mat: ABYSS, trim: VOID, style: 'plate', pauldron: 1.5, look: 'plain' },
+  { mat: CLOTH, trim: HIDE_DARK, style: 'cloth', pauldron: 0.2, pauldronMat: HIDE, look: 'plain', tier: 1 },
+  { mat: PLAIN_IRON, trim: HIDE_DARK, style: 'chain', pauldron: 0.5, pauldronMat: HIDE, look: 'plain', tier: 2 },
+  { mat: PLAIN_STEEL, trim: GOLD, style: 'plate', pauldron: 1, look: 'plain', tier: 3 },
+  { mat: PLAIN_SILVER, trim: PLAIN_SILVER_TRIM, style: 'plate', pauldron: 1.1, emblem: 0x4aa8ff, look: 'plain', tier: 4 },
+  { mat: BLACK_STEEL, trim: DARK_STEEL, style: 'plate', pauldron: 1.45, look: 'plain', tier: 5 },
+  { mat: PLAIN_BLOOD, trim: BONE, style: 'plate', pauldron: 1.1, look: 'plain', tier: 6 },
+  { mat: PLAIN_ANCIENT, trim: GOLD, style: 'plate', pauldron: 1.3, look: 'plain', tier: 7 },
+  { mat: ABYSS, trim: VOID, style: 'plate', pauldron: 1.5, look: 'plain', tier: 8 },
 ];
 
 const BOOTS: BootSpec[] = [
@@ -297,7 +297,8 @@ const along = (meshes: Mesh[], k: number): Mesh[] => stretchMeshes(meshes, [1, k
 /** 舊版女主角的長度（裝備零件依這些長度設計） */
 const OLD = { forearm: FOREARM_LENGTH, chest: 10.4, waist: 6.2 };
 
-export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; gloves?: GloveSpec; boots?: BootSpec; shield?: ShieldSpec }): OutfitParts {
+/** shieldBuild：預覽頁換成底稿版的盾牌（BlenderShield） */
+export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; gloves?: GloveSpec; boots?: BootSpec; shield?: ShieldSpec }, shieldBuild: (s: ShieldSpec) => Mesh[] = shieldMeshes): OutfitParts {
   const parts = new Map<Joint, Mesh[]>();
   const hide = new Set<string>();
   const skinColors = new Map<number, number>();
@@ -317,7 +318,7 @@ export function heroineOutfit(specs: { helmet?: HelmetSpec; armor?: ArmorSpec; g
     hide.add('handL').add('handR');
   }
   // 盾牌拿在左手（只會和劍、斧一起裝備；弓也在左手，但兩者不會同時出現）
-  if (shield) parts.set('weaponL', placeShield(shieldMeshes(shield)));
+  if (shield) parts.set('weaponL', placeShield(shieldBuild(shield)));
   if (helmet?.look) {
     // 橘 / 紅的專屬造型：連同頭與脖子一起換掉（直接依 AI 版女主角的關節座標設計，不用縮放）
     const styled = styledHelmetFor(helmet)!;
@@ -387,6 +388,7 @@ export function styledArmorFor(armor: ArmorSpec): StyledArmor | undefined {
     glow: armor.glow ?? armor.emblem ?? 0xffffff,
     style: armor.style,
     pauldron: armor.pauldron,
+    ...(armor.tier ? { tier: armor.tier } : {}),
     ...(armor.cloth ? { cloth: armor.cloth } : {}),
     ...(armor.pauldronMat ? { shoulder: armor.pauldronMat } : {}),
     ...(armor.spikes ? { spikes: armor.spikeColors ?? DARK_STEEL } : {}),

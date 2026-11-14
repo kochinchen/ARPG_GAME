@@ -338,6 +338,29 @@ export function aiArmShape(side: ArmSide, y: number): { cx: number; cz: number; 
   return { cx: x.c, cz: z.c, rx: x.r, rz: z.r };
 }
 
+/**
+ * 設計圖的護肩（upperArm 關節的區域座標，遊戲單位）：一般盔甲會把它藏起來換上自己的肩甲，
+ * 所以肩甲至少要蓋住這個範圍，否則藏起來的地方會變成破洞（設計者 2026-11-14）。
+ */
+export function aiPauldronShape(side: ArmSide): { cx: number; cz: number; rx: number; rz: number; top: number; bottom: number } {
+  const pts = regionPoints(`pauldron${side}`, `upperArm${side}`);
+  const [x, z] = [bounds(pts, 0), bounds(pts, 2)];
+  const ys = pts.map((p) => p[1]);
+  return { cx: x.c, cz: z.c, rx: x.r, rz: z.r, top: Math.max(...ys), bottom: Math.min(...ys) };
+}
+
+/** 護肩範圍沿上臂切成 n 圈（由上往下）：每圈的高度、中心與半徑（一般盔甲的袖子依這個形狀包住手臂） */
+export function aiPauldronRings(side: ArmSide, n = 7): { y: number; cx: number; cz: number; rx: number; rz: number }[] {
+  const pts = regionPoints(`pauldron${side}`, `upperArm${side}`);
+  const { top, bottom } = aiPauldronShape(side);
+  return Array.from({ length: n }, (_, i) => {
+    const y = top - 0.4 - ((top - 0.4 - bottom) * i) / (n - 1);
+    const band = pts.filter((p) => Math.abs(p[1] - y) <= 0.8);
+    const [x, z] = [bounds(band.length ? band : pts, 0), bounds(band.length ? band : pts, 2)];
+    return { y, cx: x.c, cz: z.c, rx: x.r, rz: z.r };
+  });
+}
+
 /** 手掌的外形（hand 關節的區域座標，遊戲單位）：手腕到指根之間的中心與半徑 */
 export function aiHandShape(side: ArmSide): { cx: number; cz: number; rx: number; rz: number } {
   const pts = regionPoints(`hand${side}`, `hand${side}`).filter((p) => p[1] <= 0.3 && p[1] > -2);
