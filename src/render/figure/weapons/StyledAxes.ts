@@ -12,7 +12,7 @@ import { chain, darken, edge, gem, GOLD, lighten, taper, type AxeOptions, type A
  */
 export type StyledAxeOptions = AxeOptions & { style: AxeStyle };
 
-interface Ctx {
+export interface Ctx {
   o: StyledAxeOptions;
   /** 斧頭中心的 y */
   Y: number;
@@ -48,17 +48,17 @@ function fan(c: Ctx, C: V3, pts: V3[], t: number, w0: number, colors: Tones): vo
   c.meshes.push(plate(outline, t * 0.45, t * 1.2, colors));
 }
 /** 斧柄與幾圈箍 */
-function haft(c: Ctx, r: number, rings: number[]): void {
+export function haft(c: Ctx, r: number, rings: number[]): void {
   c.meshes.push(rod(3, c.Y - 1.2, r, r * 0.95, c.o.haftColors));
   rings.forEach((y, i) => c.meshes.push(ring(y, r + 0.18, 0.45, c.trim, i + 1)));
 }
 /** 柄尾：一截尖錐＋發光寶石 */
-function butt(c: Ctx, len = 2, colors = c.trim): void {
+export function butt(c: Ctx, len = 2, colors = c.trim): void {
   c.meshes.push(taper([0, 3, 0], [0, 3.6, 0], [0.75, 0.75], [0.9, 0.9], colors, 6, 1, Math.PI / 6), edge([0, 3.6, 0], [0, 3.6 + len, 0], [0.7, 0.7], [0.04, 0.04], colors));
   c.meshes.push(gem(0.5, [0, 4.1, 0], c.glow, [1.6, 1.1, 1.6], 6, 4));
 }
 const socket = (c: Ctx, r: number, h = 1.7) => c.meshes.push(taper([0, c.Y + h, 0], [0, c.Y - h, 0], [r, r * 1.08], [r, r * 1.08], c.trim, 6, 1, Math.PI / 6));
-const badge = (c: Ctx, size = 1.3, half = 1.35): Badge => ({ at: [0, c.Y, 0], size, depth: depthFor(half), rot: Math.PI });
+export const badge = (c: Ctx, size = 1.3, half = 1.35): Badge => ({ at: [0, c.Y, 0], size, depth: depthFor(half), rot: Math.PI });
 
 // ─────────────────────────── 橘：四種基本款 ───────────────────────────
 

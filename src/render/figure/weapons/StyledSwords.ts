@@ -2,6 +2,7 @@ import type { Mesh, V3 } from '../Poly3D';
 import { depthFor, glowTones, ring, rod, type Badge } from './StyledWeapons';
 import { chain, darken, edge, gem, GOLD, lighten, sweep, taper, type Tones } from './WeaponParts';
 import type { SwordSpec, SwordStyle } from './WeaponSpec';
+import { abyssSovereignSword, trellisBlade } from './TrellisSwords';
 
 /**
  * 橘 / 紅劍的造型：設計稿 art/gear/swords_unique/concept（橘劍四種基本款.png、紅劍六把.png）。
@@ -38,7 +39,9 @@ interface Sec {
   t: number;
 }
 /** 依截面串起劍身（菱形截面，看得出刃）；有 tip 就連劍尖一起，整條是一個網格，轉折處不會裂開 */
-const blade = (secs: Sec[], colors: Tones, tip?: V3): Mesh[] => [
+/** 劍身改用 TRELLIS 底稿變形（TrellisSwords.trellisBlade）；styledSword 的 trellis 參數決定，建造期間有效 */
+let useTrellis = false;
+const blade = (secs: Sec[], colors: Tones, tip?: V3): Mesh[] => useTrellis ? [trellisBlade(secs, { colors }, tip)] : [
   sweep(
     [...secs.map((a): V3 => [0, a.y, a.c ?? 0]), ...(tip ? [tip] : [])],
     [...secs.map((a): [number, number] => [a.t, a.h]), ...(tip ? [[0.03, 0.05] as [number, number]] : [])],
@@ -136,7 +139,8 @@ function bone(c: Ctx): Built {
   const n = ws.length - 1;
   const pts: V3[] = ws.map((_, i) => [0, Y0 - (L * i) / n, (i % 2 ? 0.12 : -0.08) * w]);
   const tip: V3 = [0, Y0 - L - 3, w * 0.25];
-  c.meshes.push(sweep([...pts, tip], [...ws.map((k): [number, number] => [t, w * k]), [0.03, 0.05]], c.s.colors));
+  if (useTrellis) c.meshes.push(...blade(pts.map((p, i) => ({ y: p[1], c: p[2], h: w * ws[i]!, t })), c.s.colors, tip));
+  else c.meshes.push(sweep([...pts, tip], [...ws.map((k): [number, number] => [t, w * k]), [0.03, 0.05]], c.s.colors));
   for (const i of [1, 3]) {
     const y = Y0 - (L * (i + 0.5)) / n;
     c.meshes.push(edge([0, y + 0.45, 0], [0, y - 0.45, 0], [t * 1.6, w * 1.02], [t * 1.6, w * 0.98], c.grip));
@@ -365,6 +369,13 @@ function fallen(c: Ctx): Built {
 /** 深淵魔劍：細的脊骨中軸，兩側一根根往劍尖彎的翼骨倒刺（越往劍尖越短），中央熔紅的光；護手是一對往劍尖掃的巨角＋往柄頭彎的鉤 */
 function abyss(c: Ctx): Built {
   const { L, glow, trim, spikes } = c;
+  if (useTrellis) {
+    // 設計者 2026-11-15：直接用深淵統御者手上那把劍（TRELLIS 生成），不另外畫
+    // 統御者的劍比例上比較寬，長度收到 0.85，寬度才不會比其他紅劍大太多
+    const a = abyssSovereignSword(Y0 - L * 0.85 - 3.4);
+    c.meshes.push(...a.meshes);
+    return { tip: a.tip, badge: { at: a.guard, size: 1.2, depth: depthFor(0.9), rot: 0 } };
+  }
   const w = c.w * 1.7;
   const t = 0.32 * Math.max(1, w / 1.8);
   const ks = [0, 0.25, 0.5, 0.75, 0.9];
@@ -394,7 +405,7 @@ function abyss(c: Ctx): Built {
 
 const BUILDERS: Record<SwordStyle, (c: Ctx) => Built> = { crescent, knight, bone, parasite, rift, eternal, tomb, saint, fallen, abyss };
 
-export function styledSword(s: StyledSwordSpec, lengthScale: number): { meshes: Mesh[]; tip: V3; badge: Badge } {
+export function styledSword(s: StyledSwordSpec, lengthScale: number, trellis = false): { meshes: Mesh[]; tip: V3; badge: Badge } {
   const c: Ctx = {
     s,
     L: s.length * lengthScale,
@@ -405,6 +416,12 @@ export function styledSword(s: StyledSwordSpec, lengthScale: number): { meshes: 
     grip: s.grip ?? [0x4a3029, 0x3f2923, 0x352320],
     meshes: [],
   };
-  const b = BUILDERS[s.style](c);
+  useTrellis = trellis;
+  let b: Built;
+  try {
+    b = BUILDERS[s.style](c);
+  } finally {
+    useTrellis = false;
+  }
   return { meshes: c.meshes, ...b };
 }

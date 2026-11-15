@@ -16,7 +16,7 @@ import { ThreeWorld } from '../render/three/ThreeWorld';
  * 開發用：裝備預覽（http://localhost:5173/weapon-viewer.html）。
  * 九種裝備（劍、斧、弓、杖、盾、頭盔、盔甲、手套、鞋子）各 T1～T8，可加詞綴主題（換色、變形），或從右邊清單選橘 / 紅裝備。
  * 左邊：武器懸在空中放大轉動；防具是只穿那一件的女主角在轉。右邊：女主角穿著所有選好的裝備，可走跑、揮擊。
- * 「底稿改」：劍、弓、杖是 Blender 建的、斧是 TRELLIS 生成的底稿改出來的（BlenderSwords / BlenderBowStaff / TrellisAxes）；防具還沒有底稿，先顯示現在遊戲的。
+ * 「底稿改」：弓、杖是 Blender 建的，劍、斧是 TRELLIS 生成的底稿改出來的（BlenderBowStaff / TrellisSwords / TrellisAxes）；防具還沒有底稿，先顯示現在遊戲的。
  * 網址：?kind=sword&tier=5&src=base|game&rarity=rare&themes=fire,speed&unique=legendary.cold_moon&zoom=4
  */
 

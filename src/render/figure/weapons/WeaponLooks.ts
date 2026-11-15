@@ -6,7 +6,7 @@ import { refine } from '../Facets';
 import { apply, jointRotation, placeMesh, stretchMeshes, type Mesh, type V3 } from '../Poly3D';
 import { SWORD_CANT } from '../heroine/HeroineWeapon';
 import { BASE_MESHES, trellisAxe } from './TrellisAxes';
-import { blenderSword } from './BlenderSwords';
+import { trellisSword } from './TrellisSwords';
 import { blenderBow, blenderStaff } from './BlenderBowStaff';
 import type { WeaponMount } from '../PolyFigure';
 import type { Joint } from '../FigureModel';
@@ -52,7 +52,7 @@ import {
 import { axeSpec, bowSpec, staffSpec, sword, type GlowParticle, type Spec, type SwordSpec, type UniqueWeapon, type WeaponGlowStyle } from './WeaponSpec';
 import { emblemMeshes, type Emblem } from './Emblems';
 import { styledSword } from './StyledSwords';
-import { styledAxe } from './StyledAxes';
+import { trellisStyledAxe } from './StyledTrellisAxes';
 import { styledBow } from './StyledBows';
 import { styledStaff } from './StyledStaves';
 import { depthFor, type Badge } from './StyledWeapons';
@@ -102,7 +102,8 @@ type RawLook = Omit<WeaponLook, 'hand' | 'kind'> & { badge?: Badge };
 
 function swordLook(s: SwordSpec): RawLook {
   if (s.style) {
-    const st = styledSword({ ...s, style: s.style }, SWORD_LENGTH_SCALE);
+    // 橘 / 紅劍：劍身是 TRELLIS 生成的劍依各款輪廓變形、深淵魔劍是深淵統御者的劍（設計者 2026-11-15）；舊版是 styledSword 的 trellis = false
+    const st = styledSword({ ...s, style: s.style }, SWORD_LENGTH_SCALE, true);
     return { meshes: st.meshes, tip: st.tip, axis: [[0, -3, 0], st.tip], badge: st.badge };
   }
   const b = blade({ ...s, length: s.length * SWORD_LENGTH_SCALE });
@@ -115,7 +116,8 @@ function swordLook(s: SwordSpec): RawLook {
 
 function axeLook(s: AxeOptions): RawLook {
   if (s.style) {
-    const a = styledAxe({ ...s, style: s.style, size: s.size * AXE_HEAD_SCALE });
+    // 橘 / 紅斧：斧刃是 TRELLIS 生成的斧頭依款式變形（設計者 2026-11-14）；舊版 styledAxe 保留在 StyledAxes.ts
+    const a = trellisStyledAxe({ ...s, style: s.style, size: s.size * AXE_HEAD_SCALE });
     return { meshes: a.meshes, tip: a.edgeBottom, axis: [a.edgeTop, a.edgeBottom], focus: a.head, badge: a.badge };
   }
   const a = axe({ ...s, size: s.size * AXE_HEAD_SCALE });
@@ -341,11 +343,13 @@ export const HOLD: Record<WeaponType, V3> = {
 
 function build(spec: Spec, emblem?: Emblem): WeaponLook {
   const raw = spec.kind === 'sword' ? swordLook(spec.spec) : spec.kind === 'axe' ? axeLook(spec.spec) : spec.kind === 'bow' ? bowLook(spec.spec) : staffLook(spec.spec);
-  return hold(spec.kind, raw, emblem);
+  // TRELLIS 的斧頭 / 劍身本身已是細構面，只細分程式畫的零件
+  const styledBase = (spec.kind === 'axe' || spec.kind === 'sword') && !!spec.spec.style;
+  return hold(spec.kind, raw, emblem, styledBase ? 'program' : true);
 }
 
 /**
- * 試作（設計者 2026-11-14）：底稿改出來的各階級武器（劍：Blender 建的 BlenderSwords.ts；斧：TRELLIS 生成的 TrellisAxes.ts），
+ * 試作（設計者 2026-11-14）：底稿改出來的各階級武器（劍：TRELLIS 生成的 TrellisSwords.ts，2026-11-15 取代 Blender 建的 BlenderSwords.ts；斧：TRELLIS 生成的 TrellisAxes.ts），
  * 弓、杖：Blender 建的 BlenderBowStaff.ts（弓梢裝飾與杖頭仍是程式畫的）。大小、配色、拿法、詞綴主題同 themedLook。
  * 武器預覽頁（weapon-viewer.html）用，遊戲還沒換。
  */
@@ -359,7 +363,7 @@ export function baseModelLook(kind: WeaponType, tier: number, rarity: Rarity = '
   if (themed) spec = themedSpec(spec, rarity, themes);
   let look: WeaponLook;
   if (spec.kind === 'sword') {
-    const b = blenderSword(spec.spec, SWORD_LENGTH_SCALE);
+    const b = trellisSword(spec.spec, SWORD_LENGTH_SCALE);
     look = hold('sword', { meshes: b.meshes, tip: b.tip, axis: [[0, -3, 0], b.tip] }, undefined, 'program');
   } else if (spec.kind === 'axe') {
     const a = trellisAxe({ ...spec.spec, size: spec.spec.size * AXE_HEAD_SCALE });
