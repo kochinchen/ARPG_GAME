@@ -81,6 +81,49 @@ function rodAxes(a: V3, b: V3, w: number): [V3, V3] {
 const ROD_CORNERS: V3[] = [[1, 1, 0], [-1, 1, 0], [-1, -1, 0], [1, -1, 0], [1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1]];
 const ROD_FACES: number[][] = [0, 1, 2, 3].map((i) => [i, (i + 1) % 4, 4 + ((i + 1) % 4), 4 + i]);
 
+/**
+ * 搭在弦上的箭（設計者 2026-11-16）：箭的座標 x、y 是截面、z 沿箭身（0 = 箭尾搭在弦上 → length = 箭頭尖）。
+ * 長度與粗細依弓的大小（拉滿時箭頭剛好露出握把前方一點）；尾羽用弓弦的顏色。
+ */
+/** 射箭前搖的這個比例時右手到弓把搭箭：之後才顯示箭、開始拉弦 */
+const NOCK_AT = 0.4;
+type ArrowMesh = { verts: V3[]; faces: { idx: number[]; color: number }[] };
+const ARROWS = new WeakMap<object, ArrowMesh>();
+function arrowMesh(s: NonNullable<WeaponMount['string']>): ArrowMesh {
+  const hit = ARROWS.get(s);
+  if (hit) return hit;
+  const half = Math.hypot(...vsub(s.bottom, s.top)) / 2;
+  const back = Math.hypot((s.top[0] + s.bottom[0]) / 2, (s.top[1] + s.bottom[1]) / 2, (s.top[2] + s.bottom[2]) / 2);
+  const L = back + half * 1.25;
+  const r = Math.max(s.width * 0.6, half * 0.012);
+  const verts: V3[] = [];
+  const faces: ArrowMesh['faces'] = [];
+  const add = (pts: V3[], list: number[][], color: (i: number) => number, both = false) => {
+    const o = verts.length;
+    verts.push(...pts);
+    list.forEach((f, i) => {
+      faces.push({ idx: f.map((v) => v + o), color: color(i) });
+      if (both) faces.push({ idx: f.map((v) => v + o).reverse(), color: color(i) });
+    });
+  };
+  // 箭身：四面木桿
+  const wood = [0x7a5532, 0x5e3f24];
+  add(ROD_CORNERS.map(([x, y, z]) => [x * r, y * r, z * L * 0.86] as V3), ROD_FACES, (i) => wood[i % 2]!);
+  // 箭頭：菱形底的鋼尖
+  const hr = r * 3.2;
+  add([[hr, 0, L * 0.84], [0, hr, L * 0.84], [-hr, 0, L * 0.84], [0, -hr, L * 0.84], [0, 0, L], [0, 0, L * 0.8]], [0, 1, 2, 3].flatMap((i) => [[i, (i + 1) % 4, 4], [(i + 1) % 4, i, 5]]), (i) => (i % 4 < 2 ? 0xd4d8de : 0x8f959e));
+  // 尾羽：十字四片
+  const h = r * 3.5;
+  const fl = [s.colors[0] ?? 0xe8e0d0, s.colors[1] ?? s.colors[0] ?? 0xc8c0b0];
+  for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const)
+    add([[0, 0, L * 0.02], [x * h, y * h, L * 0.05], [x * h * 0.8, y * h * 0.8, L * 0.17], [0, 0, L * 0.22]], [[0, 1, 2, 3]], () => fl[x + y > 0 ? 0 : 1]!, true);
+  // 箭尾的凹槽（扣在弦上）
+  add(ROD_CORNERS.map(([x, y, z]) => [x * r * 1.4, y * r * 1.4, (z - 1) * L * 0.025] as V3), ROD_FACES, () => 0x2c2620);
+  const mesh = { verts, faces };
+  ARROWS.set(s, mesh);
+  return mesh;
+}
+
 type ScreenPoint = { x: number; y: number };
 
 export interface FigureState {
@@ -505,6 +548,13 @@ export class PolyFigure {
         const verts = ROD_CORNERS.map(([x, y, z]) => vadd(vadd(vadd(a, e1, x), e2, y), vsub(b, a), z));
         ROD_FACES.forEach((f, i) => emit(verts, f, s.colors[i % s.colors.length]!));
       }
+      if (str.arrow) {
+        const [o, d] = str.arrow;
+        const [e1, e2] = rodAxes(o, vadd(o, d), 1);
+        const arrow = arrowMesh(s);
+        const verts = arrow.verts.map(([x, y, z]) => vadd(vadd(vadd(o, e1, x), e2, y), d, z));
+        for (const f of arrow.faces) emit(verts, f.idx, f.color);
+      }
     }
     // 蒙皮網格（整張連續的身體）：被裝備蓋住的部位不畫；靴子等部位換成裝備的顏色（skinColors）
     const skin = this.model.skin;
@@ -539,10 +589,10 @@ export class PolyFigure {
     if (dbg.joints || dbg.bones || dbg.pivot || dbg.facing || dbg.anchor) this.drawDebug(g, world, toScreen, yaw, facing, weaponJoint);
   }
 
-  /** 這一幀弓弦的三個點（上端、搭箭點、下端；模型空間）：GPU 蒙皮的骨頭矩陣也用 */
-  private stringNow: [V3, V3, V3] | null = null;
+  /** 這一幀弓弦的三個點（上端、搭箭點、下端；模型空間）與搭著的箭（箭尾、朝箭頭的單位向量；射箭前搖才有）：GPU 蒙皮的骨頭矩陣也用 */
+  private stringNow: (readonly [V3, V3, V3] & { arrow?: readonly [V3, V3] }) | null = null;
 
-  private stringPoints(world: JointFrames, joint: Joint, s: NonNullable<WeaponMount['string']>): [V3, V3, V3] {
+  private stringPoints(world: JointFrames, joint: Joint, s: NonNullable<WeaponMount['string']>): readonly [V3, V3, V3] & { arrow?: readonly [V3, V3] } {
     const { m, p } = world.get(joint)!;
     const at = (v: V3): V3 => vadd(p, apply(m, v));
     const rest: V3 = [(s.top[0] + s.bottom[0]) / 2, (s.top[1] + s.bottom[1]) / 2, (s.top[2] + s.bottom[2]) / 2];
@@ -551,22 +601,27 @@ export class PolyFigure {
     // 右手拳心：主角的 weapon 關節（握劍的位置）；沒有時用手腕
     const fist = world.get('weapon')?.p ?? world.get('handR')?.p;
     const back = Math.hypot(...rest);
-    if (a && a.variant === 'shoot' && a.elapsed < a.windup && fist && back > 1e-6) {
+    const shooting = !!a && a.variant === 'shoot' && a.elapsed < a.windup && back > 1e-6;
+    const u = rest.map((x) => x / back) as V3; // 握把 → 弦：拉弓的方向
+    if (shooting && fist) {
       // 拳心換到弓的座標（旋轉矩陣的反矩陣 = 轉置）
       const d = vsub(fist, p);
       const local: V3 = [m[0] * d[0] + m[3] * d[1] + m[6] * d[2], m[1] * d[0] + m[4] * d[1] + m[7] * d[2], m[2] * d[0] + m[5] * d[1] + m[8] * d[2]];
-      const u = rest.map((x) => x / back) as V3; // 握把 → 弦：拉弓的方向
-      const span = vsub(s.bottom, s.top);
-      const half = Math.hypot(...span) / 2;
-      const along = span.map((x) => x / (half * 2)) as V3;
+      const half = Math.hypot(...vsub(s.bottom, s.top)) / 2;
+      // 右手先從身側伸到弦上：搭箭（前搖 40%，HeroinePose 第 1 格）之後搭箭點才跟著拳心，40%～55% 之間漸入。
+      // 搭箭點就是拳心的位置（含左右的偏移；設計者 2026-11-16：弦不能跑到左手臂另一側），離弦的中點最多 0.9 個半弦長
+      const t = a!.elapsed / a!.windup;
+      const x = Math.max(0, Math.min(1, (t - NOCK_AT) / 0.15));
       const rel = vsub(local, rest);
-      const pull = dot(rel, u);
-      if (pull > 0) {
-        const slide = Math.max(-0.25, Math.min(0.25, dot(rel, along) / half)) * half;
-        nock = vadd(vadd(rest, u, Math.min(pull, half * 0.9)), along, slide);
-      }
+      const far = Math.hypot(...rel);
+      const w = x * x * (3 - 2 * x) * (far > half * 0.9 ? (half * 0.9) / far : 1);
+      if (w > 0) nock = vadd(rest, rel, w);
     }
-    return [at(s.top), at(nock), at(s.bottom)];
+    const pts: [V3, V3, V3] = [at(s.top), at(nock), at(s.bottom)];
+    // 箭：箭尾在搭箭點，箭身穿過握把（弓的座標原點）
+    const aim = vsub(p, pts[1]);
+    const dir = Math.hypot(...aim) > 1e-6 ? normalize(aim) : normalize(apply(m, [-u[0], -u[1], -u[2]]));
+    return shooting && a!.elapsed >= a!.windup * NOCK_AT ? Object.assign(pts, { arrow: [pts[1], dir] as const }) : pts;
   }
 
   /** 這個關節這一幀要畫的網格：換裝、換武器、隱藏、細節層級（加密的裝備沒有放大時畫粗網格） */
@@ -613,6 +668,11 @@ export class PolyFigure {
     if (s)
       for (const seg of [0, 1])
         ROD_FACES.forEach((f, i) => fan(f, (v) => vertex(ROD_CORNERS[v]!, s.colors[i % s.colors.length]!, [parts.length * 2 + seg], [1])));
+    // 箭：第三根骨頭（2n + 2；不射箭時矩陣全為 0，縮成一點看不見）
+    if (s) {
+      const arrow = arrowMesh(s);
+      for (const f of arrow.faces) fan(f.idx, (v) => vertex(arrow.verts[v]!, f.color, [parts.length * 2 + 2], [1]));
+    }
     const skin = this.model.skin;
     if (skin) {
       const index = new Map(parts.map((p, i) => [p.joint, i]));
@@ -640,7 +700,7 @@ export class PolyFigure {
   private boneMatrices(world: JointFrames, k: number): Float32Array {
     const parts = this.model.parts;
     const n = parts.length;
-    const count = (n * 2 + (this.mount?.string ? 2 : 0)) * 16;
+    const count = (n * 2 + (this.mount?.string ? 3 : 0)) * 16;
     if (this.bones?.length !== count) this.bones = new Float32Array(count);
     const out = this.bones;
     const rest = this.model.skin?.rest;
@@ -686,6 +746,20 @@ export class PolyFigure {
           out[o + j * 4 + 3] = j === 3 ? 1 : 0;
         });
       });
+    if (str && w !== undefined) {
+      const o = (n * 2 + 2) * 16;
+      out.fill(0, o, o + 16);
+      if (str.arrow) {
+        const [a, d] = str.arrow;
+        const [e1, e2] = rodAxes(a, vadd(a, d), 1);
+        [e1, e2, d, a].forEach((c, j) => {
+          out[o + j * 4] = c[0] * k;
+          out[o + j * 4 + 1] = c[1] * k;
+          out[o + j * 4 + 2] = c[2] * k;
+          out[o + j * 4 + 3] = j === 3 ? 1 : 0;
+        });
+      }
+    }
     return out;
   }
 

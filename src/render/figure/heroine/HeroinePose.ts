@@ -153,7 +153,7 @@ export function heroinePoses(parts: readonly PartDef[], hip: number): PoseSet {
     ],
   };
 
-  // ─────────────── 弓：側身、左手舉弓指向目標 → 右手搭箭拉弦到下巴 → 放箭、右手順勢往後 ───────────────
+  // ─────────────── 弓：側身、左手舉弓指向目標 → 右手搭箭拉弦到胸前 → 放箭 ───────────────
   // 身體往右轉（左肩朝前），左臂的 y 補回來指向正前方；左手腕轉 90° 讓弓身直立。
   const TURN = 0.85;
   const bowArm = (lift = 0): Angles => ({ upperArmL: [-Math.PI / 2 + lift, TURN, 0], forearmL: [-0.05, 0, 0], handL: [BOW_UPRIGHT, 0, 0] });
@@ -161,20 +161,18 @@ export function heroinePoses(parts: readonly PartDef[], hip: number): PoseSet {
     stance({ root: [0.02, -TURN * 0.55, 0], chest: [0, -TURN * 0.45, 0], head: [0, TURN * 0.9, 0], thighL: [-0.3, 0.3, 0.1], shinL: [0.3, 0, 0], thighR: [0.15, -0.1, -0.12], ...extra }, rootZ);
   const shoot: { windup: Pose[]; strike: Pose[] } = {
     windup: [
-      // 1 側身、舉弓
-      archer({ ...bowArm(0.35), upperArmR: [-0.6, 0.6, -0.1], forearmR: [-1.2, 0, 0] }),
-      // 2 搭箭：右手到弓把
-      archer({ ...bowArm(0.05), upperArmR: [-1.45, TURN - 0.1, 0], forearmR: [-0.25, 0, 0], handR: [0, 0, 0] }, -0.3),
-      // 3 拉弦：右肘往後、手到下巴
-      archer({ ...bowArm(), upperArmR: [-1.5, 0.15, 0], forearmR: [-2.1, 0, 0], handR: [0.3, 0, 0], chest: [-0.03, -TURN * 0.5, 0] }, -0.6),
-      // 4 滿弓：肘再往後
-      archer({ ...bowArm(), upperArmR: [-1.55, -0.35, 0.05], forearmR: [-2.45, 0, 0], handR: [0.3, 0, 0], chest: [-0.05, -TURN * 0.55, 0] }, -0.8),
+      // 1 側身、舉弓、右手伸到弦上搭箭（設計者 2026-11-16：原本另有一格「右手到弓把」，手會先抬到弦後、往前、再往後拉，不連貫，拿掉）
+      archer({ ...bowArm(0.35), upperArmR: [-0.95, TURN * 0.6, -0.05], forearmR: [-0.45, 0, 0] }),
+      // 2 拉弦：右肘放低、手往胸前收（設計者 2026-11-16：拉到胸前就好，不要拉到背後）
+      archer({ ...bowArm(), upperArmR: [-0.75, 0.45, 0], forearmR: [-1.3, 0, 0], handR: [0.3, 0, 0], chest: [-0.03, -TURN * 0.5, 0] }, -0.6),
+      // 3 滿弓：手在胸前
+      archer({ ...bowArm(), upperArmR: [-0.6, -0.2, 0], forearmR: [-2.1, 0, 0], handR: [0.3, 0, 0], chest: [-0.05, -TURN * 0.55, 0] }, -0.8),
     ],
     strike: [
-      // 5 放箭：右手往後彈開、弓臂微微往前送
-      archer({ ...bowArm(-0.05), upperArmR: [-1.4, -0.75, 0.1], forearmR: [-1.3, 0, 0], handR: [0.2, 0, 0.3], chest: [-0.02, -TURN * 0.5, 0] }, -0.4),
-      // 6 收勢
-      archer({ ...bowArm(0.2), upperArmR: [-0.9, -0.5, 0], forearmR: [-1, 0, 0] }, -0.2),
+      // 4 放箭：右手鬆開、在胸前稍微往後一彈
+      archer({ ...bowArm(-0.05), upperArmR: [-0.55, -0.5, 0.05], forearmR: [-2.1, 0, 0], handR: [0.2, 0, 0.3], chest: [-0.02, -TURN * 0.5, 0] }, -0.4),
+      // 5 收勢：右手自然放低（不甩到身後）
+      archer({ ...bowArm(0.2), upperArmR: [-0.3, -0.15, 0], forearmR: [-1.0, 0, 0] }, -0.2),
     ],
   };
 
