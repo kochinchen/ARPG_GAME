@@ -34,6 +34,9 @@ import FROST_SPORELING_AI_DATA from './monsters/frostSporelingAI.json';
 import BRAIN_FLOATER_AI_DATA from './monsters/brainFloaterAI.json';
 import ABYSS_PRIEST_AI_DATA from './monsters/abyssPriestAI.json';
 import FALLEN_TEMPLAR_AI_DATA from './monsters/fallenTemplarAI.json';
+import SOUL_FLOWER_AI_DATA from './monsters/soulFlowerAI.json';
+import SHADE_STALKER_AI_DATA from './monsters/shadeStalkerAI.json';
+import IMP_AI_DATA from './monsters/impAI.json';
 import { BONE_HAND } from './BoneHand';
 import { STONE_WALKERS } from './StoneWalkers';
 import type { FigureModel, Joint, Pose } from './FigureModel';
@@ -570,21 +573,38 @@ const ARCHER_AI = asTallAsHeroine(
   }),
 );
 /**
- * 重甲骷髏：雙手巨斧（暫時用舊版程式畫的斧頭，不含舊版的鐵手套；生成的斧頭之後換上）。
- * 設計者 2026-11-08：斧面比舊版放大 2 倍後再小 30%、斧柄短 40%；劈下時彎腰屈膝，斧頭砍到地面
+ * 重甲骷髏：雙手巨斧（設計者 2026-11-14 起用生成的斧頭，見 glbAxe）。
+ * 設計者 2026-11-08：斧柄比舊版短 40%（舊版斧頭中心 y = -23，縮短後在 AXE_HEAD_Y × 0.6）；劈下時彎腰屈膝，斧頭砍到地面
  */
 const AXE_HEAD_Y = -23;
-const shortAxe = (): Mesh[] =>
-  greatAxe()
-    // 去掉舊版的鐵手套（5 個零件）
-    .slice(gauntlet().length)
-    .map((m, i) => ({
-      ...m,
-      verts: m.verts.map((v): V3 =>
-        // 第一個是斧柄：整根縮短；其他（握環除外）是斧頭：移到縮短後的位置、以斧頭中心縮小 30%
-        i === 0 || (i >= 1 && i <= 3) ? [v[0], v[1] * 0.6, v[2]] : [v[0] * 0.7, AXE_HEAD_Y * 0.6 + (v[1] - AXE_HEAD_Y) * 0.7, v[2] * 0.7],
-      ),
-    }));
+/**
+ * 生成的斧頭（設計者 2026-11-14，monster_ai.py 的 PROPS：TRELLIS 長成四片斧刃，切掉前後兩片）：
+ * 長度同上面縮短後的舊版斧頭（柄尾 +4.2 到斧頭頂 -18.7），斧刃往 ±z；paint(顏色, 是否是斧刃最外緣) 換色
+ */
+type AiProp = { verts: number[][]; faces: number[][] };
+const AXE_BUTT = 4.2;
+const AXE_LEN = 22.9;
+const glbAxe = (paint?: (color: number, edge: boolean) => number): Mesh[] => {
+  const p = (ARMORED_AI_DATA as unknown as { props: { axe: AiProp } }).props.axe;
+  const ys = p.verts.map((v) => v[1]!);
+  const lo = Math.min(...ys);
+  const k = AXE_LEN / (Math.max(...ys) - lo);
+  // 斧柄的中心線：下面 30% 只有斧柄
+  const handle = p.verts.filter((v) => v[1]! < lo + AXE_LEN / k * 0.3);
+  const cx = handle.reduce((a, v) => a + v[0]!, 0) / handle.length;
+  const cz = handle.reduce((a, v) => a + v[2]!, 0) / handle.length;
+  const verts = p.verts.map((v): V3 => [(v[2]! - cz) * k, AXE_BUTT - (v[1]! - lo) * k, (v[0]! - cx) * k]);
+  const zMax = Math.max(...verts.map((v) => Math.abs(v[2])));
+  return [
+    {
+      verts,
+      faces: p.faces.map((f) => {
+        const idx: V3 = [f[0]!, f[1]!, f[2]!];
+        return { idx, color: paint ? paint(f[3]!, idx.every((i) => Math.abs(verts[i]![2]) > zMax * 0.8)) : f[3]! };
+      }),
+    },
+  ];
+};
 const plusAngles = (base: Pose, d: Readonly<Record<string, readonly number[]>>, dy = 0): Pose => {
   const angles = { ...base.angles } as Record<string, V3>;
   for (const [j, a] of Object.entries(d)) {
@@ -625,7 +645,7 @@ const ARMORED_SLAM: FigureModel = {
 const AXE_GRIP = 5;
 const ARMORED_AI = monsterAi(ARMORED_AI_DATA, ARMORED_SLAM, {
   sword: {
-    build: () => ({ meshes: shortAxe().map((m) => ({ ...m, verts: m.verts.map((v): V3 => [v[0], v[1] + AXE_GRIP, v[2]]) })), tip: AXE_HEAD_Y * 0.6 + AXE_GRIP }),
+    build: () => ({ meshes: glbAxe().map((m) => ({ ...m, verts: m.verts.map((v): V3 => [v[0], v[1] + AXE_GRIP, v[2]]) })), tip: AXE_HEAD_Y * 0.6 + AXE_GRIP }),
   },
   heldScale: 2,
 });
@@ -665,20 +685,8 @@ function armorSkin(m: FigureModel, look: ArmorLook): FigureModel {
 }
 /** 重甲骷髏的眼窩（monster_ai.py 塗的深黑） */
 const ARMORED_EYE = 0x0a0808;
-const AXE_BLADES = [4, 5];
-/** 斧頭：鐵的部分換色（iron），每片斧刃最外緣一條比斧刃厚一點的發亮細邊（兩面都看得到） */
-const edgedAxe = (iron: (c: number) => number, edge: number): Mesh[] => {
-  const axe = shortAxe();
-  const edges = AXE_BLADES.map((i) => {
-    const vs = axe[i]!.verts;
-    const zMax = Math.max(...vs.map((v) => Math.abs(v[2])));
-    const far = vs.filter((v) => Math.abs(v[2]) > zMax * 0.97);
-    const ys = far.map((v) => v[1]);
-    const side = Math.sign(far[0]![2]);
-    return box(0.7, Math.max(...ys) - Math.min(...ys) + 0.2, 0.5, edge, [0, (Math.max(...ys) + Math.min(...ys)) / 2, side * (zMax - 0.1)]);
-  });
-  return [...axe.map((m) => ({ ...m, faces: m.faces.map((f) => ({ ...f, color: iron(f.color) })) })), ...edges];
-};
+/** 斧頭：鐵的部分換色（iron），斧刃最外緣一圈發亮（edge） */
+const edgedAxe = (iron: (c: number) => number, edge: number): Mesh[] => glbAxe((c, isEdge) => (isEdge ? edge : iron(c)));
 /**
  * 長在生成模型表面的尖刺：在跟著該關節的頂點裡找最往 dir 方向凸出的一點當底座（稍微埋進去），沿 dir 長出去。
  * [關節, 方向, 長度, 粗細, 斷掉]（舊版的單位）
@@ -1223,6 +1231,10 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.cultist': CULTIST_AI,
   'enemy.rampart_golem': RAMPART_GOLEM_AI,
   // 寒霜孢子體（設計者 2026-11-12）：四隻拱起的短腳踩在地上，動作同舊版（四條根鬚）
+  // 奪魂寄生花、深淵影魔、小惡魔（設計者 2026-11-14 的四視圖）：動作、大小沿用舊版
+  'enemy.soul_flower': monsterAi(SOUL_FLOWER_AI_DATA, scaled(CREATURE_MODELS)['enemy.soul_flower']!, { rest: 'asModeled', ground: 'all', fit: 'height' }),
+  'enemy.shade_stalker': monsterAi(SHADE_STALKER_AI_DATA, scaled(LATE_MODELS)['enemy.shade_stalker']!, { fit: 'height', ground: 'none' }),
+  'enemy.imp': monsterAi(IMP_AI_DATA, scaled(LATE_MODELS)['enemy.imp']!, { fit: 'height' }),
   'enemy.frost_sporeling': monsterAi(FROST_SPORELING_AI_DATA, scaled(ABERRATION_MODELS)['enemy.frost_sporeling']!, { rest: 'asModeled', ground: 'all', fit: 'height' }),
   'enemy.brain_floater': BRAIN_FLOATER_AI,
   'enemy.abyss_priest': ABYSS_PRIEST_AI,
@@ -1318,6 +1330,9 @@ export const AI_MONSTERS = [
   'enemy.abyss_priest',
   'enemy.fallen_templar',
   'enemy.frost_sporeling',
+  'enemy.soul_flower',
+  'enemy.shade_stalker',
+  'enemy.imp',
 ];
 
 /** 換成 AI 版之前的舊版模型（比較面數、效能用） */
@@ -1355,6 +1370,9 @@ export const CLASSIC_MODELS: Record<string, FigureModel> = {
   'enemy.abyss_priest': LATE_MODELS['enemy.abyss_priest']!,
   'enemy.fallen_templar': LATE_MODELS['enemy.fallen_templar']!,
   'enemy.frost_sporeling': ABERRATION_MODELS['enemy.frost_sporeling']!,
+  'enemy.soul_flower': CREATURE_MODELS['enemy.soul_flower']!,
+  'enemy.shade_stalker': LATE_MODELS['enemy.shade_stalker']!,
+  'enemy.imp': LATE_MODELS['enemy.imp']!,
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;

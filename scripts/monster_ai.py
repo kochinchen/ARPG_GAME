@@ -49,9 +49,9 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"frost_sporeling": 3000, "rampart_golem": 3400, "fallen_templar": 3200, "abyss_priest": 3200, "brain_floater": 2800, "crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
+TRIS_OF.update({"shade_stalker": 3200, "imp": 3000, "soul_flower": 2800, "frost_sporeling": 3000, "rampart_golem": 3400, "fallen_templar": 3200, "abyss_priest": 3200, "brain_floater": 2800, "crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
-ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90, "hook_claw": 180, "rampart_golem": -90, "brain_floater": 180, "frost_sporeling": -90}
+ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90, "hook_claw": 180, "rampart_golem": -90, "brain_floater": 180, "frost_sporeling": -90, "soul_flower": 90}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
 SPLIT_EDGE = {"bone_dragon": 0.042, "abyss_dragon": 0.032, "abyss_hand": 0.04, "abyss_hand_hand": 0.032}
 
@@ -74,6 +74,8 @@ CLEANUP = {
     # 酸液甲蟲（設計者 2026-11-09）：拿掉大顎外側那兩根觸鬚，和原本的短管與兩顆液滴（換成砲管）
     # 要塞魔像（設計者 2026-11-12）：左手改成五指握拳，切掉左臂最下面那節石環（砲口），拳頭由遊戲端畫
     "rampart_golem": lambda p: p.x > 0.26 and p.z < -0.17,
+    # 重甲骷髏的斧頭（設計者 2026-11-14 生成）：TRELLIS 把正面與側面的雙刃斧混在一起，長成四片斧刃（十字），切掉前後那兩片
+    "armored_skeleton_axe": lambda p: abs(p.y) > 0.045 and abs(p.x) < 0.06,
     "acid_beetle": lambda p: (0.168 < abs(p.x) < 0.34 and p.y < -0.3 and p.z < -0.1) or (abs(p.x) < 0.055 and p.y < -0.345 and -0.2 < p.z < -0.07),
 }
 
@@ -504,7 +506,7 @@ def load(path, tris, name, cut=None):
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(cut(v.co) for v in f.verts)], context="FACES")
         bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
         # 骨龍：切掉多餘的腳留下的開口補起來，否則從旁邊看得到身體裡面（補的面沒有貼圖，下面當黑面處理）
-        if name.startswith(("bone_dragon", "abyss_hand", "acid_beetle", "wheel_sword_beast")):
+        if name.startswith(("bone_dragon", "abyss_hand", "acid_beetle", "wheel_sword_beast", "armored_skeleton_axe")):
             bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
     base = name[:-3] if name.endswith("_ai") else name
     if base in RESHAPE:
@@ -1089,7 +1091,8 @@ def abyss_hand_hand():
 
 
 # 另外生成的獨立物件（<資料夾>/ai/<名稱>.glb → 不綁骨架的網格，遊戲端掛在關節上或掉在地上）：名稱 → 三角形數
-PROPS = {"abyss_sovereign": {"sword": 1500, "shield": 2500}}
+# 名稱以 _hi 結尾：同一個 .glb 的較細版本（女主角的武器用，src/render/figure/weapons/TrellisAxes.ts）
+PROPS = {"abyss_sovereign": {"sword": 1500, "shield": 2500}, "armored_skeleton": {"axe": 900, "axe_hi": 2400}}
 
 
 def limb_zone(in_arm, wing_ok):
@@ -1628,7 +1631,7 @@ def burrower_zone(p, bone):
 
 
 ZONES["burrower"] = burrower_zone
-JOINED = {n: limbs_joined for n in ("storm_mage", "skeleton_mage", "armored_skeleton", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "skeleton", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "rampart_golem", "fallen_templar", "abyss_priest")}
+JOINED = {n: limbs_joined for n in ("storm_mage", "skeleton_mage", "armored_skeleton", "frost_skeleton", "skeleton_archer", "ghoul", "venom_ghoul", "skeleton", "abyss_sovereign", "abyss_lord", "lava_behemoth", "fallen_knight", "crypt_guardian", "fallen_priest", "stone_walker", "rampart_golem", "fallen_templar", "abyss_priest", "shade_stalker", "imp")}
 # 骨龍：嘴裡的東西碰到上顎的三角形，張嘴時會被拉成長條
 # 鐵輪劍獸：輪子是獨立的剛體，輪面和輪軸、身體之間的三角形切開，轉動時才不會拉出長條
 JOINED["wheel_sword_beast"] = lambda bones, ws: not (any(b.startswith("thigh") for b in bones) and any(not b.startswith("thigh") for b in bones))
@@ -2026,7 +2029,127 @@ def frost_sporeling_zone(p, bone):
 ZONES["frost_sporeling"] = frost_sporeling_zone
 
 
+# ── 奪魂寄生花、深淵影魔、小惡魔（設計者 2026-11-14 的四視圖）──
+def shade_stalker():
+    """深淵影魔：沒有腳，骨盆以下是拖地的破斗篷（cloth，遊戲端會飄動）；兜帽、彎角、垂在身側的長爪。腳的骨頭不帶動頂點（動作沿用舊版）"""
+    bones = monster_humanoid(
+        [(0, 0.0, -0.15), (0, 0.0, 0.0), (0, -0.03, 0.27), (0, -0.05, 0.31), (0, -0.05, 0.46)], [0.12, 0.14, 0.05, 0.1],
+        [(0.2, -0.03, 0.13), (0.27, -0.06, 0.0), (0.3, -0.12, -0.16), (0.34, -0.15, -0.35)], [0.06, 0.06, 0.06],
+        [(0.08, 0.0, -0.15), (0.09, 0.0, -0.3), (0.1, 0.0, -0.45), (0.1, -0.1, -0.5)], [0.01, 0.01, 0.01],
+        (0.05, 0.0, 0.12), 0.08,
+    )
+    bones.append(("cloth", "root", V((0, 0, -0.12)), V((0, 0, -0.5)), 0.22))
+    return bones, {}
+
+
+def _shade_in_arm(p):
+    return -0.42 < p.z < 0.11 and abs(p.x) > (0.2 if p.z > -0.05 else 0.18)
+
+
+_SHADE_ARMS = limb_zone(_shade_in_arm, lambda p: True)
+
+
+def shade_stalker_zone(p, bone):
+    """斗篷跟 cloth（腰以下、手臂以外）；腳的骨頭不帶動頂點；手臂同其他人形"""
+    if re.match(r"(thigh|shin|foot)[LR]$", bone):
+        return False
+    if bone == "cloth":
+        return p.z < -0.08 and not _shade_in_arm(p)
+    return _SHADE_ARMS(p, bone)
+
+
+ZONES["shade_stalker"] = shade_stalker_zone
+
+
+def imp():
+    """小惡魔：大頭、彎角、短手長爪、背後一對蝙蝠翼（scarfA 左、scarfB 右，同舊版）、細尾巴（跟骨盆）"""
+    bones = monster_humanoid(
+        [(0, 0.0, -0.24), (0, 0.0, -0.17), (0, -0.02, 0.08), (0, -0.05, 0.12), (0, -0.05, 0.38)], [0.1, 0.13, 0.05, 0.12],
+        [(0.17, 0.0, 0.0), (0.235, -0.01, -0.12), (0.27, -0.02, -0.21), (0.31, -0.04, -0.32)], [0.05, 0.05, 0.05],
+        [(0.1, 0.0, -0.24), (0.115, 0.0, -0.34), (0.13, 0.02, -0.43), (0.15, -0.15, -0.5)], [0.06, 0.05, 0.05],
+        (0.05, 0.0, 0.0), 0.06,
+    )
+    bones.append(("scarfA", "torso", V((0.08, 0.1, 0.02)), V((0.35, 0.2, 0.0)), 0.15))
+    bones.append(("scarfB", "torso", V((-0.08, 0.1, 0.02)), V((-0.35, 0.2, 0.0)), 0.15))
+    return bones, {}
+
+
+def in_imp_wing(p):
+    return p.y > 0.085 and abs(p.x) > 0.06 and p.z > -0.36
+
+
+def in_imp_tail(p):
+    return abs(p.x) < 0.07 and p.y > 0.06 and p.z < -0.12
+
+
+def _imp_in_arm(p):
+    if in_imp_wing(p) or not -0.4 < p.z < 0.02:
+        return False
+    return abs(p.x) > (0.15 if p.z > -0.2 else 0.18 if p.z > -0.245 else 0.25 if p.z > -0.28 else 0.185)
+
+
+_IMP_ARMS = limb_zone(_imp_in_arm, lambda p: True)
+
+
+def imp_zone(p, bone):
+    """翅膀只跟同一邊的 scarfA / scarfB；尾巴只跟骨盆；其他同人形"""
+    wing = in_imp_wing(p)
+    if bone in ("scarfA", "scarfB"):
+        return wing and (bone == "scarfA") == (p.x > 0)
+    if wing:
+        return False
+    if in_imp_tail(p):
+        return bone == "root"
+    return _IMP_ARMS(p, bone)
+
+
+ZONES["imp"] = imp_zone
+
+
+# 奪魂寄生花的根（轉 90° 之後）：前後左右四條會動（關節名稱同舊版的四條藤蔓），斜角的四條跟 root
+FLOWER_ROOTS = {"upperArmL": (1, 0), "upperArmR": (-1, 0), "thighL": (0, -1), "thighR": (0, 1)}
+FLOWER_NAMES = {"upperArm": ("upperArm", "forearm", "hand"), "thigh": ("thigh", "shin", "foot")}
+
+
+def soul_flower():
+    """奪魂寄生花：地上一圈球根（root）、八條往外拱的根、莖（torso 下段含葉子、neck 上段）、花苞（head，頂端微開露出藍光）"""
+    # root 的關節在球根頂上（遊戲端依它離地的高度定大小，不能在地面），骨頭往下穿過球根
+    bones = [("root", None, V((0, 0, -0.3)), V((0, 0, -0.45)), 0.1)]
+    bones += chain(["torso", "neck", "head"], "root", [V((0, 0, -0.3)), V((0, 0, -0.05)), V((0, 0, 0.12)), V((0, 0, 0.47))], [0.08, 0.06, 0.06])
+    for key, (dx, dy) in FLOWER_ROOTS.items():
+        pts = [V((dx * r, dy * r, z)) for r, z in ((0.15, -0.4), (0.27, -0.36), (0.37, -0.4), (0.48, -0.47))]
+        bones += chain([n + key[-1] for n in FLOWER_NAMES[key[:-1]]], "root", pts, [0.05, 0.05, 0.04])
+    return bones, {}
+
+
+def flower_root_of(p):
+    """頂點屬於哪一條會動的根（依水平方向，正負 22.5° 內）；斜角的根回傳 None"""
+    a = math.atan2(p.y, p.x)
+    for key, (dx, dy) in FLOWER_ROOTS.items():
+        if abs((math.atan2(dy, dx) - a + math.pi) % (2 * math.pi) - math.pi) < math.pi / 8:
+            return key
+    return None
+
+
+def soul_flower_zone(p, bone):
+    """根只拿球根外側、自己方向上的頂點；斜角的根、球根跟 root；莖、葉、花苞不跟根"""
+    root_area = p.z < -0.33 and math.hypot(p.x, p.y) > 0.17
+    m = re.match(r"(upperArm|forearm|hand|thigh|shin|foot)([LR])$", bone)
+    if m:
+        key = flower_root_of(p)
+        return root_area and key is not None and key[-1] == m.group(2) and m.group(1) in FLOWER_NAMES[key[:-1]]
+    if root_area and flower_root_of(p):
+        return bone == "root"
+    return True
+
+
+ZONES["soul_flower"] = soul_flower_zone
+
+
 SKELETONS = {
+    "shade_stalker": shade_stalker,
+    "imp": imp,
+    "soul_flower": soul_flower,
     "frost_sporeling": frost_sporeling,
     "rampart_golem": rampart_golem,
     "fallen_templar": fallen_templar,
@@ -2509,7 +2632,8 @@ if surface_kind is not None:
 # 獨立物件：原本的位置與大小（公尺、遊戲軸向），檢查截圖與 .blend 裡藏起來
 props = {}
 for pname, ptris in PROPS.get(NAME, {}).items():
-    obj, color = load(os.path.join(folder, "ai", f"{pname}.glb"), ptris, f"{NAME}_{pname}")
+    pfile = pname[:-3] if pname.endswith("_hi") else pname
+    obj, color = load(os.path.join(folder, "ai", f"{pfile}.glb"), ptris, f"{NAME}_{pname}", CLEANUP.get(f"{NAME}_{pfile}"))
     props[pname] = {"verts": [G(v.co) for v in obj.data.vertices], "faces": [[*p.vertices[:3], color(p)] for p in obj.data.polygons]}
     obj.hide_render = True
     obj.hide_set(True)
