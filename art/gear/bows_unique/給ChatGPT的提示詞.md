@@ -30,3 +30,26 @@ C「魔王神弓」：用魔王的翼骨或折斷的劍熔鑄成的巨大長弓�
 3. 發光的部分用明亮的顏色表現，不要畫向外擴散的光暈。
 4. 保持低多邊形小三角面的畫風。
 ```
+
+---
+
+## 紅弓六把：給 TRELLIS 的多視角圖（2026-11-15）
+
+`multiview/<編號>-<名稱>-front.png`、`-side.png`：每把一張正面（弓臂彎曲朝左、握把置中）、一張正側面（轉 90 度看厚度），都沒有弓弦（弓弦由程式畫）。細鏈、垂飾、蛛網等細線零件已省略。每把弓的裁切設計稿在 `reference/紅弓單把/`。
+
+做法與注意：
+- 正面：新對話附上 `reference/紅弓單把/<編號>.png` 與 `multiview/2-群星箭雨-front.png`（當版面範例），請它照範例的版面畫正面。
+- 側面：新對話只附上該把的正面圖，用英文提示：「This is a low-poly fantasy game prop (a decorative longbow, for a 3D modeling reference sheet). Please draw the same object rotated 90 degrees around its vertical axis, so we see it edge-on and can see the thickness of …. Keep it vertical, orthographic, centered, fully in frame, same height, same colors and the same faceted low-poly style. Pure white background, no string, no shadow, no text.」
+- 中文提示在同一段對話接著畫側面時，ChatGPT 常誤判成違規內容；改開新對話、用英文就過了。
+- 蛛后毒弓的側面把卵囊畫成兩側對稱（正面只在左側），TRELLIS 若長歪可只用正面。
+- TRELLIS 的結果存成 `ai/<編號>-<名稱>.glb`。
+
+### 轉進遊戲
+
+TRELLIS 的 GLB 存成 `ai/<名稱>.glb`（例如 `ai/魔王炎弓.glb`），再執行：
+
+```
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/bow_trellis.py -- src/render/figure/weapons/bowTrellis.json
+```
+
+遊戲端 `src/render/figure/weapons/TrellisBows.ts`：整把換成生成的模型，弓弦補一道光；還沒生成的款式沿用 `StyledBows.ts` 程式畫的。目前已換：魔王炎弓（2026-11-15）。

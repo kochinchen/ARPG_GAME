@@ -182,6 +182,7 @@ const DIRS: { label: string; facing: Vec2 }[] = [
 const WINDUP = 0.45;
 const actions: { label: string; run: () => void }[] = [
   ...(['slash', 'thrust', 'overhead'] as AttackVariant[]).map((v) => ({ label: { slash: '橫斬', thrust: '突刺', overhead: '上劈' }[v as 'slash'], run: () => hero.act('attack', WINDUP, v) })),
+  { label: '射箭', run: () => hero.act('attack', WINDUP, 'shoot') },
   { label: '受傷', run: () => hero.hit() },
 ];
 const bar = document.getElementById('bar')!;
@@ -277,7 +278,8 @@ const gAct = group('揮擊', r3);
 for (const a of actions) button(gAct, a.label, () => ((state.loop = null), a.run()));
 button(gAct, '輪流連續', () => {
   let i = 0;
-  state.loop = state.loop ? null : () => actions[i++ % 3]!.run();
+  // 拿弓時連續射箭，其他武器輪流橫斬 / 突刺 / 上劈
+  state.loop = state.loop ? null : () => (state.kind === 'bow' ? actions[3]! : actions[i++ % 3]!).run();
 }, () => state.loop !== null);
 const gDir = group('方向', r3);
 DIRS.forEach((d, i) => button(gDir, d.label, () => (state.dir = i), () => state.dir === i));

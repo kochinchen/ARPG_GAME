@@ -60,7 +60,26 @@ export interface WeaponMount {
   restArm?: Partial<Record<Joint, V3>>;
   /** 不攻擊時武器沿 axis（尾 → 頭）直立朝上：依目前的手臂算武器關節的角度 */
   upright?: boolean;
+  /**
+   * 弓弦（設計者 2026-11-15：拉弓時弦要跟著動）：兩端在弓上（關節座標），粗細與顏色；meshes = 網格裡靜止的弦，不畫。
+   * 弦分上下兩段接到中間的搭箭點：平常在兩端的正中間，射箭的前搖中右手拳心拉到弦後面時，搭箭點跟著拳心往後。
+   */
+  string?: { top: V3; bottom: V3; width: number; colors: readonly number[]; meshes: ReadonlySet<Mesh> };
 }
+
+const vsub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const vadd = (a: V3, b: V3, k = 1): V3 => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+/** 一段弦（a → b）的截面兩軸（長度 = 半寬） */
+function rodAxes(a: V3, b: V3, w: number): [V3, V3] {
+  const d = normalize(vsub(b, a));
+  const e1 = normalize(Math.abs(d[1]) < 0.9 ? cross(d, [0, 1, 0]) : cross(d, [1, 0, 0]));
+  const e2 = cross(d, e1);
+  return [e1.map((x) => x * w) as V3, e2.map((x) => x * w) as V3];
+}
+/** 單位弦段（z：0 → 1、截面 ±1）的四面；GPU 蒙皮用骨頭矩陣拉到 a → b */
+const ROD_CORNERS: V3[] = [[1, 1, 0], [-1, 1, 0], [-1, -1, 0], [1, -1, 0], [1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1]];
+const ROD_FACES: number[][] = [0, 1, 2, 3].map((i) => [i, (i + 1) % 4, 4 + ((i + 1) % 4), 4 + i]);
 
 type ScreenPoint = { x: number; y: number };
 
@@ -476,6 +495,17 @@ export class PolyFigure {
         for (const face of mesh.faces) emit(verts, face.idx, face.color, face.base);
       }
     }
+    // 弓弦（上下兩段，接到搭箭點）
+    const str = mount?.string ? this.stringPoints(world, mount.joint, mount.string) : null;
+    this.stringNow = str;
+    if (str && !sink?.skin) {
+      const s = mount!.string!;
+      for (const [a, b] of [[str[0], str[1]], [str[1], str[2]]] as const) {
+        const [e1, e2] = rodAxes(a, b, s.width);
+        const verts = ROD_CORNERS.map(([x, y, z]) => vadd(vadd(vadd(a, e1, x), e2, y), vsub(b, a), z));
+        ROD_FACES.forEach((f, i) => emit(verts, f, s.colors[i % s.colors.length]!));
+      }
+    }
     // 蒙皮網格（整張連續的身體）：被裝備蓋住的部位不畫；靴子等部位換成裝備的顏色（skinColors）
     const skin = this.model.skin;
     if (sink?.skin) {
@@ -509,12 +539,43 @@ export class PolyFigure {
     if (dbg.joints || dbg.bones || dbg.pivot || dbg.facing || dbg.anchor) this.drawDebug(g, world, toScreen, yaw, facing, weaponJoint);
   }
 
+  /** 這一幀弓弦的三個點（上端、搭箭點、下端；模型空間）：GPU 蒙皮的骨頭矩陣也用 */
+  private stringNow: [V3, V3, V3] | null = null;
+
+  private stringPoints(world: JointFrames, joint: Joint, s: NonNullable<WeaponMount['string']>): [V3, V3, V3] {
+    const { m, p } = world.get(joint)!;
+    const at = (v: V3): V3 => vadd(p, apply(m, v));
+    const rest: V3 = [(s.top[0] + s.bottom[0]) / 2, (s.top[1] + s.bottom[1]) / 2, (s.top[2] + s.bottom[2]) / 2];
+    let nock = rest;
+    const a = this.action;
+    // 右手拳心：主角的 weapon 關節（握劍的位置）；沒有時用手腕
+    const fist = world.get('weapon')?.p ?? world.get('handR')?.p;
+    const back = Math.hypot(...rest);
+    if (a && a.variant === 'shoot' && a.elapsed < a.windup && fist && back > 1e-6) {
+      // 拳心換到弓的座標（旋轉矩陣的反矩陣 = 轉置）
+      const d = vsub(fist, p);
+      const local: V3 = [m[0] * d[0] + m[3] * d[1] + m[6] * d[2], m[1] * d[0] + m[4] * d[1] + m[7] * d[2], m[2] * d[0] + m[5] * d[1] + m[8] * d[2]];
+      const u = rest.map((x) => x / back) as V3; // 握把 → 弦：拉弓的方向
+      const span = vsub(s.bottom, s.top);
+      const half = Math.hypot(...span) / 2;
+      const along = span.map((x) => x / (half * 2)) as V3;
+      const rel = vsub(local, rest);
+      const pull = dot(rel, u);
+      if (pull > 0) {
+        const slide = Math.max(-0.25, Math.min(0.25, dot(rel, along) / half)) * half;
+        nock = vadd(vadd(rest, u, Math.min(pull, half * 0.9)), along, slide);
+      }
+    }
+    return [at(s.top), at(nock), at(s.bottom)];
+  }
+
   /** 這個關節這一幀要畫的網格：換裝、換武器、隱藏、細節層級（加密的裝備沒有放大時畫粗網格） */
   private meshesOf(part: FigureModel['parts'][number], weaponJoint: Joint, lod: number): Mesh[] {
     const mount = this.mount;
     let meshes = this.hidden.has(part.joint) ? [] : (this.outfit?.get(part.joint) ?? part.meshes);
     if (mount !== undefined && (part.joint === weaponJoint || part.joint === mount?.joint)) meshes = mount?.joint === part.joint ? mount.meshes : [];
-    return meshes.filter((m) => (m.lod ?? 0) <= lod).map((fine) => (lod < 2 && fine.coarse ? fine.coarse : fine));
+    const still = mount?.string?.meshes;
+    return meshes.filter((m) => (m.lod ?? 0) <= lod && !still?.has(m)).map((fine) => (lod < 2 && fine.coarse ? fine.coarse : fine));
   }
 
   /** GPU 蒙皮的靜止網格：與 draw() 交給 sink 的三角形相同（同樣的面、顏色、扇形切法） */
@@ -547,6 +608,11 @@ export class PolyFigure {
         }
       }
     });
+    // 弓弦：兩段單位弦，各自一根骨頭（2n、2n + 1；boneMatrices 依這一幀的弦拉到位置）
+    const s = this.mount?.string;
+    if (s)
+      for (const seg of [0, 1])
+        ROD_FACES.forEach((f, i) => fan(f, (v) => vertex(ROD_CORNERS[v]!, s.colors[i % s.colors.length]!, [parts.length * 2 + seg], [1])));
     const skin = this.model.skin;
     if (skin) {
       const index = new Map(parts.map((p, i) => [p.joint, i]));
@@ -574,7 +640,9 @@ export class PolyFigure {
   private boneMatrices(world: JointFrames, k: number): Float32Array {
     const parts = this.model.parts;
     const n = parts.length;
-    const out = (this.bones ??= new Float32Array(n * 2 * 16));
+    const count = (n * 2 + (this.mount?.string ? 2 : 0)) * 16;
+    if (this.bones?.length !== count) this.bones = new Float32Array(count);
+    const out = this.bones;
     const rest = this.model.skin?.rest;
     parts.forEach((part, i) => {
       const { m, p } = world.get(part.joint)!;
@@ -603,6 +671,21 @@ export class PolyFigure {
         out[o + 15] = 1;
       }
     });
+    // 弓弦兩段：單位弦的 x、y 是截面、z 是 a → b
+    const str = this.stringNow;
+    const w = this.mount?.string?.width;
+    if (str && w !== undefined)
+      [[str[0], str[1]], [str[1], str[2]]].forEach(([a, b], seg) => {
+        const [e1, e2] = rodAxes(a!, b!, w);
+        const cols = [e1, e2, vsub(b!, a!), a!];
+        const o = (n * 2 + seg) * 16;
+        cols.forEach((c, j) => {
+          out[o + j * 4] = c[0] * k;
+          out[o + j * 4 + 1] = c[1] * k;
+          out[o + j * 4 + 2] = c[2] * k;
+          out[o + j * 4 + 3] = j === 3 ? 1 : 0;
+        });
+      });
     return out;
   }
 

@@ -11,6 +11,7 @@ import { blenderBow, blenderStaff } from './BlenderBowStaff';
 import type { WeaponMount } from '../PolyFigure';
 import type { Joint } from '../FigureModel';
 import {
+  BOW_STRINGS,
   ABYSS,
   ANCIENT,
   axe,
@@ -83,6 +84,8 @@ export interface WeaponLook {
   focus?: V3;
   /** 橘 / 紅專屬的光芒；其他稀有度依顏色產生 */
   glow?: WeaponGlowStyle;
+  /** 弓弦（弓才有）：兩端是 axis，粗細與顏色；meshes 裡靜止的弦（與弦上的裝飾）是 stringMeshes */
+  string?: { width: number; colors: readonly number[]; meshes: ReadonlySet<Mesh> };
 }
 
 // ─────────────────────────── 各種類的造型 ───────────────────────────
@@ -129,8 +132,14 @@ function bowLook(s: BowOptions, build: typeof bow = bow): RawLook {
   const b = s.style ? styledBow({ ...s, style: s.style }) : build(s);
   const k = (v: V3): V3 => scaleAround(v, [0, 0, 0], BOW_SCALE);
   const grip: V3 = [0, 0, s.bend * 0.25];
+  const meshes = stretchMeshes(b.meshes, [BOW_SCALE, BOW_SCALE, BOW_SCALE]);
+  // 弓弦的標記跟著放大後的網格（粗細也放大）
+  meshes.forEach((m, i) => {
+    const info = BOW_STRINGS.get(b.meshes[i]!);
+    if (info !== undefined) BOW_STRINGS.set(m, info && { ...info, width: info.width * BOW_SCALE });
+  });
   return {
-    meshes: stretchMeshes(b.meshes, [BOW_SCALE, BOW_SCALE, BOW_SCALE]),
+    meshes,
     tip: k(b.top),
     axis: [k(b.top), k(b.bottom)],
     focus: k([0, 0, s.bend * 0.3]),
@@ -388,16 +397,25 @@ function hold(kind: WeaponType, raw: RawLook, emblem?: Emblem, facets: boolean |
   }
   const rot = HOLD[kind];
   const m = jointRotation(rot);
+  const strings = new Set<Mesh>();
+  let string: { width: number; colors: readonly number[] } | null = null;
+  const meshes = raw.meshes.map((part, i) => {
+    const fine = facets === true || (facets === 'program' && !BASE_MESHES.has(part));
+    const mesh = fine ? refine(part, { ...WEAPON_FACETS, seed: i }) : part;
+    const placed = placeMesh(mesh, rot, [0, 0, 0]);
+    if (mesh.lod) placed.lod = mesh.lod;
+    const info = BOW_STRINGS.get(part);
+    if (info !== undefined) {
+      strings.add(placed);
+      string ??= info;
+    }
+    return placed;
+  });
   return {
     kind,
     hand: kind === 'bow' ? 'left' : 'right',
-    meshes: raw.meshes.map((part, i) => {
-      const fine = facets === true || (facets === 'program' && !BASE_MESHES.has(part));
-      const mesh = fine ? refine(part, { ...WEAPON_FACETS, seed: i }) : part;
-      const placed = placeMesh(mesh, rot, [0, 0, 0]);
-      if (mesh.lod) placed.lod = mesh.lod;
-      return placed;
-    }),
+    meshes,
+    ...(string ? { string: { ...(string as { width: number; colors: readonly number[] }), meshes: strings } } : {}),
     tip: apply(m, raw.tip),
     axis: [apply(m, raw.axis[0]), apply(m, raw.axis[1])],
     ...(raw.focus ? { focus: apply(m, raw.focus) } : {}),
@@ -430,6 +448,8 @@ export function mountFor(look: WeaponLook): WeaponMount {
     ...(look.focus ? { focus: look.focus } : {}),
     ...(rest ? { rest } : {}),
     ...(restArm ? { restArm, upright: true } : {}),
+    // 弓弦：拉弓時跟著右手（弦的兩端 = 弓的 axis）
+    ...(look.string ? { string: { top: look.axis[0], bottom: look.axis[1], width: look.string.width, colors: look.string.colors, meshes: look.string.meshes } } : {}),
   };
 }
 

@@ -1,7 +1,8 @@
 import type { Mesh, V3 } from '../Poly3D';
 import { plate } from './StyledAxes';
 import { glowTones } from './StyledWeapons';
-import { chain, darken, edge, gem, GOLD, lighten, resample, sample, taper, vadd, type BowOptions, type BowStyle, type Tones } from './WeaponParts';
+import { trellisBow } from './TrellisBows';
+import { BOW_STRINGS, bowString, chain, darken, edge, gem, GOLD, lighten, resample, sample, taper, vadd, type BowOptions, type BowStyle, type Tones } from './WeaponParts';
 
 /**
  * 橘 / 紅弓的造型：設計稿 art/gear/bows_unique/concept（橘弓四種基本款.png、紅弓六把.png）。
@@ -266,7 +267,10 @@ const wing: Limb = (c, pts, sd) => {
 const LIMBS: Record<BowStyle, Limb> = { recurve, chitin, spine, vine, sky, stars, blood, fallen, queen, wing };
 const GRIP: Record<BowStyle, 'fine' | 'beast' | 'core'> = { recurve: 'fine', sky: 'fine', stars: 'fine', chitin: 'beast', spine: 'beast', vine: 'beast', blood: 'core', fallen: 'core', queen: 'core', wing: 'core' };
 
-export function styledBow(o: StyledBowOptions): { meshes: Mesh[]; top: V3; bottom: V3 } {
+/** trellis：有 TRELLIS 模型的款式（目前：魔王炎弓）整把換成生成的模型（TrellisBows.ts）；false = 程式畫的舊版 */
+export function styledBow(o: StyledBowOptions, trellis = true): { meshes: Mesh[]; top: V3; bottom: V3 } {
+  const t = trellis ? trellisBow(o.style, o.length, o.bend, o.glow ?? 0xfff0c0) : null;
+  if (t) return t;
   // 設計稿的弓臂比一般弓粗壯得多
   const L = o.length, b = o.bend, r = o.recurve ?? 0;
   const c: Ctx = { o, th: o.thickness * 1.4, trim: o.trim ?? GOLD, spikes: o.spikes ?? o.colors, glow: o.glow ?? 0xfff0c0, meshes: [] };
@@ -309,10 +313,14 @@ export function styledBow(o: StyledBowOptions): { meshes: Mesh[]; top: V3; botto
   // 弓弦：除了骨刺獸弓都是一道光；天穹裂弦的弦更粗，上面有幾個菱形節點
   const lit = o.style !== 'spine';
   const sw = o.style === 'sky' ? 0.2 : lit ? 0.11 : 0.08;
-  c.meshes.push(taper(top, bottom, [sw, sw], [sw, sw], lit ? glowTones(glow) : [o.string ?? 0x6a4a30], 4, 0, Math.PI / 4));
+  c.meshes.push(bowString(top, bottom, sw, lit ? glowTones(glow) : [o.string ?? 0x6a4a30]));
   if (o.style === 'sky') for (const f of [0.25, 0.5, 0.75]) {
     const p: V3 = [0, top[1] + (bottom[1] - top[1]) * f, top[2] + (bottom[2] - top[2]) * f];
-    c.meshes.push(edge(vadd(p, [0, -0.9, 0]), p, [0.05, 0.05], [0.45, 0.45], glowTones(glow)), edge(p, vadd(p, [0, 0.9, 0]), [0.45, 0.45], [0.05, 0.05], glowTones(glow)));
+    // 弦上的菱形節點：拉弓時跟靜止的弦一起不畫
+    for (const m of [edge(vadd(p, [0, -0.9, 0]), p, [0.05, 0.05], [0.45, 0.45], glowTones(glow)), edge(p, vadd(p, [0, 0.9, 0]), [0.45, 0.45], [0.05, 0.05], glowTones(glow))]) {
+      BOW_STRINGS.set(m, null);
+      c.meshes.push(m);
+    }
   }
   return { meshes: c.meshes, top, bottom };
 }

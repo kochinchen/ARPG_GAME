@@ -454,6 +454,17 @@ export function sample(pts: readonly V3[], t: number): { p: V3; d: V3; n: V3 } {
 /** 把折線切成 n 段（等長） */
 export const resample = (pts: readonly V3[], n: number): V3[] => Array.from({ length: n + 1 }, (_, i) => sample(pts, i / n).p);
 
+/**
+ * 弓弦的網格：值是弦的粗細與顏色（null = 弦上的裝飾）。主角拿弓時，角色另外畫一條拉弓時會跟著右手動的弦（PolyFigure 的 WeaponMount.string），
+ * 這些靜止的弦就不畫；預覽的懸空武器、物品圖示照常畫。
+ */
+export const BOW_STRINGS = new WeakMap<Mesh, { width: number; colors: Tones } | null>();
+export function bowString(a: V3, b: V3, width: number, colors: Tones): Mesh {
+  const m = taper(a, b, [width, width], [width, width], colors, 4, 0, Math.PI / 4);
+  BOW_STRINGS.set(m, { width, colors });
+  return m;
+}
+
 /** 弓：沿 ±Y 的兩片弓臂、弓弦（直線），回傳網格與上下弓梢 */
 export function bow(o: BowOptions): { meshes: Mesh[]; top: V3; bottom: V3 } {
   const L = o.length;
@@ -472,7 +483,7 @@ export function bow(o: BowOptions): { meshes: Mesh[]; top: V3; bottom: V3 } {
   const up = limb(1);
   const down = limb(-1);
   const meshes: Mesh[] = [...up.meshes, ...down.meshes, taper([0, 2.6, b * 0.2], [0, -2.6, b * 0.2], [0.75, 0.9], [0.75, 0.9], o.grip, 6, 0, Math.PI / 6)];
-  meshes.push(taper(up.tip, down.tip, [0.07, 0.07], [0.07, 0.07], [o.string ?? 0xe8e0c8], 4, 0, Math.PI / 4));
+  meshes.push(bowString(up.tip, down.tip, 0.07, [o.string ?? 0xe8e0c8]));
   const tc = o.tipColors ?? o.colors;
   for (const [tip, sd] of [
     [up.tip, 1],

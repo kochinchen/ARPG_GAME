@@ -1,7 +1,7 @@
 import type { Mesh, V3 } from '../Poly3D';
 import BOW_DATA from './bowBase.json';
 import STAFF_DATA from './staffBase.json';
-import { bow, darken, sample, staff, taper, type BowOptions, type StaffOptions, type Tones } from './WeaponParts';
+import { bow, bowString, darken, sample, staff, type BowOptions, type StaffOptions, type Tones } from './WeaponParts';
 import { baseMesh, pick, ranks } from './TrellisAxes';
 
 /**
@@ -81,7 +81,7 @@ export function blenderBow(o: BowOptions): { meshes: Mesh[]; top: V3; bottom: V3
   const mid = frame([0, 0, b * 0.2], [1, 0, 0], [0, 1, 0], [0, 0, 1]);
   for (const name of ['riser', 'grip', 'shelf']) meshes.push(paint(BOW.parts[name]!, mid, colorOf, BOW.tags));
   const [top, bottom] = tips as [V3, V3];
-  meshes.push(taper(top, bottom, [0.07, 0.07], [0.07, 0.07], [o.string ?? 0xe8e0c8], 4, 0, Math.PI / 4));
+  meshes.push(bowString(top, bottom, 0.07, [o.string ?? 0xe8e0c8]));
   // 弓梢的刃 / 鉤 / 翼 / 寶珠：程式畫的（bow() 在弓臂、握把、弓弦之後的零件）
   if (o.tips) {
     const noTips = { ...o };
