@@ -57,6 +57,12 @@ function readConfig(fighters: readonly EnemyDef[], legendaries: readonly string[
     phase: clamp(params.get('phase'), 1, def.phases.length + 1),
     wear: (params.get('wear') ?? '').split(',').filter((id) => legendaries.includes(id)),
     elite: params.get('elite') === '1',
+    // 奪魂寄生花沒指定時，預設在身邊死三隻（骷髏戰士、食屍鬼、孵化蜘蛛）讓牠附體
+    victims: (params.get('victims') ?? (def.id === 'enemy.soul_flower' ? 'skeleton,ghoul,hatchling_spider' : ''))
+      .split(',')
+      .filter(Boolean)
+      .map((id) => `enemy.${id}`)
+      .filter((id) => fighters.some((e) => e.id === id)),
   };
 }
 
@@ -65,6 +71,7 @@ function applyConfig(config: SimConfig): void {
   if (config.phase > 1) params.set('phase', String(config.phase));
   if (config.wear?.length) params.set('wear', config.wear.join(','));
   if (config.elite) params.set('elite', '1');
+  if (config.victims?.length) params.set('victims', config.victims.map((id) => id.replace('enemy.', '')).join(','));
   location.search = params.toString();
 }
 

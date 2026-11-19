@@ -307,6 +307,16 @@ export const BalanceSchema = z.strictObject({
       cooldown: z.number().positive(),
       max: z.int().positive(),
     }),
+    /**
+     * 附體（tactics 有 possess 的奪魂寄生花，設計者 2026-11-19）：藤蔓範圍內有一般怪的屍體就施法 duration 秒，
+     * 把屍體拖到身邊、種進花苞讓牠站起來：數值、技能同原本那隻（滿血），另外吸血 lifeSteal；同時只控制一隻，寄生花倒下牠也跟著枯萎
+     */
+    possess: z.strictObject({
+      range: z.number().positive(),
+      duration: z.number().positive(),
+      cooldown: z.number().positive(),
+      lifeSteal: z.number().min(0),
+    }),
     /** 移動速度隨狀況變化（乘在基本速度上） */
     pace: z.strictObject({
       /** 主角在 sprintDistance 格外時，追擊的速度加成 */

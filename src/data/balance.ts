@@ -165,6 +165,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     devour: { hpBelow: 0.8, range: 6, duration: 1.5, heal: 0.35, grow: 0.15, damage: 0.15, maxEats: 2 },
     // 復活（骷髏法師）：range 格內有不死族的屍體就施法 duration 秒，讓牠以 hp 的血量站起來（不給經驗、不掉寶、不再留屍體）；冷卻 cooldown 秒、每隻最多 max 次
     raise: { range: 7, duration: 1.2, hp: 0.5, cooldown: 10, max: 3 },
+    // 奪魂寄生花的附體（設計者 2026-11-19）：藤蔓 6 格內的屍體、施法 1.5 秒、冷卻 12 秒；附體的怪吸血 5%（吸血上限只限主角，怪物另外計算）
+    possess: { range: 6, duration: 1.5, cooldown: 12, lifeSteal: 0.05 },
     // 移動速度隨狀況變化（設計者 2026-11-07）：主角在 sprintDistance 格外時追趕 + sprint；誘敵逃跑、求援、跑去撿藥水 + errand；
     // 繞到背後的途中 + flank；靈活派（弓手）被貼近後退時 + retreat。都是乘在基本速度上（緩速等狀態照常再乘）
     pace: { sprint: 0.25, sprintDistance: 6, errand: 0.2, flank: 0.15, retreat: 0.3 },

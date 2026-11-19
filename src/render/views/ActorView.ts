@@ -13,6 +13,7 @@ import { WeaponGlowView } from './WeaponGlowView';
 import { StatusAuraView } from './StatusAuraView';
 import { mountFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
 import type { OutfitParts } from '../figure/gear/ArmorLooks';
+import { possessedLook } from '../figure/Possessed';
 import { ELEMENT_COLORS, PALETTE, STATUS_TINTS } from '../palette';
 import { GPU_SKINNING, type ThreeFigure, type ThreeWorld } from '../three/ThreeWorld';
 
@@ -45,7 +46,9 @@ const boneDragonModel = (elements: readonly GlowElement[]): FigureModel => {
 const modelOf = (actor: Actor) => {
   if (actor.faction === 'player') return HEROINE;
   if (actor.defId === 'enemy.bone_dragon' && actor.innateElements) return boneDragonModel(actor.innateElements as readonly GlowElement[]);
-  return MONSTER_MODELS[actor.defId ?? ''] ?? DEFAULT_MONSTER_MODEL;
+  const model = MONSTER_MODELS[actor.defId ?? ''] ?? DEFAULT_MONSTER_MODEL;
+  // 被奪魂寄生花附體：紅色花苞頭、深綠身體
+  return actor.possessedBy !== null ? possessedLook(model) : model;
 };
 
 /** 角色相對於標準體型（主角）的大小：模型的縮放倍率（隨機體型、精英、Boss 都會放大） */

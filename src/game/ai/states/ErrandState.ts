@@ -9,6 +9,7 @@ const REACH = 0.4;
  * - 撿藥水：走到藥水上當場喝掉，回復最大 HP 的 potion.heal；藥水消失，主角撿不到
  * - 吃屍體：走到屍體上吃 devour.duration 秒，回血、體型變大、傷害提高；屍體消失
  * - 復活：屍體在 raise.range 內就站著施法 raise.duration 秒，屍體站起來（GameWorld 生成）
+ * - 附體：屍體在 possess.range 內就站著施法 possess.duration 秒，屍體被拖到身邊附體（GameWorld 生成）
  * 藥水被撿走、屍體被吃掉或走不到就放棄，回頭打原本的目標。
  */
 export class ErrandState implements IAiState {
@@ -31,7 +32,7 @@ export class ErrandState implements IAiState {
     const exists =
       errand.kind === 'potion' ? surroundings.groundItems.some((g) => g.id === errand.itemId) : surroundings.corpses.includes(errand.corpse);
     if (!exists) return this.done(ctx);
-    const reach = errand.kind === 'raise' ? tactics.raise.range : REACH + self.radius;
+    const reach = errand.kind === 'raise' ? tactics.raise.range : errand.kind === 'possess' ? tactics.possess.range : REACH + self.radius;
     if (distance(self.position, errand.position) > reach) {
       if (!self.isMoving && brain.dodgeTimer <= 0) {
         self.path = findPathFor(ctx, errand.position);
@@ -57,6 +58,8 @@ export class ErrandState implements IAiState {
       self.growth *= 1 + config.grow;
       self.stats.addModifier({ stat: 'damageBonus', kind: 'flat', value: config.damage, source: 'devour' });
       brain.eats++;
+    } else if (errand.kind === 'possess') {
+      brain.possessCooldown = tactics.possess.cooldown;
     } else {
       brain.raises++;
       brain.raiseCooldown = tactics.raise.cooldown;

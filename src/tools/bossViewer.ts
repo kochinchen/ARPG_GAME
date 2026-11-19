@@ -8,6 +8,7 @@ import { boneDragonLook, type GlowElement } from '../render/figure/bosses/BoneDr
 import { BONE_HAND } from '../render/figure/BoneHand';
 import { AI_MONSTERS, MONSTER_MODELS } from '../render/figure/Monsters';
 import { STONE_WALKERS } from '../render/figure/StoneWalkers';
+import { possessedLook } from '../render/figure/Possessed';
 import { ThreeWorld, type ThreeFigure } from '../render/three/ThreeWorld';
 
 /**
@@ -22,7 +23,10 @@ const ids = [...Object.keys(BOSS_MODELS).filter((id) => enemies.some((e) => e.id
 const modelId = ids.includes(`enemy.${params.get('model')}`) ? `enemy.${params.get('model')}` : 'enemy.abyss_sovereign';
 /** ?glow=fire,poison：骨龍的兩種屬性 */
 const glow = params.get('glow')?.split(',') as [GlowElement, GlowElement] | undefined;
-const baseModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : modelId === 'enemy.bone_hand' ? BONE_HAND : (AI_MONSTERS.includes(modelId) ? MONSTER_MODELS[modelId] : undefined) ?? BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId] ?? MONSTER_MODELS[modelId]!;
+/** ?possessed=1：被奪魂寄生花附體的樣子（深綠身體、長出寄生花的花苞） */
+const possessed = params.get('possessed') === '1';
+const plainModel: FigureModel = modelId === 'enemy.bone_dragon' && glow?.length === 2 ? boneDragonLook(glow[0], glow[1]) : modelId === 'enemy.bone_hand' ? BONE_HAND : (AI_MONSTERS.includes(modelId) ? MONSTER_MODELS[modelId] : undefined) ?? BOSS_MODELS[modelId] ?? STONE_WALKERS[modelId] ?? MONSTER_MODELS[modelId]!;
+const baseModel: FigureModel = possessed ? possessedLook(plainModel) : plainModel;
 /** ?bones=1：蒙皮網格每個面依權重最大的骨頭上色（手臂 = 黃 / 橘 / 紅、鎖骨 = 白，其他依名稱），檢查分區 */
 const BONE_COLORS: Record<string, number> = { upperArm: 0xffe040, forearm: 0xff8a20, hand: 0xff3030, ex_fingers: 0xff40c0, ex_clav: 0xffffff };
 const model: FigureModel =
@@ -166,7 +170,7 @@ for (const id of ids) {
   opt.selected = id === modelId;
   select.append(opt);
 }
-select.onchange = () => (location.search = `?model=${select.value}`);
+select.onchange = () => (location.search = `?model=${select.value}${possessed ? '&possessed=1' : ''}`);
 bar.append(select);
 // 萬骸之口：兩種屬性的配色（第一屬性 = 眼睛與嘴，第二屬性 = 裂縫與關節縫）
 if (modelId === 'enemy.bone_dragon') {
@@ -222,6 +226,10 @@ for (let p = 0; p < phases; p++) button(gPhase, `${p + 1}${modelId === 'enemy.ab
 const gCheck = group('檢查');
 button(gCheck, 'T 字（手臂往兩側伸直）', () => (state.tpose = state.tpose === 1 ? 0 : 1), () => state.tpose === 1);
 button(gCheck, 'T 字＋前臂往前彎 90°', () => (state.tpose = state.tpose === 2 ? 0 : 2), () => state.tpose === 2);
+button(gCheck, possessed ? '取消附體外觀' : '附體外觀（奪魂寄生花）', () => {
+  params.set('possessed', possessed ? '0' : '1');
+  location.search = params.toString();
+});
 const gDir = group('方向');
 DIRS.forEach((d, i) => button(gDir, d.label, () => ((state.dir = i), (state.spin = false)), () => !state.spin && state.dir === i));
 button(gDir, '自動轉身', () => (state.spin = !state.spin), () => state.spin);

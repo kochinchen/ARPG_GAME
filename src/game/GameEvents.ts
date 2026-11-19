@@ -79,11 +79,11 @@ export interface GameEvents {
   /** 一群怪被打掉超過一半：這隻去叫其他群支援（Render 在頭上顯示「求援」；打倒牠就叫不到） */
   EnemyCalling: { actorId: ActorId; packs: number };
   /** 怪物離開戰鬥去撿藥水 / 吃屍體 / 復活屍體（Render 在頭上顯示） */
-  EnemyErrand: { actorId: ActorId; kind: 'potion' | 'devour' | 'raise' };
+  EnemyErrand: { actorId: ActorId; kind: 'potion' | 'devour' | 'raise' | 'possess' };
   /** 怪物喝掉地上的藥水（GameWorld 把藥水從地上移除） */
   EnemyDrankPotion: { actorId: ActorId; itemId: number; healed: number };
   /** 屍體被吃掉 / 復活（GameWorld 移除屍體；復活的生成新的怪） */
-  CorpseConsumed: { actorId: ActorId; corpse: CorpseView; kind: 'devour' | 'raise' };
+  CorpseConsumed: { actorId: ActorId; corpse: CorpseView; kind: 'devour' | 'raise' | 'possess' };
   ActorDamaged: {
     targetId: ActorId;
     sourceId: ActorId | null;

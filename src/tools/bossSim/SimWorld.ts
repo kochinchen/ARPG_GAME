@@ -29,6 +29,8 @@ export interface SimConfig {
   wear?: readonly string[];
   /** 精英（網址 &elite=1；只有精英的倍率與外觀，沒有詞綴） */
   elite?: boolean;
+  /** 開場就死在敵人身邊的怪（網址 &victims=skeleton,ghoul；看奪魂寄生花附體用），每隻留下一具屍體 */
+  victims?: readonly string[];
 }
 
 export interface Sim {
@@ -107,11 +109,17 @@ export function createSim(config: SimConfig): Sim {
 
   // 隱藏魔王每次出招從屬性裡抽一種（兩種，或全部）
   const hidden = data.balance.hiddenBoss.bosses.find((b) => b.enemyId === config.enemyId);
-  const at = vec2(world.player.position.x + START_GAP, world.player.position.y);
+  // 有開場就死的怪（看附體）時把敵人放近一點，整個過程都在畫面裡
+  const at = vec2(world.player.position.x + (config.victims?.length ? 3.5 : START_GAP), world.player.position.y);
   const enemy = world.spawnScaledEnemy(config.enemyId, config.floor, at, hidden ? (hidden.allElements ? hidden.elements : hidden.elements.slice(0, 2)) : null, config.elite === true);
   // 階段由血量決定：血量放在該階段的門檻，第一個 Tick 由遊戲的 BossSystem 進入階段（畫面也會收到事件）
   const start = data.enemies.get(config.enemyId).phases[config.phase - 2];
   if (start) enemy.hp = enemy.maxHp * start.hpBelow;
+  // 開場就死在敵人周圍（半圓排開、在主角的另一側），第一個 Tick 留下屍體
+  (config.victims ?? []).forEach((id, i, all) => {
+    const a = -Math.PI / 2 + (Math.PI * (i + 0.5)) / all.length;
+    world.spawnScaledEnemy(id, config.floor, vec2(at.x + Math.cos(a) * 2.5, at.y + Math.sin(a) * 2.5)).hp = 0;
+  });
   return { config, data, world, commands, enemy };
 }
 

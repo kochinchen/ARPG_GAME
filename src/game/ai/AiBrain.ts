@@ -16,7 +16,7 @@ export interface CorpseView {
 /** 離開戰鬥去做的事：撿藥水、吃屍體、復活屍體（ErrandState） */
 export type Errand =
   | { kind: 'potion'; itemId: number; position: Vec2 }
-  | { kind: 'devour' | 'raise'; corpse: CorpseView; position: Vec2; timer: number };
+  | { kind: 'devour' | 'raise' | 'possess'; corpse: CorpseView; position: Vec2; timer: number };
 
 /**
  * 掛在 Actor 上的 AI 資料（只存狀態，行為在 states/）。
@@ -82,6 +82,8 @@ export interface AiBrain {
   /** 復活過幾具屍體、距離下次能復活的秒數 */
   raises: number;
   raiseCooldown: number;
+  /** 附體的冷卻（秒） */
+  possessCooldown: number;
   /** 已經擲過誘敵（每隻一次） */
   lureRolled: boolean;
   /** 誘敵：逃往的位置與剩下的秒數 */
@@ -163,6 +165,7 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     eats: 0,
     raises: 0,
     raiseCooldown: 0,
+    possessCooldown: 0,
     lureRolled: false,
     fleeTo: null,
     fleeTimer: 0,

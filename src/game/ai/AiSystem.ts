@@ -91,6 +91,7 @@ export class AiSystem {
       brain.dodgeCooldown = Math.max(0, brain.dodgeCooldown - dt);
       brain.braveTimer = Math.max(0, brain.braveTimer - dt);
       brain.raiseCooldown = Math.max(0, brain.raiseCooldown - dt);
+      brain.possessCooldown = Math.max(0, brain.possessCooldown - dt);
       brain.scanTimer = Math.max(0, brain.scanTimer - dt);
       brain.huntHold = Math.max(0, brain.huntHold - dt);
       const ctx: AiContext = {

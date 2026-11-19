@@ -369,7 +369,7 @@ export class Renderer {
       if (actor) say(actor.position, '求援！', PALETTE.critText);
     });
     // 撿藥水 / 吃屍體 / 復活屍體：頭上提示，主角可以搶先或打斷
-    const errandText = { potion: '藥水！', devour: '啃食…', raise: '起來吧…' } as const;
+    const errandText = { potion: '藥水！', devour: '啃食…', raise: '起來吧…', possess: '奪魂…' } as const;
     world.events.on('EnemyErrand', (e) => {
       const actor = world.targeting.getActor(e.actorId);
       if (actor) say(actor.position, errandText[e.kind], PALETTE.critText);

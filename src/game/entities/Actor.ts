@@ -151,6 +151,8 @@ export class Actor {
   riding: { hostId: ActorId; slot: Vec2; goal: Vec2; wait: number; speed: number; deck: { center: Vec2; half: Vec2 }; lift: number; dropStun: number } | null = null;
   /** 受到的非近戰傷害倍率（站在城垛後面時 < 1） */
   cover = 1;
+  /** 被奪魂寄生花附體（tactics 的 possess）：控制牠的寄生花；寄生花倒下就跟著枯萎。Render 依此畫成紅頭綠身 */
+  possessedBy: ActorId | null = null;
   /** 從宿主背上跌下來：起跌的高度與剩下的秒數（Render 用） */
   fall: { from: number; remaining: number; duration: number } | null = null;
   readonly xpReward: number;

@@ -532,6 +532,7 @@ export class GameWorld {
       const [corpse] = this.corpses.splice(i, 1);
       const caster = this.targeting.getActor(e.actorId);
       if (e.kind === 'raise' && corpse && caster) this.raiseCorpse(caster, corpse);
+      if (e.kind === 'possess' && corpse && caster) this.possessCorpse(caster, corpse);
     });
     // 死亡技能（結晶獸的晶核碎裂）
     this.events.on('ActorDied', (e) => {
@@ -1253,6 +1254,39 @@ export class GameWorld {
     this.addActor(raised);
   }
 
+  /**
+   * 奪魂寄生花附體（設計者 2026-11-19）：屍體被藤蔓拖到寄生花身邊站起來，種類、數值、技能同原本那隻（滿血、照目前樓層），
+   * 另外吸血 possess.lifeSteal；算召喚物（不給經驗、不掉寶、不留屍體、不算擊殺數），寄生花倒下就跟著枯萎（updatePuppets）
+   */
+  private possessCorpse(flower: Actor, corpse: Corpse): void {
+    const def = this.data.enemies.get(corpse.defId);
+    const scaling = scaleForFloor(Math.max(1, this.floors.floor), this.data.balance.difficulty);
+    const radius = def.radius * def.size;
+    // 拖到寄生花身邊（朝屍體那一側），被擋住就留在原地
+    const d = distance(flower.position, corpse.position) || 1;
+    const reach = flower.radius + radius + 0.2;
+    const pulled = vec2(flower.position.x + ((corpse.position.x - flower.position.x) / d) * reach, flower.position.y + ((corpse.position.y - flower.position.y) / d) * reach);
+    const position = this.nav.isClearAt(pulled, radius) ? pulled : corpse.position;
+    const puppet = this.enemyFactory.create(def, this.nextActorId++, position, { ...scaling, xp: 0 }, undefined, flower.id);
+    puppet.possessedBy = flower.id;
+    puppet.facing = corpse.facing;
+    puppet.stats.addModifier({ stat: 'lifeSteal', kind: 'flat', value: this.data.balance.enemyTactics.possess.lifeSteal, source: 'possess' });
+    if (puppet.ai && flower.ai?.targetId != null) {
+      puppet.ai.targetId = flower.ai.targetId;
+      puppet.ai.state = 'chase';
+    }
+    this.addActor(puppet);
+  }
+
+  /** 控制牠的寄生花倒下（或不見了），附體的怪跟著枯萎 */
+  private updatePuppets(): void {
+    for (const actor of this.actors) {
+      if (actor.possessedBy === null || !actor.alive || actor.hp <= 0) continue;
+      const flower = this.actors.find((a) => a.id === actor.possessedBy);
+      if (!flower || !flower.alive || flower.hp <= 0) actor.hp = 0;
+    }
+  }
+
   /** 魔王身上脫離出來的怪物（噬界足眼的尾巴）：和魔王同樣的樓層倍率與減傷，不給經驗、不掉寶、不算進開出口的擊殺數 */
   private spawnDetached(boss: Actor, enemyId: string): Actor | null {
     const def = this.data.enemies.get(enemyId);
@@ -1731,6 +1765,7 @@ export class GameWorld {
     this.scheduler.update(dt);
     this.devices.update(dt);
     this.checkpoints.update(this.player);
+    this.updatePuppets();
     this.deaths.update(this.actors);
     this.updateRiders(dt);
     this.deathHandler.update(dt);

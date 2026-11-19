@@ -1128,7 +1128,7 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     id: 'enemy.soul_flower',
     name: '奪魂寄生花',
     family: 'parasite',
-    lore: '紮根在地上的寄生花，射出奪魂花粉、伸出藤蔓纏繞。',
+    lore: '紮根在地上的寄生花，射出奪魂花粉、伸出藤蔓纏繞。附近有怪物倒下時，會用藤蔓把屍體拖過來，把花苞種進牠的脖子：屍體頂著一顆紅色花苞站起來，全身染成深綠，本事和生前一樣，還會吸血。先打倒寄生花，被附體的怪就跟著枯萎。',
     hp: 64,
     damage: atk(4, 7),
     defense: 10,
@@ -1140,6 +1140,8 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     ai: 'ranged',
     keepDistance: 1,
     skills: ['enemy.soul_bolt', 'enemy.root_grasp'],
+    // 附體（設計者 2026-11-19）：藤蔓範圍內的屍體拖過來附體，同時控制一隻；數值在 balance.enemyTactics.possess
+    tactics: ['possess'],
     lootTable: 'loot.skeleton',
     xp: 40,
   },

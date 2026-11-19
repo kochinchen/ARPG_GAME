@@ -11,17 +11,21 @@ const SCAN_INTERVAL = 0.5;
  * 1. 撿藥水（potion）：血量低於 potion.hpBelow、附近地上有藥水 → 跑去撿、當場喝掉（每隻一次）
  * 2. 吃屍體（devour）：血量低於 devour.hpBelow、附近有屍體 → 走過去吃，回血變大（最多 maxEats 次）
  * 3. 復活（raise）：冷卻好、附近有不死族的屍體 → 施法讓牠站起來（最多 max 次）
+ * 4. 附體（possess，奪魂寄生花，不會動）：冷卻好、身邊沒有附體的怪、藤蔓範圍內有一般怪的屍體 → 施法把牠拖過來附體
  * 別的怪已經要去撿 / 吃 / 復活的不重複。
  */
 export function pickErrand(ctx: AiContext): Errand | null {
   const { self, brain, tactics, surroundings } = ctx;
-  if (self.isBoss || self.moveSpeed <= 0 || brain.tactics.length === 0 || brain.scanTimer > 0) return null;
+  if (self.isBoss || brain.tactics.length === 0 || brain.scanTimer > 0) return null;
+  // 不會動的只做附體（站在原地用藤蔓抓）
+  if (self.moveSpeed <= 0 && !brain.tactics.includes('possess')) return null;
   const hp = self.hp / self.maxHp;
-  const can = (t: 'potion' | 'devour' | 'raise') => brain.tactics.includes(t);
+  const can = (t: 'potion' | 'devour' | 'raise' | 'possess') => brain.tactics.includes(t);
   const wantsPotion = can('potion') && !brain.drankPotion && hp < tactics.potion.hpBelow;
   const wantsDevour = can('devour') && brain.eats < tactics.devour.maxEats && hp < tactics.devour.hpBelow;
   const wantsRaise = can('raise') && brain.raises < tactics.raise.max && brain.raiseCooldown <= 0;
-  if (!wantsPotion && !wantsDevour && !wantsRaise) return null;
+  const wantsPossess = can('possess') && brain.possessCooldown <= 0 && !ctx.actors.some((a) => a.alive && a.possessedBy === self.id);
+  if (!wantsPotion && !wantsDevour && !wantsRaise && !wantsPossess) return null;
   brain.scanTimer = SCAN_INTERVAL;
   const claimed = claims(ctx.actors, self);
   if (wantsPotion) {
@@ -43,6 +47,14 @@ export function pickErrand(ctx: AiContext): Errand | null {
       return !!def && def.family === 'undead' && !def.boss && !def.treasure;
     });
     if (corpse) return { kind: 'raise', corpse, position: corpse.position, timer: tactics.raise.duration };
+  }
+  if (wantsPossess) {
+    // 一般怪才附得了：魔王、小王、噴錢的結晶獸、不會動的（另一棵寄生花）不行
+    const corpse = nearestCorpse(ctx, tactics.possess.range, claimed.corpses, (c) => {
+      const def = ctx.enemies.has(c.defId) ? ctx.enemies.get(c.defId) : null;
+      return !!def && !def.boss && !def.treasure && def.moveSpeed > 0;
+    });
+    if (corpse) return { kind: 'possess', corpse, position: corpse.position, timer: tactics.possess.duration };
   }
   return null;
 }

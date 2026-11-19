@@ -6,7 +6,7 @@ export const EnemyFamilySchema = z.enum(['undead', 'beast', 'chitin', 'brute', '
 export type EnemyFamily = z.infer<typeof EnemyFamilySchema>;
 
 /** 特殊行為（balance.enemyTactics；說明見 EnemyDefSchema.tactics） */
-export const EnemyTacticSchema = z.enum(['potion', 'devour', 'raise', 'agile', 'shield', 'cover', 'hunt', 'swarm', 'guard', 'rout', 'kamikaze', 'burrow']);
+export const EnemyTacticSchema = z.enum(['potion', 'devour', 'raise', 'possess', 'agile', 'shield', 'cover', 'hunt', 'swarm', 'guard', 'rout', 'kamikaze', 'burrow']);
 export type EnemyTactic = z.infer<typeof EnemyTacticSchema>;
 
 /** Boss 的階段：HP 降到 hpBelow 以下時進入（一次性套用 modifiers，並可改用另一組技能） */
