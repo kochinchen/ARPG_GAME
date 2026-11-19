@@ -29,6 +29,7 @@ import { FloorMarkersView } from './views/FloorMarkersView';
 import { TileMapView } from './views/TileMapView';
 import type { ArenaView } from './views/ArenaDecor';
 import { SetPieceLayer } from './views/SetPieceLayer';
+import { BUILDING_HEIGHT, ruinsTriangles } from './three/RuinsArt';
 import { BOSS_ARENAS } from './themes';
 import { MONSTER_MODELS } from './figure/Monsters';
 import { PolyFigure } from './figure/PolyFigure';
@@ -429,7 +430,21 @@ export class Renderer {
   private syncThreeMap(): void {
     this.tileMap.threeMode = this.threeOn;
     const t = this.tileMap.theme;
-    if (this.three) this.three.setMap(this.tileMap.wallCells, this.world.nav.cell, this.tileMap.lightSpots, { style: t.wall, accent: t.accent, glow: t.glow }, this.tileMap.floorTriangles, this.tileMap.underWallTriangles);
+    if (!this.three) return;
+    // 頂替邊牆的建築：占地裡的牆格不畫（由建築的正面當牆；碰撞照舊）
+    const cell = this.world.nav.cell;
+    const covering = this.world.ruins.buildings.filter((b) => b.kind === 'wall');
+    const walls = covering.length
+      ? this.tileMap.wallCells.filter((c) => !covering.some((b) => Math.abs((c.x + 0.5) * cell - b.x) < b.w / 2 && Math.abs((c.y + 0.5) * cell - b.y) < b.d / 2))
+      : this.tileMap.wallCells;
+    this.three.setMap(walls, this.world.nav.cell, this.tileMap.lightSpots, { style: t.wall, accent: t.accent, glow: t.glow }, this.tileMap.floorTriangles, this.tileMap.underWallTriangles);
+    // 地底古城的遺跡（牆外的建築、石板、骷髏）：只有 Three.js 畫法
+    const ruins = ruinsTriangles(this.world.ruins, t.wallLeft, (x, y) => this.world.nav.isWalkableAt(x, y));
+    this.three.setRuins(
+      ruins.buildings.map(({ building: b, build }) => ({ x: b.x, y: b.y, w: b.w, d: b.d, height: BUILDING_HEIGHT, build })),
+      ruins.ground,
+      ruins.remains,
+    );
   }
 
   /** 游標下的地上物品或寶箱（名稱標籤也算） */

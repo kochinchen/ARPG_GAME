@@ -77,6 +77,7 @@ import type { CoreInstance } from './items/CoreInstance';
 import { rollElite, SpawnSystem, type SafeZone } from './world/SpawnSystem';
 import { findMarker, reachableTiles } from '../data/mapAnalysis';
 import { TargetingService } from './targeting/TargetingService';
+import { EMPTY_RUINS, placeRuins, type RuinsLayout } from './world/Ruins';
 
 
 /** 魔王競技場的大小：魔王身體寬度的幾倍（19 × 19，約為原本 15 倍的 1.27 倍，大型魔王也不擁擠） */
@@ -180,6 +181,8 @@ export class GameWorld {
   private reachableCache: { map: MapDef; tiles: readonly Vec2[] } | null = null;
   /** 共用倉庫的寶箱（每位商人旁邊一個，都連到同一個倉庫） */
   stashChests: StashChest[] = [];
+  /** 這一層的遺跡（建築、石頭地板、骷髏；只有畫面，種子決定，每次進入同一層都一樣） */
+  ruins: RuinsLayout = EMPTY_RUINS;
   /** 本層散落的遺物 */
   relics: Relic[] = [];
   /** 傳送口（中途存檔點啟動後：樓梯口 ⇄ 中途） */
@@ -884,6 +887,8 @@ export class GameWorld {
     this.syncWaypoints();
     // 讀檔：回到最後啟動的存檔點（一般換層從樓梯口開始）
     if (restore) this.placePlayer(this.checkpoints.respawn.position);
+    const markers = [this.spawnPoint, ...this.checkpoints.checkpoints.map((c) => c.position), ...(this.exit ? [this.exit.position] : []), ...this.merchants.map((m) => m.position), ...this.stashChests.map((s) => s.position), ...this.chests.map((c) => c.position)];
+    this.ruins = placeRuins(this.map, floor, new Rng(this.seed).fork(`ruins-${floor}`), markers);
     this.events.emit('FloorEntered', { floor, mapId: this.map.id });
     if (this.hiddenBoss && !this.hiddenBoss.dead && !restore) this.events.emit('HiddenBossAwake', { name: this.data.enemies.get(this.hiddenBoss.enemyId).name });
   }

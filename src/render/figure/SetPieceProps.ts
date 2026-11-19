@@ -233,7 +233,7 @@ const MAVIS_BODY: FigureModel = {
   }),
 };
 
-const SEATED_AGAINST_WALL: Pose = {
+export const SEATED_AGAINST_WALL: Pose = {
   rootY: -21,
   angles: {
     torso: [-0.12, 0, 0],

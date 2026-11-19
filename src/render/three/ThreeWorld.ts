@@ -5,7 +5,7 @@ import type { V3 } from '../figure/Poly3D';
 import type { SkinGeometry, TriangleSink } from '../figure/PolyFigure';
 import type { WallCell } from '../views/TileMapView';
 import { THREE_LIGHTING as L } from './ThreeLighting';
-import { wallStones, type WallLook } from './WallStones';
+import { wallStones, type PushTriangle, type WallLook } from './WallStones';
 import type { FxGlow } from '../views/EffectLayer';
 import { ThreeFx } from './ThreeFx';
 import { ThreeSkillFx } from './ThreeSkillFx';
@@ -299,6 +299,46 @@ export interface DepthProxy {
   bottom: number;
 }
 
+/** 地底古城的建築（RuinsArt）：擋住玩家時和牆一樣變半透明 */
+interface RuinMesh {
+  mesh: THREE.Mesh;
+  /** 畫面上的範圍（未加鏡頭位移） */
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  depth: number;
+}
+
+/**
+ * 遺跡的建築在牆外的黑暗裡：照不到燭光也要隱約看得到輪廓，自己帶一點點原色的光（RUIN_GLOW × 頂點顏色）
+ */
+const RUIN_GLOW = 0.16;
+const REMAINS_GLOW = 0.55;
+function ruinMaterial(fade: boolean, glow = RUIN_GLOW): THREE.MeshStandardMaterial {
+  const material = figureMaterial();
+  if (fade) Object.assign(material, { transparent: true, opacity: FADE_ALPHA });
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += vColor.rgb * ${glow.toFixed(3)};`);
+  };
+  material.customProgramCacheKey = () => `ruin-glow-${glow}`;
+  return material;
+}
+
+/** 一包三角形（World 座標）→ 靜態網格 */
+function staticMesh(pos: number[], col: number[], material: THREE.Material): THREE.Mesh {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geometry.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.layers.enable(OCCLUDER_LAYER);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.matrixAutoUpdate = false;
+  return mesh;
+}
+
 interface WallChunk {
   mesh: THREE.Mesh;
   /** 中心的畫面座標（未加鏡頭位移）與深度 */
@@ -335,6 +375,13 @@ export class ThreeWorld {
   private readonly underWallMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, color: 0x141414, side: THREE.DoubleSide });
   private lightSpots: { position: Vec2; color: number; height: number }[] = [];
   private readonly walls: WallChunk[] = [];
+  /** 遺跡：建築（各自一個網格）與地板上的石板、骷髏（依分區合併） */
+  private readonly ruins: RuinMesh[] = [];
+  private readonly ruinGround: THREE.Mesh[] = [];
+  private readonly ruinMaterial = ruinMaterial(false);
+  private readonly ruinFadeMaterial = ruinMaterial(true);
+  /** 地上的白骨：光影不明顯，大部分是自己的白色（REMAINS_GLOW），不投、不收影子 */
+  private readonly remainsMaterial = ruinMaterial(false, REMAINS_GLOW);
   /** 深度板（見 DepthProxy）：共用一個單位正方形，左下角為原點 */
   private readonly proxies: THREE.Mesh[] = [];
   private readonly proxyGeometry = new THREE.PlaneGeometry(1, 1).translate(0.5, 0.5, 0);
@@ -490,6 +537,67 @@ export class ThreeWorld {
   }
 
   /**
+   * 換樓層：地底古城的遺跡（RuinsArt 交出三角形）。buildings 各自一個網格（範圍：World 中心與占地、高度），
+   * ground（石板、骷髏）依分區合併。牆、地板之後呼叫（分區已經建好）。
+   */
+  setRuins(
+    buildings: readonly { x: number; y: number; w: number; d: number; height: number; build: (push: PushTriangle) => void }[],
+    ground: (push: PushTriangle) => void,
+    remains: (push: PushTriangle) => void,
+  ): void {
+    for (const r of [...this.ruins.map((r) => r.mesh), ...this.ruinGround]) {
+      r.removeFromParent();
+      r.geometry.dispose();
+    }
+    this.ruins.length = 0;
+    this.ruinGround.length = 0;
+    const collect = (build: (push: PushTriangle) => void, key: (a: V3, b: V3, c: V3) => string) => {
+      const groups = new Map<string, { pos: number[]; col: number[] }>();
+      build((a, b, c, color) => {
+        const k = key(a, b, c);
+        let g = groups.get(k);
+        if (!g) groups.set(k, (g = { pos: [], col: [] }));
+        const rgb = colorOf(color);
+        for (const v of [a, b, c]) {
+          g.pos.push(v[0], v[1], v[2]);
+          g.col.push(rgb.r, rgb.g, rgb.b);
+        }
+      });
+      return groups;
+    };
+    for (const b of buildings) {
+      const g = collect(b.build, () => '').get('');
+      if (!g) continue;
+      const mesh = staticMesh(g.pos, g.col, this.ruinMaterial);
+      this.region(b.x, b.y).add(mesh);
+      const corners = [vec2(b.x - b.w / 2, b.y - b.d / 2), vec2(b.x + b.w / 2, b.y - b.d / 2), vec2(b.x + b.w / 2, b.y + b.d / 2), vec2(b.x - b.w / 2, b.y + b.d / 2)].map((p) => this.projection.toScreen(p));
+      this.ruins.push({
+        mesh,
+        left: Math.min(...corners.map((p) => p.x)),
+        right: Math.max(...corners.map((p) => p.x)),
+        top: Math.min(...corners.map((p) => p.y)) - b.height * PX_PER_HEIGHT,
+        bottom: Math.max(...corners.map((p) => p.y)),
+        depth: this.projection.depth(vec2(b.x, b.y)),
+      });
+    }
+    const size = REGION;
+    const byRegion = (a: V3, b: V3, c: V3) => `${Math.floor((a[0] + b[0] + c[0]) / 3 / size)}:${Math.floor((a[2] + b[2] + c[2]) / 3 / size)}`;
+    for (const [build, material, shadows] of [
+      [ground, this.wallMaterial, true],
+      [remains, this.remainsMaterial, false],
+    ] as const) {
+      for (const [key, g] of collect(build, byRegion)) {
+        const [i, j] = key.split(':').map(Number) as [number, number];
+        const mesh = staticMesh(g.pos, g.col, material);
+        mesh.castShadow = shadows;
+        mesh.receiveShadow = shadows;
+        this.region((i + 0.5) * size, (j + 0.5) * size).add(mesh);
+        this.ruinGround.push(mesh);
+      }
+    }
+  }
+
+  /**
    * 畫一幀的第一步：清除畫面、算影子、畫地板（之後 Pixi 疊上地上標記，再 renderObjects 畫牆與角色）。
    * center：畫面正中央的 World 座標；width / height：畫面大小（CSS px）；zoom：鏡頭放大倍率；
    * player：玩家位置（燭光、牆的半透明、火把）；candleRadius：燭光的半徑（World）；background：底色。
@@ -573,6 +681,9 @@ export class ThreeWorld {
     const less = THREE.LessDepth;
     this.wallMaterial.depthFunc = less;
     this.wallFadeMaterial.depthFunc = less;
+    this.ruinMaterial.depthFunc = less;
+    this.remainsMaterial.depthFunc = less;
+    this.ruinFadeMaterial.depthFunc = less;
     for (const figure of this.figures) {
       if (figure.group.parent) figure.setDepthFunc(less);
       else this.figures.delete(figure);
@@ -585,6 +696,9 @@ export class ThreeWorld {
     const normal = THREE.LessEqualDepth;
     this.wallMaterial.depthFunc = normal;
     this.wallFadeMaterial.depthFunc = normal;
+    this.ruinMaterial.depthFunc = normal;
+    this.remainsMaterial.depthFunc = normal;
+    this.ruinFadeMaterial.depthFunc = normal;
     for (const figure of this.figures) figure.setDepthFunc(normal);
   }
 
@@ -687,6 +801,14 @@ export class ThreeWorld {
   private updateWalls(player: Vec2): void {
     const playerDepth = this.projection.depth(player);
     const p = this.projection.toScreen(player);
+    for (const r of this.ruins) {
+      const occludes = playerDepth < r.depth && p.x > r.left && p.x < r.right && p.y > r.top && p.y < r.bottom;
+      const material = occludes ? this.ruinFadeMaterial : this.ruinMaterial;
+      if (r.mesh.material !== material) {
+        r.mesh.material = material;
+        r.mesh.castShadow = !occludes;
+      }
+    }
     for (const wall of this.walls) {
       const dy = wall.screen.y - p.y;
       const occludes = wall.depth > playerDepth && Math.abs(wall.screen.x - p.x) < OCCLUDE_HALF_WIDTH && dy > 0 && dy < OCCLUDE_BELOW;
