@@ -80,6 +80,9 @@ function walk(effects: readonly EffectDef[], count: number, caster: Actor, targe
       case 'seal':
         info.extras.push(`奪取一個技能 ${rankValue(e.duration, 1)} 秒`);
         break;
+      case 'manaBurn':
+        info.extras.push(`燃魔 ${Math.round(rankValue(e.percent, 1) * 100)}%`);
+        break;
       case 'summon':
         info.extras.push(`召喚 ${data.enemies.get(e.enemyId).name} ×${e.count}`);
         break;

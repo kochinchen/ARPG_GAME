@@ -54,7 +54,8 @@ export const gameView = reactive({
   hud: {
     hp: { value: 0, max: 1 },
     mp: { value: 0, max: 1 },
-    xp: { level: 1, value: 0, next: 1 },
+    // rate：在這一層擊殺怪物拿到的經驗比例（等級高出樓層太多會打折，1 = 全額）
+    xp: { level: 1, value: 0, next: 1, rate: 1 },
     skillPoints: 0,
     attributePoints: 0,
     potions: 0,

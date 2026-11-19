@@ -7,7 +7,7 @@ import { DataRegistry } from '../../../src/data/DataRegistry';
 import type { GameCommand } from '../../../src/game/Commands';
 import type { GameEvents } from '../../../src/game/GameEvents';
 import { GameWorld } from '../../../src/game/GameWorld';
-import { floorResistFor } from '../../../src/game/world/DifficultyScaler';
+import { elementResistFor, floorResistFor } from '../../../src/game/world/DifficultyScaler';
 import { run } from '../helpers';
 
 const data = DataRegistry.load(gameData);
@@ -48,8 +48,14 @@ describe('每層的首領', () => {
     if (plain.length) expect(c.maxHp).toBeGreaterThan(Math.max(...plain.map((p) => p.maxHp)) * 3);
     const value = floorResistFor(12, false, data.balance.elite.floorResist);
     expect(c.stats.get('physicalResist')).toBeCloseTo(value);
-    // 扣掉怪物天生的火焰抗性（例如焦骨弓手）
-    expect(c.stats.get('fireResist') - (data.enemies.get(c.defId!).resist.fire ?? 0)).toBeCloseTo(value);
+    // 屬性減傷以毒素抗性檢查（隨機元素抗性不抽毒；扣掉怪物天生的抗性）
+    const innate = data.enemies.get(c.defId!).resist;
+    expect(c.stats.get('poisonResist') - (innate.poison ?? 0)).toBeCloseTo(value);
+    // 首領和精英一樣：火、冰、電之中隨機兩種多了元素抗性
+    const extra = (['fire', 'cold', 'lightning'] as const).map((e) => c.stats.get(`${e}Resist`) - (innate[e] ?? 0) - value);
+    const random = elementResistFor(12, data.balance.difficulty.elementResist);
+    expect(extra.filter((v) => Math.abs(v - random) < 1e-6)).toHaveLength(2);
+    expect(extra.filter((v) => Math.abs(v) < 1e-6)).toHaveLength(1);
   });
 
   it('同一個種子、同一層：首領的種類與位置固定（讀檔後不變），也不改變其他怪物', () => {

@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SkillCategory } from '../../../src/data/schema/skill';
 import type { GameCommand } from '../../../src/game/Commands';
-import { xpToNext } from '../../../src/game/progression/ExperienceSystem';
+import { CommandQueue } from '../../../src/core/CommandQueue';
+import { EventBus } from '../../../src/core/EventBus';
+import type { GameEvents } from '../../../src/game/GameEvents';
+import { GameWorld } from '../../../src/game/GameWorld';
+import { xpGapMultiplier, xpToNext } from '../../../src/game/progression/ExperienceSystem';
 import { createWorld, createWorldWithMap, enemiesOf, run } from '../helpers';
 
 function setup() {
@@ -133,6 +137,59 @@ describe('技能樹操作（M6）', () => {
     expect(world.loadout.left).toBe('melee.heavy_slash');
     send({ type: 'AssignLeft', skillId: 'magic.fireball' });
     expect(world.loadout.left).toBe('magic.fireball');
+  });
+});
+
+describe('等級差經驗遞減（balance.xpLevelGap）', () => {
+  const { data } = createWorld();
+  const rate = (level: number, floor: number) => xpGapMultiplier(level, floor, data.balance);
+
+  it('怪物等級 = 樓層 × 1.5：高出 5 級以內全額，之後每級少 15%，最低 5%', () => {
+    // 第 20 層的怪物等級 30
+    expect(rate(28, 20)).toBe(1);
+    expect(rate(35, 20)).toBe(1);
+    expect(rate(36, 20)).toBeCloseTo(0.85);
+    expect(rate(38, 20)).toBeCloseTo(0.55);
+    expect(rate(41, 20)).toBeCloseTo(0.1);
+    expect(rate(42, 20)).toBe(0.05);
+    expect(rate(70, 20)).toBe(0.05);
+    // 奇數樓層的怪物等級有半級：第 25 層是 37.5
+    expect(rate(42, 25)).toBe(1);
+    expect(rate(43, 25)).toBeCloseTo(0.925);
+  });
+
+  it('正常進度（每層約升 1.5 級）不會被打折；不在樓層裡也不打折', () => {
+    // 每層只打一次、殺 85% 的等級（怪物經驗減半後）：第 10 層 Lv14、第 20 層 Lv29、第 30 層 Lv45、第 35 層 Lv55
+    for (const [floor, level] of [[1, 1], [2, 4], [5, 8], [10, 14], [20, 29], [25, 36], [30, 45], [35, 55]] as const) expect(rate(level, floor)).toBe(1);
+    expect(rate(70, 0)).toBe(1);
+  });
+
+  it('等級遠高於樓層時，擊殺怪物只拿到打折後的經驗（整數、至少 1）', () => {
+    const events = new EventBus<GameEvents>();
+    const world = new GameWorld({ data, floor: 1, commands: new CommandQueue<GameCommand>(), events, seed: 7 });
+    while (world.progress.level < 20) world.experience.addXp(xpToNext(world.progress.level, data.balance));
+    expect(world.experience.killXpMultiplier).toBe(0.05);
+    const onXp = vi.fn();
+    events.on('XpGained', onXp);
+    const foe = enemiesOf(world).find((a) => a.xpReward >= 20)!;
+    foe.lastDamagedBy = world.player.id;
+    foe.hp = 0;
+    run(world, 0.1);
+    expect(onXp).toHaveBeenCalledWith({ amount: Math.max(1, Math.round(foe.xpReward * 0.05)) });
+  });
+
+  it('等級在範圍內時拿全額', () => {
+    const events = new EventBus<GameEvents>();
+    const world = new GameWorld({ data, floor: 3, commands: new CommandQueue<GameCommand>(), events, seed: 7 });
+    while (world.progress.level < 9) world.experience.addXp(xpToNext(world.progress.level, data.balance));
+    expect(world.experience.killXpMultiplier).toBe(1);
+    const onXp = vi.fn();
+    events.on('XpGained', onXp);
+    const foe = enemiesOf(world)[0]!;
+    foe.lastDamagedBy = world.player.id;
+    foe.hp = 0;
+    run(world, 0.1);
+    expect(onXp).toHaveBeenCalledWith({ amount: foe.xpReward });
   });
 });
 

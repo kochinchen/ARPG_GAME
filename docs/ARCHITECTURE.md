@@ -606,7 +606,7 @@ Summon 召喚系已移除
 
 ### 怪物的集體戰術與習得技能（設計者 2026-10-30）
 
-- `ai/SquadTactics.ts`（`balance.enemyTactics`）：發現敵人時 `rally` 叫醒附近看得到的閒置同伴（`AiBrain.alertTargetId`，只傳一層，發 `EnemyAlerted`）；每 0.5 秒依目標分組分配站位 `AiBrain.slot`——近戰從正面往兩邊排開（`gapDegrees` 0 = 整圈）、快怪（遊擊）拿背後的站位並設 `flanking`，站位在另一邊時先給側面的中繼點、繞到前不出手，超過 `maxEngaged` 的 `waiting` 在外圈不出手；後排站在前排後方。求援（`reinforce`，設計者 2026-11-07）：生成時記錄每一群（`AiBrain.pack`，由 `SpawnRequest.pack` 與生成計畫推導，不存檔），一群被打掉超過一半就指定一隻當傳令兵（`callPacks`），`ChaseState` 轉成 `CallState` 跑去叫最多兩群閒置的怪（發 `EnemyCalling`）；派過與被叫來的群標 `packCalled`，不會連鎖。閃避（`dodge`）在 `AiSystem` 對追擊中的怪檢查投射物的飛行線，閃得出投射物寬度才閃（`dodgeTimer` 期間 `ChaseState` 不出手，發 `EnemyDodged`）。只決定站位，追擊仍由 `ChaseState` 設 `SkillIntent.approach`、`SkillSystem` 走過去。魔王不參與
+- `ai/SquadTactics.ts`（`balance.enemyTactics`）：發現敵人時 `rally` 叫醒附近看得到的閒置同伴（`AiBrain.alertTargetId`，只傳一層，發 `EnemyAlerted`）；每 0.5 秒依目標分組分配站位 `AiBrain.slot`——近戰從正面往兩邊排開（`gapDegrees` 0 = 整圈）、快怪（遊擊）拿背後的站位並設 `flanking`，站位在另一邊時先給側面的中繼點、繞到前不出手，同時貼身的隻數沒有上限（設計者 2026-11-19 拿掉 `maxEngaged` 與外圈等候；`waiting` 只剩護衛與圍獵繞圈在用）；後排站在前排後方。求援（`reinforce`，設計者 2026-11-07）：生成時記錄每一群（`AiBrain.pack`，由 `SpawnRequest.pack` 與生成計畫推導，不存檔），一群被打掉超過一半就指定一隻當傳令兵（`callPacks`），`ChaseState` 轉成 `CallState` 跑去叫最多兩群閒置的怪（發 `EnemyCalling`）；派過與被叫來的群標 `packCalled`，不會連鎖。閃避（`dodge`）在 `AiSystem` 對追擊中的怪檢查投射物的飛行線，閃得出投射物寬度才閃（`dodgeTimer` 期間 `ChaseState` 不出手，發 `EnemyDodged`）。只決定站位，追擊仍由 `ChaseState` 設 `SkillIntent.approach`、`SkillSystem` 走過去。魔王不參與
 - 進階行為（`balance.enemyTactics`，設計者 2026-11-07）：
   - 躲範圍傷害（`avoidZones`）：`GameWorld` 每個 Tick 把主角方的持續區域放進 `Pathfinder.hazards`；怪物尋路（`findPath(..., avoid)`、`IAiState.findPathFor`、`SkillSystem.approach`）每經過一格區域多算 `pathCost`；`AiSystem.avoidZones` 讓站在區域裡的怪走到邊緣外，在區域附近累積 `patience` 秒就 `braveTimer` 硬闖。
   - 預判射擊（`leadShot`）：`ChaseState` 在意圖上設 `SkillIntent.lead`（隨樓層），`SkillSystem.leadPoint` 沿目標的路徑推算投射物飛到時的位置。
@@ -916,6 +916,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
   - 地圖：手繪 2 張地窖（40×30），以 `S` 樓梯口、`M` 中途存檔點、`X` 出口標記；載入時檢查 M、X 從樓梯口走得到
   - `data/floors.ts`：第 1～5 層、第 6 層起兩個區間，各自的怪物池、密度、群組大小、寶箱數、出口開啟比例（70%），區間內地圖輪替
   - `DifficultyScaler`：第 N 層 = 1 + 每層成長 ×（N − 1）；HP +20%、傷害 +12%、防禦 +10%、經驗 +15%、密度 +5%（上限 2 倍）／層
+    - 2026-11-19（設計者）：第 10 層起生命與傷害改成等比成長（`balance.difficulty.geometric`：以第 10 層的倍率為起點，生命每層 ×1.12、傷害每層 ×1.09，魔王與隱藏魔王相同）；怪物經驗減半（`monsterBoost.xp` 0.35，`xpLevelGap.levelsPerFloor` 1.5）；一般怪、精英、首領第 10 層起有隨機元素抗性（`difficulty.elementResist`、`elementResistFor`、`EnemyFactory.rollElementResist`：火冰電抽一種，精英與首領兩種，每層 +3.5%、上限 70%，獨立亂數、讀檔後不變；`ActorView` 顯示在名稱下方與血條左邊的色塊）
   - `SpawnSystem`：依密度成群生成（Seed 可重現），避開存檔點與出口
   - 換樓層：`NavGrid.load()` 就地替換地圖，實體陣列就地清空；玩家的等級、背包、裝備、技能、連段、組合表全部保留；掉寶等級 = 樓層
   - 切換在 Tick 最後執行，避免系統更新途中替換實體

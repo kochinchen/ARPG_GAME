@@ -251,6 +251,15 @@ export const SealEffectSchema = z.strictObject({
   duration: RankNumberSchema,
 });
 
+/**
+ * 燃魔：燒掉目標最大魔力的 percent（不造成傷害；目標沒有魔力時沒有作用，所以只對主角有效）。
+ * 和投射物上的其他效果一樣各自結算：傷害被閃避時魔力照樣被燒掉
+ */
+export const ManaBurnEffectSchema = z.strictObject({
+  type: z.literal('manaBurn'),
+  percent: RankNumberSchema,
+});
+
 /** 在施放者周圍召喚怪物（Boss 用）。召喚物不給經驗、不掉寶，也不計入樓層擊殺數 */
 export const SummonEffectSchema = z.strictObject({
   type: z.literal('summon'),
@@ -324,6 +333,7 @@ export const EffectDefSchema = z.discriminatedUnion('type', [
   DelayedEffectSchema,
   SummonEffectSchema,
   SealEffectSchema,
+  ManaBurnEffectSchema,
   DeviceEffectSchema,
   LeapEffectSchema,
   SacrificeEffectSchema,
@@ -337,6 +347,7 @@ export type ProjectileEffectDef = z.infer<typeof ProjectileEffectSchema>;
 export type AreaEffectDef = z.infer<typeof AreaEffectSchema>;
 export type SummonEffectDef = z.infer<typeof SummonEffectSchema>;
 export type SealEffectDef = z.infer<typeof SealEffectSchema>;
+export type ManaBurnEffectDef = z.infer<typeof ManaBurnEffectSchema>;
 export type DeviceEffectDef = z.infer<typeof DeviceEffectSchema>;
 
 /** 一個效果底下的巢狀效果（投射物 onHit、位移 onPath、機關的各種觸發、其他的 effects） */

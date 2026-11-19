@@ -5,7 +5,7 @@ import type { Actor } from '../../../src/game/entities/Actor';
 import type { GameEvents } from '../../../src/game/GameEvents';
 import { createWorld, createWorldWithMap, enemiesOf, makeInvulnerable, run } from '../helpers';
 
-/** 怪物的集體戰術（設計者 2026-10-30、11-07）：呼朋引伴、包圍站位、圍攻上限、後排、閃避、求援 */
+/** 怪物的集體戰術（設計者 2026-10-30、11-07）：呼朋引伴、包圍站位、後排、閃避、求援；同時貼身的上限已在 2026-11-19 拿掉 */
 const HALL = [
   '##############################################',
   '#S...........................................#',
@@ -89,16 +89,20 @@ describe('包圍站位', () => {
     expect(closest).toBeGreaterThan(world.player.radius + hound.radius - 0.05);
   });
 
-  it('同時貼身的近戰最多 6 隻，其餘在外圈等候、不出手', () => {
+  it('同時貼身的近戰沒有上限：8 隻都排進包圍，沒有一隻在外圈等候，全部都會出手', () => {
     const spawns = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => at('skeleton', 12 + (i % 2), 2 + i));
     const { world } = setup(spawns);
     world.player.position = vec2(8, 5.5);
     run(world, 0.6);
     const skeletons = enemiesOf(world);
-    const waiting = skeletons.filter((s) => s.ai!.waiting);
-    expect(waiting).toHaveLength(2);
-    run(world, 3);
-    for (const s of waiting) if (s.ai!.waiting) expect(s.cast).toBeNull();
+    expect(skeletons.filter((s) => s.ai!.waiting)).toHaveLength(0);
+    for (const s of skeletons) expect(s.ai!.slot).not.toBeNull();
+    const attacked = new Set<number>();
+    run(world, 8, () => {
+      for (const s of skeletons) if (s.cast) attacked.add(s.id);
+    });
+    expect(attacked.size).toBe(8);
+    expect(skeletons.filter((s) => s.ai!.waiting)).toHaveLength(0);
   });
 
   it('後排（法師）站在前排後方：離主角比前排遠，在怪物這一側', () => {

@@ -47,6 +47,13 @@ export const BalanceSchema = z.strictObject({
   maxLevel: z.int().positive(),
   /** 升到下一級所需經驗 = base × level ^ exponent */
   xpCurve: z.strictObject({ base: z.number().positive(), exponent: z.number().positive() }),
+  /** 等級差經驗遞減：怪物等級 = 樓層 × levelsPerFloor；主角高出 grace 級後每級少 perLevel，最低剩 min */
+  xpLevelGap: z.strictObject({
+    levelsPerFloor: z.number().positive(),
+    grace: z.number().nonnegative(),
+    perLevel: z.number().min(0).max(1),
+    min: z.number().min(0).max(1),
+  }),
   skillPointsPerLevel: z.int().nonnegative(),
   /** 升級時各屬性基礎值的成長 */
   statsPerLevel: z.partialRecord(StatIdSchema, z.number()).default({}),
@@ -135,6 +142,22 @@ export const BalanceSchema = z.strictObject({
       bossSkillAreaCap: z.number().positive(),
       xp: z.number().positive(),
     }),
+    /**
+     * 等比成長：第 fromFloor 層以前，生命與傷害照線性公式（每層成長 × monsterBoost）；
+     * 之後以第 fromFloor 層的倍率為起點，每往下一層生命 × hp、傷害 × damage。魔王與隱藏魔王相同。
+     */
+    geometric: z.strictObject({ fromFloor: z.int().positive(), hp: z.number().min(1), damage: z.number().min(1) }),
+    /**
+     * 隨機元素抗性：第 minFloor 層起，一般怪從 elements 抽 count.normal 種、精英與首領抽 count.elite 種（不重複），
+     * 數值 = perFloor ×（樓層 − minFloor + 1），上限 max；疊加在天生抗性與樓層減傷之上（實際上限見 combat.maxResist）。
+     */
+    elementResist: z.strictObject({
+      minFloor: z.int().positive(),
+      perFloor: z.number().nonnegative(),
+      max: z.number().min(0).max(1),
+      elements: z.array(z.enum(['fire', 'cold', 'lightning', 'poison'])).min(1),
+      count: z.strictObject({ normal: z.int().nonnegative(), elite: z.int().nonnegative() }),
+    }),
   }),
   floor: z.strictObject({
     /** 樓梯口與出口的安全範圍（Tile）：大於所有怪物的偵測距離 */
@@ -195,16 +218,12 @@ export const BalanceSchema = z.strictObject({
     alertDelay: RangeSchema,
     /** 離目標這個距離內才照站位包圍；更遠就直接追 */
     surroundRange: z.number().positive(),
-    /** 同時貼身攻擊同一個目標的近戰上限；其餘在外圈等候補位 */
-    maxEngaged: z.int().positive(),
     /** 包圍時在目標背後留下的缺口（度）；0 = 整圈包圍（設計者 2026-11-07 拿掉圍師必闕） */
     gapDegrees: z.number().min(0).max(180),
     /** 站位間距至少照這麼多個站位平分（怪少時不會一下子散到背後） */
     minSlots: z.int().min(2),
     /** 移動速度至少這麼快的近戰怪當遊擊：拿背後的站位，繞過目標的側面過去 */
     flankSpeed: z.number().positive(),
-    /** 等候補位的怪站在攻擊站位外這麼遠（Tile） */
-    waitDistance: z.number().nonnegative(),
     /** 後排（遠程、法師）比自己的保持距離再退後這麼多，站在前排後方（Tile） */
     backlineOffset: z.number().nonnegative(),
     /** 每隔幾秒重新分配站位（太頻繁會抖動） */
@@ -346,7 +365,7 @@ export const BalanceSchema = z.strictObject({
       spinDeg: z.number().nonnegative(),
     }),
     /**
-     * 蜂擁（tactics 有 swarm 的孵化蜘蛛）：不排包圍站位、不等候補位，直接一擁而上。
+     * 蜂擁（tactics 有 swarm 的孵化蜘蛛）：不排包圍站位，直接一擁而上。
      * 同一隻母體生的、還在打的少於 min 隻，就逃回母體身邊（ring 格）守著，目標走進母體 guardRange 格內才出手
      */
     swarm: z.strictObject({ min: z.int().positive(), guardRange: z.number().positive(), ring: z.number().positive() }),

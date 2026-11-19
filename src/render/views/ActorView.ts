@@ -13,7 +13,7 @@ import { WeaponGlowView } from './WeaponGlowView';
 import { StatusAuraView } from './StatusAuraView';
 import { mountFor, type WeaponLook } from '../figure/weapons/WeaponLooks';
 import type { OutfitParts } from '../figure/gear/ArmorLooks';
-import { PALETTE, STATUS_TINTS } from '../palette';
+import { ELEMENT_COLORS, PALETTE, STATUS_TINTS } from '../palette';
 import { GPU_SKINNING, type ThreeFigure, type ThreeWorld } from '../three/ThreeWorld';
 
 const BAR_WIDTH = 40;
@@ -68,6 +68,8 @@ export class ActorView {
   private readonly hpBar = new Graphics();
   private readonly aura = new Graphics();
   private readonly nameLabel: Text;
+  /** 個別抗的元素的顏色：畫成血條左邊的小方塊（不必把滑鼠移上去也看得出這隻怪抗什麼） */
+  private readonly resistColors: number[];
   /** 裝備光芒（只有主角） */
   private readonly gear: GearAuraView | null;
   /** 武器微光（只有主角） */
@@ -100,6 +102,8 @@ export class ActorView {
   constructor(
     private readonly projection: IsoProjection,
     actor: Actor,
+    /** 抗性的實際上限（balance.combat.maxResist）：名稱下方顯示的數字不超過它 */
+    maxResist = 1,
   ) {
     this.isEnemy = actor.faction === 'enemy';
     this.isPlayer = actor.faction === 'player';
@@ -117,7 +121,7 @@ export class ActorView {
     if (!this.dynamicShadow) shadow.ellipse(0, 0, px * (model.shadowScale ?? 1), (px * (model.shadowScale ?? 1)) / 2).fill({ color: PALETTE.shadow, alpha: 0.45 });
     this.facingMark.circle(0, 0, 3).fill({ color: PALETTE.marker });
     this.nameLabel = new Text({
-      text: [actor.name, ...resistLines(actor)].join('\n'),
+      text: [actor.name, ...resistLines(actor, maxResist)].join('\n'),
       style: {
         fontFamily: 'sans-serif',
         fontSize: 12,
@@ -129,6 +133,7 @@ export class ActorView {
     this.nameLabel.anchor.set(0.5, 1);
     this.nameLabel.position.set(0, this.barY - 4);
     this.nameLabel.visible = false;
+    this.resistColors = this.isEnemy ? singleResists(actor).map((r) => r.color) : [];
     if (this.isElite) {
       this.aura.ellipse(0, 0, px * 1.35, px * 0.68).stroke({ color: actor.isBoss ? PALETTE.bossName : PALETTE.eliteName, width: 2 });
     }
@@ -327,13 +332,38 @@ export class ActorView {
       .rect(-BAR_WIDTH / 2, this.barY, BAR_WIDTH * ratio, 5)
       .fill({ color: this.isPlayer ? PALETTE.playerHpFill : PALETTE.hpFill });
     if (this.isElite) this.hpBar.rect(-BAR_WIDTH / 2 - 1, this.barY - 1, BAR_WIDTH + 2, 7).stroke({ color: PALETTE.eliteName, width: 1 });
+    this.resistColors.forEach((color, i) => {
+      this.hpBar
+        .rect(-BAR_WIDTH / 2 - 8 - i * 7, this.barY, 5, 5)
+        .fill({ color })
+        .stroke({ color: 0x000000, width: 1 });
+    });
   }
 }
 
-/** 精英 / Boss 的樓層減傷（第 10 層起），顯示在頭上的名稱下方 */
-function resistLines(actor: Actor): string[] {
-  const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
+/** 火、冰、電的抗性（毒不顯示） */
+const ELEMENT_RESISTS = [
+  { label: '火', stat: 'fireResist', color: ELEMENT_COLORS.fire! },
+  { label: '冰', stat: 'coldResist', color: ELEMENT_COLORS.cold! },
+  { label: '電', stat: 'lightningResist', color: ELEMENT_COLORS.lightning! },
+] as const;
+
+/** 比其他元素多出來的抗性：隨機元素抗性（第 10 層起一般怪一種、精英與首領兩種）與天生抗性 */
+function singleResists(actor: Actor): { label: string; value: number; color: number }[] {
+  const values = ELEMENT_RESISTS.map((r) => ({ label: r.label, color: r.color, value: actor.stats.get(r.stat) }));
+  const shared = Math.min(...values.map((v) => v.value));
+  return values.filter((v) => v.value > shared + 0.0005);
+}
+
+/** 顯示在頭上名稱下方的減傷：精英 / Boss 的樓層減傷（三種元素都有的部分叫屬性減傷），以及個別元素的抗性 */
+function resistLines(actor: Actor, maxResist: number): string[] {
+  const pct = (v: number) => `${Math.round(Math.min(maxResist, v) * 1000) / 10}%`;
   const physical = actor.stats.get('physicalResist');
   const elemental = Math.min(actor.stats.get('fireResist'), actor.stats.get('coldResist'), actor.stats.get('lightningResist'));
-  return [...(physical > 0 ? [`物理減傷 ${pct(physical)}`] : []), ...(elemental > 0 ? [`屬性減傷 ${pct(elemental)}`] : [])];
+  const single = singleResists(actor).map((r) => `${r.label}抗 ${pct(r.value)}`);
+  return [
+    ...(physical > 0 ? [`物理減傷 ${pct(physical)}`] : []),
+    ...(elemental > 0 ? [`屬性減傷 ${pct(elemental)}`] : []),
+    ...(single.length > 0 ? [single.join('　')] : []),
+  ];
 }

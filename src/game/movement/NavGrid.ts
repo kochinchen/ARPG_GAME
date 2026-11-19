@@ -85,14 +85,23 @@ export class NavGrid {
     return this.isWalkable(Math.floor(x / this._cell), Math.floor(y / this._cell));
   }
 
-  /** 半徑為 radius 的圓（以方形近似）放在 p 是否不碰牆 */
+  /**
+   * 半徑為 radius 的圓（以方形近似）放在 p 是否不碰牆。
+   * 方形蓋到的每一格都要可走，不能只看四個角：角色比格子寬時（格子 0.5、主角直徑 0.6），
+   * 只有 1 格厚的牆會整個夾在四個角中間。
+   */
   isClearAt(p: Vec2, radius: number): boolean {
-    return (
-      this.isWalkableAt(p.x - radius, p.y - radius) &&
-      this.isWalkableAt(p.x + radius, p.y - radius) &&
-      this.isWalkableAt(p.x - radius, p.y + radius) &&
-      this.isWalkableAt(p.x + radius, p.y + radius)
-    );
+    const c = this._cell;
+    const x0 = Math.floor((p.x - radius) / c);
+    const x1 = Math.floor((p.x + radius) / c);
+    const y0 = Math.floor((p.y - radius) / c);
+    const y1 = Math.floor((p.y + radius) / c);
+    if (x0 < 0 || y0 < 0 || x1 >= this._width || y1 >= this._height) return false;
+    for (let y = y0; y <= y1; y++) {
+      const row = y * this._width;
+      for (let x = x0; x <= x1; x++) if (this.walkable[row + x] !== 1) return false;
+    }
+    return true;
   }
 
   /** a → b 的直線上，半徑 radius 的角色是否都不會碰牆 */

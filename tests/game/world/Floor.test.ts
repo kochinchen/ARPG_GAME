@@ -41,13 +41,17 @@ function useExit(world: GameWorld, commands: CommandQueue<GameCommand>) {
 
 describe('DifficultyScaler', () => {
   const d = data.balance.difficulty;
-  it('第 1 層為基準；之後每層線性成長；密度有上限', () => {
+  it('第 1 層為基準；第 10 層以前線性成長，之後生命與傷害等比成長；密度有上限', () => {
     // 前期怪物數量加成：第 1～5 層 +20%，之後遞減，第 30 層起沒有加成
-    // 怪物強化：第 1 層 HP / 攻擊與原本相同、一般怪技能範圍 ×1.5（魔王 ×1、最多 8 格）、經驗 ×0.7
-    expect(scaleForFloor(1, d)).toEqual({ hp: 1, bossHp: 1, damage: 1, skillArea: 1.5, bossSkillArea: 1, bossSkillAreaCap: 8, defense: 1, xp: 0.7, density: 1.2 });
+    // 怪物強化：第 1 層 HP / 攻擊與原本相同、一般怪技能範圍 ×1.5（魔王 ×1、最多 8 格）、經驗 ×0.35（設計者 2026-11-19 減半）
+    expect(scaleForFloor(1, d)).toEqual({ hp: 1, bossHp: 1, damage: 1, skillArea: 1.5, bossSkillArea: 1, bossSkillAreaCap: 8, defense: 1, xp: 0.35, density: 1.2 });
     expect(scaleForFloor(5, d).density).toBeCloseTo((1 + 4 * d.densityPerFloor) * 1.2);
     expect(scaleForFloor(30, d).density).toBe(d.maxDensityMultiplier);
     expect(scaleForFloor(20, d).density).toBeCloseTo(d.maxDensityMultiplier * (1 + 0.2 * (10 / 25)));
+    // 第 10 層以前：每層成長 × 怪物強化（線性）
+    const f9 = scaleForFloor(9, d);
+    expect(f9.hp).toBeCloseTo((1 + 8 * d.hpPerFloor) * (1 + 7 * (8 / 34)));
+    expect(f9.damage).toBeCloseTo((1 + 8 * d.damagePerFloor) * (1 + 3 * (8 / 34)));
     const f10 = scaleForFloor(10, d);
     const t10 = 9 / 34;
     expect(f10.hp).toBeCloseTo((1 + 9 * d.hpPerFloor) * (1 + 7 * t10));
@@ -55,17 +59,30 @@ describe('DifficultyScaler', () => {
     expect(f10.damage).toBeCloseTo((1 + 9 * d.damagePerFloor) * (1 + 3 * t10));
     expect(f10.skillArea).toBeCloseTo(1.5 + 1.5 * t10);
     expect(f10.bossSkillArea).toBeCloseTo(1 + 0.5 * t10);
-    expect(f10.xp).toBeCloseTo((1 + 9 * d.xpPerFloor) * 0.7);
-    // 第 35 層起強化到頂：HP ×8、魔王 ×20、攻擊 ×4、範圍 ×3（魔王 ×1.5）
+    expect(f10.xp).toBeCloseTo((1 + 9 * d.xpPerFloor) * 0.35);
+  });
+
+  it('第 10 層起生命每層 ×1.12、傷害每層 ×1.09（魔王同比例）；防禦、範圍、經驗仍是線性', () => {
+    // 設計者 2026-11-19：每一層的強度等比成長，不是線性；包含魔王與隱藏魔王（都走 scaleForFloor）
+    expect(d.geometric).toEqual({ fromFloor: 10, hp: 1.12, damage: 1.09 });
+    const f10 = scaleForFloor(10, d);
+    for (let floor = 11; floor <= 35; floor++) {
+      const now = scaleForFloor(floor, d);
+      const before = scaleForFloor(floor - 1, d);
+      expect(now.hp / before.hp).toBeCloseTo(1.12);
+      expect(now.bossHp / before.bossHp).toBeCloseTo(1.12);
+      expect(now.damage / before.damage).toBeCloseTo(1.09);
+    }
     const f35 = scaleForFloor(35, d);
-    expect(f35.hp).toBeCloseTo((1 + 34 * d.hpPerFloor) * 8);
-    expect(f35.bossHp).toBeCloseTo((1 + 34 * d.hpPerFloor) * 20);
-    expect(f35.damage).toBeCloseTo((1 + 34 * d.damagePerFloor) * 4);
+    expect(f35.hp).toBeCloseTo(f10.hp * 1.12 ** 25);
+    expect(f35.bossHp).toBeCloseTo(f10.bossHp * 1.12 ** 25);
+    expect(f35.damage).toBeCloseTo(f10.damage * 1.09 ** 25);
+    // 第 35 層：範圍 ×3（魔王 ×1.5）、防禦與經驗照每層成長
     expect(f35.skillArea).toBeCloseTo(3);
     expect(f35.bossSkillArea).toBeCloseTo(1.5);
-    const f50 = scaleForFloor(50, d);
-    expect(f50.hp).toBeCloseTo((1 + 49 * d.hpPerFloor) * 8);
-    expect(f50.density).toBe(d.maxDensityMultiplier);
+    expect(f35.defense).toBeCloseTo(1 + 34 * d.defensePerFloor);
+    expect(f35.xp).toBeCloseTo((1 + 34 * d.xpPerFloor) * 0.35);
+    expect(scaleForFloor(50, d).density).toBe(d.maxDensityMultiplier);
   });
 });
 
@@ -208,7 +225,7 @@ describe('存檔點（M7）', () => {
     enemy.lastDamagedBy = world.player.id;
     enemy.hp = 0;
     run(world, 1 / 60);
-    expect(world.progress.xp).toBe(Math.round(data.enemies.get(enemy.defId!).xp * 0.7));
+    expect(world.progress.xp).toBe(Math.round(data.enemies.get(enemy.defId!).xp * 0.35));
 
     const deeper = floorWorld(11).world;
     const d = enemies(deeper)[0]!;

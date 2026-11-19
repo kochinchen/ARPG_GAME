@@ -31,7 +31,7 @@ export class Pathfinder {
 
   /**
    * 回傳從 from 出發要依序經過的 Waypoint（不含 from）。
-   * 空陣列代表不需移動或無法前進。
+   * 空陣列代表不需移動或無法前進。from 在牆裡時，第一個 Waypoint 是最近的地板。
    */
   findPath(from: Vec2, to: Vec2, radius: number, avoid = false): Vec2[] {
     const nav = this.nav;
@@ -39,7 +39,14 @@ export class Pathfinder {
     const hazards = avoid && this.hazardCost > 0 ? this.hazards.filter((h) => !inside(from, h, radius) && !inside(to, h, radius)) : [];
     const clear = (a: Vec2, b: Vec2) => nav.hasLineOfSight(a, b, radius) && hazards.every((h) => segmentDistance(h.position, a, b) >= h.radius + radius);
     const startTile = nav.cellOf(from);
-    if (!nav.isWalkable(startTile.x, startTile.y)) return [];
+    // 起點在牆裡（不該發生，但一旦發生就永遠走不出來）：先走到最近的地板，再從那裡找路
+    if (!nav.isWalkable(startTile.x, startTile.y)) {
+      const exit = nav.nearestWalkable(startTile, NEAREST_WALKABLE_RADIUS, from);
+      if (!exit) return [];
+      const out = nav.cellCenter(exit);
+      const rest = this.findPath(out, to, radius, avoid);
+      return rest.length === 1 && rest[0]!.x === out.x && rest[0]!.y === out.y ? rest : [out, ...rest];
+    }
 
     let goalTile = nav.cellOf(to);
     let goalPoint: Vec2;

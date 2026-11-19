@@ -54,7 +54,7 @@ export interface AiBrain {
   slot: Vec2 | null;
   /** 成對的魔王一起出招前：趕到這個站位，到了也不出手，等 BossPairSystem 發動；null = 沒有 */
   gatherAt: Vec2 | null;
-  /** 貼身的近戰已達上限：在外圈等候補位，不出手 */
+  /** 守在站位、不出手：守著召喚者的召喚物、圍獵繞圈的野獸 */
   waiting: boolean;
   /** 遊擊正在繞到目標背後的站位：先走過去，到了才出手 */
   flanking: boolean;

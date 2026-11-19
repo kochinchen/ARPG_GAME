@@ -9,6 +9,8 @@ import SkillBar from './SkillBar.vue';
 const props = defineProps<{ hud: GameView['hud']; skillBar: GameView['skillBar']; touch?: boolean }>();
 
 const xpPct = computed(() => Math.min(100, (props.hud.xp.value / Math.max(1, props.hud.xp.next)) * 100));
+/** 等級高出這一層太多時，擊殺經驗少了百分之幾（0 = 沒有打折） */
+const xpCut = computed(() => Math.round((1 - props.hud.xp.rate) * 100));
 
 function usePotion(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
@@ -30,9 +32,9 @@ function usePotion(e: MouseEvent) {
         {{ b.label }}<b v-if="b.stacks > 1">×{{ b.stacks }}</b><i>{{ Math.ceil(b.remaining) }}</i>
       </span>
     </div>
-    <div class="xp-bar" :title="`經驗 ${hud.xp.value} / ${hud.xp.next}`">
+    <div class="xp-bar" :title="xpCut ? `經驗 ${hud.xp.value} / ${hud.xp.next}\n等級比這一層高太多：擊殺經驗 −${xpCut}%，往更深的樓層走才會恢復` : `經驗 ${hud.xp.value} / ${hud.xp.next}`">
       <div class="xp-fill" :style="{ width: `${xpPct}%` }" />
-      <span class="xp-text">Lv {{ hud.xp.level }} · {{ hud.xp.value }} / {{ hud.xp.next }}</span>
+      <span class="xp-text">Lv {{ hud.xp.level }} · {{ hud.xp.value }} / {{ hud.xp.next }}<b v-if="xpCut" class="xp-cut"> · 本層經驗 −{{ xpCut }}%</b></span>
     </div>
     <!-- 觸控版：連段、藥水在右下的觸控按鈕，金幣在背包 -->
     <div v-if="!touch" class="row">
@@ -125,6 +127,10 @@ function usePotion(e: MouseEvent) {
   height: 100%;
   background: linear-gradient(#d9b45f, #8a6d38);
   transition: width 0.25s ease-out;
+}
+.xp-cut {
+  font-weight: 400;
+  color: #e0a070;
 }
 .xp-text {
   position: absolute;

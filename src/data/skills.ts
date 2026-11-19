@@ -1710,13 +1710,25 @@ const creatureSkills: SkillInput[] = [
   {
     id: 'enemy.mind_bolt',
     name: '心靈飛彈',
-    description: '腦海浮體的遠程法術。',
+    description: '腦海浮體的遠程法術。命中時燒掉目標最大魔力的 10%。',
     targeting: 'enemy',
     // 腦海浮體站在後排（keepDistance 6），射程要搆得到
     range: 9,
     castTime: 0.8,
     tags: ['spell', 'projectile', 'lightning'],
-    effects: [{ type: 'projectile', speed: 8, radius: 0.22, range: 12, onHit: [{ type: 'damage', element: 'lightning', scaling: 'weapon', multiplier: 0.9 }] }],
+    // 燃魔（設計者 2026-11-18）：魔力幾乎用不完的法術流派，被牠射中幾發就得喝水或先解決牠
+    effects: [
+      {
+        type: 'projectile',
+        speed: 8,
+        radius: 0.22,
+        range: 12,
+        onHit: [
+          { type: 'damage', element: 'lightning', scaling: 'weapon', multiplier: 0.9 },
+          { type: 'manaBurn', percent: 0.1 },
+        ],
+      },
+    ],
   },
   {
     // 腦海浮體的削弱（設計者 2026-11-12）：降抗性

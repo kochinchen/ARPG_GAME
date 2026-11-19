@@ -115,11 +115,11 @@ describe('第 35 層：王座廳', () => {
     // 樓梯口與中途存檔點都有商人，離魔王很遠
     expect(w.merchants).toHaveLength(2);
     expect(distance(w.spawnPoint, boss.position)).toBeGreaterThan(40);
-    // 全抗性 18%，HP 約 300,000（設計者 2026-11-03：原本約 600,000 太高）
+    // 全抗性 18%，HP 約 552,000（設計者 2026-11-19：照第 10 層起每層 ×1.12 的等比成長計算；改之前約 300,000）
     expect(boss.stats.get('fireResist')).toBeCloseTo(0.18);
     expect(boss.stats.get('physicalResist')).toBeCloseTo(0.18);
-    expect(boss.maxHp).toBeGreaterThan(295000);
-    expect(boss.maxHp).toBeLessThan(305000);
+    expect(boss.maxHp).toBeGreaterThan(545000);
+    expect(boss.maxHp).toBeLessThan(560000);
   });
 
   it('擊敗最終魔王 = 已完成隱藏難關；之後第 31 層可以往上', () => {

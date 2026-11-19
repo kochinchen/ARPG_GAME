@@ -26,6 +26,8 @@ export interface Build {
   attributes: Record<string, number>;
   /** 遠程流派：正常型會保持距離 */
   ranged: boolean;
+  /** 連段按鍵的優先順序（存檔角色：依圖鑑記錄的使用次數）；沒有時照 Q / W / E… 的順序 */
+  comboOrder?: readonly number[];
 }
 
 export const BUILDS: readonly Build[] = [

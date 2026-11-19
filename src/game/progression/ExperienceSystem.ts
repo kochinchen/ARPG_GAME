@@ -13,7 +13,18 @@ export function xpToNext(level: number, balance: Pick<Balance, 'xpCurve'>): numb
 }
 
 /**
- * 監聽敵人死亡給經驗；升級時給技能點、屬性點、Mastery 後再給 T4 開通次數，並成長基礎屬性。
+ * 等級差經驗倍率（balance.xpLevelGap）：主角的等級比這一層的怪物等級（樓層 × levelsPerFloor）高出 grace 級以內是 1，
+ * 之後每高 1 級少 perLevel，最低 min。不在樓層裡（測試地圖，floor = 0）不打折。
+ */
+export function xpGapMultiplier(level: number, floor: number, balance: Pick<Balance, 'xpLevelGap'>): number {
+  if (floor <= 0) return 1;
+  const gap = balance.xpLevelGap;
+  const over = level - floor * gap.levelsPerFloor - gap.grace;
+  return over <= 0 ? 1 : Math.max(gap.min, 1 - over * gap.perLevel);
+}
+
+/**
+ * 監聽敵人死亡給經驗（依等級差打折，見 xpGapMultiplier）；升級時給技能點、屬性點、Mastery 後再給 T4 開通次數，並成長基礎屬性。
  */
 export class ExperienceSystem {
   constructor(
@@ -23,14 +34,22 @@ export class ExperienceSystem {
     private readonly data: Pick<DataRegistry, 'balance'>,
     private readonly events: GameEventBus,
     targeting: TargetingService,
+    /** 目前的樓層（怪物等級由它推算） */
+    private readonly floor: () => number,
   ) {
     events.on('ActorDied', (e) => {
-      if (e.faction !== 'enemy' || e.killerId === null) return;
+      if (e.faction !== 'enemy' || e.killerId === null || e.xp <= 0) return;
       // 玩家或召喚物擊殺才有經驗
       const killer = targeting.getActor(e.killerId);
       if (!killer || killer.faction === 'enemy') return;
-      this.addXp(e.xp);
+      // 經驗維持整數（HUD 直接顯示數字）；有經驗的怪至少給 1
+      this.addXp(Math.max(1, Math.round(e.xp * this.killXpMultiplier)));
     });
+  }
+
+  /** 在目前的樓層擊殺怪物拿到的經驗比例（1 = 全額） */
+  get killXpMultiplier(): number {
+    return xpGapMultiplier(this.progress.level, this.floor(), this.data.balance);
   }
 
   get xpForNextLevel(): number {

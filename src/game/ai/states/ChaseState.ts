@@ -9,14 +9,14 @@ import { findPathFor, type AiContext, type IAiState } from '../IAiState';
 const RETREAT_STEP = 3;
 /** 後排離自己的站位超過這個距離，出手之間會走回站位（Tile） */
 const BACKLINE_SLACK = 2;
-/** 等候補位時離站位這麼近就停下（Tile） */
+/** 守在站位（護衛、圍獵繞圈）時離站位這麼近就停下（Tile） */
 const STATION_SLACK = 0.4;
 
 /**
  * 追擊並攻擊目標（交給 SkillSystem 執行）；目標消失或離家太遠就放棄。
  * - 特殊技能冷卻結束、目標在範圍內時優先使用
  * - 遠程怪（keepDistance > 0）被貼近時先後退，再繼續攻擊；每次後退之間至少出手一次
- * - 集體戰術（SquadTactics）分配了站位時：近戰走向站位包圍、後排在出手之間走回前排後方、等候補位的不出手
+ * - 集體戰術（SquadTactics）分配了站位時：近戰走向站位包圍、後排在出手之間走回前排後方
  * - 正在閃避投射物 / 走出地上的範圍傷害（AiSystem）時不追擊、不出手；被指定為傳令兵時改去求援（CallState）
  * - 血少時去撿藥水、吃屍體，或施法復活屍體（ErrandState）；或往另一群閒置的怪逃（FleeState，誘敵）
  * - 投射物預判目標的走位（SkillIntent.lead，隨樓層）
@@ -69,7 +69,7 @@ export class ChaseState implements IAiState {
       return;
     }
     if (target && this.retreat(ctx, target)) return;
-    // 等候補位、守著召喚者、圍獵繞圈或還沒輪到撲上去：不出手
+    // 守著召喚者、圍獵繞圈或還沒輪到撲上去：不出手
     if (!brain.charging && (brain.waiting || brain.huntHold > 0)) {
       this.holdStation(ctx);
       return;
@@ -104,7 +104,7 @@ export class ChaseState implements IAiState {
     if (!self.isMoving && distance(self.position, spot) > STATION_SLACK) self.path = findPathFor(ctx, spot);
   }
 
-  /** 等候補位：不出手，走到外圈的站位停下 */
+  /** 守在站位：不出手，走到站位停下 */
   private holdStation(ctx: AiContext): void {
     const { self, brain } = ctx;
     self.intent = null;

@@ -1,7 +1,7 @@
 // 難度模擬（npm run balance）：無畫面讓機器人玩家打每一層，量死亡率、瞬間傷害、站樁倒下時間，
 // 對照 tests/balance/targets.json 產生 release/設計文件/難度報告.html。
 //
-//   npm run balance                                   全部樓層 × 3 流派 × 3 種機器人 × 2 個種子
+//   npm run balance                                   全部樓層 × 3 流派 × 機器人（正常、莽撞、站樁；弓與法杖再加風箏型）× 2 個種子
 //   npm run balance -- --floors=1-9 --builds=melee    只跑一部分
 //   npm run balance -- --seeds=4 --jobs=6             更多種子 / 同時跑幾個
 //   npm run balance -- --report                       不重跑，用上一次的結果重新產生報告
@@ -15,7 +15,7 @@
 // 預設角色（50 級、全紫裝、鑲滿黃核）：看到第幾層開始卡關
 //   npm run balance -- --preset                       三流派 × 1～35 層；報告：release/設計文件/難度報告-預設.html
 //
-// 深層魔王（31～35 層挑戰，每層都有 Boss）：第 31～35 層依序用 60 / 62 / 64 / 66 / 68 級，紫裝 2 孔與橘裝 1 孔各一組，鑲滿黃核
+// 深層魔王（31～35 層挑戰，每層都有 Boss）：第 31～35 層依序用 47 / 49 / 51 / 53 / 55 級（怪物經驗減半後正常進度的等級），紫裝 2 孔與橘裝 1 孔各一組，鑲滿黃核
 //   npm run balance -- --boss                         報告：release/設計文件/難度報告-魔王.html
 //
 // 原始結果在 release/難度模擬/results.jsonl（存檔法為 results-存檔.jsonl，每行一筆）。
@@ -51,12 +51,14 @@ const mode = useSaves ? 'save' : useBoss ? 'boss' : usePreset ? 'preset' : 'snap
 const suffix = { save: '-存檔', boss: '-魔王', preset: '-預設', snapshot: '' }[mode];
 const PRESET = { level: 50, itemLevel: 50, rarity: 'epic' };
 const BUILD_NAMES = { melee: '近戰', ranged: '弓箭', magic: '法術' };
-const BOSS_LEVELS = { 31: 60, 32: 62, 33: 64, 34: 66, 35: 68 };
+const BOSS_LEVELS = { 31: 47, 32: 49, 33: 51, 34: 53, 35: 55 };
 const GEAR_NAMES = { epic: '紫裝 2 孔', legendary: '橘裝 1 孔' };
 const resultsPath = join(outDir, `results${suffix}.jsonl`);
 const reportPath = join(root, 'release', '設計文件', `難度報告${suffix}.html`);
 const LAST_FLOOR = 35;
-const personas = (args.personas ?? 'normal,rusher,idle').split(',');
+const personas = (args.personas ?? 'normal,rusher,kiter,idle').split(',');
+// 風箏型只對弓 / 法杖有意義（近戰流派跑起來等同正常型，不必重複跑）；存檔角色不知道武器，照跑
+const personasOf = (build) => personas.filter((p) => p !== 'kiter' || build !== 'melee');
 const seeds = Number(args.seeds ?? (useSaves ? 3 : 2));
 const shards = Number(args.jobs ?? Math.max(1, cpus().length - 2));
 const seedOf = (floor, s) => 1000 + floor * 17 + s * 7919;
@@ -103,7 +105,7 @@ if (args.report !== 'true') {
   const jobs = [];
   for (const c of characters)
     for (const floor of c.floors)
-      for (const persona of personas)
+      for (const persona of personasOf(c.build))
         for (let s = 0; s < seeds; s++) jobs.push({ floor, build: c.build, persona, seed: seedOf(floor, s), ...(c.save ? { save: c.save, label: c.label } : {}), ...(c.preset ? { preset: c.preset } : {}), ...(c.key ? { key: c.key, label: c.label } : {}) });
   // 深的樓層跑比較久：輪流分配時先排深層，各個程序的工作量比較平均
   jobs.sort((a, b) => b.floor - a.floor || (a.persona === 'idle') - (b.persona === 'idle'));

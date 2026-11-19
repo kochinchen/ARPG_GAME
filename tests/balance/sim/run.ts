@@ -78,6 +78,10 @@ export interface RunOptions {
   seed: number;
   /** 遊戲時間上限（秒） */
   maxTime?: number;
+  /** 假設測試：角色建好之後、開打之前動手腳（例如把主角的防禦打折），用來比較「如果這樣改」的結果 */
+  tweak?: (world: GameWorld) => void;
+  /** 假設測試：怪物經驗的倍率（快照角色到這一層的等級，用「各層經驗 × 這個倍率」推算） */
+  xpScale?: number;
 }
 
 /** 傷害來源的名稱：怪物（精英詞綴不算）・招式；持續傷害沒有來源時用元素 */
@@ -88,10 +92,11 @@ function sourceLabel(source: Actor | undefined, element: string): string {
   return `${name}・${skill ? skill.name : element}`;
 }
 
-export function runFloor({ floor, build, persona, seed, save, preset, maxTime = 600 }: RunOptions): RunResult {
+export function runFloor({ floor, build, persona, seed, save, preset, maxTime = 600, tweak, xpScale }: RunOptions): RunResult {
   const { world, commands, events } = save ? makeWorld(1, save.data.meta.runSeed) : makeWorld(floor, seed);
   if (save) applySave(world, data, save.data, floor, seed);
-  else setupCharacter(world, data, floor, build, xpTable(), preset);
+  else setupCharacter(world, data, floor, build, xpScale === undefined ? xpTable() : xpTable().map((x) => x * xpScale), preset);
+  tweak?.(world);
   const bot = new Bot(world, commands, build, persona, new Rng(seed).fork('bot'));
   const player = world.player;
 
@@ -149,6 +154,7 @@ export function runFloor({ floor, build, persona, seed, save, preset, maxTime = 
   events.on('PotionUsed', () => r.potions++);
   events.on('ExitOpened', () => (r.cleared = true));
 
+  const startedAt = world.playTime;
   const maxTicks = maxTime * TICKS_PER_SEC;
   const idleLimit = 60 * TICKS_PER_SEC;
   for (let t = 0; t < maxTicks; t++) {
@@ -181,7 +187,8 @@ export function runFloor({ floor, build, persona, seed, save, preset, maxTime = 
     if (persona === 'idle' && (r.deaths > 0 || (firstHitAt === null ? t > idleLimit * 3 : world.playTime - firstHitAt > idleLimit))) break;
     if (persona !== 'idle' && (r.cleared || r.deaths > 0)) break;
   }
-  r.time = world.playTime;
+  // 存檔法的 playTime 包含存檔之前玩的時間：只算這一層
+  r.time = world.playTime - startedAt;
   r.timedOut = persona !== 'idle' && !r.cleared && r.deaths === 0;
   if (r.timedOut) {
     const alive = world.actors.filter((a) => a.alive && a.faction === 'enemy');

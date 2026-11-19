@@ -8,8 +8,9 @@ import { DataRegistry } from '../../../src/data/DataRegistry';
 import type { GameCommand } from '../../../src/game/Commands';
 import type { GameEvents } from '../../../src/game/GameEvents';
 import { GameWorld } from '../../../src/game/GameWorld';
+import { mitigationMultiplier } from '../../../src/game/combat/DamagePipeline';
 import { EnemyFactory } from '../../../src/game/enemies/EnemyFactory';
-import { floorResistFor, hiddenBossResistFor } from '../../../src/game/world/DifficultyScaler';
+import { elementResistFor, floorResistFor, hiddenBossResistFor } from '../../../src/game/world/DifficultyScaler';
 import { NavGrid } from '../../../src/game/movement/NavGrid';
 import { SpawnSystem } from '../../../src/game/world/SpawnSystem';
 import { SaveMapper } from '../../../src/save/SaveMapper';
@@ -133,9 +134,9 @@ describe('精英怪的掉落與存檔', () => {
 
 describe('精英 / Boss 的樓層減傷', () => {
   const resist = config.floorResist;
-  const physical = (a: { stats: { get(s: 'physicalResist' | 'fireResist'): number } }) => a.stats.get('physicalResist');
-  // 屬性減傷以火焰抗性檢查（扣掉怪物天生的火焰抗性，例如熔岩巨獸）
-  const elemental = (a: { defId: string | null; stats: { get(s: 'physicalResist' | 'fireResist'): number } }) => Math.round((a.stats.get('fireResist') - (data.enemies.get(a.defId!).resist.fire ?? 0)) * 1e6) / 1e6;
+  const physical = (a: { stats: { get(s: 'physicalResist' | 'poisonResist'): number } }) => a.stats.get('physicalResist');
+  // 屬性減傷以毒素抗性檢查（隨機元素抗性不抽毒；扣掉怪物天生的毒素抗性）
+  const elemental = (a: { defId: string | null; stats: { get(s: 'physicalResist' | 'poisonResist'): number } }) => Math.round((a.stats.get('poisonResist') - (data.enemies.get(a.defId!).resist.poison ?? 0)) * 1e6) / 1e6;
 
   it('第 10 層起才有，逐層增加，最高 24%；Boss 成長較快', () => {
     expect(floorResistFor(9, false, resist)).toBe(0);
@@ -177,5 +178,74 @@ describe('精英 / Boss 的樓層減傷', () => {
     const boss = enemies(world(15)).find((a) => a.isBoss)!;
     expect(physical(boss)).toBeCloseTo(floorResistFor(15, true, resist));
     expect(elemental(boss)).toBeCloseTo(floorResistFor(15, true, resist));
+  });
+});
+
+describe('隨機元素抗性（設計者 2026-11-19）', () => {
+  const config = data.balance.difficulty.elementResist;
+  const ELEMENTS = ['fire', 'cold', 'lightning'] as const;
+  /** 這隻怪火、冰、電各多了多少抗性（扣掉天生抗性與樓層的屬性減傷；屬性減傷四種元素都一樣，用毒素抗性量） */
+  const extras = (a: ReturnType<typeof enemies>[number]) => {
+    const innate = data.enemies.get(a.defId!).resist;
+    const floorPart = a.stats.get('poisonResist') - (innate.poison ?? 0);
+    return ELEMENTS.map((e) => Math.round((a.stats.get(`${e}Resist`) - (innate[e] ?? 0) - floorPart) * 1e6) / 1e6 + 0);
+  };
+  const summoned = (a: ReturnType<typeof enemies>[number]) => a.summonedBy !== null;
+
+  it('第 10 層起每層 +3.5%，最高 70%；只抽火、冰、電，一般怪一種、精英與首領兩種', () => {
+    expect(config).toEqual({ minFloor: 10, perFloor: 0.035, max: 0.7, elements: ['fire', 'cold', 'lightning'], count: { normal: 1, elite: 2 } });
+    expect(elementResistFor(9, config)).toBe(0);
+    expect(elementResistFor(10, config)).toBeCloseTo(0.035);
+    expect(elementResistFor(20, config)).toBeCloseTo(0.385);
+    expect(elementResistFor(29, config)).toBeCloseTo(0.7);
+    expect(elementResistFor(35, config)).toBeCloseTo(0.7);
+  });
+
+  it('第 9 層沒有；第 12 層的一般怪抗一種、精英與首領抗兩種，三種元素都抽得到，毒不會被抽到', () => {
+    for (const e of enemies(world(9, 3))) expect(extras(e)).toEqual([0, 0, 0]);
+    const value = Math.round(elementResistFor(12, config) * 1e6) / 1e6;
+    const seen = new Set<number>();
+    let elites = 0;
+    for (let seed = 1; seed <= 8; seed++) {
+      for (const e of enemies(world(12, seed))) {
+        if (data.enemies.get(e.defId!).treasure || e.isBoss || summoned(e)) continue;
+        const extra = extras(e);
+        const picked = extra.flatMap((v, i) => (v === value ? [i] : []));
+        expect(extra.filter((v) => v !== 0 && v !== value)).toEqual([]);
+        expect(picked).toHaveLength(e.elite ? 2 : 1);
+        if (e.elite) elites++;
+        for (const i of picked) seen.add(i);
+      }
+    }
+    expect(elites).toBeGreaterThan(0);
+    expect(seen).toEqual(new Set([0, 1, 2]));
+  });
+
+  it('魔王與噴錢的結晶獸不抽：火、冰、電的抗性和毒一樣', () => {
+    const boss = enemies(world(15)).find((a) => a.isBoss)!;
+    expect(extras(boss)).toEqual([0, 0, 0]);
+    for (let seed = 1; seed <= 8; seed++) {
+      for (const e of enemies(world(12, seed))) if (data.enemies.get(e.defId!).treasure) expect(extras(e)).toEqual([0, 0, 0]);
+    }
+  });
+
+  it('同一個種子、同一層抽到的元素固定（讀檔後不變）', () => {
+    const snapshot = (w: GameWorld) => enemies(w).map((e) => [e.defId, ...extras(e)]);
+    expect(snapshot(world(14, 5))).toEqual(snapshot(world(14, 5)));
+    expect(snapshot(world(14, 5))).not.toEqual(snapshot(world(14, 6)));
+  });
+
+  it('傷害照抗性打折：抗的那種元素傷害變少，其他元素不變；實際抗性不超過上限', () => {
+    const w = world(29, 2);
+    const value = elementResistFor(29, config);
+    const foe = enemies(w).find((e) => !e.elite && !e.isBoss && !data.enemies.get(e.defId!).treasure && Object.keys(data.enemies.get(e.defId!).resist).length === 0)!;
+    const picked = extras(foe).findIndex((v) => v > 0);
+    const other = (picked + 1) % 3;
+    const left = (element: (typeof ELEMENTS)[number]) => mitigationMultiplier(foe, element, 0, data.balance);
+    expect(left(ELEMENTS[picked]!)).toBeCloseTo(1 - value);
+    expect(left(ELEMENTS[other]!)).toBeCloseTo(1);
+    // 再疊到超過上限：只算到 balance.combat.maxResist
+    foe.stats.addModifier({ stat: `${ELEMENTS[picked]!}Resist`, kind: 'flat', value: 0.5, source: 'test' });
+    expect(left(ELEMENTS[picked]!)).toBeCloseTo(1 - data.balance.combat.maxResist);
   });
 });

@@ -25,6 +25,9 @@ export function loadSave(path: string, data: DataRegistry): LoadedSave {
   const weapon = save.equipment.weapon ? data.items.get(save.equipment.weapon.baseId).weaponType : undefined;
   const left = save.loadout.left;
   const category = data.skills.has(left) ? (data.skills.get(left).tree?.category ?? 'melee') : 'melee';
+  // 連段的優先順序：設計者實際最常用的那一組排最前面（圖鑑記錄每種三連段的使用次數）
+  const used = save.loadout.combos.map((steps) => save.codex.filter((c) => c.skills.every((id, i) => id === steps[i])).reduce((sum, c) => sum + c.timesUsed, 0));
+  const comboOrder = used.map((_, k) => k).sort((a, b) => used[b]! - used[a]! || a - b);
   const build: Build = {
     id: `save:${path}`,
     label: path,
@@ -34,6 +37,7 @@ export function loadSave(path: string, data: DataRegistry): LoadedSave {
     left,
     attributes: {},
     ranged: weapon === 'bow' || weapon === 'staff',
+    comboOrder,
   };
   return { data: save, build };
 }

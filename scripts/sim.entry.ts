@@ -10,6 +10,7 @@ import { ComboResolver } from '../src/game/combo/ComboResolver';
 import { ComboSkillIndex } from '../src/game/combo/ComboSkillIndex';
 import { STAT_LABELS } from '../src/game/items/ItemDescriber';
 import { xpToNext } from '../src/game/progression/ExperienceSystem';
+import { scaleForFloor } from '../src/game/world/DifficultyScaler';
 import { categoriesWithT4, checkLearn, checkUnlockT4, isT4Open, masteryAchieved, SkillTreeIndex, type TreeState } from '../src/game/skills/MasteryRule';
 import { describeSkill } from '../src/game/skills/SkillDescriber';
 import { combatCategory, weaponDenial } from '../src/game/skills/skillCategory';
@@ -105,6 +106,8 @@ export const Sim = {
   /** v0.4.0 武器允許矩陣：拿這把武器不能用時回傳原因（空手 = 不限制） */
   weaponDenial: (id: string, weapon: WeaponType | '') => weaponDenial(data.skills.get(id), weapon || undefined, data.balance.weaponRules),
   xpToNext: (level: number) => xpToNext(level, data.balance),
+  /** 樓層 → 怪物倍率（第 10 層起生命與傷害是等比成長；頁面不自己重寫公式） */
+  scaleForFloor: (floor: number) => scaleForFloor(floor, data.balance.difficulty),
   defenseMitigation,
   rankValue,
   rankRange,

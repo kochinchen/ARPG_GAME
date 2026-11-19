@@ -12,6 +12,11 @@ export const STEAL_CAP = { skill: 0.005, perSource: 0.003, critHeal: 0.005 } as 
 export const balance: z.input<typeof BalanceSchema> = {
   maxLevel: 70,
   xpCurve: { base: 50, exponent: 1.5 },
+  // 等級差經驗遞減（設計者 2026-11-18）：怪物等級 = 樓層 × levelsPerFloor。
+  // 主角高出怪物等級 grace 級以內拿全額經驗，之後每高 1 級少 perLevel，最低剩 min。
+  // 原因：換層後整層的怪都重生，停在同一層一直清就能升到滿級；現在高出太多就幾乎升不動，要往下走才有經驗（掉寶不受影響）。
+  // 2026-11-19 怪物經驗減半後，正常進度每層約升 1.5 級（第 10 層 Lv14、第 20 層 Lv29、第 30 層 Lv45、第 35 層 Lv55），levelsPerFloor 跟著從 2 改成 1.5
+  xpLevelGap: { levelsPerFloor: 1.5, grace: 5, perLevel: 0.15, min: 0.05 },
   skillPointsPerLevel: 1,
   statsPerLevel: { maxHp: 5, maxMana: 2 },
   maxSkillRank: 5,
@@ -90,9 +95,16 @@ export const balance: z.input<typeof BalanceSchema> = {
     maxDensityMultiplier: 1.4,
     // 前期怪物數量加成：第 1～5 層 +20%，之後逐層遞減，第 30 層起為 0（第 30 層以後的數量不變）
     earlyDensityBoost: { bonus: 0.2, fullUntil: 5, fadeTo: 30 },
-    // 怪物強化：一般怪 / 精英 HP ×1～8、魔王 HP ×1～20、攻擊 ×1～4、特殊技能範圍 ×1.5～3（第 1 → 35 層逐層提高）；經驗 ×0.7
+    // 怪物強化：一般怪 / 精英 HP ×1～8、魔王 HP ×1～20、攻擊 ×1～4、特殊技能範圍 ×1.5～3（第 1 → 35 層逐層提高）；經驗 ×0.35
     // 魔王的範圍另外算 ×1～1.5、放大後最多 8 格（設計者 2026-11-03：魔王原本 ×1.5～3 太大，一般怪與精英不變）
-    monsterBoost: { toFloor: 35, hp: [1, 8], bossHp: [1, 20], damage: [1, 4], skillArea: [1.5, 3], bossSkillArea: [1, 1.5], bossSkillAreaCap: 8, xp: 0.7 },
+    // 經驗（設計者 2026-11-19）：0.7 再減半成 0.35
+    monsterBoost: { toFloor: 35, hp: [1, 8], bossHp: [1, 20], damage: [1, 4], skillArea: [1.5, 3], bossSkillArea: [1, 1.5], bossSkillAreaCap: 8, xp: 0.35 },
+    // 等比成長（設計者 2026-11-19）：第 fromFloor 層以前，生命與傷害照上面的線性公式；之後以第 fromFloor 層的倍率為起點，
+    // 每往下一層生命 ×hp、傷害 ×damage（一般怪、精英、魔王、隱藏魔王都一樣）。防禦、範圍、經驗、數量仍照線性公式
+    geometric: { fromFloor: 10, hp: 1.12, damage: 1.09 },
+    // 隨機元素抗性（設計者 2026-11-19）：第 minFloor 層起，一般怪隨機抗 elements 其中一種、精英與首領抗兩種，
+    // 數值 = perFloor ×（樓層 − minFloor + 1），最高 max。不含毒（會用毒的多半是怪）；魔王、隱藏魔王、召喚物與結晶獸不抽
+    elementResist: { minFloor: 10, perFloor: 0.035, max: 0.7, elements: ['fire', 'cold', 'lightning'], count: { normal: 1, elite: 2 } },
   },
   floor: {
     // 樓梯口與出口：大於最遠的偵測距離（骷髏王 9），上下樓時附近一定沒有怪物
@@ -130,12 +142,10 @@ export const balance: z.input<typeof BalanceSchema> = {
     alertRadius: 6,
     alertDelay: [0.3, 0.6],
     surroundRange: 6,
-    maxEngaged: 6,
-    // 整圈包圍、不留缺口（設計者 2026-11-07）
+    // 整圈包圍、不留缺口（設計者 2026-11-07）；同時貼身的隻數沒有上限（設計者 2026-11-19 拿掉原本的 6 隻，其餘在外圈等候的規則）
     gapDegrees: 0,
     minSlots: 4,
     flankSpeed: 3.2,
-    waitDistance: 2.5,
     backlineOffset: 1.5,
     reassignInterval: 0.5,
     // 閃避投射物（設計者 2026-11-07）：第 1 層 20%、第 30 層起 45%；慢的怪來不及閃

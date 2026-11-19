@@ -8,6 +8,7 @@ import { DeviceEffect } from './effects/DeviceEffect';
 import type { EffectContext, IEffect } from './effects/IEffect';
 import { KnockbackEffect } from './effects/KnockbackEffect';
 import { LeapEffect } from './effects/LeapEffect';
+import { ManaBurnEffect } from './effects/ManaBurnEffect';
 import { ProjectileEffect } from './effects/ProjectileEffect';
 import { SacrificeEffect } from './effects/SacrificeEffect';
 import { StatusEffect } from './effects/StatusEffect';
@@ -34,6 +35,7 @@ export class EffectRegistry {
     delayed: new DelayedEffect(),
     summon: new SummonEffect(),
     seal: new SealEffect(),
+    manaBurn: new ManaBurnEffect(),
     device: new DeviceEffect(),
     leap: new LeapEffect(),
     sacrifice: new SacrificeEffect(),

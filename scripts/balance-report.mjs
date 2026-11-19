@@ -27,12 +27,15 @@ const rangeText = ([lo, hi]) => (lo === 0 ? `≤ ${pct(hi)}` : hi >= 1 ? `≥ ${
 function stats(runs) {
   const normal = runs.filter((r) => r.persona === 'normal');
   const rusher = runs.filter((r) => r.persona === 'rusher');
+  const kiter = runs.filter((r) => r.persona === 'kiter');
   const idle = runs.filter((r) => r.persona === 'idle');
   const fighters = [...normal, ...rusher];
   const idleTtd = idle.map((r) => r.timeToDie ?? 60);
   return {
     normalDeath: rate(normal),
     rusherDeath: rate(rusher),
+    kiterDeath: rate(kiter),
+    kiterPotions: median(kiter.filter((r) => r.cleared).map((r) => r.potions)),
     normalTimeout: normal.length ? normal.filter((r) => r.timedOut).length / normal.length : null,
     burst1s: quantile(normal.map((r) => r.burst1s), 0.9),
     burst1sMax: quantile(fighters.map((r) => r.burst1s), 1),
@@ -44,7 +47,7 @@ function stats(runs) {
     minHp: median(normal.filter((r) => r.deaths === 0).map((r) => r.minHpPct)),
     nearDeaths: normal.reduce((s, r) => s + r.nearDeaths, 0),
     level: median(runs.map((r) => r.level)),
-    n: { normal: normal.length, rusher: rusher.length, idle: idle.length },
+    n: { normal: normal.length, rusher: rusher.length, kiter: kiter.length, idle: idle.length },
   };
 }
 
@@ -90,6 +93,9 @@ export function renderReport(results, targets, { seeds, date, mode = 'snapshot' 
   const byFloor = new Map(floors.map((f) => [f, results.filter((r) => r.floor === f)]));
   const isBoss = (f) => byFloor.get(f).some((r) => r.bossFloor);
   const issues = [];
+  // 風箏型（會拉開距離的遠程玩家）：有跑才多一欄；還沒有目標值，只列出來和正常型比較
+  const hasKiter = results.some((r) => r.persona === 'kiter');
+  const kiterCell = (s) => (hasKiter ? `<td><b>${pct(s.kiterDeath)}</b>${s.kiterPotions === null ? '' : `<small>喝水 ${s.kiterPotions}</small>`}</td>` : '');
 
   // 區段總表（死亡率只算一般樓層；魔王層另外一列）
   const tierRows = targets.tiers
@@ -113,6 +119,7 @@ export function renderReport(results, targets, { seeds, date, mode = 'snapshot' 
       return `<tr><th>${esc(t.label)}<small>Lv ${all.level ?? '—'}</small></th>
 ${normalFloors.length ? cell(c.normal, pct(s.normalDeath), rangeText(t.normalDeath)) : '<td>—</td>'}
 ${normalFloors.length ? cell(c.rusher, pct(s.rusherDeath), rangeText(t.rusherDeath)) : '<td>—</td>'}
+${kiterCell(s)}
 ${cell(c.burst, pct(all.burst1s), t.burst1s === null ? '不設限' : `≤ ${pct(t.burst1s)}`)}
 ${cell(c.ttd, sec(all.timeToDie), `≥ ${t.timeToDie} 秒`)}
 <td>${pct(all.burst5s)}</td><td>${sec(all.clearTime)}</td><td>${all.potions ?? '—'}</td><td>${pct(all.minHp)}</td><td>${pct(all.normalTimeout)}</td></tr>`;
@@ -144,7 +151,7 @@ ${cell(c.ttd, sec(all.timeToDie), `≥ ${t.timeToDie} 秒`)}
   const buildRows = builds
     .map((b) => {
       const s = stats(results.filter((r) => r.build === b && !r.bossFloor));
-      return `<tr><th>${esc(labelOf(b))}</th><td>${pct(s.normalDeath)}</td><td>${pct(s.rusherDeath)}</td><td>${sec(s.clearTime)}</td><td>${pct(s.burst1s)}</td><td>${sec(s.timeToDie)}</td></tr>`;
+      return `<tr><th>${esc(labelOf(b))}</th><td>${pct(s.normalDeath)}</td><td>${pct(s.rusherDeath)}</td>${kiterCell(s)}<td>${sec(s.clearTime)}</td><td>${pct(s.burst1s)}</td><td>${sec(s.timeToDie)}</td></tr>`;
     })
     .join('');
 
@@ -156,7 +163,7 @@ ${cell(c.ttd, sec(all.timeToDie), `≥ ${t.timeToDie} 秒`)}
       const perBuild = builds
         .map((b) => {
           const bs = stats(runs.filter((r) => r.build === b));
-          return `<td>${pct(bs.normalDeath)} / ${pct(bs.rusherDeath)}</td>`;
+          return `<td>${pct(bs.normalDeath)} / ${pct(bs.rusherDeath)}${hasKiter ? ` / ${pct(bs.kiterDeath)}` : ''}</td>`;
         })
         .join('');
       return `<tr${isBoss(f) ? ' class="boss"' : ''}><th>${f}${isBoss(f) ? ' <span class="tag">魔王</span>' : ''}</th><td>${s.level ?? '—'}</td>${perBuild}<td>${pct(s.burst1s)}</td><td>${pct(s.bossBurst)}</td><td>${sec(s.timeToDie)}</td><td>${sec(s.clearTime)}</td><td>${s.potions ?? '—'}</td><td>${pct(s.minHp)}</td></tr>`;
@@ -172,6 +179,7 @@ ${cell(c.ttd, sec(all.timeToDie), `≥ ${t.timeToDie} 秒`)}
     series: [
       { label: '正常型', cls: 's1', points: perFloor((s) => s.normalDeath) },
       { label: '莽撞型', cls: 's2', points: perFloor((s) => s.rusherDeath) },
+      ...(hasKiter ? [{ label: '風箏型', cls: 's3', points: perFloor((s) => s.kiterDeath) }] : []),
     ],
     bands: tierBands('rusherDeath'),
   });
@@ -271,9 +279,9 @@ ${issues.length ? `<ul>${issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`
 
 <h2>各區段</h2>
 <div class="scroll"><table>
-<thead><tr><th>區段</th><th>正常型死亡率</th><th>莽撞型死亡率</th><th>一秒內最大受傷</th><th>站著不動到倒下</th><th>五秒內受傷</th><th>清層時間</th><th>喝水</th><th>最低血量</th><th>逾時</th></tr></thead>
+<thead><tr><th>區段</th><th>正常型死亡率</th><th>莽撞型死亡率</th>${hasKiter ? '<th>風箏型死亡率</th>' : ''}<th>一秒內最大受傷</th><th>站著不動到倒下</th><th>五秒內受傷</th><th>清層時間</th><th>喝水</th><th>最低血量</th><th>逾時</th></tr></thead>
 <tbody>${tierRows}
-<tr class="boss"><th>魔王層<small>${bossFloors.join('、') || '—'}</small></th><td class="${bossCls}"><b>${pct(boss.normalDeath)}</b><small>目標 ${rangeText(targets.bossFloor.normalDeath)}</small></td><td>${pct(boss.rusherDeath)}</td><td>${pct(boss.bossBurst)}<small>魔王一秒內</small></td><td>—</td><td>${pct(boss.burst5s)}</td><td>${sec(boss.clearTime)}</td><td>${boss.potions ?? '—'}</td><td>${pct(boss.minHp)}</td><td>${pct(boss.normalTimeout)}</td></tr>
+<tr class="boss"><th>魔王層<small>${bossFloors.join('、') || '—'}</small></th><td class="${bossCls}"><b>${pct(boss.normalDeath)}</b><small>目標 ${rangeText(targets.bossFloor.normalDeath)}</small></td><td>${pct(boss.rusherDeath)}</td>${kiterCell(boss)}<td>${pct(boss.bossBurst)}<small>魔王一秒內</small></td><td>—</td><td>${pct(boss.burst5s)}</td><td>${sec(boss.clearTime)}</td><td>${boss.potions ?? '—'}</td><td>${pct(boss.minHp)}</td><td>${pct(boss.normalTimeout)}</td></tr>
 </tbody></table></div>
 <p class="meta">死亡率只算一般樓層，魔王層另外列。一秒內最大受傷：一般怪群在任一秒內打掉的血量佔最大生命，取九成場次低於的值。清層時間、喝水、最低血量都是正常型的中位數；逾時 = 10 分鐘內沒打開出口。</p>
 
@@ -289,12 +297,12 @@ ${ttdChart}
 
 <h2>流派比較（一般樓層）</h2>
 <div class="scroll"><table>
-<thead><tr><th>流派</th><th>正常型死亡率</th><th>莽撞型死亡率</th><th>清層時間</th><th>一秒內最大受傷</th><th>站著不動到倒下</th></tr></thead>
+<thead><tr><th>流派</th><th>正常型死亡率</th><th>莽撞型死亡率</th>${hasKiter ? '<th>風箏型死亡率</th>' : ''}<th>清層時間</th><th>一秒內最大受傷</th><th>站著不動到倒下</th></tr></thead>
 <tbody>${buildRows}</tbody></table></div>
 
 <h2>每層明細</h2>
 <div class="scroll"><table>
-<thead><tr><th>樓層</th><th>等級</th>${builds.map((b) => `<th>${esc(labelOf(b))}<small>正常 / 莽撞死亡率</small></th>`).join('')}<th>一秒內受傷</th><th>魔王一秒內</th><th>站樁倒下</th><th>清層時間</th><th>喝水</th><th>最低血量</th></tr></thead>
+<thead><tr><th>樓層</th><th>等級</th>${builds.map((b) => `<th>${esc(labelOf(b))}<small>正常 / 莽撞${hasKiter ? ' / 風箏' : ''}死亡率</small></th>`).join('')}<th>一秒內受傷</th><th>魔王一秒內</th><th>站樁倒下</th><th>清層時間</th><th>喝水</th><th>最低血量</th></tr></thead>
 <tbody>${floorRows}</tbody></table></div>
 
 <h2>模擬的假設</h2>
@@ -303,6 +311,7 @@ ${mode === 'boss' ? `<li>只測 31～35 層（挑戰層，每層都有 Boss）�
 <li>技能只學自己這一系（先每招一級再往上加），能開 T4 就開；屬性點依流派比例分配。左鍵是該系的基本攻擊，連段依階級由高到低排。</li>`}
 <li>正常型：血剩 45% 喝水；看到大招前搖 0.3 秒後才反應，有 20% 沒躲掉；遠程流派會跟近戰怪拉開距離；血少又被圍時後退。</li>
 <li>莽撞型：直衝最近的怪、一直打，血剩 20% 才喝水，不躲。站樁：走到怪旁邊後完全不動。</li>
+${hasKiter ? '<li>風箏型（只有弓 / 法杖）：在 9 格外開打；會追過來的怪靠近到 3.5 格內就沿著來時路退 5 格再回頭打（退完至少出手一次才再退）；看得到的遠程怪優先打；站在怪物放的地面範圍裡會先走出去；走位用點地面（會中斷連段），其餘同正常型。用來量「會拉開距離的遠程玩家」有多安全，目前沒有目標值。</li>' : ''}
 <li>死第一次就停，所以死亡率 = 這一層「過關前至少死一次」的比例。</li>
 <li>機器人不是人：畫面是否看得懂、預警是否明顯量不出來，仍需實際遊玩確認。</li>
 </ul></div>

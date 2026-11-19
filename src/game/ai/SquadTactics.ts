@@ -21,7 +21,7 @@ interface Hunt {
  * - 呼朋引伴：發現敵人時叫醒附近看得到的閒置同伴（只傳一層）
  * - 包圍：近戰怪在目標四周分配站位，從怪物來的那一側往兩邊排開；快的怪（遊擊）拿背後，從側面繞過去
  * - 背後的缺口由 gapDegrees 決定（目前 0 = 整圈包圍，設計者 2026-11-07）
- * - 同時貼身的近戰有上限，其餘在外圈等候補位
+ * - 同時貼身的近戰沒有上限：包圍範圍內的近戰都排進站位（設計者 2026-11-19 拿掉上限）
  * - 後排（遠程、法師）站在前排後方
  * - 求援：一群被打掉超過 casualtyRatio，派一隻（離目標最遠的）去叫附近閒置的其他群（CallState）
  * - 躲掩護：遠程怪（cover）站到正在追擊的巨獸（shield）背後射擊；站在那裡打不到目標就自己追出來
@@ -154,12 +154,11 @@ export class SquadTactics {
     const toward = sub(center, target.position);
     const frontAngle = previousFront ?? (toward.x === 0 && toward.y === 0 ? 0 : Math.atan2(toward.y, toward.x));
 
-    // 蜂擁的不排站位、不等候補位；圍獵的另外排
+    // 蜂擁的不排站位；圍獵的另外排
     const melee = near.filter((m) => m.ai!.keepDistance <= 0 && !m.ai!.tactics.includes('swarm') && !(hunting && m.ai!.tactics.includes('hunt')));
+    // 離目標近的先挑站位
     melee.sort((a, b) => distance(a.position, target.position) - distance(b.position, target.position));
-    const engaged = melee.slice(0, this.config.maxEngaged);
-    for (const m of melee.slice(this.config.maxEngaged)) this.wait(m, target);
-    if (engaged.length >= 2) this.surround(target, engaged, frontAngle);
+    if (melee.length >= 2) this.surround(target, melee, frontAngle);
 
     const back = near.filter((m) => m.ai!.keepDistance > 0);
     back.forEach((m, i) => {
@@ -324,15 +323,6 @@ export class SquadTactics {
       messenger.ai!.callPacks = candidates.slice(0, maxPacks).map((c) => c.id);
       messenger.ai!.callTargetId = messenger.ai!.targetId;
     }
-  }
-
-  /** 外圈等候：停在目前方向、攻擊站位外 waitDistance 的地方 */
-  private wait(m: Actor, target: Actor): void {
-    const away = sub(m.position, target.position);
-    const direction = away.x === 0 && away.y === 0 ? vec2(1, 0) : normalize(away);
-    const r = target.radius + m.radius + m.stats.get('attackRange') + this.config.waitDistance;
-    this.assign(m, add(target.position, scale(direction, r)));
-    m.ai!.waiting = true;
   }
 
   /** 走不到（牆裡）的站位不用，直接追目標 */

@@ -125,6 +125,9 @@ function effectLines(effects: readonly EffectDef[], rank: number): string[] {
       case 'seal':
         lines.push(`奪取一個技能 ${rankValue(e.duration, rank)} 秒`);
         break;
+      case 'manaBurn':
+        lines.push(`燒掉最大魔力的 ${pctText(rankValue(e.percent, rank))}`);
+        break;
       case 'summon':
         lines.push(`召喚 ${e.count} 隻（最多同時 ${e.maxAlive} 隻）`);
         break;

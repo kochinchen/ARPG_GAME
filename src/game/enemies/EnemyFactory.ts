@@ -79,6 +79,23 @@ export function applyFloorResist(actor: Actor, resist: FloorResist): void {
   }
 }
 
+/** 隨機元素抗性抽到的元素（balance.difficulty.elementResist） */
+export type ResistElement = keyof typeof RESIST_STAT;
+
+/** 從 elements 抽 count 種不同的元素（一般怪一種、精英與首領兩種） */
+export function rollElementResist(elements: readonly ResistElement[], count: number, rng: Rng): ResistElement[] {
+  const pool = [...elements];
+  const picked: ResistElement[] = [];
+  while (picked.length < count && pool.length > 0) picked.push(pool.splice(rng.int(0, pool.length - 1), 1)[0]!);
+  return picked;
+}
+
+/** 套用隨機元素抗性（在加入世界前呼叫）；疊加在天生抗性與樓層減傷之上 */
+export function applyElementResist(actor: Actor, elements: readonly ResistElement[], value: number): void {
+  if (value <= 0) return;
+  for (const element of elements) actor.stats.addModifier({ stat: RESIST_STAT[element], kind: 'flat', value, source: 'elementResist' });
+}
+
 /** 外觀半徑（隨機體型、精英都會放大）：怪物生成與屍體共用 */
 export function visualRadiusOf(def: EnemyDef, size: SizeRoll = NORMAL_SIZE, radiusMultiplier = 1): number {
   // 精英與首領（radiusMultiplier ≠ 1）再乘上怪物自己的 eliteSize

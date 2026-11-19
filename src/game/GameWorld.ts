@@ -13,7 +13,7 @@ import { StatusEffectSystem } from './combat/StatusEffectSystem';
 import { DeathSystem } from './combat/DeathSystem';
 import { BossSystem } from './enemies/BossSystem';
 import { PassiveSkillSystem } from './enemies/PassiveSkillSystem';
-import { applyFloorResist, EnemyFactory, NORMAL_SIZE, rollSize, visualRadiusOf, type FloorResist, rollVariant } from './enemies/EnemyFactory';
+import { applyElementResist, applyFloorResist, EnemyFactory, NORMAL_SIZE, rollElementResist, rollSize, visualRadiusOf, type FloorResist, rollVariant } from './enemies/EnemyFactory';
 import { rollMimic, rollSpellbook, teachMimic, teachSpellbook } from './enemies/MimicSkills';
 import { ItemEffectSystem } from './items/ItemEffectSystem';
 import { SalvageSystem } from './items/SalvageSystem';
@@ -62,7 +62,7 @@ import { PlayerProgress } from './progression/PlayerProgress';
 import { RegenSystem } from './stats/RegenSystem';
 import { StatBlock } from './stats/StatBlock';
 import { CheckpointSystem } from './world/CheckpointSystem';
-import { floorResistFor, hiddenBossResistFor, scaleForFloor, type FloorScaling } from './world/DifficultyScaler';
+import { elementResistFor, floorResistFor, hiddenBossResistFor, scaleForFloor, type FloorScaling } from './world/DifficultyScaler';
 import { FloorManager, mapIdForFloor } from './world/FloorManager';
 import { canAscend, descendKind, selectableFloors } from './world/Endgame';
 import type { Element, StatId } from '../data/schema/common';
@@ -254,7 +254,7 @@ export class GameWorld {
   private readonly ai: AiSystem;
   private readonly devices: DeviceSystem;
   private readonly regen: RegenSystem;
-  private readonly movement = new MovementSystem();
+  private readonly movement: MovementSystem;
   private readonly separation: SeparationSystem;
   private readonly projectileSystem: ProjectileSystem;
   private readonly deaths: DeathSystem;
@@ -340,6 +340,7 @@ export class GameWorld {
     // 閒置走動用獨立的亂數：不影響其他系統（掉寶、戰鬥）的亂數順序
     this.ai = new AiSystem(this.targeting, this.nav, pathfinder, data.skills, streams.ai, data.balance.devices, data.balance.enemyTactics, this.events, data.enemies);
     this.devices = new DeviceSystem(this.actors, this.targeting, this.nav, this.events, data.balance.devices, () => this.nextActorId++);
+    this.movement = new MovementSystem(this.nav, pathfinder);
     this.separation = new SeparationSystem(this.nav);
     this.deaths = new DeathSystem(this.events);
     this.bosses = new BossSystem(data, this.events, new Rng(options.seed).fork('boss-routine'), (id) => this.targeting.getActor(id) ?? null, (boss, enemyId) => this.spawnDetached(boss, enemyId));
@@ -383,7 +384,7 @@ export class GameWorld {
     );
     this.progress.skillPoints = p.startingSkillPoints;
     this.skillTree = new SkillTree(this.player, this.progress, data, this.events);
-    this.experience = new ExperienceSystem(this.player, this.progress, this.skillTree, data, this.events, this.targeting);
+    this.experience = new ExperienceSystem(this.player, this.progress, this.skillTree, data, this.events, this.targeting, () => this.floors.floor);
     this.attributes = new AttributeSystem(this.player, this.progress, data, this.events);
     this.inventory = new Inventory(
       p.inventoryCols,
@@ -741,6 +742,13 @@ export class GameWorld {
     const resists = plan.map((): FloorResist =>
       resistRng.chance(0.5) ? { physical: eliteResist, elemental: 0 } : { physical: 0, elemental: eliteResist },
     );
+    // 隨機元素抗性：一般怪抽一種、精英抽兩種；同樣每個索引都擲（獨立的亂數），讀檔後不變
+    const elementConfig = this.data.balance.difficulty.elementResist;
+    const elementResist = elementResistFor(floor, elementConfig);
+    const elementRng = new Rng(this.seed).fork(`element-resist-${floor}`);
+    const elementResists = plan.map((request) =>
+      rollElementResist(elementConfig.elements, request.eliteAffixes !== undefined ? elementConfig.count.elite : elementConfig.count.normal, elementRng),
+    );
     // 怪物學主角技能：同樣每個索引都擲一次，讀檔後不變；精英必定學到
     const mimicRng = new Rng(this.seed).fork(`mimic-${floor}`);
     const mimics = plan.map((request) =>
@@ -765,6 +773,7 @@ export class GameWorld {
       const enemyDef = this.data.enemies.get(request.enemyId);
       const enemy = this.enemyFactory.create(enemyDef, this.nextActorId++, request.position, scaling, eliteSpec, null, sizes[index]);
       if (eliteSpec) applyFloorResist(enemy, resists[index]!);
+      applyElementResist(enemy, elementResists[index]!, elementResist);
       const mimic = mimics[index];
       if (mimic) teachMimic(enemy, mimic);
       const spellbook = spellbooks[index];
@@ -930,6 +939,9 @@ export class GameWorld {
     };
     const actor = this.addActor(this.enemyFactory.create(def, this.nextActorId++, spot, scaling, eliteSpec));
     applyFloorResist(actor, { physical: resist, elemental: resist });
+    // 首領和精英一樣抽兩種元素抗性（獨立亂數）
+    const elementConfig = this.data.balance.difficulty.elementResist;
+    applyElementResist(actor, rollElementResist(elementConfig.elements, elementConfig.count.elite, new Rng(this.seed).fork(`champion-element-resist-${floor}`)), elementResistFor(floor, elementConfig));
     const mimic = rollMimic(def, floor, true, this.data.skills, this.data.balance.enemyMimic, rng);
     if (mimic) teachMimic(actor, mimic);
     const spellbook = rollSpellbook(def, floor, true, this.data.skills, this.data.balance.mageSpellbook, new Rng(this.seed).fork(`champion-spellbook-${floor}`));

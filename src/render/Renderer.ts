@@ -295,6 +295,7 @@ export class Renderer {
     });
     world.events.on('AttackDodged', (e) => say(e.position, '閃避', PALETTE.hoverName));
     world.events.on('AttackBlocked', (e) => say(e.position, '格擋', PALETTE.hoverName));
+    world.events.on('ManaBurned', (e) => say(e.position, `魔力 −${Math.round(e.amount)}`, PALETTE.manaText));
     world.events.on('MaterialPickedUp', (e) => say(e.position, `+${e.count} ${MATERIAL_LABELS[e.materialId]}`, 0x7ad8ff));
     world.events.on('ItemsSalvaged', (e) => {
       const text = (Object.entries(e.gained) as [MaterialId, number][]).map(([id, n]) => `+${n} ${MATERIAL_LABELS[id]}`).join('  ');
@@ -626,7 +627,7 @@ export class Renderer {
       alive.add(actor.id);
       let view = this.actorViews.get(actor.id);
       if (!view) {
-        view = new ActorView(this.projection, actor);
+        view = new ActorView(this.projection, actor, this.data.balance.combat.maxResist);
         if (this.threeOn) view.setThree(this.three);
         this.actorViews.set(actor.id, view);
         this.actorGround.addChild(view.ground);

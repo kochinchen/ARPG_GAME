@@ -19,17 +19,25 @@ export interface FloorScaling {
 
 /**
  * 樓層 → 怪物倍率（純函式）。第 N 層 = (1 + 每層成長 × (N - 1)) × 怪物強化；密度有上限。
+ * 生命與傷害從 geometric.fromFloor 層起改成等比：以那一層的倍率為起點，每往下一層乘固定比例。
  */
 export function scaleForFloor(floor: number, difficulty: Balance['difficulty']): FloorScaling {
   const n = Math.max(0, floor - 1);
   const boost = difficulty.monsterBoost;
-  const t = Math.min(1, n / Math.max(1, boost.toFloor - 1));
-  const lerp = ([from, to]: readonly [number, number]) => from + (to - from) * t;
-  const hp = 1 + difficulty.hpPerFloor * n;
+  const lerpAt = (steps: number) => {
+    const t = Math.min(1, steps / Math.max(1, boost.toFloor - 1));
+    return ([from, to]: readonly [number, number]) => from + (to - from) * t;
+  };
+  const lerp = lerpAt(n);
+  // 生命與傷害：線性公式只算到等比的起始樓層，超過的層數用乘的
+  const geo = difficulty.geometric;
+  const linear = Math.min(n, geo.fromFloor - 1);
+  const linearLerp = lerpAt(linear);
+  const hp = (1 + difficulty.hpPerFloor * linear) * geo.hp ** (n - linear);
   return {
-    hp: hp * lerp(boost.hp),
-    bossHp: hp * lerp(boost.bossHp),
-    damage: (1 + difficulty.damagePerFloor * n) * lerp(boost.damage),
+    hp: hp * linearLerp(boost.hp),
+    bossHp: hp * linearLerp(boost.bossHp),
+    damage: (1 + difficulty.damagePerFloor * linear) * linearLerp(boost.damage) * geo.damage ** (n - linear),
     skillArea: lerp(boost.skillArea),
     bossSkillArea: lerp(boost.bossSkillArea),
     bossSkillAreaCap: boost.bossSkillAreaCap,
@@ -59,4 +67,10 @@ export function hiddenBossResistFor(floor: number, config: EliteConfig['floorRes
 function grownResist(floor: number, perFloor: number, config: EliteConfig['floorResist']): number {
   const floors = floor - config.minFloor + 1;
   return floors <= 0 ? 0 : Math.min(config.max, perFloor * floors);
+}
+
+/** 隨機元素抗性的數值（一般怪、精英、首領共用；未達起始樓層為 0） */
+export function elementResistFor(floor: number, config: Balance['difficulty']['elementResist']): number {
+  const floors = floor - config.minFloor + 1;
+  return floors <= 0 ? 0 : Math.min(config.max, config.perFloor * floors);
 }

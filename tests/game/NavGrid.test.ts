@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { vec2 } from '../../src/core/math/Vec2';
+import { NavGrid } from '../../src/game/movement/NavGrid';
 import { navFrom } from './helpers';
 
 describe('NavGrid', () => {
@@ -24,6 +25,19 @@ describe('NavGrid', () => {
     expect(nav.hasLineOfSight(vec2(1.5, 1.2), vec2(3.5, 1.2), 0.3)).toBe(false);
     // 穿過牆
     expect(nav.hasLineOfSight(vec2(1.5, 1.5), vec2(3.5, 2.5), 0.3)).toBe(false);
+  });
+
+  it('角色比格子寬時，夾在四個角中間的牆也算碰到', () => {
+    // 格子 0.5：柱子只有 1 格 [1, 1.5) × [1, 1.5)，半徑 0.3 的角色四個角都落在柱子外面
+    const pillar = NavGrid.fromMap({ rows: ['.....', '.....', '..#..', '.....', '.....'], cellSize: 0.5 });
+    expect(pillar.isClearAt(vec2(1.25, 1.25), 0.3)).toBe(false);
+    expect(pillar.isClearAt(vec2(1.25, 0.95), 0.3)).toBe(false);
+    expect(pillar.isClearAt(vec2(1.25, 0.65), 0.3)).toBe(true);
+    // 正對著柱子直走
+    expect(pillar.hasLineOfSight(vec2(1.25, 0.35), vec2(1.25, 2.15), 0.3)).toBe(false);
+    expect(pillar.hasLineOfSight(vec2(0.65, 0.35), vec2(0.65, 2.15), 0.3)).toBe(true);
+    // 超出地圖視為牆
+    expect(pillar.isClearAt(vec2(0.2, 0.2), 0.3)).toBe(false);
   });
 
   it('clampInside 把點推離相鄰的牆', () => {

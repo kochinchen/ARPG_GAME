@@ -104,6 +104,7 @@ export class ViewSync {
     hud.xp.level = world.progress.level;
     hud.xp.value = world.progress.xp;
     hud.xp.next = world.experience.xpForNextLevel;
+    hud.xp.rate = world.experience.killXpMultiplier;
     hud.skillPoints = world.progress.skillPoints;
     const buffs = world.itemEffects.activeBuffs;
     if (buffs.length !== hud.buffs.length || buffs.some((b, i) => b.stacks !== hud.buffs[i]?.stacks || Math.ceil(b.remaining) !== Math.ceil(hud.buffs[i]?.remaining ?? 0))) {

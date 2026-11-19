@@ -126,6 +126,8 @@ export interface GameEvents {
   MaterialPickedUp: { materialId: MaterialId; count: number; position: Vec2 };
   /** 攻擊被閃避 */
   AttackDodged: { targetId: ActorId; position: Vec2 };
+  /** 魔力被燒掉（燃魔；amount = 實際燒掉的魔力） */
+  ManaBurned: { targetId: ActorId; sourceId: ActorId | null; amount: number; position: Vec2 };
   /** 攻擊被盾牌格擋（prevented = 擋下的傷害） */
   AttackBlocked: { targetId: ActorId; sourceId: ActorId | null; prevented: number; position: Vec2 };
   /** Boss 進入下一個階段（phase 從 1 開始） */
