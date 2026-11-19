@@ -186,6 +186,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
       <div class="eyebrow">balance.ts · ExperienceSystem</div>
       <h2>Lv1～70 成長表</h2>
       <p>每升一級：技能點 +1、屬性點 +3、基礎 HP +5、基礎 MP +2。升到下一級所需經驗 = 50 × 等級^1.5。橘底是解鎖等級；外框是目前選的等級。</p>
+      <p>等級差經驗遞減：怪物等級 = 樓層 × 1.5。怪物經驗在 2026-11-19 減半，正常進度每層約升 1.5 級（第 10 層 Lv14、第 20 層 Lv29、第 30 層 Lv45、第 35 層 Lv55）。主角高出怪物等級 5 級以內拿全額經驗，之後每高 1 級少 15%，最低剩 5%；停在同一層重複刷會越來越沒有經驗，要往下走。</p>
     </div>
     <div class="tbl tall">
       <table>
@@ -425,15 +426,15 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   }
 
   function enemyStats() {
-    const e = enemyById.get(st.enemy), f = st.floor, n = Math.max(0, f - 1), d = B.difficulty;
+    const e = enemyById.get(st.enemy), f = st.floor;
     const el = st.elite && !e.boss ? B.elite : null;
-    // 怪物強化：第 1 → toFloor 層線性提高（一般 HP ×1～8、魔王 HP ×1～20、攻擊 ×1～4、經驗 ×0.7）
-    const mb = d.monsterBoost, t = Math.min(1, n / Math.max(1, mb.toFloor - 1)), lerp = ([a, b]) => a + (b - a) * t;
-    const hpM = (1 + d.hpPerFloor * n) * lerp(e.boss ? mb.bossHp : mb.hp) * (el ? el.hpMultiplier : 1);
-    const dmM = (1 + d.damagePerFloor * n) * lerp(mb.damage) * (el ? el.damageMultiplier : 1);
+    // 樓層倍率用遊戲的公式（sim.js）：第 10 層以前是線性 × 怪物強化，之後生命每層 ×1.12、傷害每層 ×1.09；經驗 ×0.35
+    const sc = S.scaleForFloor(f);
+    const hpM = (e.boss ? sc.bossHp : sc.hp) * (el ? el.hpMultiplier : 1);
+    const dmM = sc.damage * (el ? el.damageMultiplier : 1);
     return {
-      def: e, hp: e.hp * hpM, dmg: [e.damage[0] * dmM, e.damage[1] * dmM], defense: e.defense * (1 + d.defensePerFloor * n),
-      attackSpeed: e.attackSpeed, xp: e.xp * (1 + d.xpPerFloor * n) * mb.xp * (el ? el.xpMultiplier : 1),
+      def: e, hp: e.hp * hpM, dmg: [e.damage[0] * dmM, e.damage[1] * dmM], defense: e.defense * sc.defense,
+      attackSpeed: e.attackSpeed, xp: e.xp * sc.xp * (el ? el.xpMultiplier : 1),
     };
   }
   const mitig = (def) => S.defenseMitigation(def, B.combat.defenseConstant);
