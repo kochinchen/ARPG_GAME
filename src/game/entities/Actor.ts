@@ -144,6 +144,15 @@ export class Actor {
   air = 0;
   /** 這次「跳」是鑽進地下（air 改成往下沉）：Render 用 */
   underground = false;
+  /**
+   * 站在宿主背上（EnemyDef.riders）：跟著宿主移動、不和其他角色互推。slot = 目前在宿主身上的位置（格；往前、往左），
+   * 在平台 deck（中心與半長寬，已依宿主外觀放大）裡往 goal 慢慢走、到了停 wait 秒；lift = 站的高度（Render 用）
+   */
+  riding: { hostId: ActorId; slot: Vec2; goal: Vec2; wait: number; speed: number; deck: { center: Vec2; half: Vec2 }; lift: number; dropStun: number } | null = null;
+  /** 受到的非近戰傷害倍率（站在城垛後面時 < 1） */
+  cover = 1;
+  /** 從宿主背上跌下來：起跌的高度與剩下的秒數（Render 用） */
+  fall: { from: number; remaining: number; duration: number } | null = null;
   readonly xpReward: number;
   readonly skillArea: number;
   /** 放大後的半徑上限（格）；只有魔王有 */

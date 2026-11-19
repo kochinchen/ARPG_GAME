@@ -56,6 +56,7 @@ function readConfig(fighters: readonly EnemyDef[], legendaries: readonly string[
     gear: gear !== null && gear in GEAR_LABELS ? (gear as GearId) : 'shield',
     phase: clamp(params.get('phase'), 1, def.phases.length + 1),
     wear: (params.get('wear') ?? '').split(',').filter((id) => legendaries.includes(id)),
+    elite: params.get('elite') === '1',
   };
 }
 
@@ -63,6 +64,7 @@ function applyConfig(config: SimConfig): void {
   const params = new URLSearchParams({ enemy: config.enemyId.replace('enemy.', ''), floor: String(config.floor), level: String(config.level), gear: config.gear });
   if (config.phase > 1) params.set('phase', String(config.phase));
   if (config.wear?.length) params.set('wear', config.wear.join(','));
+  if (config.elite) params.set('elite', '1');
   location.search = params.toString();
 }
 

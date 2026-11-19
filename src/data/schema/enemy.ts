@@ -15,6 +15,25 @@ export type EnemyTactic = z.infer<typeof EnemyTacticSchema>;
  * range：目標在幾格內才發；originBack：從身後幾格發出（噬界足眼的尾巴）。
  */
 export const BarrageSchema = z.strictObject({ skills: z.array(IdSchema).min(1), every: z.number().positive(), range: z.number().positive(), originBack: z.number().nonnegative().default(0) });
+/** 一群同伴：哪種怪（給一串時每隻隨機抽一種，例如三種屬性的骷髏法師）、幾隻 */
+const CrewSchema = z.array(z.strictObject({ enemyId: z.union([IdSchema, z.array(IdSchema).min(1)]), count: z.number().int().positive() })).min(1);
+/**
+ * 背上載著的同伴（震地獸背上堡壘的骷髏弓手，設計者 2026-11-19）：宿主生成時一起生成，在宿主背上的平台 deck 裡慢慢走來走去
+ * （deck = 平台中心與半長寬，格；[往前, 往左]，跟著宿主轉向；精英與體型較大的宿主依外觀等比放大），出手時停下；
+ * 跟著宿主移動、不和其他角色互推；射程多 rangeBonus 格、受到的非近戰傷害乘 cover（城垛擋住一半）。
+ * 宿主倒下時跌到身旁，暈眩 dropStun 秒後照常行動。同伴自己給經驗、掉寶，不算進開出口的擊殺數。
+ * eliteCrew = 精英（含首領）宿主載的同伴，沒有時同 crew。lift = 平台的高度（畫面單位，同 ActorView 的 lift；只給畫面用）。
+ */
+export const RidersSchema = z.strictObject({
+  crew: CrewSchema,
+  eliteCrew: CrewSchema.optional(),
+  deck: z.strictObject({ center: z.tuple([z.number(), z.number()]), half: z.tuple([z.number().nonnegative(), z.number().nonnegative()]) }),
+  walkSpeed: z.number().nonnegative().default(0.6),
+  lift: z.number().nonnegative(),
+  rangeBonus: z.number().nonnegative().default(0),
+  cover: z.number().gt(0).max(1).default(1),
+  dropStun: z.number().nonnegative().default(1),
+});
 export type Barrage = z.infer<typeof BarrageSchema>;
 
 /**
@@ -153,6 +172,10 @@ export const EnemyDefSchema = z
   treasure: z.boolean().default(false),
   /** 死亡後 delay 秒在原地發動的技能（晶核碎裂）；地上先顯示半徑 warnRadius 的提示，技能等級 1、施放者已死亡 */
   onDeath: z.strictObject({ skill: IdSchema, delay: z.number().positive(), warnRadius: z.number().positive() }).optional(),
+  /** 背上載著的同伴（見 RidersSchema） */
+  riders: RidersSchema.optional(),
+  /** 精英（含首領）的外觀與碰撞再乘上這個倍率（背上要站更多同伴的震地獸） */
+  eliteSize: z.number().positive().default(1),
   /** 被動技能（見 EnemyPassiveSchema） */
   passives: z.array(EnemyPassiveSchema).default([]),
   /** 主角死在牠的 leashRange 內時回復最大生命的這個比例（打牠不能只靠死亡硬換；不會退回前一個階段） */

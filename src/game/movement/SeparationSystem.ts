@@ -14,10 +14,11 @@ export class SeparationSystem {
   update(actors: readonly Actor[]): void {
     for (let i = 0; i < actors.length; i++) {
       const a = actors[i]!;
-      if (!a.alive || a.vanished) continue;
+      // 站在宿主背上的同伴不推別人、也不被推（位置跟著宿主）
+      if (!a.alive || a.vanished || a.riding) continue;
       for (let j = i + 1; j < actors.length; j++) {
         const b = actors[j]!;
-        if (!b.alive || b.vanished) continue;
+        if (!b.alive || b.vanished || b.riding) continue;
         // 一方有身體輪廓（怪物）、另一方是圓（主角）：把圓推到輪廓外面；兩隻怪物之間照舊用圓
         if (!a.body !== !b.body) {
           this.pushFromBody(a.body ? a : b, a.body ? b : a);

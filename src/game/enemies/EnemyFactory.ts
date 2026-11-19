@@ -81,7 +81,8 @@ export function applyFloorResist(actor: Actor, resist: FloorResist): void {
 
 /** 外觀半徑（隨機體型、精英都會放大）：怪物生成與屍體共用 */
 export function visualRadiusOf(def: EnemyDef, size: SizeRoll = NORMAL_SIZE, radiusMultiplier = 1): number {
-  return def.radius * def.size * size.scale * radiusMultiplier;
+  // 精英與首領（radiusMultiplier ≠ 1）再乘上怪物自己的 eliteSize
+  return def.radius * def.size * size.scale * radiusMultiplier * (radiusMultiplier !== 1 ? def.eliteSize : 1);
 }
 
 /** 精英怪：共通強化 + 詞綴；title 加在名稱最前面（每層的首領） */
@@ -133,7 +134,7 @@ export class EnemyFactory {
       name: elite ? `${elite.title ?? ''}${elite.affixes.map((a) => a.name).join(' ')} ${def.name}` : def.name,
       defId: def.id,
       position,
-      radius: Math.min(def.boss ? MAX_BOSS_RADIUS : MAX_RADIUS, def.radius * def.size * size.scale * (e?.radiusMultiplier ?? 1)),
+      radius: Math.min(def.boss ? MAX_BOSS_RADIUS : MAX_RADIUS, def.radius * def.size * size.scale * (e ? e.radiusMultiplier * def.eliteSize : 1)),
       visualRadius: visualRadiusOf(def, size, e?.radiusMultiplier),
       // 輪廓是標準體型量的：隨體型與精英的外觀一起放大
       ...(def.body ? { body: def.body.map(([r, f]): [number, number] => [r * visualRadiusOf(def, size, e?.radiusMultiplier) / (def.radius * def.size), f * visualRadiusOf(def, size, e?.radiusMultiplier) / (def.radius * def.size)]) } : {}),

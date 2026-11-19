@@ -90,6 +90,16 @@ const STASH_CLEARANCE = 2.5;
 const STASH_ITEM_CLEARANCE = 1.6;
 /** 首領寶箱的生成索引（一般寶箱是 0 起的流水號，不會撞到） */
 const CHAMPION_CHEST_INDEX = 1000;
+/** 背上同伴的射程加成來源（跌下來時拿掉） */
+const RIDER_SOURCE = 'rider';
+/** 從宿主背上跌到地上的秒數（Render 用） */
+const RIDER_FALL_TIME = 0.35;
+
+/** 宿主身上的位置：slot = [往前, 往左]（格），跟著宿主的面向轉 */
+function riderSpot(host: { position: Vec2; facing: Vec2 }, slot: Vec2): Vec2 {
+  const f = host.facing;
+  return vec2(host.position.x + f.x * slot.x - f.y * slot.y, host.position.y + f.y * slot.x + f.x * slot.y);
+}
 /**
  * 屍體：怪物死後留在地上，換樓層才消失（重新進入樓層時怪物重生）。不是 Actor：不擋路、不能被選取、AI 與技能都看不到，只給畫面用。
  * 存檔只記生成索引、位置與面向；外觀（哪一種怪、體型）讀檔時由生成索引推導。
@@ -250,6 +260,8 @@ export class GameWorld {
   private readonly deaths: DeathSystem;
   private readonly playerController: PlayerController;
   private readonly pipeline: DamagePipeline;
+  /** 背上同伴在平台上走動的亂數（獨立，不影響其他亂數） */
+  private readonly riderRng: Rng;
   private readonly support: SupportSystem;
   private readonly data: DataRegistry;
   private readonly seed: number;
@@ -278,6 +290,7 @@ export class GameWorld {
     this.checkpoints = new CheckpointSystem(this.events, data.balance.floor.checkpointRadius);
 
     // 前五條依序從同一個母序列 fork（順序不可變，否則同一個 seed 的結果會改變）
+    this.riderRng = new Rng(options.seed).fork('riders');
     const rng = new Rng(options.seed);
     const streams = {
       combat: rng.fork('combat'),
@@ -1256,10 +1269,11 @@ export class GameWorld {
     }
   }
 
-  /** 開發工具（魔王模擬器）：放一隻怪物，倍率與樓層減傷比照第 floor 層（enterFloor 的魔王規則）；隱藏魔王要給 innateElements */
-  spawnScaledEnemy(enemyId: string, floor: number, position: Vec2, innateElements: readonly Element[] | null = null): Actor {
+  /** 開發工具（魔王模擬器）：放一隻怪物，倍率與樓層減傷比照第 floor 層（enterFloor 的魔王規則）；隱藏魔王要給 innateElements；elite = 精英（沒有詞綴，只有精英的倍率與外觀） */
+  spawnScaledEnemy(enemyId: string, floor: number, position: Vec2, innateElements: readonly Element[] | null = null, elite = false): Actor {
     const def = this.data.enemies.get(enemyId);
-    const actor = this.enemyFactory.create(def, this.nextActorId++, position, scaleForFloor(floor, this.data.balance.difficulty));
+    const eliteSpec = elite ? { config: this.data.balance.elite, affixes: [] } : undefined;
+    const actor = this.enemyFactory.create(def, this.nextActorId++, position, scaleForFloor(floor, this.data.balance.difficulty), eliteSpec);
     if (def.boss) {
       const floorResist = this.data.balance.elite.floorResist;
       const hidden = this.data.balance.hiddenBoss.bosses.some((b) => b.enemyId === enemyId);
@@ -1706,6 +1720,7 @@ export class GameWorld {
     this.devices.update(dt);
     this.checkpoints.update(this.player);
     this.deaths.update(this.actors);
+    this.updateRiders(dt);
     this.deathHandler.update(dt);
     this.removeDead();
     this.recordCollection();
@@ -1717,7 +1732,104 @@ export class GameWorld {
 
   private addActor(actor: Actor): Actor {
     this.actors.push(actor);
+    if (actor.faction === 'enemy' && actor.defId !== null && this.data.enemies.has(actor.defId)) this.mountRiders(actor);
     return actor;
+  }
+
+  /**
+   * 背上載著的同伴（EnemyDef.riders，震地獸背上堡壘的骷髏弓手）：和宿主一起生成（精英載 eliteCrew），倍率照目前樓層；
+   * 平台依宿主的外觀放大（精英、體型），一開始平均站開；自己給經驗、掉寶，同一群（一起被叫醒），不算進開出口的擊殺數
+   */
+  private mountRiders(host: Actor): void {
+    const hostDef = this.data.enemies.get(host.defId!);
+    const riders = hostDef.riders;
+    if (!riders) return;
+    const scaling = scaleForFloor(Math.max(1, this.floors.floor), this.data.balance.difficulty);
+    const k = host.visualRadius / (hostDef.radius * hostDef.size);
+    const deck = { center: vec2(riders.deck.center[0] * k, riders.deck.center[1] * k), half: vec2(riders.deck.half[0] * k, riders.deck.half[1] * k) };
+    const crew = (host.elite && riders.eliteCrew) || riders.crew;
+    const floor = Math.max(1, this.floors.floor);
+    const ids = crew.flatMap((c) => Array.from({ length: c.count }, () => (typeof c.enemyId === 'string' ? c.enemyId : this.riderRng.pick(c.enemyId))));
+    ids.forEach((enemyId, i) => {
+      // 一開始在平台上繞一圈平均站開（第一隻在最前面）
+      const a = (i / ids.length) * Math.PI * 2;
+      const slot = vec2(deck.center.x + Math.cos(a) * deck.half.x * 0.7, deck.center.y + Math.sin(a) * deck.half.y * 0.7);
+      const riderDef = this.data.enemies.get(enemyId);
+      const rider = this.enemyFactory.create(riderDef, this.nextActorId++, host.position, scaling);
+      // 法師和地上的一樣，依樓層學法術書
+      const spellbook = rollSpellbook(riderDef, floor, false, this.data.skills, this.data.balance.mageSpellbook, this.riderRng);
+      if (spellbook) teachSpellbook(rider, spellbook, floor, this.data.balance.enemyMimic, this.data.balance.mageSpellbook);
+      rider.riding = { hostId: host.id, slot, goal: slot, wait: this.riderRng.range(0.5, 2.5), speed: riders.walkSpeed, deck, lift: riders.lift * k, dropStun: riders.dropStun };
+      rider.cover = riders.cover;
+      if (riders.rangeBonus > 0) rider.stats.addModifier({ stat: 'projectileRange', kind: 'flat', value: riders.rangeBonus, source: RIDER_SOURCE });
+      if (rider.ai && host.ai?.pack) rider.ai.pack = host.ai.pack;
+      rider.facing = host.facing;
+      rider.position = riderSpot(host, slot);
+      rider.prevPosition = rider.position;
+      this.actors.push(rider);
+      this.floors.excludeFromClear(rider.id);
+    });
+  }
+
+  /**
+   * 背上的同伴：宿主活著就站在宿主身上（跟著轉向），在平台上慢慢走來走去（出手、暈眩時停下），面向自己的目標；
+   * 宿主倒下（或不見了）就跌到宿主身旁、暈眩 dropStun 秒，之後是一般的怪物
+   */
+  private updateRiders(dt: number): void {
+    for (const actor of this.actors) {
+      if (actor.fall) {
+        actor.fall.remaining -= dt;
+        if (actor.fall.remaining <= 0) actor.fall = null;
+      }
+      const riding = actor.riding;
+      if (!riding || !actor.alive) continue;
+      const host = this.actors.find((a) => a.id === riding.hostId);
+      if (host && host.alive) {
+        if (!actor.isCasting && !actor.isDisabled) this.walkOnDeck(riding, dt);
+        actor.position = riderSpot(host, riding.slot);
+        actor.path = [];
+        const target = actor.ai?.targetId != null ? this.actors.find((a) => a.id === actor.ai!.targetId) : undefined;
+        const d = target ? distance(actor.position, target.position) : 0;
+        const walking = riding.wait <= 0 ? riderSpot({ position: vec2(0, 0), facing: host.facing }, vec2(riding.goal.x - riding.slot.x, riding.goal.y - riding.slot.y)) : null;
+        const w = walking ? Math.hypot(walking.x, walking.y) : 0;
+        // 有目標面向目標；沒有目標時走路面向走的方向、停著面向宿主的前方
+        actor.facing = target && d > 1e-6 ? vec2((target.position.x - actor.position.x) / d, (target.position.y - actor.position.y) / d) : walking && w > 1e-6 ? vec2(walking.x / w, walking.y / w) : host.facing;
+        continue;
+      }
+      // 跌到宿主身旁（從站的位置往外），落點被擋住就找附近的空地
+      const center = host?.position ?? actor.position;
+      const out = riderSpot({ position: vec2(0, 0), facing: host?.facing ?? actor.facing }, riding.slot);
+      const len = Math.hypot(out.x, out.y) || 1;
+      const reach = (host?.radius ?? 0.5) + actor.radius + 0.2;
+      const landing = vec2(center.x + (out.x / len) * reach, center.y + (out.y / len) * reach);
+      actor.position = this.nav.isClearAt(landing, actor.radius) ? landing : this.spotNear(center, 0, actor.radius);
+      actor.prevPosition = actor.position;
+      actor.fall = { from: riding.lift, remaining: RIDER_FALL_TIME, duration: RIDER_FALL_TIME };
+      actor.riding = null;
+      actor.cover = 1;
+      actor.stats.removeBySource(RIDER_SOURCE);
+      if (riding.dropStun > 0) this.statuses.apply(actor, 'stun', riding.dropStun, 0, null);
+    }
+  }
+
+  /** 在平台上走：往 goal 走，到了停 0.8～2.5 秒，再挑平台上的下一個點 */
+  private walkOnDeck(riding: NonNullable<Actor['riding']>, dt: number): void {
+    if (riding.wait > 0) {
+      riding.wait -= dt;
+      if (riding.wait <= 0) {
+        const { center, half } = riding.deck;
+        riding.goal = vec2(center.x + this.riderRng.range(-half.x, half.x), center.y + this.riderRng.range(-half.y, half.y));
+      }
+      return;
+    }
+    const dx = riding.goal.x - riding.slot.x;
+    const dy = riding.goal.y - riding.slot.y;
+    const d = Math.hypot(dx, dy);
+    const step = riding.speed * dt;
+    if (d <= step) {
+      riding.slot = riding.goal;
+      riding.wait = this.riderRng.range(0.8, 2.5);
+    } else riding.slot = vec2(riding.slot.x + (dx / d) * step, riding.slot.y + (dy / d) * step);
   }
 
   /** 玩家死亡由 DeathHandler 處理（送回存檔點），不移除 */

@@ -84,19 +84,20 @@ export class DamageEffect implements IEffect<'damage'> {
         extraCritChance,
         armorPenetration: mods.armorPenetration,
         lifeStealMultiplier,
+        melee: category === 'melee',
       });
       // 裝備：元素附加傷害（每次命中額外造成該次傷害一定比例的元素傷害）
       for (const [element, stat] of ELEMENT_DAMAGE) {
         const pct = ctx.caster.stats.get(stat);
         if (pct <= 0 || !result || result.amount <= 0 || target.hp <= 0) continue;
         const amount = result.amount * pct;
-        pipeline.apply({ source: ctx.caster, target, min: amount, max: amount, element, canCrit: false, noCounter: true });
+        pipeline.apply({ source: ctx.caster, target, min: amount, max: amount, element, canCrit: false, noCounter: true, melee: category === 'melee' });
       }
       // Combo：每一擊追加元素傷害
       for (const extra of mods.elementDamage) {
         if (!result || result.amount <= 0 || target.hp <= 0) break;
         const amount = result.amount * extra.value;
-        pipeline.apply({ source: ctx.caster, target, min: amount, max: amount, element: extra.element, canCrit: false, noCounter: true });
+        pipeline.apply({ source: ctx.caster, target, min: amount, max: amount, element: extra.element, canCrit: false, noCounter: true, melee: category === 'melee' });
       }
       // 附加傷害之後才回報：被元素附加傷害補刀打死也算這一擊擊殺（「擊殺時」效果）
       if (result && result.amount > 0) {

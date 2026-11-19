@@ -8,7 +8,8 @@ export class MovementSystem {
   update(actors: readonly Actor[], dt: number): void {
     for (const actor of actors) {
       // 施放技能中、冰凍 / 暈眩時不能移動（路徑保留，之後繼續走）
-      if (actor.isCasting || actor.isDisabled) continue;
+      // 站在宿主背上的同伴（EnemyDef.riders）由宿主帶著走
+      if (actor.isCasting || actor.isDisabled || actor.riding) continue;
       let remaining = actor.moveSpeed * dt;
       while (remaining > 0 && actor.path.length > 0) {
         const target = actor.path[0]!;

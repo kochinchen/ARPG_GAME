@@ -876,8 +876,9 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     id: 'enemy.quake_beast',
     name: '震地獸',
     family: 'brute',
-    lore: '背負岩塊的巨獸，踐踏地面造成大範圍震波。',
-    hp: 170,
+    lore: '不死軍隊把一座小堡壘綁在牠背上，當成會走路的箭塔。堡壘上的三隻骷髏弓手站得高、射得遠，城垛替牠們擋掉一半的遠程攻擊；打倒巨獸，弓手會跌下來繼續攻擊。',
+    // 設計者 2026-11-19：改成背著堡壘的四足獸，血量提高（牠是弓手的移動堡壘）
+    hp: 260,
     damage: heavyAtk(7, 11),
     defense: 36,
     moveSpeed: 1.8,
@@ -888,6 +889,23 @@ const enemyList: z.input<typeof EnemyDefSchema>[] = [
     ai: 'melee',
     skills: ['basic.attack', 'enemy.quake_stomp'],
     tactics: ['shield'],
+    // 背上堡壘的三隻骷髏弓手（精英：三隻弓手＋兩隻骷髏法師），在平台上走來走去，射程 +2、非近戰傷害減半，巨獸倒下時跌下來暈 1 秒。
+    // 平台與高度照 AI 模型的堡壘（quakeBeastAI.json 的地板面：在模型高度 84% 處，城牆內側約 1.7 × 1.3 格，中心在身體中心前方 0.58 格；範圍扣掉弓手的身體）
+    riders: {
+      crew: [{ enemyId: 'enemy.skeleton_archer', count: 3 }],
+      eliteCrew: [
+        { enemyId: 'enemy.skeleton_archer', count: 3 },
+        // 骷髏法師每隻隨機一種屬性：火、冰、雷（設計者 2026-11-19）
+        { enemyId: ['enemy.skeleton_mage_fire', 'enemy.skeleton_mage_frost', 'enemy.skeleton_mage'], count: 2 },
+      ],
+      deck: { center: [0.58, 0], half: [0.6, 0.35] },
+      lift: 105,
+      rangeBonus: 2,
+      cover: 0.5,
+      dropStun: 1,
+    },
+    // 精英再大一圈（共約 1.5 倍），平台才站得下五隻
+    eliteSize: 1.25,
     lootTable: 'loot.brute',
     xp: 72,
   },

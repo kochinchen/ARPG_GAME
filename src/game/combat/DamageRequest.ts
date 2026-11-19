@@ -20,6 +20,8 @@ export interface DamageRequest {
   noCounter?: boolean;
   /** 吸血倍率（依技能類型：近戰較高、魔法較低），預設 1 */
   lifeStealMultiplier?: number;
+  /** 近戰技能造成的（站在城垛後面的目標只擋得住非近戰的傷害，見 Actor.cover） */
+  melee?: boolean;
 }
 
 export interface DamageResult {

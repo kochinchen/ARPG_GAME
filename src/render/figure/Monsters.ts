@@ -37,6 +37,7 @@ import FALLEN_TEMPLAR_AI_DATA from './monsters/fallenTemplarAI.json';
 import SOUL_FLOWER_AI_DATA from './monsters/soulFlowerAI.json';
 import SHADE_STALKER_AI_DATA from './monsters/shadeStalkerAI.json';
 import IMP_AI_DATA from './monsters/impAI.json';
+import QUAKE_BEAST_AI_DATA from './monsters/quakeBeastAI.json';
 import { BONE_HAND } from './BoneHand';
 import { STONE_WALKERS } from './StoneWalkers';
 import type { FigureModel, Joint, Pose } from './FigureModel';
@@ -1039,7 +1040,8 @@ const VISUAL_SCALE: Record<string, number> = {
   // 巨獸系 → 2.1
   'enemy.horned_brute': 3.18,
   'enemy.molten_brute': 3.28,
-  'enemy.quake_beast': 3.39,
+  // 震地獸（2026-11-19 新版）：連堡壘的城垛約女主角 2.3 倍高（設計者：再放大 1.2 倍，平台才夠三隻走來走去），背上的弓手再高一截
+  'enemy.quake_beast': 2.52,
   // 23～35 樓：晶刺織網蛛 → 0.9、虛空吞噬者 → 1.6（比鑽地寄生蟲大一圈）、要塞魔像 → 1.8
   'enemy.crystal_weaver': 2.3,
   'enemy.void_maw': 2.87,
@@ -1222,6 +1224,8 @@ export const MONSTER_MODELS: Record<string, FigureModel> = {
   'enemy.bone_hound': houndLife(monsterAi(BONE_HOUND_AI_DATA, scaled(BEAST_MODELS)['enemy.bone_hound']!, { rest: 'asModeled', modeled: QUAD_LIMBS, hip: 18.09, ground: 'paws' })),
   'enemy.blood_lizard': lizardLife(monsterAi(BLOOD_LIZARD_AI_DATA, scaled(BEAST_MODELS)['enemy.blood_lizard']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
   'enemy.poison_spitter': toadLife(monsterAi(POISON_SPITTER_AI_DATA, scaled(CREATURE_MODELS)['enemy.poison_spitter']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
+  // 震地獸（設計者 2026-11-19 新版）：背著石砌堡壘的巨龜型四足獸，動作照舊版；堡壘頂站著三隻骷髏弓手（EnemyDef.riders，另外的怪物）
+  'enemy.quake_beast': monsterAi(QUAKE_BEAST_AI_DATA, scaled(BEAST_MODELS)['enemy.quake_beast']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' }),
   'enemy.horned_brute': bruteLife(monsterAi(HORNED_BRUTE_AI_DATA, scaled(BEAST_MODELS)['enemy.horned_brute']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
   'enemy.molten_brute': moltenLife(monsterAi(MOLTEN_BRUTE_AI_DATA, scaled(BEAST_MODELS)['enemy.molten_brute']!, { rest: 'asModeled', modeled: QUAD_LIMBS, ground: 'paws' })),
   'enemy.hook_claw': hookLife(monsterAi(HOOK_CLAW_AI_DATA, scaled(CREATURE_MODELS)['enemy.hook_claw']!, { rest: 'asModeled', ground: 'all', fit: 'height' })),
@@ -1333,6 +1337,7 @@ export const AI_MONSTERS = [
   'enemy.soul_flower',
   'enemy.shade_stalker',
   'enemy.imp',
+  'enemy.quake_beast',
 ];
 
 /** 換成 AI 版之前的舊版模型（比較面數、效能用） */
@@ -1373,6 +1378,7 @@ export const CLASSIC_MODELS: Record<string, FigureModel> = {
   'enemy.soul_flower': CREATURE_MODELS['enemy.soul_flower']!,
   'enemy.shade_stalker': LATE_MODELS['enemy.shade_stalker']!,
   'enemy.imp': LATE_MODELS['enemy.imp']!,
+  'enemy.quake_beast': BEAST_MODELS['enemy.quake_beast']!,
 };
 
 export const DEFAULT_MONSTER_MODEL = SKELETON_WARRIOR;

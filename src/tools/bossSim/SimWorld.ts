@@ -27,6 +27,8 @@ export interface SimConfig {
   phase: number;
   /** 額外穿上的傳奇 / 神話（檢查裝備效果的外觀）；只能從網址指定 */
   wear?: readonly string[];
+  /** 精英（網址 &elite=1；只有精英的倍率與外觀，沒有詞綴） */
+  elite?: boolean;
 }
 
 export interface Sim {
@@ -106,7 +108,7 @@ export function createSim(config: SimConfig): Sim {
   // 隱藏魔王每次出招從屬性裡抽一種（兩種，或全部）
   const hidden = data.balance.hiddenBoss.bosses.find((b) => b.enemyId === config.enemyId);
   const at = vec2(world.player.position.x + START_GAP, world.player.position.y);
-  const enemy = world.spawnScaledEnemy(config.enemyId, config.floor, at, hidden ? (hidden.allElements ? hidden.elements : hidden.elements.slice(0, 2)) : null);
+  const enemy = world.spawnScaledEnemy(config.enemyId, config.floor, at, hidden ? (hidden.allElements ? hidden.elements : hidden.elements.slice(0, 2)) : null, config.elite === true);
   // 階段由血量決定：血量放在該階段的門檻，第一個 Tick 由遊戲的 BossSystem 進入階段（畫面也會收到事件）
   const start = data.enemies.get(config.enemyId).phases[config.phase - 2];
   if (start) enemy.hp = enemy.maxHp * start.hpBelow;

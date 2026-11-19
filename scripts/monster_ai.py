@@ -49,7 +49,7 @@ FLOOR_AT = {"stone_walker": -0.378}
 # 一般怪（同時出現很多隻）：面數接近舊版程式畫的模型（加上武器約多 0～25%），遊戲時的負擔差不多；
 # 但不低於 2500（太少會變成大片的三角面，設計者不喜歡）。舊版：骷髏 2816、冰霜骷髏 3104、弓手 2034、
 # 食屍鬼 1416、毒液食屍鬼 1974、虛空孢子 4100、虛空吞噬者 3692（2026-11-07 量的）
-TRIS_OF.update({"shade_stalker": 3200, "imp": 3000, "soul_flower": 2800, "frost_sporeling": 3000, "rampart_golem": 3400, "fallen_templar": 3200, "abyss_priest": 3200, "brain_floater": 2800, "crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
+TRIS_OF.update({"quake_beast": 3400, "shade_stalker": 3200, "imp": 3000, "soul_flower": 2800, "frost_sporeling": 3000, "rampart_golem": 3400, "fallen_templar": 3200, "abyss_priest": 3200, "brain_floater": 2800, "crystal_weaver": 3400, "egg_matron": 3200, "fire_crawler": 2800, "hook_claw": 3000, "molten_brute": 3000, "horned_brute": 3000, "poison_spitter": 2500, "blood_lizard": 2500, "wheel_sword_beast": 3000, "eye_floater": 3000, "hatchling_spider": 2500, "burrower": 3200, "skeleton": 3000, "frost_skeleton": 3300, "skeleton_archer": 2500, "ghoul": 2500, "venom_ghoul": 2500, "void_spore": 4000, "void_maw": 3800, "armored_skeleton": 3600, "skeleton_mage": 2800, "storm_mage": 2800, "bone_hound": 2500, "acid_beetle": 2500})
 # 生成的模型沒有面向 -Y：繞 Z 轉正（度；減面前）
 ROTATE_Z = {"skeleton": -90, "skeleton_mage": -90, "eye_floater": -90, "hook_claw": 180, "rampart_golem": -90, "brain_floater": 180, "frost_sporeling": -90, "soul_flower": 90}
 # 減面後把過長的邊切開（公尺）：平的地方也是小三角面，貼圖取樣更細（不改形狀）
@@ -2146,7 +2146,48 @@ def soul_flower_zone(p, bone):
 ZONES["soul_flower"] = soul_flower_zone
 
 
+# 震地獸（設計者 2026-11-19 新版：背著石砌堡壘的巨龜型四足獸，堡壘頂是平台，遊戲裡站著三隻骷髏弓手）
+QUAKE_FORT_Z = 0.03
+
+
+def quake_beast():
+    """震地獸：低而寬的身體（後半 root、前半 torso）、堡壘整座跟 root（走路時不彎）；小頭與兩支獠牙（neck → head）；四條柱子般的粗腿"""
+    bones = [
+        ("root", None, V((0, 0.1, -0.06)), V((0, 0.34, -0.08)), 0.18),
+        ("torso", "root", V((0, 0.1, -0.06)), V((0, -0.2, -0.07)), 0.18),
+        ("neck", "torso", V((0, -0.22, -0.08)), V((0, -0.3, -0.1)), 0.11),
+        ("head", "neck", V((0, -0.3, -0.1)), V((0, -0.41, -0.17)), 0.13),
+    ]
+    arm = [V((0.2, -0.1, -0.06)), V((0.22, -0.11, -0.13)), V((0.23, -0.11, -0.2)), V((0.24, -0.15, -0.25))]
+    leg = [V((0.18, 0.23, -0.06)), V((0.2, 0.24, -0.13)), V((0.2, 0.25, -0.2)), V((0.21, 0.22, -0.25))]
+
+    def side(s, m):
+        out = chain([f"upperArm{s}", f"forearm{s}", f"hand{s}"], "torso", [m(p) for p in arm], [0.08, 0.08, 0.07])
+        return out + chain([f"thigh{s}", f"shin{s}", f"foot{s}"], "root", [m(p) for p in leg], [0.08, 0.08, 0.07])
+
+    return bones + sides(side), {}
+
+
+def quake_beast_zone(p, bone):
+    """腿只拿身體下方、自己那一隻的頂點；頭只在前面；堡壘（身體以上）整座跟 root"""
+    front_leg = p.z < -0.1 and abs(p.x) > 0.1 and -0.24 < p.y < 0.03
+    back_leg = p.z < -0.1 and abs(p.x) > 0.1 and 0.12 < p.y < 0.37
+    m = re.match(r"(upperArm|forearm|hand|thigh|shin|foot)([LR])$", bone)
+    if m:
+        own = front_leg if m.group(1) in ("upperArm", "forearm", "hand") else back_leg
+        return own and (m.group(2) == "L") == (p.x > 0)
+    if p.z > QUAKE_FORT_Z:
+        return bone == "root"
+    if bone in ("neck", "head"):
+        return p.y < -0.2
+    return not (front_leg or back_leg) or p.z > -0.14
+
+
+ZONES["quake_beast"] = quake_beast_zone
+
+
 SKELETONS = {
+    "quake_beast": quake_beast,
     "shade_stalker": shade_stalker,
     "imp": imp,
     "soul_flower": soul_flower,

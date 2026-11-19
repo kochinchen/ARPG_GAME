@@ -287,6 +287,9 @@ export class ActorView {
     this.lift += (liftTarget - this.lift) * Math.min(1, dt * 14);
     // 鑽進地下：往下沉、慢慢看不見
     if (actor.air > 0) this.lift = actor.air * (actor.underground ? -SINK_DEPTH : AIR_HEIGHT);
+    // 站在宿主背上（震地獸背上的弓手）：站在堡壘的高度；宿主倒下時往下跌（越跌越快）
+    if (actor.riding) this.lift = actor.riding.lift;
+    else if (actor.fall) this.lift = actor.fall.from * (1 - (1 - actor.fall.remaining / actor.fall.duration) ** 2);
     this.body.position.set(this.lungeDir.x * k, this.lungeDir.y * k - this.lift);
     // 食屍鬼吃屍體變大
     if (this.body.scale.x !== actor.growth) this.body.scale.set(actor.growth);

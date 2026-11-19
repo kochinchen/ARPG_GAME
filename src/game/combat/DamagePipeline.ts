@@ -82,6 +82,8 @@ export class DamagePipeline implements DamageDealer {
     if (isCrit) amount *= this.balance.combat.critMultiplier + target.stats.get('critDamageTaken') + (source?.stats.get('critDamageBonus') ?? 0);
 
     amount *= mitigationMultiplier(target, request.element, request.armorPenetration ?? 0, this.balance);
+    // 站在城垛後面（震地獸背上的弓手）：非近戰的直接傷害打折
+    if (target.cover < 1 && !isDot && request.melee !== true) amount *= target.cover;
     if (!isDot) {
       const guard = this.statuses.consume(target, 'guard');
       if (guard) amount *= 1 - guard.magnitude;
