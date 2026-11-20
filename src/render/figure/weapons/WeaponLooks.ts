@@ -14,7 +14,6 @@ import {
   BOW_STRINGS,
   ABYSS,
   ANCIENT,
-  axe,
   BLACK_STEEL,
   blade,
   BLOOD_STEEL,
@@ -123,7 +122,8 @@ function axeLook(s: AxeOptions): RawLook {
     const a = trellisStyledAxe({ ...s, style: s.style, size: s.size * AXE_HEAD_SCALE });
     return { meshes: a.meshes, tip: a.edgeBottom, axis: [a.edgeTop, a.edgeBottom], focus: a.head, badge: a.badge };
   }
-  const a = axe({ ...s, size: s.size * AXE_HEAD_SCALE });
+  // 白 / 藍 / 黃 / 紫斧：TRELLIS 生成的斧頭依階級變形（設計者 2026-11-21：遊戲裡也換成新模型；舊版 WeaponParts.axe 仍給怪物等其他地方用）
+  const a = trellisAxe({ ...s, size: s.size * AXE_HEAD_SCALE });
   return { meshes: a.meshes, tip: a.edgeBottom, axis: [a.edgeTop, a.edgeBottom], focus: a.head };
 }
 
@@ -352,8 +352,8 @@ export const HOLD: Record<WeaponType, V3> = {
 
 function build(spec: Spec, emblem?: Emblem): WeaponLook {
   const raw = spec.kind === 'sword' ? swordLook(spec.spec) : spec.kind === 'axe' ? axeLook(spec.spec) : spec.kind === 'bow' ? bowLook(spec.spec) : staffLook(spec.spec);
-  // TRELLIS 的斧頭 / 劍身本身已是細構面，只細分程式畫的零件
-  const styledBase = (spec.kind === 'axe' || spec.kind === 'sword') && !!spec.spec.style;
+  // TRELLIS 的斧頭（所有斧）/ 橘紅劍身本身已是細構面，只細分程式畫的零件
+  const styledBase = spec.kind === 'axe' || (spec.kind === 'sword' && !!spec.spec.style);
   return hold(spec.kind, raw, emblem, styledBase ? 'program' : true);
 }
 

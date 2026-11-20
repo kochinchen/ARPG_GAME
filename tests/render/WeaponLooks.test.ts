@@ -13,8 +13,11 @@ describe('手上的武器造型', () => {
     for (const kind of ['sword', 'axe', 'bow', 'staff'] as const) {
       const looks = [1, 2, 3, 4, 5, 6, 7, 8].map((t) => tierLook(kind, t));
       expect(new Set(looks).size, kind).toBe(8);
+      // 外形也要不同（不只是不同的物件）
+      expect(new Set(looks.map((l) => l.meshes.map((m) => `${m.verts.length}:${m.verts[0]}`).join('|'))).size, kind).toBe(8);
       for (const look of looks) {
-        expect(look.meshes.length).toBeGreaterThan(2);
+        // 斧是 TRELLIS 生成的整把網格（斧刃與斧柄一體），其他由程式畫的零件組成
+        expect(look.meshes.length).toBeGreaterThan(kind === 'axe' ? 0 : 2);
         expect(look.hand).toBe(kind === 'bow' ? 'left' : 'right');
       }
     }
