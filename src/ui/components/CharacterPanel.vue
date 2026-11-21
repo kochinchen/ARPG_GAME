@@ -100,7 +100,7 @@ function add(e: MouseEvent, attribute: string) {
   position: relative;
   flex: 0 1 auto;
   min-width: 0;
-  width: min(620px, calc(100vw - 32px));
+  width: min(790px, calc(100vw - 32px));
   max-height: calc(100vh - 170px);
   overflow-y: auto;
   pointer-events: auto;
@@ -141,7 +141,8 @@ header {
 }
 .row {
   display: grid;
-  grid-template-columns: 44px 58px 1fr 28px;
+  /* 名稱、技能 / 自由點數、效果、+：左欄夠寬，每一項都在同一行 */
+  grid-template-columns: 44px max-content 1fr 28px;
   gap: 8px;
   align-items: center;
   padding: 6px 0;
@@ -152,6 +153,10 @@ header {
 }
 .count {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.effect > div {
+  white-space: nowrap;
 }
 .max,
 .per {
@@ -215,7 +220,7 @@ h4 {
 }
 .columns {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
 }
 .col.side {
   border-left: 1px solid #3d342c;
