@@ -277,8 +277,9 @@ describe('商人：鑿孔、鑲嵌、拆卸', () => {
     world.equipment.equip(item('weapon', 'normal', 12, { max: 2, cores: [core('c1')] }));
     // 不看裝備稀有度（白裝也 ×1）；孔沒鑲滿，沒有同核加成
     expect(world.player.stats.get('critChance')).toBeCloseTo(before + 0.04 * 1.2);
+    // 脫下後熔核的暴擊消失（劍本身不再加暴擊，回到鑲核前的數值）
     world.equipment.unequip('weapon');
-    expect(world.player.stats.get('critChance')).toBeLessThan(before);
+    expect(world.player.stats.get('critChance')).toBeCloseTo(before);
   });
 
   it('熔核不能賣；可以放進拆解區拆成武器精華（依核色）', () => {

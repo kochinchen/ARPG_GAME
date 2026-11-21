@@ -10,7 +10,7 @@ import { ask } from '../ask';
 import CoreReveal from './CoreReveal.vue';
 
 const props = defineProps<{ view: ShopView }>();
-export type ShopTab = 'buy' | 'gamble' | 'ascend' | 'fusion';
+export type ShopTab = 'buy' | 'gamble' | 'ascend' | 'fusion' | 'infusion';
 /** tab：目前分頁（觸控在鍛造 / 融合頁點兩下背包物品時，App 依分頁放進對應的格子） */
 const emit = defineEmits<{ close: []; tab: [tab: ShopTab] }>();
 
@@ -92,6 +92,20 @@ function drill(e: MouseEvent) {
   blur(e);
   gameBridge.send({ type: 'ShopDrill' });
 }
+function infusionSlot(e: MouseEvent, zone: 'weapon' | 'staff' | 'cores', index: number) {
+  blur(e);
+  gameBridge.send({ type: 'ShopInfusionSlotClick', zone, index });
+}
+async function infuse(e: MouseEvent, v: ShopView) {
+  blur(e);
+  const count = v.infusion.cores.filter(Boolean).length;
+  const ok = await ask({
+    title: '灌注這把武器？',
+    message: `會消耗法杖與 ${count} 顆法杖純核，無法復原。\n\n${v.infusion.lines.join('\n')}`,
+    confirmLabel: '灌注',
+  });
+  if (ok) gameBridge.send({ type: 'ShopInfuse' });
+}
 function fusionSlot(e: MouseEvent, zone: 'inputs' | 'jewelry', index: number) {
   blur(e);
   gameBridge.send({ type: 'ShopFusionSlotClick', zone, index });
@@ -167,6 +181,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
       <button type="button" :class="{ on: tab === 'gamble' }" @click="tab = 'gamble'">賭博</button>
       <button type="button" :class="{ on: tab === 'ascend' }" @click="tab = 'ascend'">鍛造</button>
       <button type="button" :class="{ on: tab === 'fusion' }" @click="tab = 'fusion'">融合</button>
+      <button type="button" :class="{ on: tab === 'infusion' }" @click="tab = 'infusion'">灌注</button>
     </nav>
 
     <section v-if="tab === 'buy'" class="list">
@@ -261,6 +276,65 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
         </button>
       </template>
 
+    </section>
+
+    <section v-else-if="tab === 'infusion'" class="list">
+      <p class="note">武器灌注：把法杖的法術強度灌進劍、斧、弓。每次要一把法杖（會消失）與 2～6 顆法杖純核（四把法杖熔成的靈核）；重新灌注也要放一把新的法杖。純核的核階越高、顆數越多，繼承率越高；重新灌注不會讓數值變差。灌注前先取下武器上的熔核，孔數不變。</p>
+      <div class="fusion-grid">
+        <div class="fusion-jewelry">
+          <button
+            type="button"
+            class="ascend-slot"
+            :class="{ filled: view.infusion.weapon }"
+            title="拿著劍、斧或弓點這裡放進去；空手點這裡拿回來"
+            data-drop="infuse-weapon"
+            @click="infusionSlot($event, 'weapon', 0)"
+            @pointerenter="view.infusion.weapon && hover($event, view.infusion.weapon, 0, [])"
+            @pointerleave="hovered = null"
+          >
+            <ItemCell v-if="view.infusion.weapon" :entry="view.infusion.weapon" size="slot" />
+            <span v-else>武器</span>
+          </button>
+          <button
+            type="button"
+            class="ascend-slot"
+            :class="{ filled: view.infusion.staff }"
+            title="法杖：提供法術強度，灌注後消失"
+            data-drop="infuse-staff"
+            @click="infusionSlot($event, 'staff', 0)"
+            @pointerenter="view.infusion.staff && hover($event, view.infusion.staff, 0, [])"
+            @pointerleave="hovered = null"
+          >
+            <ItemCell v-if="view.infusion.staff" :entry="view.infusion.staff" size="slot" />
+            <span v-else>法杖</span>
+          </button>
+        </div>
+        <div class="fusion-inputs">
+          <button
+            v-for="(c, i) in view.infusion.cores"
+            :key="i"
+            type="button"
+            class="ascend-slot jewel"
+            :class="{ filled: c }"
+            title="法杖純核：決定繼承率，灌注後消失"
+            :data-drop="`infuse-core:${i}`"
+            @click="infusionSlot($event, 'cores', i)"
+            @pointerenter="c && hover($event, c, 0, [])"
+            @pointerleave="hovered = null"
+          >
+            <ItemCell v-if="c" :entry="c" size="slot" />
+            <span v-else>純核</span>
+          </button>
+        </div>
+      </div>
+      <p v-if="view.infusion.result" class="odds">{{ view.infusion.result }}</p>
+      <ul v-if="view.infusion.lines.length" class="fusion-lines">
+        <li v-for="l in view.infusion.lines" :key="l">{{ l }}</li>
+      </ul>
+      <ul v-if="view.infusion.problems.length" class="warn">
+        <li v-for="p in view.infusion.problems" :key="p">{{ p }}</li>
+      </ul>
+      <button type="button" class="ascend-go" :disabled="!view.infusion.canInfuse" @click="infuse($event, view)">灌注</button>
     </section>
 
     <section v-else-if="tab === 'fusion'" class="list">
@@ -594,8 +668,10 @@ button:disabled {
   border-bottom: 1px solid #3d342c;
 }
 .tabs button {
-  padding: 3px 14px;
+  flex: 1;
+  padding: 3px 4px;
   border-bottom: 0;
+  white-space: nowrap;
 }
 .tabs button.on {
   color: #f2e2b8;

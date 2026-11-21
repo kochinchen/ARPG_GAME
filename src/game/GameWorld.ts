@@ -1542,8 +1542,8 @@ export class GameWorld {
         this.shop.ascend();
         return true;
       case 'ShopClosed':
-        this.shop.returnForgeItems((item) => {
-          this.spawnGroundItem(this.player.position, { kind: 'item', item }).droppedByPlayer = true;
+        this.shop.returnForgeItems((entry) => {
+          this.spawnGroundItem(this.player.position, entry).droppedByPlayer = true;
           this.events.emit('ItemDropped', { position: this.player.position });
         });
         return true;
@@ -1552,6 +1552,12 @@ export class GameWorld {
         return true;
       case 'ShopDrill':
         this.shop.drill();
+        return true;
+      case 'ShopInfusionSlotClick':
+        this.shop.clickInfusionSlot(command.zone, command.index);
+        return true;
+      case 'ShopInfuse':
+        this.shop.infuse();
         return true;
       case 'ShopFusionSlotClick':
         this.shop.clickFusionSlot(command.zone, command.index);
@@ -1673,10 +1679,18 @@ export class GameWorld {
       this.itemGenerator.createLegendary(axeLegend, level),
       { ...this.itemGenerator.create(base((b) => b.slot === 'helmet'), 'magic', level), sockets: { max: 2, cores: [] } },
     ];
-    items.forEach((item, i) => {
-      const angle = (i / items.length) * Math.PI * 2;
+    // 武器灌注的材料：一把紫法杖、六顆法杖純核（各由四把法杖照正常的融合產生）
+    const staffBase = base((b) => b.weaponType === 'staff');
+    items.push(this.itemGenerator.create(staffBase, 'epic', level));
+    const rng = new Rng(Date.now() % 100000);
+    const cores = Array.from({ length: this.data.balance.infusion.cores.max }, (_, i) =>
+      fuse(Array.from({ length: this.data.balance.fusion.inputs.max }, () => this.itemGenerator.create(staffBase, i < 3 ? 'rare' : 'normal', level)), [], this.data, rng, this.itemGenerator.newUid()),
+    );
+    const drops: GroundContent[] = [...items.map((item) => ({ kind: 'item' as const, item })), ...cores.map((core) => ({ kind: 'core' as const, core }))];
+    drops.forEach((content, i) => {
+      const angle = (i / drops.length) * Math.PI * 2;
       const at = vec2(this.player.position.x + Math.cos(angle) * 1.6, this.player.position.y + Math.sin(angle) * 1.6);
-      this.spawnGroundItem(this.nav.isWalkableAt(at.x, at.y) ? at : this.player.position, { kind: 'item', item });
+      this.spawnGroundItem(this.nav.isWalkableAt(at.x, at.y) ? at : this.player.position, content);
     });
   }
 

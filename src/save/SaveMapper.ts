@@ -95,6 +95,11 @@ export const SaveMapper = {
       salvage: world.salvage.slots.map((e) => (e === null ? null : clone(e.kind === 'item' ? e.item : e.core))),
       ascendSlot: world.shop.ascendSlot ? clone(world.shop.ascendSlot) : null,
       fusion: { inputs: world.shop.fusionInputs.map((i) => (i ? clone(i) : null)), jewelry: world.shop.fusionJewelry.map((i) => (i ? clone(i) : null)) },
+      infusion: {
+        weapon: world.shop.infusionWeapon ? clone(world.shop.infusionWeapon) : null,
+        staff: world.shop.infusionStaff ? clone(world.shop.infusionStaff) : null,
+        cores: world.shop.infusionCores.map((c) => (c ? clone(c) : null)),
+      },
       counters: { itemUidCounter: world.itemGenerator.uidCounter },
       rng: Object.fromEntries(RNG_STREAMS.map((name) => [name, world.rngStreams[name].getState()])),
     };
@@ -140,6 +145,9 @@ export const SaveMapper = {
     world.shop.ascendSlot = save.ascendSlot ? toItem(save.ascendSlot) : null;
     world.shop.fusionInputs.forEach((_, i) => (world.shop.fusionInputs[i] = save.fusion?.inputs[i] ? toItem(save.fusion.inputs[i]) : null));
     world.shop.fusionJewelry.forEach((_, i) => (world.shop.fusionJewelry[i] = save.fusion?.jewelry[i] ? toItem(save.fusion.jewelry[i]) : null));
+    world.shop.infusionWeapon = save.infusion?.weapon ? toItem(save.infusion.weapon) : null;
+    world.shop.infusionStaff = save.infusion?.staff ? toItem(save.infusion.staff) : null;
+    world.shop.infusionCores.forEach((_, i) => (world.shop.infusionCores[i] = save.infusion?.cores[i] ? toCore(save.infusion.cores[i]) : null));
     world.attributes.apply();
 
     // 按鍵配置
@@ -287,7 +295,7 @@ function toGroundContent(entry: SavedGroundItem['entry']): GroundContent {
 
 /** Schema 的 optional 欄位可能是 undefined；ItemInstance 不允許，沒有值時省略 */
 export function toItem(saved: SavedItem): ItemInstance {
-  const { legendaryId, legendaryRolls, quality, rerolls, sockets, ...rest } = clone(saved);
+  const { legendaryId, legendaryRolls, quality, rerolls, sockets, infusion, ...rest } = clone(saved);
   return {
     ...rest,
     ...(quality === undefined ? {} : { quality }),
@@ -295,6 +303,7 @@ export function toItem(saved: SavedItem): ItemInstance {
     ...(legendaryRolls === undefined ? {} : { legendaryRolls }),
     ...(rerolls === undefined ? {} : { rerolls }),
     ...(sockets === undefined ? {} : { sockets: { max: sockets.max, cores: sockets.cores.map(toCore) } }),
+    ...(infusion === undefined ? {} : { infusion }),
   };
 }
 

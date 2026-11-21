@@ -17,6 +17,7 @@ import type { SalvageEntry, SalvageSystem } from './SalvageSystem';
 import { CORE_SLOTS, type CoreSlot } from '../../data/schema/core';
 import type { CoreInstance } from './CoreInstance';
 import { fuse, previewFusion, type FusionPreview } from './FusionResolver';
+import { isStaffPureCore, previewInfusion, resolveInfusion, type InfusionPreview } from './InfusionResolver';
 
 type ShopData = Pick<DataRegistry, 'balance' | 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores'>;
 
@@ -78,6 +79,12 @@ export class ShopSystem {
   /** 融合：合成區（飾品以外的裝備）與飾品區（戒指 / 護身符，只提高印記機率）；格子裡的物品會存檔 */
   readonly fusionInputs: (ItemInstance | null)[];
   readonly fusionJewelry: (ItemInstance | null)[];
+  /** 武器灌注的格子：要灌注的武器、法杖、法杖純核（會存檔；關閉面板時放回背包） */
+  infusionWeapon: ItemInstance | null = null;
+  infusionStaff: ItemInstance | null = null;
+  /** 剛灌注完的結果（面板顯示用；換武器或關面板就清掉） */
+  lastInfusion: { uid: string; rolled: number; improved: boolean } | null = null;
+  readonly infusionCores: (CoreInstance | null)[];
   /** 最近一次融合的結果（介面顯示揭曉動畫；關閉面板或收下後清除，不存檔） */
   lastFused: CoreInstance | null = null;
   /** 商人位置（樓梯口、中途存檔點、出口旁；共用同一家店） */
@@ -92,6 +99,7 @@ export class ShopSystem {
   ) {
     this.fusionInputs = Array.from({ length: data.balance.fusion.inputs.max }, () => null);
     this.fusionJewelry = Array.from({ length: data.balance.fusion.jewelrySlots }, () => null);
+    this.infusionCores = Array.from({ length: data.balance.infusion.cores.max }, () => null);
   }
 
   get positions(): readonly Vec2[] {
@@ -292,18 +300,87 @@ export class ShopSystem {
    * 關閉商人面板時：鍛造格與融合格裡的裝備放回背包（背包滿了就由 drop 丟在腳下），避免裝備留在看不到的格子裡。
    * 回傳是否有放回。
    */
-  returnForgeItems(drop: (item: ItemInstance) => void): boolean {
+  returnForgeItems(drop: (entry: SalvageEntry) => void): boolean {
     if (this.lastFused) {
       this.lastFused = null;
       this._version++;
     }
-    const items = [this.ascendSlot, ...this.fusionInputs, ...this.fusionJewelry].filter((i): i is ItemInstance => i !== null);
-    if (items.length === 0) return false;
+    this.lastInfusion = null;
+    const items = [this.ascendSlot, ...this.fusionInputs, ...this.fusionJewelry, this.infusionWeapon, this.infusionStaff].filter((i): i is ItemInstance => i !== null);
+    const cores = this.infusionCores.filter((c): c is CoreInstance => c !== null);
+    if (items.length === 0 && cores.length === 0) return false;
     this.ascendSlot = null;
     this.fusionInputs.fill(null);
     this.fusionJewelry.fill(null);
-    for (const item of items) if (!this.ctx.inventory.addItem(item)) drop(item);
+    this.infusionWeapon = null;
+    this.infusionStaff = null;
+    this.infusionCores.fill(null);
+    for (const item of items) if (!this.ctx.inventory.addItem(item)) drop({ kind: 'item', item });
+    for (const core of cores) if (!this.ctx.inventory.addCore(core)) drop({ kind: 'core', core });
     this._version++;
+    return true;
+  }
+
+  // ─────────────────────────── 武器灌注 ───────────────────────────
+
+  /** 點灌注的武器格 / 法杖格 / 純核格：放進 / 互換 / 拿回。武器格只收劍、斧、弓，法杖格只收法杖，純核格只收法杖純核 */
+  clickInfusionSlot(zone: 'weapon' | 'staff' | 'cores', index: number): void {
+    const held = this.ctx.cursor.entry;
+    if (zone === 'cores') {
+      if (index < 0 || index >= this.infusionCores.length) return;
+      if (held && (held.kind !== 'core' || !isStaffPureCore(held.core, this.data.balance))) {
+        this.fail('cannotInfuse');
+        return;
+      }
+      const current = this.infusionCores[index] ?? null;
+      this.infusionCores[index] = held?.kind === 'core' ? held.core : null;
+      this.ctx.cursor.set(current ? { kind: 'core', core: current } : null);
+    } else {
+      if (held) {
+        const type = held.kind === 'item' ? this.data.items.get(held.item.baseId).weaponType : undefined;
+        const ok = zone === 'staff' ? type === 'staff' : type === 'sword' || type === 'axe' || type === 'bow';
+        if (!ok) {
+          this.fail('cannotInfuse');
+          return;
+        }
+      }
+      const current = zone === 'weapon' ? this.infusionWeapon : this.infusionStaff;
+      const next = held?.kind === 'item' ? held.item : null;
+      if (zone === 'weapon') {
+        this.infusionWeapon = next;
+        this.lastInfusion = null;
+      } else this.infusionStaff = next;
+      this.ctx.cursor.set(current ? { kind: 'item', item: current } : null);
+    }
+    this._version++;
+  }
+
+  /** 灌注預覽（目前灌注格的內容；不擲骰） */
+  infusionPreview(): InfusionPreview {
+    return previewInfusion(this.infusionWeapon, this.infusionStaff, this.infusionCores.filter((c): c is CoreInstance => c !== null), this.data);
+  }
+
+  /**
+   * 灌注：消耗法杖（有放的話）與純核，武器留在格子裡。繼承率在範圍內擲骰；
+   * 法術強度來源與繼承率各自和原本的取較高的，所以結果不會變差。
+   */
+  infuse(): boolean {
+    if (!this.canTrade()) return false;
+    const weapon = this.infusionWeapon;
+    const pv = this.infusionPreview();
+    if (!weapon || pv.problems.length > 0) {
+      this.fail('cannotInfuse');
+      return false;
+    }
+    const before = weapon.infusion;
+    const result = resolveInfusion(pv, this.ctx.fusionRng.next());
+    this.infusionWeapon = { ...weapon, infusion: { spellPower: result.spellPower, rate: result.rate } };
+    this.infusionStaff = null;
+    this.infusionCores.fill(null);
+    this._version++;
+    const improved = !before || result.rate > before.rate || result.spellPower > before.spellPower;
+    this.lastInfusion = { uid: weapon.uid, rolled: result.rolled, improved };
+    this.events.emit('WeaponInfused', { uid: weapon.uid, rolled: result.rolled, rate: result.rate, spellPower: result.spellPower, improved });
     return true;
   }
 

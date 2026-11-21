@@ -359,6 +359,15 @@ export const balance: z.input<typeof BalanceSchema> = {
     weaponDamage: [0.16, 0.32, 0.48, 0.64, 0.8],
   },
   // 融合（v0.5.0）：費用在 P9 砍半（2026-10-18）——Lv40 四把紫約 2,060 金幣（約賣價的一半；2026-11-21 金幣尺度 ×2 後約 4,120）、武器精華 34（≈ 拆掉這四把的 28～44）
+  // 武器灌注（設計者 2026-11-21）：劍 / 斧 / 弓＋一把法杖＋ 2～6 顆法杖純核。點數 = 核階（T1～T5 = 1～5）＋核色加分；
+  // 繼承率 = 最低 min(90%, 10% + 2.5% × 點數) ～ 最高 min(100%, 25% + 3% × 點數)：6 顆 T3 白核 55～79%、6 顆 T5 白核 85～100%、6 顆 T5 紫核 90～100%
+  infusion: {
+    cores: { min: 2, max: 6 },
+    coreType: 'arcane',
+    rarityBonus: { normal: 0, magic: 0.2, rare: 0.4, epic: 0.6, legendary: 0.8 },
+    minRate: { base: 0.1, perPoint: 0.025, cap: 0.9 },
+    maxRate: { base: 0.25, perPoint: 0.03, cap: 1 },
+  },
   fusion: {
     inputs: { min: 2, max: 4 },
     jewelrySlots: 2,
@@ -375,7 +384,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     cost: { goldBase: 120, goldPerItemLevel: 25, essenceBase: 6, essenceLevelDivisor: 6 },
   },
   // 武器決定可用的技能類別：劍斧＝近戰＋魔法、弓＝遠程＋魔法、法杖＝魔法；戰術任何武器都能用
-  // 魔法的加減分（劍斧弓 −20%、法杖 +15%）在 items.ts 的武器內建屬性
+  // 魔法原本的加減分（劍斧弓 −20%、法杖 +15%）在 2026-11-21 拿掉：劍斧弓靠武器灌注取得法術強度
   weaponRules: {
     sword: ['melee', 'magic', 'utility'],
     axe: ['melee', 'magic', 'utility'],

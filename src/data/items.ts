@@ -4,14 +4,17 @@ import type { ItemBaseDefSchema, PotionDefSchema } from './schema/item';
 type BaseInput = z.input<typeof ItemBaseDefSchema>;
 
 /**
- * 武器種類的內建加成：劍 近戰 +8%、暴擊 +2%；斧 近戰 +12%；弓 遠程 +15%；法杖 法術 +15%（另有法術強度）。
+ * 武器種類的內建加成（V1.0）：劍 近戰 +9%；斧 近戰 +7%、暴擊 +2%；弓 遠程 +7%、暴擊 +1%；法杖 法術 +6%（另有法術強度）。
  * 可用的技能類別由 balance.weaponRules（允許矩陣）決定：劍斧不能用遠程、弓不能用近戰、法杖只能用魔法（戰術都能用）。
- * 劍斧弓使用魔法技能 −20%（與詞綴、屬性點直接相加，可以用裝備補回）；和法杖 +15% 的差距是純法師的定位。
+ * 劍斧弓可以用魔法技能但沒有法術強度，要靠武器灌注；純法師的定位是法杖的主倍率與熔核直接放大法術強度。
  */
-const SWORD = { meleeDamageBonus: 0.08, critChance: 0.02, spellDamageBonus: -0.2 };
-const AXE = { meleeDamageBonus: 0.12, spellDamageBonus: -0.2 };
-const BOW = { rangedDamageBonus: 0.15, spellDamageBonus: -0.2 };
-const STAFF = { spellDamageBonus: 0.15 };
+// 四種武器基礎加成 V1.0（設計者 2026-11-21）：劍 近戰 +9%；斧 近戰 +7%、暴擊 +2%；弓 遠程 +7%、暴擊 +1%；法杖 法術 +6%。
+// 原本劍斧弓的法術 −20% 拿掉：劍斧弓要靠武器灌注才有法術強度（灌注只繼承法術強度，不繼承法杖的法術 +6%）。
+// 加成依技能類型生效（近戰 / 遠程 / 法術傷害各自的屬性），不是拿著就套用到所有技能
+const SWORD = { meleeDamageBonus: 0.09 };
+const AXE = { meleeDamageBonus: 0.07, critChance: 0.02 };
+const BOW = { rangedDamageBonus: 0.07, critChance: 0.01 };
+const STAFF = { spellDamageBonus: 0.06 };
 
 /**
  * 武器與防具都分 8 階（等級需求 1 / 6 / 12 / 18 / 24 / 30 / 36 / 42），每階數值約 ×1.4～1.5，

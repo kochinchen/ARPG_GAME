@@ -299,6 +299,7 @@ export class Renderer {
         cannotDrill: '無法再鑿孔',
         cannotSell: '熔核不能賣',
         cannotFuse: '無法融合',
+        cannotInfuse: '無法灌注',
         needsConfirm: '請先確認投入傳奇 / 神話裝備',
       }[e.reason];
       say(world.player.position, text, PALETTE.manaText);

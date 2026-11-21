@@ -64,10 +64,10 @@ describe('武器允許矩陣', () => {
     expect(weaponDenial(support, 'staff', data.balance.weaponRules)).toBeNull();
   });
 
-  it('武器內建不再扣近戰 / 遠程，只保留魔法：劍斧弓 −20%、法杖 +15%', () => {
+  it('武器基礎加成 V1.0：劍斧弓不扣法術傷害，只有法杖 +6%；沒有任何負的加成', () => {
     for (const type of ['sword', 'axe', 'bow', 'staff'] as const) {
       const stats = data.items.get(weaponOf(type)).baseStats;
-      expect(stats.spellDamageBonus).toBe(type === 'staff' ? 0.15 : -0.2);
+      expect(stats.spellDamageBonus).toBe(type === 'staff' ? 0.06 : undefined);
       expect((stats.meleeDamageBonus ?? 0) >= 0 && (stats.rangedDamageBonus ?? 0) >= 0, type).toBe(true);
     }
   });

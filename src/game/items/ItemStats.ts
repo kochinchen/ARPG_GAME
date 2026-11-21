@@ -51,6 +51,8 @@ export function itemStats(item: ItemInstance, data: Pick<DataRegistry, 'items' |
   } else if (mainTarget === 'defense' && baseStats.defense !== undefined) {
     baseStats.defense = Math.round(baseStats.defense * mult);
   }
+  // 武器灌注：劍、斧、弓多一筆法術強度（法杖的法術強度 × 繼承率；不被主倍率與熔核放大）
+  if (item.infusion && mainTarget === 'damage') baseStats.spellPower = (baseStats.spellPower ?? 0) + Math.round(item.infusion.spellPower * item.infusion.rate);
   // 傳奇 / 神話：固定屬性行（主倍率只作用在基礎攻防；飾品沒有主倍率）
   if (legendary) return { base, baseStats, affixes: legendaryAffixes(legendary, item), quality, coreDamage, mainTarget };
   const affixes = item.affixes.map((a) => {

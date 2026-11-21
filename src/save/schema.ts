@@ -29,10 +29,11 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v23：隱藏魔王隨機抽到的抗性（floor.hiddenBoss.resists），屬性不再固定兩種（elements）。
  * v24：魔王專屬印記的熔核（core.mark，舊存檔沒有這種核）。
  * v25：金幣尺度 ×2（買賣價與花費都變兩倍），舊存檔身上與地上的金幣 ×2。
+ * v26：武器灌注——武器的灌注紀錄（item.infusion）與商人的灌注格（infusion）；舊存檔沒有。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 25;
+export const SAVE_VERSION = 26;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -72,6 +73,8 @@ export const ItemInstanceSchema = z.object({
   rerolls: nonNegInt.optional(),
   /** 孔位與鑲入的熔核（v15） */
   sockets: z.object({ max: int.min(0).max(5), cores: z.array(CoreInstanceSchema) }).optional(),
+  /** 武器灌注（v26）：來源法杖的法術強度與繼承率 */
+  infusion: z.object({ spellPower: finite.min(0), rate: finite.min(0).max(1) }).optional(),
 });
 
 export const SavedEntrySchema = z.discriminatedUnion('kind', [
@@ -171,6 +174,8 @@ export const SaveDataSchema = z.object({
   ascendSlot: ItemInstanceSchema.nullable().optional(),
   /** 融合格（v15）：合成區（武器）與飾品區 */
   fusion: z.object({ inputs: z.array(ItemInstanceSchema.nullable()), jewelry: z.array(ItemInstanceSchema.nullable()) }).optional(),
+  /** 商人的灌注格（v26）：武器、法杖、法杖純核 */
+  infusion: z.object({ weapon: ItemInstanceSchema.nullable(), staff: ItemInstanceSchema.nullable(), cores: z.array(CoreInstanceSchema.nullable()) }).optional(),
   counters: z.object({
     /** ItemGenerator 最後使用的流水號；讀檔後從下一號接續 */
     itemUidCounter: nonNegInt,

@@ -23,6 +23,11 @@ export interface ItemInstance {
   rerolls?: number;
   /** 孔位與鑲入的熔核（v0.5.0）；省略 = 沒有孔 */
   sockets?: Sockets;
+  /**
+   * 武器灌注（劍、斧、弓）：spellPower = 灌注來源那把法杖的法術強度，rate = 繼承率（0～1）；
+   * 武器得到的法術強度 = spellPower × rate。省略 = 沒有灌注過。
+   */
+  infusion?: { spellPower: number; rate: number };
 }
 
 export type EquipmentSlot = 'weapon' | 'shield' | 'helmet' | 'armor' | 'gloves' | 'boots' | 'ring1' | 'ring2' | 'amulet';

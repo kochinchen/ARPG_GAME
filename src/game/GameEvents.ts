@@ -211,10 +211,12 @@ export interface GameEvents {
   ShopTransaction: { kind: 'buy' | 'sell' | 'gamble' | 'ascend' | 'reroll' | 'drill' | 'fuse'; gold: number; rarity?: Rarity };
   /** 融合完成（結果動畫：核色、核階、印記是否命中） */
   CoreFused: { uid: string; rarity: Rarity; tier: number; branded: boolean };
+  /** 武器灌注完成：rolled = 這次擲到的繼承率，rate = 武器現在的繼承率（比舊的低就保留舊的），improved = 有沒有變好 */
+  WeaponInfused: { uid: string; rolled: number; rate: number; spellPower: number; improved: boolean };
   /** 洗點完成（gold = 花費）或失敗（金幣不足、沒有點數可以重置） */
   Respec: { kind: 'skills' | 'attributes'; gold: number };
   RespecFailed: { kind: 'skills' | 'attributes'; reason: 'gold' | 'nothing' };
-  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotSell' | 'cannotFuse' | 'needsConfirm' };
+  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotSell' | 'cannotFuse' | 'needsConfirm' | 'cannotInfuse' };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }

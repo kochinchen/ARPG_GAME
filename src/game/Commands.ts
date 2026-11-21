@@ -96,6 +96,9 @@ export type GameCommand =
   | { type: 'ShopFusionSlotClick'; zone: 'inputs' | 'jewelry'; index: number }
   /** 商人：融合；有傳奇 / 神話投入時要 confirm（介面先二次確認） */
   | { type: 'ShopFuse'; confirm: boolean }
+  /** 武器灌注：點武器格 / 法杖格 / 純核格（放進、互換、拿回）；灌注 */
+  | { type: 'ShopInfusionSlotClick'; zone: 'weapon' | 'staff' | 'cores'; index: number }
+  | { type: 'ShopInfuse' }
   /** 商人：收下融合結果（關掉揭曉畫面） */
   | { type: 'ShopDismissFused' }
   /** 共用倉庫：點第 cell 格（手上沒東西 = 拿起；手上有裝備或熔核 = 放下，那格有東西就放到後面第一個空格） */

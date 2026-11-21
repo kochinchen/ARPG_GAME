@@ -300,8 +300,11 @@ const v24ToV25: Migration = (v24) => {
   return out;
 };
 
+/** v25 → v26：武器灌注（裝備多一個可有可無的 infusion、商人多灌注格）；舊存檔沒有，不用轉換 */
+const v25ToV26: Migration = (v25) => v25;
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22, v22ToV23, v23ToV24, v24ToV25];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22, v22ToV23, v23ToV24, v24ToV25, v25ToV26];
 
 export class MigrationError extends Error {}
 

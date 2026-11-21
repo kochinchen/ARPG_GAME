@@ -143,6 +143,11 @@ export function describeItem(item: ItemInstance, data: Pick<DataRegistry, 'items
     baseLines.push(`法術強度 ${rest.spellPower}（基礎 ${base.baseStats.spellPower ?? 0}）`);
     delete rest.spellPower;
   }
+  // 武器灌注：劍、斧、弓帶著法杖的法術強度
+  if (item.infusion && stats.mainTarget === 'damage' && rest.spellPower !== undefined) {
+    baseLines.push(`法術強度 ${rest.spellPower}（灌注：法杖 ${item.infusion.spellPower} × 繼承率 ${Math.round(item.infusion.rate * 1000) / 10}%）`);
+    delete rest.spellPower;
+  }
   if (boosted && stats.mainTarget === 'defense' && rest.defense !== undefined) {
     baseLines.push(`防禦 ${rest.defense}（基礎 ${base.baseStats.defense ?? 0}）`);
     delete rest.defense;

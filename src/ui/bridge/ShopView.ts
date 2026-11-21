@@ -75,6 +75,19 @@ export interface ShopView {
     drill: { gold: number; essence: number; affordable: boolean } | null;
     note: string;
   } | null;
+  /** 武器灌注：武器格、法杖格、純核格與預覽 */
+  infusion: {
+    weapon: EntryView | null;
+    staff: EntryView | null;
+    cores: (EntryView | null)[];
+    /** 不能灌注的原因（空 = 可以灌注） */
+    problems: string[];
+    /** 預覽與目前狀態的說明行 */
+    lines: string[];
+    /** 剛灌注完的結果 */
+    result: string | null;
+    canInfuse: boolean;
+  };
   /** 融合：4 格合成區、2 格飾品區與確認面板 */
   fusion: {
     inputs: (EntryView | null)[];
@@ -115,6 +128,7 @@ export function emptyShopView(): ShopView {
     salvageTiers: [],
     reroll: null,
     sockets: null,
+    infusion: { weapon: null, staff: null, cores: [], problems: [], lines: [], result: null, canInfuse: false },
     fusion: { inputs: [], jewelry: [], preview: null, result: null },
     gold: 0,
   };
@@ -198,6 +212,7 @@ export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
     }),
     reroll: shop.ascendSlot ? rerollView(world, data, shop.ascendSlot, gold) : null,
     sockets: shop.ascendSlot ? socketsView(world, data, shop.ascendSlot, gold) : null,
+    infusion: infusionView(world, data),
     fusion: {
       inputs: shop.fusionInputs.map((i) => (i ? itemEntryView(i, data) : null)),
       jewelry: shop.fusionJewelry.map((i) => (i ? itemEntryView(i, data) : null)),
@@ -238,6 +253,38 @@ function socketsView(world: GameWorld, data: DataRegistry, item: ItemInstance, g
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /** 融合確認面板的文字 */
+const pct1 = (v: number) => `${Math.round(v * 1000) / 10}%`;
+
+function infusionView(world: GameWorld, data: DataRegistry): ShopView['infusion'] {
+  const shop = world.shop;
+  const pv = shop.infusionPreview();
+  const empty = !shop.infusionWeapon && !shop.infusionStaff && !shop.infusionCores.some(Boolean);
+  const lines: string[] = [];
+  if (pv.current) lines.push(`目前：法杖的法術強度 ${pv.current.spellPower} × 繼承率 ${pct1(pv.current.rate)} = 法術強度 +${Math.round(pv.current.spellPower * pv.current.rate)}`);
+  if (pv.staffPower !== null) lines.push(`這把法杖的法術強度：${pv.staffPower}${pv.current && pv.staffPower <= pv.current.spellPower ? '（不比原本的高，來源不變）' : ''}`);
+  if (pv.points > 0) {
+    lines.push(`總灌注點數：${Math.round(pv.points * 10) / 10}（核階 T1～T5 = 1～5 點，核色另加 0～0.8）`);
+    lines.push(`繼承率：${pct1(pv.range[0])}～${pct1(pv.range[1])}`);
+    if (pv.sourcePower > 0) lines.push(`灌注後：法術強度 +${pv.gain[0]}～+${pv.gain[1]}${pv.current ? '（擲到比目前低就保留目前的）' : ''}`);
+  }
+  const last = shop.lastInfusion && shop.lastInfusion.uid === shop.infusionWeapon?.uid ? shop.lastInfusion : null;
+  const now = shop.infusionWeapon?.infusion;
+  const result = last && now
+    ? last.improved
+      ? `灌注完成：擲到繼承率 ${pct1(last.rolled)}，法術強度 +${Math.round(now.spellPower * now.rate)}`
+      : `這次擲到繼承率 ${pct1(last.rolled)}，沒有比原本的 ${pct1(now.rate)} 高，保留原本的數值`
+    : null;
+  return {
+    weapon: shop.infusionWeapon ? itemEntryView(shop.infusionWeapon, data) : null,
+    staff: shop.infusionStaff ? itemEntryView(shop.infusionStaff, data) : null,
+    cores: shop.infusionCores.map((c) => (c ? coreEntryView(c, data) : null)),
+    problems: empty ? [] : pv.problems,
+    lines,
+    result,
+    canInfuse: pv.problems.length === 0,
+  };
+}
+
 function fusionPanel(world: GameWorld, data: DataRegistry, pv: FusionPreview, gold: number): FusionPanel {
   const materials = (Object.entries(pv.cost.materials) as [MaterialId, number][]).map(([id, need]) => ({ label: MATERIAL_LABELS[id], need, have: world.materials.get(id) }));
   const enough = world.materials.has(pv.cost.materials);

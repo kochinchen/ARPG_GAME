@@ -589,6 +589,18 @@ export const BalanceSchema = z.strictObject({
    * 核階 = 平均物品等級每 levelsPerTier 一階（最高 affixPower.maxTier；與詞綴階級分開設定）；核色 = gearAura.weights 加總對照 rarityFrom；
    * 數值 = T1 擲骰 × tierMultiplier × affixPower.rarity（核色倍率）。
    */
+  /**
+   * 武器灌注：劍、斧、弓灌入法杖的法術強度。點數 = 每顆法杖純核的核階＋核色加分；
+   * 繼承率在 [minRate, maxRate] 之間擲骰，兩者 = min(cap, base + perPoint × 點數)。
+   */
+  infusion: z.strictObject({
+    cores: z.strictObject({ min: z.int().positive(), max: z.int().positive() }),
+    /** 法杖熔成的核種 */
+    coreType: IdSchema,
+    rarityBonus: z.strictObject({ normal: z.number().min(0), magic: z.number().min(0), rare: z.number().min(0), epic: z.number().min(0), legendary: z.number().min(0) }),
+    minRate: z.strictObject({ base: z.number().min(0).max(1), perPoint: z.number().min(0), cap: z.number().min(0).max(1) }),
+    maxRate: z.strictObject({ base: z.number().min(0).max(1), perPoint: z.number().min(0), cap: z.number().min(0).max(1) }),
+  }),
   fusion: z.strictObject({
     inputs: z.strictObject({ min: z.int().positive(), max: z.int().positive() }),
     jewelrySlots: z.int().nonnegative(),
