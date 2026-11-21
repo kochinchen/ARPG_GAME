@@ -29,11 +29,12 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v23：隱藏魔王隨機抽到的抗性（floor.hiddenBoss.resists），屬性不再固定兩種（elements）。
  * v24：魔王專屬印記的熔核（core.mark，舊存檔沒有這種核）。
  * v25：金幣尺度 ×2（買賣價與花費都變兩倍），舊存檔身上與地上的金幣 ×2。
+ * v27：打倒過隱藏魔王的樓層（hiddenKills，選填；舊存檔沒有）。屬性改由技能等級決定，自由點數由進度推導。
  * v26：武器灌注——武器的灌注紀錄（item.infusion）與商人的灌注格（infusion）；舊存檔沒有。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 26;
+export const SAVE_VERSION = 27;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);
@@ -190,6 +191,8 @@ export const SaveDataSchema = z.object({
   notebook: z.array(z.string()),
   /** 聽過的魔王魂魄 ID（v20；每個魂魄只飄出一次） */
   souls: z.array(z.string()),
+  /** 打倒過隱藏魔王的樓層（v27）：每一層第一次給自由屬性點 */
+  hiddenKills: z.array(int.min(1)).optional(),
   /** 持續推進的亂數序列狀態：序列名稱 → Rng 狀態（v9；缺少的序列讀檔時重新混合種子） */
   rng: z.record(z.string(), z.number().int().min(0).max(0xffffffff)),
 });

@@ -160,6 +160,8 @@ export interface GameEvents {
   NotePageFound: { noteId: string };
   /** 《井誌》收集滿 quarter / 4；reward：給玩家看的獎勵說明 */
   BookMilestone: { quarter: number; reward: string };
+  /** 得到自由屬性點（往下一層、第一次打倒魔王 / 隱藏魔王） */
+  FreePointsEarned: { points: number; reason: 'floor' | 'boss' | 'hiddenBoss' };
   /** 魔王第一次倒下，魂魄飄出（Render 畫煙、UI 顯示台詞） */
   /** 這一層有隱藏魔王：進入樓層時提示，不標位置 */
   HiddenBossAwake: { name: string };

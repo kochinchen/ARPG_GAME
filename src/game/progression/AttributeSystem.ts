@@ -30,6 +30,21 @@ export function skillAttributePoints(rankOf: (skillId: string) => number, data: 
   return out;
 }
 
+/** 目前進度應得的自由點數總和（不含升級給的；存檔修復與補發用） */
+export function earnedFreePoints(
+  state: { highestFloor: number; souls: ReadonlySet<string>; hiddenKills: ReadonlySet<number>; bookComplete: boolean },
+  data: Pick<DataRegistry, 'balance' | 'souls'>,
+): number {
+  const f = data.balance.attributes.freePoints;
+  const bosses = data.souls.all.filter((s) => f.bossFloors.includes(s.floor) && state.souls.has(s.id)).length;
+  return (
+    f.perFloor * Math.max(0, state.highestFloor - 1) +
+    f.boss * bosses +
+    f.hiddenBoss * state.hiddenKills.size +
+    (state.bookComplete ? data.balance.book.attributePoints : 0)
+  );
+}
+
 export type AllocateCheck = { ok: true } | { ok: false; reason: 'unknown' | 'noPoints' | 'maxPoints' };
 
 /**

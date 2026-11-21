@@ -1,3 +1,4 @@
+import { earnedFreePoints } from '../game/progression/AttributeSystem';
 import { buildBook } from '../data/book';
 import type { DataRegistry } from '../data/DataRegistry';
 import { shieldAllowed, slotsForBase } from '../game/items/Equipment';
@@ -76,7 +77,10 @@ export function repairSave(input: SaveData, data: DataRegistry): RepairResult {
   }
   const collected = new Set([...save.lore, ...save.notebook, ...save.souls]);
   const bookComplete = buildBook(data).every((page) => collected.has(page.sourceId));
-  const totalAttributes = balance.attributes.pointsPerLevel * (level - 1) + (bookComplete ? balance.book.attributePoints : 0);
+  // 自由點數：往下每一層、第一次打倒魔王、每一層第一次打倒隱藏魔王、《井誌》全收集（舊角色照進度補發）
+  const totalAttributes =
+    balance.attributes.pointsPerLevel * (level - 1) +
+    earnedFreePoints({ highestFloor: save.floor.highest, souls: new Set(save.souls), hiddenKills: new Set(save.hiddenKills ?? []), bookComplete }, data);
   const spentAttributes = [...allocated.values()].reduce((sum, p) => sum + p, 0);
   if (spentAttributes > totalAttributes) {
     notes.push('屬性點與等級不符，已重置並退回全部屬性點');

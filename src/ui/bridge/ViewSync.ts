@@ -59,6 +59,12 @@ export class ViewSync {
       window.clearTimeout(this.milestoneTimer);
       this.milestoneTimer = window.setTimeout(() => (gameView.milestone = null), 12_000);
     });
+    events.on('FreePointsEarned', (e) => {
+      const why = { floor: '往下一層', boss: '第一次打倒這一層的魔王', hiddenBoss: '第一次在這一層打倒隱藏魔王' }[e.reason];
+      gameView.milestone = { badge: `+${e.points}`, title: `自由點數 +${e.points}`, text: `${why}。到角色面板分配到攻擊、生命、魔力、防禦或暴擊。` };
+      window.clearTimeout(this.milestoneTimer);
+      this.milestoneTimer = window.setTimeout(() => (gameView.milestone = null), 6_000);
+    });
     events.on('HiddenBossAwake', (e) => {
       gameView.milestone = { badge: '遠處傳來低吼', title: `${e.name}醒了`, text: '牆後的某處打開了。可以不去理牠。' };
       window.clearTimeout(this.milestoneTimer);

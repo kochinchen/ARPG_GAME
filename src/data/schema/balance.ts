@@ -114,6 +114,11 @@ export const BalanceSchema = z.strictObject({
       /** 升級給的自由屬性點（2026-11-21 起為 0：屬性改由技能等級決定；自由點數只來自《井誌》等獎勵） */
       pointsPerLevel: z.int().nonnegative(),
       list: z.array(AttributeDefSchema).min(1),
+      /**
+       * 自由點數的來源（設計者 2026-11-21）：每往下一層 perFloor 點（第 1 層不算）、第一次打倒 bossFloors 的魔王各 boss 點、
+       * 每一層第一次打倒隱藏魔王 hiddenBoss 點。另有《井誌》全收集（book.attributePoints）
+       */
+      freePoints: z.strictObject({ perFloor: z.int().nonnegative(), boss: z.int().nonnegative(), bossFloors: z.array(z.int().positive()), hiddenBoss: z.int().nonnegative() }),
       /** 技能每升一級給幾點屬性 */
       skillPointsPerRank: z.int().nonnegative(),
       /**

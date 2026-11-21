@@ -505,6 +505,7 @@ export class GameWorld {
       if (!soul || this.progress.souls.has(soul.id)) return;
       const found = this.bookFound();
       this.progress.souls.add(soul.id);
+      if (this.data.balance.attributes.freePoints.bossFloors.includes(soul.floor)) this.earnFreePoints(this.data.balance.attributes.freePoints.boss, 'boss');
       this.progress.changed();
       this.events.emit('SoulReleased', { soulId: soul.id, smoke: soul.smoke, position: e.position });
       this.grantBookReward(found);
@@ -548,10 +549,10 @@ export class GameWorld {
     // 首領被擊敗：原地出現首領寶箱
     this.events.on('ActorDied', (e) => {
       if (this.champion !== null && e.actorId === this.champion.actorId) this.placeChampionChest(e.position);
-      if (this.hiddenBoss && e.actorId === this.hiddenBossActor && !this.data.enemies.get(this.hiddenBoss.enemyId).pair) this.hiddenBoss.dead = true;
+      if (this.hiddenBoss && e.actorId === this.hiddenBossActor && !this.data.enemies.get(this.hiddenBoss.enemyId).pair) this.hiddenBossDefeated();
     });
     this.events.on('BossPairDefeated', () => {
-      if (this.hiddenBoss) this.hiddenBoss.dead = true;
+      if (this.hiddenBoss) this.hiddenBossDefeated();
     });
     this.events.on('ChestOpened', (e) => {
       const chest = this.chests.find((c) => c.id === e.chestId);
@@ -699,7 +700,10 @@ export class GameWorld {
     this.itemLevel = floor;
     this.lootTier = def.lootTier;
     this.progress.currentFloor = floor;
+    // 第一次往下走到新的一層：每層給自由點數（第 1 層不算；直接建在某一層的世界、讀檔都不補發，讀檔由存檔修復核對總數）
+    const deeper = this.progress.highestFloor >= 1 && !restore ? floor - this.progress.highestFloor : 0;
     this.progress.highestFloor = Math.max(this.progress.highestFloor, floor);
+    if (deeper > 0) this.earnFreePoints(deeper * this.data.balance.attributes.freePoints.perFloor, 'floor');
 
     const rng = new Rng(this.seed).fork(`floor-${floor}`);
     const spawner = new SpawnSystem(this.nav, rng);
@@ -1587,6 +1591,24 @@ export class GameWorld {
   /** 在某點周圍的地板上生成寶箱（避開牆壁、角色與其他寶箱） */
   /** 開發用：玩家周圍一圈，每種稀有度各一件（物品等級 = 目前樓層） */
   /** 洗點的金幣：round(base × 等級^exponent) */
+  /** 得到自由屬性點（到角色面板分配） */
+  private earnFreePoints(points: number, reason: 'floor' | 'boss' | 'hiddenBoss'): void {
+    if (points <= 0) return;
+    this.progress.attributePoints += points;
+    this.progress.changed();
+    this.events.emit('FreePointsEarned', { points, reason });
+  }
+
+  /** 隱藏魔王倒下：每一層第一次給自由點數 */
+  private hiddenBossDefeated(): void {
+    if (!this.hiddenBoss || this.hiddenBoss.dead) return;
+    this.hiddenBoss.dead = true;
+    const floor = this.floors.floor;
+    if (this.progress.hiddenKills.has(floor)) return;
+    this.progress.hiddenKills.add(floor);
+    this.earnFreePoints(this.data.balance.attributes.freePoints.hiddenBoss, 'hiddenBoss');
+  }
+
   respecCost(kind: 'skills' | 'attributes'): number {
     const c = this.data.balance.respec[kind];
     return Math.round(c.base * this.progress.level ** c.exponent);

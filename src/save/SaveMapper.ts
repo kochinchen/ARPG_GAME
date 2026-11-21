@@ -89,6 +89,7 @@ export const SaveMapper = {
       lore: [...progress.lore].sort(),
       notebook: [...progress.notebook].sort(),
       souls: [...progress.souls].sort(),
+      hiddenKills: [...progress.hiddenKills].sort((a, b) => a - b),
       bestiary: Object.fromEntries(progress.bestiary),
       collection: [...progress.collection].sort(),
       materials: world.materials.snapshot(),
@@ -139,6 +140,8 @@ export const SaveMapper = {
     for (const id of save.notebook) progress.notebook.add(id);
     progress.souls.clear();
     for (const id of save.souls) progress.souls.add(id);
+    progress.hiddenKills.clear();
+    for (const floor of save.hiddenKills ?? []) progress.hiddenKills.add(floor);
     for (const relic of world.relics) relic.read = progress.lore.has(relic.loreId);
     world.materials.restore(save.materials);
     world.salvage.restore(save.salvage.map((s) => (s === null ? null : 'baseId' in s ? { kind: 'item', item: toItem(s) } : { kind: 'core', core: toCore(s) })));

@@ -34,6 +34,8 @@ export class PlayerProgress {
   readonly notebook = new Set<string>();
   /** 聽過的魔王魂魄 ID（每個魂魄只飄出一次） */
   readonly souls = new Set<string>();
+  /** 打倒過隱藏魔王的樓層（每一層第一次給自由點數） */
+  readonly hiddenKills = new Set<number>();
   private _version = 0;
 
   get version(): number {

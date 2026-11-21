@@ -995,7 +995,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
   - 灌注格（`ShopSystem.infusionWeapon / infusionStaff / infusionCores`，Command `ShopInfusionSlotClick`、`ShopInfuse`）會存檔，關閉面板時放回背包；存檔 v26（欄位都是選填，舊存檔不用轉換）。元素反應與特效尚未實作。
 - **角色成長：屬性由技能等級決定（設計者 2026-11-21）**：升級不再給自由屬性點（`balance.attributes.pointsPerLevel = 0`）。每招每升一級給 3 點屬性，分配寫在 `balance.attributes.skillGrants`（類別 → 路線 → T1～T4，順序同屬性清單：攻擊、生命、魔力、防禦、暴擊）；攻擊招式以攻擊為主，戰術與輔助是生命、防禦的來源。
   - `AttributeSystem`：`fromSkills(id)`（技能給的，跟著 `Actor.skillRanks`，不存檔）＋ `points(id)`（自己分配的自由點數，存檔）＝ `total(id)`；學技能、洗技能點時自動重新套用。洗技能點只收回技能給的屬性，自由點數不動。
-  - 自由點數只來自《井誌》（`balance.book.attributePoints`）等獎勵；重置自由點數的費用是洗技能點的兩倍（`balance.respec.attributes`）。暴擊的點數上限解開。
+  - 自由點數的來源（`balance.attributes.freePoints`）：每往下一層 1 點（第 1 層不算）、第一次打倒 5～30 層的魔王各 2 點、每一層第一次打倒隱藏魔王 2 點（`PlayerProgress.hiddenKills`，存檔 v27），另有《井誌》全收集（`balance.book.attributePoints`）。應得總數由 `earnedFreePoints()` 依進度算出，存檔修復用它核對（舊角色照進度補發）；重置自由點數的費用是洗技能點的兩倍（`balance.respec.attributes`）。暴擊的點數上限解開。
   - 舊存檔：`SaveRepair` 發現自己分配的點數超過現在的總數（0，或《井誌》全收集的 20）就全部重置。
   - 還沒跟上的：角色成長模擬頁的「屬性點模擬」、魔王模擬器與難度模擬的預設角色仍用舊的自由分配。
 - **背包整理**：依裝備類別（武器 → 頭盔 → 盔甲 → 手套 → 鞋子 → 戒指 → 護身符）→ 物品等級高到低 → 稀有度高到低，藥水合併放最後。物品格邊框依稀有度上色（普通灰、魔法藍、稀有黃、傳奇橘）。Tooltip 顯示物品等級與賣出價格。

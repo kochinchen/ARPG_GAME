@@ -70,6 +70,9 @@ export const balance: z.input<typeof BalanceSchema> = {
   // 第 20 層（Lv29，32 級技能）共 96 點（原本自由分配 84 點）；全拿攻擊最多 74 點（近戰 +37%，原本 +42%）
   attributes: {
     pointsPerLevel: 0,
+    // 自由點數：每往下一層 1 點（到第 20 層 19 點、第 35 層 34 點）；第一次打倒 5～30 層的魔王各 2 點（共 12 點）；
+    // 每一層第一次打倒隱藏魔王 2 點（牠越深越強，不一定拿得到）。可以拿來補技能沒給的生命、魔力、防禦
+    freePoints: { perFloor: 1, boss: 2, bossFloors: [5, 10, 15, 20, 25, 30], hiddenBoss: 2 },
     skillPointsPerRank: 3,
     // 順序：攻擊、生命、魔力、防禦、暴擊；每條路線 T1 → T4
     skillGrants: {

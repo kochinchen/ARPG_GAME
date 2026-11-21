@@ -234,10 +234,12 @@ describe('《井誌》的獎勵', () => {
     expect(world.progress.attributePoints).toBe(before + 20);
 
     const save = SaveMapper.capture(world, '2026-01-01T00:00:00.000Z');
-    expect(repairSave(structuredClone(save), data).data.attributes.unspent).toBe(before + 20);
+    // 存檔修復照進度核對自由點數：這個世界直接建在第 30 層，修復時會補上樓層與魔王的點數（29 層 + 6 隻魔王 × 2）
+    const full = repairSave(structuredClone(save), data).data.attributes.unspent;
+    expect(full).toBe(before + 20 + 29 + 12);
     const missing = structuredClone(save);
     missing.lore.pop();
-    expect(repairSave(missing, data).data.attributes.unspent).toBe(before);
+    expect(repairSave(missing, data).data.attributes.unspent).toBe(full - 20);
   });
 
   it('設定的鎧甲都存在且是橘裝', () => {
