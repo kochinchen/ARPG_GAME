@@ -37,6 +37,7 @@ import { figureScale } from './figure/FigureModel';
 import { MinimapView, type MinimapMarker } from './views/MinimapView';
 import type { DepthProxy, ThreeFigure, ThreeWorld } from './three/ThreeWorld';
 import { lightRadius, PlayerLightView } from './views/PlayerLightView';
+import { SIGHT, SightMap, sightRadius } from './SightMap';
 
 /**
  * 每幀唯讀讀取 GameWorld，同步 PixiJS 畫面。不修改任何遊戲狀態。
@@ -87,6 +88,9 @@ export class Renderer {
   private readonly playerLight = new PlayerLightView();
   /** 滾輪縮放的目標倍率（鏡頭平滑地接近） */
   private zoomTarget = 1;
+  /** 主角的視線（牆擋住的看不到）：換樓層重建；snapSight = 下一幀直接到位不淡入 */
+  private sight: SightMap;
+  private snapSight = true;
 
   constructor(
     private readonly app: Application,
@@ -98,8 +102,11 @@ export class Renderer {
     private readonly three: ThreeWorld | null = null,
   ) {
     this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world), world.map.setPieces);
+    this.sight = new SightMap(world.nav);
     this.effects = new EffectLayer(projection, this.objectLayer);
+    this.effects.sight = (p) => this.sight.isVisible(p);
     this.interactables = new InteractableLayer(projection, this.objectLayer, data);
+    this.interactables.revealed = (p) => this.sight.wasSeen(p);
     this.setPieces = new SetPieceLayer(projection, this.objectLayer);
     this.setPieces.rebuild(world.map.setPieces, corpsesOf(world));
     this.devices = new DeviceLayer(projection, this.objectLayer);
@@ -145,6 +152,8 @@ export class Renderer {
       this.tileMap.destroy();
       this.tileMap = new TileMapView(projection, world.nav, this.objectLayer, world.floors.def?.theme, arenaOf(world), world.map.setPieces);
       this.worldLayer.addChildAt(this.tileMap.floor, 0);
+      this.sight = new SightMap(world.nav);
+      this.snapSight = true;
       this.syncThreeMap();
       this.setPieces.rebuild(world.map.setPieces, corpsesOf(world));
       this.markers.rebuild(world.checkpoints.checkpoints);
@@ -431,6 +440,7 @@ export class Renderer {
     this.tileMap.threeMode = this.threeOn;
     const t = this.tileMap.theme;
     if (!this.three) return;
+    this.three.setSight(this.sight);
     // 頂替邊牆的建築：占地裡的牆格不畫（由建築的正面當牆；碰撞照舊）
     const cell = this.world.nav.cell;
     const covering = this.world.ruins.buildings.filter((b) => b.kind === 'wall');
@@ -439,7 +449,7 @@ export class Renderer {
       : this.tileMap.wallCells;
     this.three.setMap(walls, this.world.nav.cell, this.tileMap.lightSpots, { style: t.wall, accent: t.accent, glow: t.glow }, this.tileMap.floorTriangles, this.tileMap.underWallTriangles);
     // 地底古城的遺跡（牆外的建築、石板、骷髏）：只有 Three.js 畫法
-    const ruins = ruinsTriangles(this.world.ruins, t.wallLeft, (x, y) => this.world.nav.isWalkableAt(x, y));
+    const ruins = ruinsTriangles(this.world.ruins, t.wallLeft, t.floorA, (x, y) => this.world.nav.isWalkableAt(x, y));
     this.three.setRuins(
       ruins.buildings.map(({ building: b, build }) => ({ x: b.x, y: b.y, w: b.w, d: b.d, height: BUILDING_HEIGHT, build })),
       ruins.ground,
@@ -512,9 +522,17 @@ export class Renderer {
     this.playerLight.container.visible = !this.threeOn;
     this.playerLight.update(vec2(ps.x * k + origin.x, ps.y * k + origin.y), this.world.progress.level, this.app.screen.width, this.app.screen.height, k);
 
+    // 視線：主角換格子時重算，地形的明暗淡入淡出（剛進樓層直接到位）
+    this.sight.update(playerPos, sightRadius(lightRadius(this.world.progress.level)), dt);
+    if (this.snapSight) {
+      this.sight.snap();
+      this.snapSight = false;
+    }
     this.syncActorViews(alpha, dt);
-    this.tileMap.update(playerPos, dt);
-    this.minimap.update(playerPos, this.minimapMarkers());
+    const wasSeen = (p: Vec2) => this.sight.wasSeen(p);
+    this.tileMap.update(playerPos, dt, wasSeen);
+    this.setPieces.reveal(wasSeen);
+    this.minimap.update(playerPos, this.minimapMarkers(), this.sight.takeFresh());
     this.interactables.setHovered(this.hoveredInteractable);
     this.interactables.update(this.world.groundItems, this.world.chests, this.world.exit, this.world.floors.floor + 1, this.world.stairsUp, this.world.merchants, this.app.ticker.deltaMS / 1000, this.world.waypoints, this.world.relics, this.world.stashChests, this.world.stashNear);
     this.markers.update(this.app.ticker.lastTime);
@@ -625,6 +643,7 @@ export class Renderer {
   }
 
   private syncActorViews(alpha: number, dt: number): void {
+    const player = this.world.player;
     const alive = new Set<ActorId>();
     // 畫面外的角色不更新模型（多面體每幀重畫，只畫看得到的）
     const { width, height } = this.app.screen;
@@ -644,6 +663,8 @@ export class Renderer {
       if (!view) {
         view = new ActorView(this.projection, actor, this.data.balance.combat.maxResist);
         if (this.threeOn) view.setThree(this.three);
+        // 敵人從看不到的狀態開始（在視線內就淡入），不會先閃一下
+        if (actor !== player && this.world.targeting.isHostile(player.faction, actor.faction)) view.sightAlpha = 0;
         this.actorViews.set(actor.id, view);
         this.actorGround.addChild(view.ground);
       }
@@ -660,7 +681,10 @@ export class Renderer {
         view.setOutfit(outfit);
       }
       const position = lerp(actor.prevPosition, actor.position, alpha);
-      const shown = onScreen(position);
+      // 視線：牆後面（隔壁通道）的敵人看不到，走出視線時淡出、走進來時淡入；自己人一律看得到
+      const hidden = actor !== player && this.world.targeting.isHostile(player.faction, actor.faction) && !this.sight.isVisible(position);
+      view.sightAlpha = hidden ? Math.max(0, view.sightAlpha - dt * SIGHT.fadeSpeed) : Math.min(1, view.sightAlpha + dt * SIGHT.fadeSpeed);
+      const shown = onScreen(position) && view.sightAlpha > 0;
       // 飛斧重甲：迴旋斧飛在空中時手上沒有斧頭
       view.setThrown(thrown.has(actor.id));
       view.update(actor, position, dt, shown);

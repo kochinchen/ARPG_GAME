@@ -7,6 +7,7 @@ import { DEFAULT_MONSTER_MODEL, MONSTER_MODELS } from '../figure/Monsters';
 import { figureScale } from '../figure/FigureModel';
 import { PolyFigure } from '../figure/PolyFigure';
 import { SEATED_AGAINST_WALL } from '../figure/SetPieceProps';
+import { CORPSE_TINT } from '../views/CorpseLayer';
 
 /**
  * 地底古城的遺跡（Three.js 畫法；game/world/Ruins.ts 決定位置）：
@@ -980,9 +981,17 @@ export function patchTriangles(patch: StonePatch, era: RuinEra, walkable: (x: nu
 const PX_PER_UNIT = 32 * Math.SQRT2;
 const PX_PER_HEIGHT = 16 * Math.sqrt(6);
 const MODEL_HEIGHT = 0.94 / PX_PER_HEIGHT;
-/** 骷髏貼在地上、光影不明顯，只上白色（設計者 2026-11-19） */
-const BONE_WHITE = 0xf2efe6;
-const BONE_GRAY = 0xa8a49a;
+/**
+ * 顏色照倒下的怪物屍體（模型原色 × 變暗，見 REMAINS_TINT），再沾一點這層地板的泥土色；
+ * 跟著樓層的光線，不比活的骷髏怪亮（設計者 2026-11-21：原本的白色太白）
+ */
+const DIRT = 0.22;
+/** 屍體的 CORPSE_TINT 照在一整片骷髏上幾乎是黑影，這裡取屍體與活骷髏的中間（約 ×0.65） */
+const REMAINS_TINT = mixColor(CORPSE_TINT, 0xffffff, 0.4);
+const multiply = (a: number, b: number) => {
+  const c = (s: number) => Math.round((((a >> s) & 0xff) * ((b >> s) & 0xff)) / 255);
+  return (c(16) << 16) | (c(8) << 8) | c(0);
+};
 
 /**
  * 地上的骷髏：直接用遊戲裡的骷髏戰士與縮小 20% 的重甲骷髏（設計者 2026-11-19），
@@ -995,7 +1004,7 @@ const REMAINS = [
   { id: 'enemy.armored_skeleton', radius: 0.42 * 0.8 },
 ] as const;
 
-export function skeletonTriangles(s: SkeletonRemains, push: PushTriangle): void {
+export function skeletonTriangles(s: SkeletonRemains, dirt: number, push: PushTriangle): void {
   const kind = REMAINS[s.seed % REMAINS.length]!;
   const model = MONSTER_MODELS[kind.id] ?? DEFAULT_MONSTER_MODEL;
   const figure = new PolyFigure(model, figureScale(model, kind.radius * s.size));
@@ -1003,9 +1012,7 @@ export function skeletonTriangles(s: SkeletonRemains, push: PushTriangle): void 
   figure.sink = {
     begin() {},
     triangle(a, b, c, color) {
-      // 一律上成白色：原本暗的地方（盔甲、破布）只稍微灰一點，看得出形狀
-      const lum = (((color >> 16) & 0xff) * 0.3 + ((color >> 8) & 0xff) * 0.59 + (color & 0xff) * 0.11) / 255;
-      push(map(a), map(b), map(c), mixColor(BONE_WHITE, BONE_GRAY, (1 - lum) * 0.55));
+      push(map(a), map(b), map(c), mixColor(multiply(color, REMAINS_TINT), dirt, DIRT));
     },
     end() {},
   };
@@ -1015,15 +1022,15 @@ export function skeletonTriangles(s: SkeletonRemains, push: PushTriangle): void 
   else figure.update(5, { facing, moving: false, alive: false });
 }
 
-/** 整層的遺跡三角形：每棟建築一組（擋住玩家時變半透明）；石板一組；骷髏另一組（白色、幾乎不受光影影響） */
-export function ruinsTriangles(layout: RuinsLayout, rock: number, walkable: (x: number, y: number) => boolean) {
+/** 整層的遺跡三角形：每棟建築一組（擋住玩家時變半透明）；石板一組；骷髏另一組（屍體的顏色，不投、不收影子） */
+export function ruinsTriangles(layout: RuinsLayout, rock: number, dirt: number, walkable: (x: number, y: number) => boolean) {
   return {
     buildings: layout.buildings.map((b) => ({ building: b, build: (push: PushTriangle) => buildingTriangles(b, layout.era, rock, push) })),
     ground: (push: PushTriangle) => {
       for (const p of layout.patches) patchTriangles(p, layout.era, walkable, push);
     },
     remains: (push: PushTriangle) => {
-      for (const s of layout.skeletons) skeletonTriangles(s, push);
+      for (const s of layout.skeletons) skeletonTriangles(s, dirt, push);
     },
   };
 }

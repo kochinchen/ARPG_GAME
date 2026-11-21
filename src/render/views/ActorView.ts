@@ -257,6 +257,9 @@ export class ActorView {
     this.lungeTime = LUNGE_DURATION;
   }
 
+  /** 視線（SightMap）：走出主角視線的怪物淡出（0～1；Renderer 設定） */
+  sightAlpha = 1;
+
   /** visible = 在畫面內；畫面外只更新位置，不重畫模型 */
   update(actor: Actor, position: Vec2, dt: number, visible = true): void {
     const s = this.projection.toScreen(position);
@@ -309,7 +312,7 @@ export class ActorView {
     this.body.alpha = this.hovered ? 0.85 : 1;
     // 冰凍、暈眩、燃燒、緩速等狀態以顏色表示
     this.body.tint = STATUS_TINTS.find(([kind]) => actor.statuses.some((st) => st.kind === kind))?.[1] ?? 0xffffff;
-    this.container.alpha = (actor.alive ? 1 : 0.6) * (actor.underground ? 1 - actor.air : 1);
+    this.container.alpha = (actor.alive ? 1 : 0.6) * (actor.underground ? 1 - actor.air : 1) * this.sightAlpha;
     this.ground.alpha = this.container.alpha;
     this.facingMark.visible = actor.alive;
     this.three?.place(position, { x: this.body.position.x, y: this.body.position.y + this.lift }, this.lift, this.body.tint, this.container.alpha * this.body.alpha, true, actor.growth);

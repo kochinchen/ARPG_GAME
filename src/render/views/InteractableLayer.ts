@@ -1,7 +1,7 @@
 import { coreName } from '../../game/items/CoreDescriber';
 import { Container, Graphics, Text } from 'pixi.js';
 import type { IsoProjection } from '../../core/math/IsoProjection';
-import type { Vec2 } from '../../core/math/Vec2';
+import { vec2, type Vec2 } from '../../core/math/Vec2';
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { Chest, ExitPortal, GroundItem, Interactable, Merchant, Relic, StairsUp, StashChest, Waypoint } from '../../game/entities/Interactable';
 import { CHESTS, chestPose } from '../figure/Chest';
@@ -90,6 +90,8 @@ export class InteractableLayer {
   /** 名稱標籤，畫在最上層避免被牆擋住 */
   readonly labels = new Container();
   private readonly views = new Map<number, View>();
+  /** 視線（SightMap）：看過的地方才顯示寶箱、地上的物品、出口等；null = 全部顯示 */
+  revealed: ((p: Vec2) => boolean) | null = null;
   private hoveredId: number | null = null;
   /** 本層商人的多面體模型（待機動畫每幀更新；key = 商人 id） */
   private readonly merchantFigures = new Map<number, PolyFigure>();
@@ -136,7 +138,7 @@ export class InteractableLayer {
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i]!;
       const view = this.views.get(item.id);
-      if (!view) continue;
+      if (!view || !view.container.visible) continue;
       const dx = s.x - view.container.x;
       const dy = s.y - view.container.y;
       if (view.hit.some((r) => dx >= r.x && dx <= r.x + r.width && dy >= r.y && dy <= r.y + r.height)) return item.id;
@@ -221,8 +223,15 @@ export class InteractableLayer {
     for (const [id, view] of this.views) {
       if (seen.has(id)) {
         const m = view.model;
+        const shown = this.revealed?.(m?.position ?? this.projection.toWorld(vec2(view.container.x, view.container.y))) ?? true;
+        if (shown !== view.container.visible) {
+          view.container.visible = shown;
+          if (view.floor) view.floor.visible = shown;
+          if (view.label) view.label.visible = shown;
+          if (view.labelBack) view.labelBack.visible = shown;
+        }
         if (m) this.modelContainers.add(view.container);
-        m?.three?.place(m.position, { x: 0, y: 0 }, 0, m.figure.graphics.tint as number, 1, true);
+        m?.three?.place(m.position, { x: 0, y: 0 }, 0, m.figure.graphics.tint as number, 1, shown);
         continue;
       }
       view.model?.three?.dispose();

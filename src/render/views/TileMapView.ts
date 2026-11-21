@@ -49,6 +49,8 @@ interface Light {
   /** 地上的光暈（畫在地板層；Three.js 畫法改用真的點光源，不畫） */
   pool?: Graphics;
   phase: number;
+  /** 火把的 World 位置（視線：看過才顯示） */
+  world?: Vec2;
 }
 
 /** 以格子座標產生的固定亂數（0～1）：同一張地圖每次畫出來都一樣 */
@@ -201,7 +203,7 @@ export class TileMapView {
   }
 
   /** 牆：畫面外不顯示；在玩家前方、蓋住玩家身體的改為半透明；光源閃爍 */
-  update(playerPos: Vec2, dt = 1 / 60): void {
+  update(playerPos: Vec2, dt = 1 / 60, revealed: ((p: Vec2) => boolean) | null = null): void {
     this.time += dt;
     this.tiles.visible = !this.threeMode;
     // 競技場的紋路緩慢脈動
@@ -224,9 +226,11 @@ export class TileMapView {
     for (const light of this.lights) {
       const alpha = 0.75 + 0.2 * Math.sin(this.time * 7 + light.phase) + 0.08 * Math.sin(this.time * 13.7 + light.phase * 2);
       light.graphics.alpha = alpha;
+      const shown = !light.world || !revealed || revealed(light.world);
+      light.graphics.visible = shown;
       if (light.pool) {
         light.pool.alpha = alpha;
-        light.pool.visible = !this.threeMode;
+        light.pool.visible = !this.threeMode && shown;
       }
     }
   }
@@ -321,7 +325,7 @@ export class TileMapView {
       }
       glow.zIndex = this.projection.depth(world);
       this.objectLayer.addChild(glow);
-      this.lights.push({ graphics: glow, pool, phase: r * 100 });
+      this.lights.push({ graphics: glow, pool, phase: r * 100, world });
       this.lightSpots.push({ position: world, color: t.glow, height: TORCH_FLAME_HEIGHT });
       return;
     }

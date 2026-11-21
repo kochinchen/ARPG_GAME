@@ -477,6 +477,9 @@ export class EffectLayer {
     view.glows = !model.three && view.style.type === 'orb';
   }
 
+  /** 視線（SightMap）：視線外的投射物不畫；null = 全部畫 */
+  sight: ((p: Vec2) => boolean) | null = null;
+
   private syncProjectiles(projectiles: readonly Projectile[], alpha: number, dt: number): void {
     const seen = new Set<number>();
     for (const p of projectiles) {
@@ -511,6 +514,12 @@ export class EffectLayer {
       const s = this.projection.toScreen(pos);
       view.container.position.set(s.x, s.y);
       view.container.zIndex = this.projection.depth(pos);
+      const shown = this.sight?.(pos) ?? true;
+      view.container.visible = shown;
+      if (!shown) {
+        view.model?.three?.place(pos, { x: 0, y: 0 }, 0, 0xffffff, 1, false);
+        continue;
+      }
       this.flying.push({ id: p.id, skillId: originalSkillId(p.skill.id), position: vec2(pos.x, pos.y), direction: p.direction });
       if (view.glows) this.glows.push({ skillId: originalSkillId(p.skill.id), id: `o${p.id}`, kind: 'orb', position: vec2(pos.x, pos.y), height: FLIGHT_HEIGHT, color: view.style.color, strength: 0.6 + 0.4 * Math.min(1, view.style.size), radius: p.radius * view.style.size, t: 0 });
       // 依畫面上的飛行方向轉動（箭、冰槍朝前；火球的火舌往後拖）

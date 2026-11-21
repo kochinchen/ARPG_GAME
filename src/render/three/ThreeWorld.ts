@@ -10,6 +10,7 @@ import type { FxGlow } from '../views/EffectLayer';
 import { ThreeFx } from './ThreeFx';
 import { ThreeSkillFx } from './ThreeSkillFx';
 import type { FxFlying } from '../views/EffectLayer';
+import type { SightMap } from '../SightMap';
 
 /**
  * Three.js 畫法（預設；選單「立體光影」可關掉，開發版按 G 切換）：
@@ -314,7 +315,6 @@ interface RuinMesh {
  * 遺跡的建築在牆外的黑暗裡：照不到燭光也要隱約看得到輪廓，自己帶一點點原色的光（RUIN_GLOW × 頂點顏色）
  */
 const RUIN_GLOW = 0.16;
-const REMAINS_GLOW = 0.55;
 function ruinMaterial(fade: boolean, glow = RUIN_GLOW): THREE.MeshStandardMaterial {
   const material = figureMaterial();
   if (fade) Object.assign(material, { transparent: true, opacity: FADE_ALPHA });
@@ -322,6 +322,31 @@ function ruinMaterial(fade: boolean, glow = RUIN_GLOW): THREE.MeshStandardMateri
     shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += vColor.rgb * ${glow.toFixed(3)};`);
   };
   material.customProgramCacheKey = () => `ruin-glow-${glow}`;
+  return material;
+}
+
+/**
+ * 視線的迷霧（SightMap）：地板、牆、地上的骷髏依所在格子的亮度變暗——視線內正常、來過的地方變暗、
+ * 沒看過的全黑。所有用到的材質共用同一份 uniform，換樓層只換貼圖。
+ */
+const fogUniforms = {
+  fogMap: { value: null as THREE.Texture | null },
+  /** World (x, y) → 貼圖座標 */
+  fogScale: { value: new THREE.Vector2(1, 1) },
+  /** 0 = 不套迷霧（還沒有視線資料） */
+  fogOn: { value: 0 },
+};
+function fogged<T extends THREE.Material>(material: T): T {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, fogUniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform vec2 fogScale;\nvarying vec2 vFogUv;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\n\tvFogUv = (modelMatrix * vec4(transformed, 1.0)).xz * fogScale;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D fogMap;\nuniform float fogOn;\nvarying vec2 vFogUv;')
+      .replace('#include <dithering_fragment>', '\tgl_FragColor.rgb *= mix(1.0, texture2D(fogMap, vFogUv).r, fogOn);\n#include <dithering_fragment>');
+  };
+  material.customProgramCacheKey = () => `sight-fog-${material.type}`;
   return material;
 }
 
@@ -370,7 +395,7 @@ export class ThreeWorld {
   private readonly floors: THREE.Mesh[] = [];
   /** 地圖分區（見 REGION）：中心的 World 座標 */
   private readonly regions = new Map<string, { group: THREE.Group; x: number; z: number }>();
-  private readonly floorMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });
+  private readonly floorMaterial = fogged(new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide }));
   /** 牆底下的地板：不受光，只留一點點原本的顏色（接近背景的暗） */
   private readonly underWallMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, color: 0x141414, side: THREE.DoubleSide });
   private lightSpots: { position: Vec2; color: number; height: number }[] = [];
@@ -380,8 +405,8 @@ export class ThreeWorld {
   private readonly ruinGround: THREE.Mesh[] = [];
   private readonly ruinMaterial = ruinMaterial(false);
   private readonly ruinFadeMaterial = ruinMaterial(true);
-  /** 地上的白骨：光影不明顯，大部分是自己的白色（REMAINS_GLOW），不投、不收影子 */
-  private readonly remainsMaterial = ruinMaterial(false, REMAINS_GLOW);
+  /** 地上的骷髏：和屍體一樣照一般的光（不自己發光），不投、不收影子 */
+  private readonly remainsMaterial = fogged(figureMaterial());
   /** 深度板（見 DepthProxy）：共用一個單位正方形，左下角為原點 */
   private readonly proxies: THREE.Mesh[] = [];
   private readonly proxyGeometry = new THREE.PlaneGeometry(1, 1).translate(0.5, 0.5, 0);
@@ -393,9 +418,12 @@ export class ThreeWorld {
    * 所有牆共用的材質（不透明 / 蓋住玩家時的半透明）：每塊牆各一個材質的話，
    * 每畫一塊都要重新上傳所有光源的參數，一層樓幾千塊牆就很慢
    */
-  private readonly wallMaterial = figureMaterial();
-  private readonly wallFadeMaterial = Object.assign(figureMaterial(), { transparent: true, opacity: FADE_ALPHA });
+  private readonly wallMaterial = fogged(figureMaterial());
+  private readonly wallFadeMaterial = fogged(Object.assign(figureMaterial(), { transparent: true, opacity: FADE_ALPHA }));
   private time = 0;
+  /** 視線（迷霧貼圖的來源）與貼圖 */
+  private sight: SightMap | null = null;
+  private fogTexture: THREE.DataTexture | null = null;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -464,6 +492,25 @@ export class ThreeWorld {
   }
 
   /** gpu：用 GPU 蒙皮（見 GPU_SKINNING）；corpse：屍體（不投、不收影子） */
+  /** 換樓層：視線的迷霧貼圖（每格一個像素，直接用 SightMap 的亮度陣列） */
+  setSight(sight: SightMap | null): void {
+    this.sight = sight;
+    this.fogTexture?.dispose();
+    this.fogTexture = null;
+    fogUniforms.fogOn.value = 0;
+    if (!sight) return;
+    const texture = new THREE.DataTexture(sight.fog, sight.width, sight.height, THREE.RedFormat, THREE.UnsignedByteType);
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.unpackAlignment = 1;
+    texture.needsUpdate = true;
+    this.fogTexture = texture;
+    fogUniforms.fogMap.value = texture;
+    fogUniforms.fogScale.value.set(1 / (sight.cell * sight.width), 1 / (sight.cell * sight.height));
+    fogUniforms.fogOn.value = 1;
+    sight.dirty = false;
+  }
+
   createFigure(gpu = false, corpse = false): ThreeFigure {
     const figure = new ThreeFigure(this.projection, gpu, corpse);
     this.scene.add(figure.group);
@@ -604,6 +651,10 @@ export class ThreeWorld {
    */
   renderFloor(center: Vec2, width: number, height: number, zoom: number, player: Vec2, candleRadius: number, background: number, dt: number): void {
     this.time += dt;
+    if (this.sight?.dirty && this.fogTexture) {
+      this.fogTexture.needsUpdate = true;
+      this.sight.dirty = false;
+    }
     const target = new THREE.Vector3(center.x, 0, center.y);
     const cam = this.camera;
     const u = PX_PER_UNIT * zoom;

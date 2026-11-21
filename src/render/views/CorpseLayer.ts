@@ -8,7 +8,7 @@ import { PolyFigure, type FigureState } from '../figure/PolyFigure';
 import type { ThreeFigure, ThreeWorld } from '../three/ThreeWorld';
 
 /** 屍體整體變暗（像打開的寶箱，一看就知道已經處理過） */
-const CORPSE_TINT = 0x6a6660;
+export const CORPSE_TINT = 0x6a6660;
 /** 倒地動作播多久之後固定不動（PolyFigure 的死亡過程是 1.25 秒） */
 const FALL_TIME = 1.3;
 

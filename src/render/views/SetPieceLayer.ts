@@ -13,6 +13,7 @@ interface PropView {
   position: Vec2;
   three: ThreeFigure | null;
   redraw: () => void;
+  shown: boolean;
 }
 
 /**
@@ -59,11 +60,22 @@ export class SetPieceLayer {
     container.addChild(figure.graphics);
     this.objectLayer.addChild(container);
     const pose = prop.pose ?? { rootY: 0, angles: {} };
-    const view: PropView = { container, figure, position, three: null, redraw: () => figure.showPose(pose, facing) };
+    const view: PropView = { container, figure, position, three: null, redraw: () => figure.showPose(pose, facing), shown: true };
     view.redraw();
     this.containers.add(container);
     this.views.push(view);
     this.attach(view);
+  }
+
+  /** 視線：看過的地方才顯示擺設（沒看過的地方全黑，擺設不能自己浮在黑暗裡） */
+  reveal(wasSeen: (p: Vec2) => boolean): void {
+    for (const view of this.views) {
+      const shown = wasSeen(view.position);
+      if (shown === view.shown) continue;
+      view.shown = shown;
+      view.container.visible = shown;
+      view.three?.place(view.position, { x: 0, y: 0 }, 0, 0xffffff, 1, shown);
+    }
   }
 
   setThree(world: ThreeWorld | null): void {
@@ -77,7 +89,7 @@ export class SetPieceLayer {
     view.three = this.three?.createFigure() ?? null;
     view.figure.sink = view.three;
     view.redraw();
-    view.three?.place(view.position, { x: 0, y: 0 }, 0, 0xffffff, 1, true);
+    view.three?.place(view.position, { x: 0, y: 0 }, 0, 0xffffff, 1, view.shown);
   }
 
   private clear(): void {

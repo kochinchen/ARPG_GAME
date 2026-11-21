@@ -4,8 +4,6 @@ import type { DungeonTheme } from '../../data/schema/floor';
 import type { NavGrid } from '../../game/movement/NavGrid';
 import { THEMES } from '../themes';
 
-/** 走過的地方周圍多遠會被揭開（World 單位） */
-const REVEAL_RADIUS = 9;
 /** 小地圖：畫面右上角的大小（px）與比例（1 World 單位 = 幾 px，等角投影） */
 const SMALL = { width: 220, height: 150, scale: 2.4 };
 /** 全地圖（Tab）：畫面中央半透明 */
@@ -24,7 +22,7 @@ const MARKER_COLORS: Record<MinimapMarker['kind'], number> = {
 };
 
 /**
- * 迷霧探索的小地圖：一開始只顯示起始區域，走過的地方逐步揭開（本層結束前保留，不存檔）。
+ * 迷霧探索的小地圖：只揭開主角看過的地方（視線被牆擋住的不算）（本層結束前保留，不存檔）。
  * 以等角投影畫成菱形；右上角是以玩家為中心的小地圖，按 Tab 切換成畫面中央的全地圖。
  */
 export class MinimapView {
@@ -39,7 +37,6 @@ export class MinimapView {
   private readonly floorColor: number;
   private readonly wallColor: number;
   private large = false;
-  private lastCell = { x: -999, y: -999 };
 
   constructor(
     private readonly nav: NavGrid,
@@ -67,8 +64,9 @@ export class MinimapView {
     this.container.destroy({ children: true });
   }
 
-  update(playerPos: Vec2, markers: readonly MinimapMarker[]): void {
-    this.reveal(playerPos);
+  /** fresh：這一幀新看到的格子（SightMap.takeFresh） */
+  update(playerPos: Vec2, markers: readonly MinimapMarker[], fresh: readonly number[]): void {
+    this.reveal(fresh);
     const scale = this.large ? LARGE_SCALE : SMALL.scale;
     const { width, height } = this.screen();
     const w = this.large ? width - 80 : SMALL.width;
@@ -98,31 +96,23 @@ export class MinimapView {
     }
   }
 
-  /** 揭開玩家周圍的格子：新揭開的地板與牆邊畫到地形上 */
-  private reveal(playerPos: Vec2): void {
+  /** 揭開新看到的格子（SightMap 的視線，牆擋住的看不到）：地板與牆邊畫到地形上 */
+  private reveal(cells: readonly number[]): void {
     const nav = this.nav;
-    const cell = nav.cellOf(playerPos);
-    // 同一格內不重複計算
-    if (cell.x === this.lastCell.x && cell.y === this.lastCell.y) return;
-    this.lastCell = cell;
-    const r = Math.ceil(REVEAL_RADIUS / nav.cell);
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (dx * dx + dy * dy > r * r) continue;
-        const x = cell.x + dx;
-        const y = cell.y + dy;
-        if (!nav.inBounds(x, y) || this.revealed[y * nav.width + x]) continue;
-        this.revealed[y * nav.width + x] = 1;
-        const walkable = nav.isWalkable(x, y);
-        // 牆只畫鄰接地板的邊，岩壁深處保持空白
-        if (!walkable && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ex, ey]) => nav.isWalkable(x + ex!, y + ey!))) continue;
-        const c = nav.cell;
-        const corners = [vec2(x * c, y * c), vec2((x + 1) * c, y * c), vec2((x + 1) * c, (y + 1) * c), vec2(x * c, (y + 1) * c)].flatMap((v) => {
-          const s = iso(v);
-          return [s.x, s.y];
-        });
-        this.terrain.poly(corners).fill({ color: walkable ? this.floorColor : this.wallColor });
-      }
+    const c = nav.cell;
+    for (const i of cells) {
+      if (this.revealed[i]) continue;
+      this.revealed[i] = 1;
+      const x = i % nav.width;
+      const y = Math.floor(i / nav.width);
+      const walkable = nav.isWalkable(x, y);
+      // 牆只畫鄰接地板的邊，岩壁深處保持空白
+      if (!walkable && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ex, ey]) => nav.isWalkable(x + ex!, y + ey!))) continue;
+      const corners = [vec2(x * c, y * c), vec2((x + 1) * c, y * c), vec2((x + 1) * c, (y + 1) * c), vec2(x * c, (y + 1) * c)].flatMap((v) => {
+        const s = iso(v);
+        return [s.x, s.y];
+      });
+      this.terrain.poly(corners).fill({ color: walkable ? this.floorColor : this.wallColor });
     }
   }
 }
