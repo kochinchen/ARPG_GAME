@@ -205,15 +205,17 @@ export function heroinePoses(parts: readonly PartDef[], hip: number): PoseSet {
   ];
 
   // ─────────────── 死亡：失去平衡 → 膝蓋跪倒 → 劍落地 → 身體倒下 → 頭跟著 → 馬尾最後落地 ───────────────
-  const onGround = (angles: Angles, rootZ = 0): Pose => grounded(parts, hip, { rootY: 0, rootZ, angles: { ...HANG, ...angles } }, 'all');
+  // 倒地時讓「身體」貼地：手上的武器不算（武器尖端朝下時會把整個人撐離地面，影子就落在身體下方像另一個人）
+  const BODY = [...new Set(parts.map((p) => p.joint))].filter((j) => j !== 'weapon' && j !== 'weaponL');
+  const onGround = (angles: Angles, rootZ = 0): Pose => grounded(parts, hip, { rootY: 0, rootZ, angles: { ...HANG, ...angles } }, BODY);
   const deathKeys = [
     stance({ chest: [-0.3, 0.2, 0.1], head: [-0.35, 0.1, 0.1], upperArmR: [0.3, 0, -0.35], upperArmL: [0.2, 0, 0.35], forearmR: [0.3, 0, 0], handR: [-0.4, 0, 0], shinL: [0.2, 0, 0], shinR: [0.3, 0, 0] }, -1),
     // 跪倒：膝蓋著地、身體往前垂
     onGround({ root: [0.15, -0.2, 0], torso: [0.2, 0, 0], chest: [0.25, 0.1, 0], head: [0.3, 0.1, 0], thighL: [-0.35, 0, 0.1], shinL: [1.75, 0, 0], footL: [-0.6, 0, 0], thighR: [-0.1, 0, -0.1], shinR: [1.9, 0, 0], footR: [-0.4, 0, 0], upperArmR: [0.15, 0, -0.2], forearmR: [0.2, 0, 0], handR: [0.4, 0, 0], weapon: [0.9, 0, 0.6], upperArmL: [0.1, 0, 0.3] }),
     // 劍脫手、身體往側前方倒
     onGround({ root: [0.9, -0.3, 0.4], torso: [0.2, 0, 0], chest: [0.2, 0.1, 0.1], head: [0.3, 0.3, 0.2], thighL: [-0.6, 0, 0.2], shinL: [1.3, 0, 0], thighR: [-0.4, 0, -0.1], shinR: [1.2, 0, 0], upperArmR: [-0.6, 0, -0.9], forearmR: [0.3, 0, 0], handR: [0.6, 0, 0], weapon: [1.5, 0, 1.2], upperArmL: [-0.8, 0, 0.9] }),
-    // 倒地：側身趴在地上、頭側向一邊
-    onGround({ root: [1.45, -0.35, 0.25], torso: [0.05, 0, 0], chest: [0.05, 0.1, 0], head: [0.2, 0.9, 0.2], neck: [0, 0.2, 0], thighL: [-0.5, 0, 0.25], shinL: [0.9, 0, 0], thighR: [-0.2, 0, -0.15], shinR: [0.5, 0, 0], upperArmR: [-1.2, 0, -1.1], forearmR: [0.4, 0, 0], handR: [0.5, 0, 0], weapon: [1.5, 0, 1.4], upperArmL: [-1.6, 0, 0.9], forearmL: [0.5, 0, 0], ponytail: [1.2, 0, 0.4], ponytail2: [0.1, 0, 0] }),
+    // 倒地：整個人平趴在地板上（胸口、臀部、大腿都貼地；設計者 2026-11-21：原本膝蓋撐著、身體懸空），頭側向一邊，武器平躺在手邊
+    onGround({ root: [1.62, -0.35, 0.15], torso: [-0.05, 0, 0], chest: [-0.05, 0.1, 0], head: [0.2, 0.9, 0.2], neck: [0, 0.2, 0], thighL: [-0.05, 0, 0.25], shinL: [0.3, 0, 0], thighR: [0.05, 0, -0.15], shinR: [0.12, 0, 0], upperArmR: [-1.5, 0, -1.2], forearmR: [0.4, 0, 0], handR: [0.5, 0, 0], weapon: [1.5, 0, 0], upperArmL: [-1.6, 0, 1.1], forearmL: [0.5, 0, 0], ponytail: [1.2, 0, 0.4], ponytail2: [0.1, 0, 0] }),
   ];
 
   const castWindup = stance({ chest: [-0.15, 0.1, 0], upperArmL: [-0.3, 0, -0.6], forearmL: [-2, 0, 0], upperArmR: [-0.1, 0, -0.3], forearmR: [-0.4, 0, 0], handR: [-0.5, 0, 0] });
