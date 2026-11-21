@@ -46,7 +46,7 @@ const STATUS_NAMES: Record<string, string> = {
 };
 
 /** 把巢狀效果攤平成傷害行；count = 外層造成的命中次數 */
-function walk(effects: readonly EffectDef[], count: number, caster: Actor, target: Actor, data: Pick<DataRegistry, 'balance' | 'enemies'>, info: SkillInfo): void {
+function walk(effects: readonly EffectDef[], count: number, caster: Actor, target: Actor, data: Pick<DataRegistry, 'balance' | 'enemies'>, info: SkillInfo, floor = 1): void {
   for (const e of effects) {
     switch (e.type) {
       case 'damage': {
@@ -60,7 +60,7 @@ function walk(effects: readonly EffectDef[], count: number, caster: Actor, targe
               : e.base
                 ? rankRange(e.base, 1)
                 : [0, 0];
-        const taken = mitigationMultiplier(target, e.element, 0, data.balance);
+        const taken = mitigationMultiplier(target, e.element, 0, data.balance, floor);
         const line = {
           element: e.element,
           rawMin: baseMin * multiplier,
@@ -91,21 +91,21 @@ function walk(effects: readonly EffectDef[], count: number, caster: Actor, targe
         break;
       case 'projectile':
         // 迴旋的飛斧：去程、回程各打一次
-        walk(e.onHit, count * rankValue(e.count, 1) * (e.returns ? 2 : 1), caster, target, data, info);
+        walk(e.onHit, count * rankValue(e.count, 1) * (e.returns ? 2 : 1), caster, target, data, info, floor);
         break;
       case 'delayed':
-        walk(e.effects, count * e.repeat, caster, target, data, info);
+        walk(e.effects, count * e.repeat, caster, target, data, info, floor);
         break;
       case 'zone':
-        walk(e.effects, count * Math.max(1, Math.round(rankValue(e.duration, 1) / e.interval)), caster, target, data, info);
+        walk(e.effects, count * Math.max(1, Math.round(rankValue(e.duration, 1) / e.interval)), caster, target, data, info, floor);
         break;
       case 'dash':
-        walk(e.onPath, count, caster, target, data, info);
+        walk(e.onPath, count, caster, target, data, info, floor);
         break;
       case 'area':
       case 'chain':
       case 'leap':
-        walk(e.effects, count, caster, target, data, info);
+        walk(e.effects, count, caster, target, data, info, floor);
         break;
       default:
         break;
@@ -175,7 +175,7 @@ export function buildPhaseTable(def: EnemyDef, enemy: Actor, data: Pick<DataRegi
 }
 
 /** 這隻敵人的所有技能，用牠目前的屬性（含階段加成）與主角目前的防禦計算 */
-export function buildSkillTable(def: EnemyDef, caster: Actor, target: Actor, data: Pick<DataRegistry, 'balance' | 'enemies' | 'skills'>): SkillInfo[] {
+export function buildSkillTable(def: EnemyDef, caster: Actor, target: Actor, data: Pick<DataRegistry, 'balance' | 'enemies' | 'skills'>, floor = 1): SkillInfo[] {
   const sets = phaseSkillSets(def);
   const ids = [...new Set(sets.flat())];
   const barrage = def.phases.flatMap((p) => p.clawCycle?.closedBarrage.skills ?? []);
@@ -200,7 +200,7 @@ export function buildSkillTable(def: EnemyDef, caster: Actor, target: Actor, dat
       fullHit: 0,
       extras: [],
     };
-    walk(skill.effects, 1, caster, target, data, info);
+    walk(skill.effects, 1, caster, target, data, info, floor);
     if (skill.minRange !== undefined) info.extras.unshift(`目標 ${skill.minRange} 格外才用`);
     info.extras = [...new Set(info.extras)];
     info.fullHit = info.lines.reduce((s, l) => s + ((l.min + l.max) / 2) * l.count, 0);

@@ -273,7 +273,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
         <h3>承受對手普通攻擊</h3>
         <div class="kv" id="defCards"></div>
         <div class="verdict" id="defVerdict"></div>
-        <p class="small muted">只計普通攻擊；怪物的特殊技能倍率較高，實際更危險。防禦減傷 = 防禦 ÷（防禦 + 100）。</p>
+        <p class="small muted">只計普通攻擊；怪物的特殊技能倍率較高，實際更危險。主角的防禦減傷 = 防禦 ÷（防禦 + 100 + 8 ×（樓層 − 1）），越深的樓層同樣的防禦擋掉的比例越低；怪物的防禦仍是 防禦 ÷（防禦 + 100）。只擋物理傷害，元素傷害看抗性。</p>
       </div>
     </div>
   </section>
@@ -447,6 +447,8 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     };
   }
   const mitig = (def) => S.defenseMitigation(def, B.combat.defenseConstant);
+  // 主角被打時，常數每深一層多 defenseConstantPerFloor（2026-11-21）：用上面選的樓層
+  const mitigPlayer = (def) => S.defenseMitigation(def, B.combat.defenseConstant + (B.combat.defenseConstantPerFloor || 0) * (Math.max(1, st.floor) - 1));
 
   // ───────── Skill damage (single target) ─────────
   function collectDamage(effects, rankN, times, out) {
@@ -552,7 +554,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     const ps = playerStats(), en = enemyStats();
     const hp = ps.get('maxHp'), mp = ps.get('maxMana'), def = ps.get('defense');
     const cards = [
-      ['最大 HP', r0(hp), true], ['最大 MP', r0(mp), true], ['防禦', r0(def)], ['物理減傷', pct(mitig(def))],
+      ['最大 HP', r0(hp), true], ['最大 MP', r0(mp), true], ['防禦', r0(def)], [`物理減傷（第 ${st.floor} 層）`, pct(mitigPlayer(def))],
       ['暴擊率', pct(Math.min(1, ps.get('critChance')))], ['HP 回復 / 秒', f1(hp * ps.get('hpRegenPct'))],
       ['脫戰 HP 回復 / 秒', f1(hp * ps.get('hpRegenPct') * B.player.outOfCombatRegen.multiplier)],
       ['MP 回復 / 秒', f1(ps.get('manaRegen') + mp * ps.get('manaRegenPct'))], ['移動速度', f1(ps.get('moveSpeed'))],
@@ -560,7 +562,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     ];
     $('statCards').innerHTML = cards.map(([k, v, hi]) => `<div><span>${k}</span><b class="${hi ? 'hi' : ''}">${v}</b></div>`).join('');
 
-    const red = 1 - mitig(def);
+    const red = 1 - mitigPlayer(def);
     const lo = en.dmg[0] * red, hi = en.dmg[1] * red, avg = (lo + hi) / 2;
     const dps = avg * en.attackSpeed;
     const hitsWorst = Math.ceil(hp / Math.max(1, Math.round(hi)));

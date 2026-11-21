@@ -674,6 +674,8 @@ export const BalanceSchema = z.strictObject({
     critMultiplier: z.number().min(1),
     /** 減傷 = defense / (defense + defenseConstant) */
     defenseConstant: z.number().positive(),
+    /** 主角這一邊被打時，上面的常數每深一層多多少（怪物不變）：越深的樓層，同樣的防禦擋掉的比例越低 */
+    defenseConstantPerFloor: z.number().min(0),
     /** 元素抗性上限 */
     maxResist: z.number().min(0).max(1),
     /** 閃避上限 */

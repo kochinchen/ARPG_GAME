@@ -435,6 +435,9 @@ export const balance: z.input<typeof BalanceSchema> = {
   combat: {
     critMultiplier: 1.5,
     defenseConstant: 100,
+    // 設計者 2026-11-21：主角的防禦減傷在深層太高（法師防禦 437 在第 22 層擋掉 81%，一般怪只打 12）。
+    // 主角被打時常數每層 +8（第 22 層 268：同樣的防禦擋 62%，一般怪打 24）；怪物被打時維持 100
+    defenseConstantPerFloor: 8,
     maxResist: 0.75,
     maxDodge: 0.5,
     maxControlResist: 0.75,

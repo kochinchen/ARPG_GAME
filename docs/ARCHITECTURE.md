@@ -993,6 +993,7 @@ Lv 26 升級：+技能點，+1 開通次數 → 可開通 Ranged T4，或先保�
   - 點數 = 每顆純核的核階（T1～T5 = 1～5）＋核色加分（白 0、藍 0.2、黃 0.4、紫 0.6、橘 0.8）；繼承率在 `min(90%, 10% + 2.5% × 點數)`～`min(100%, 25% + 3% × 點數)` 之間擲骰（`fusion` 亂數序列）。
   - 武器記錄 `ItemInstance.infusion { spellPower, rate }`（來源法杖的法術強度、繼承率），重新灌注時各自取較高的：不會變差，純核照樣消耗。`itemStats` 把 `spellPower × rate` 加進武器的基礎法術強度，不被主倍率與熔核放大；孔數不變，之後鑲的熔核照常作用。
   - 灌注格（`ShopSystem.infusionWeapon / infusionStaff / infusionCores`，Command `ShopInfusionSlotClick`、`ShopInfuse`）會存檔，關閉面板時放回背包；存檔 v26（欄位都是選填，舊存檔不用轉換）。元素反應與特效尚未實作。
+- **主角的防禦減傷隨樓層變低（設計者 2026-11-21）**：減傷 = 防禦 ÷（防禦 + 常數）。怪物被打時常數固定 `balance.combat.defenseConstant`（100）；主角這一邊（主角與機關）被打時每深一層多 `defenseConstantPerFloor`（8，第 22 層是 268），由 `defenseConstantFor()` 決定，`DamagePipeline` 帶目前樓層。原因：裝備的防禦到深層有四五百，固定的 100 讓減傷衝到八成以上，物理系的怪幾乎打不痛（法師防禦 437 在第 22 層：81% → 62%，一般怪普攻 12 → 24）。只擋物理傷害，元素傷害看抗性。
 - **角色成長：屬性由技能等級決定（設計者 2026-11-21）**：升級不再給自由屬性點（`balance.attributes.pointsPerLevel = 0`）。每招每升一級給 3 點屬性，分配寫在 `balance.attributes.skillGrants`（類別 → 路線 → T1～T4，順序同屬性清單：攻擊、生命、魔力、防禦、暴擊）；攻擊招式以攻擊為主，戰術與輔助是生命、防禦的來源。
   - `AttributeSystem`：`fromSkills(id)`（技能給的，跟著 `Actor.skillRanks`，不存檔）＋ `points(id)`（自己分配的自由點數，存檔）＝ `total(id)`；學技能、洗技能點時自動重新套用。洗技能點只收回技能給的屬性，自由點數不動。
   - 自由點數的來源（`balance.attributes.freePoints`）：每往下一層 1 點（第 1 層不算）、第一次打倒 5～30 層的魔王各 2 點、每一層第一次打倒隱藏魔王 2 點（`PlayerProgress.hiddenKills`，存檔 v27），另有《井誌》全收集（`balance.book.attributePoints`）。應得總數由 `earnedFreePoints()` 依進度算出，存檔修復用它核對（舊角色照進度補發）；重置自由點數的費用是洗技能點的兩倍（`balance.respec.attributes`）。暴擊的點數上限解開。

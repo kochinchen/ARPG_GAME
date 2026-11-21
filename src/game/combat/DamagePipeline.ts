@@ -28,15 +28,24 @@ const RESIST: Record<Exclude<Element, 'physical'>, StatId> = {
   poison: 'poisonResist',
 };
 
-/** 防禦 / 抗性 / 減傷之後剩下的傷害比例（魔王模擬器的技能表也用它預估傷害） */
-export function mitigationMultiplier(target: Actor, element: Element, armorPenetration: number, balance: Balance): number {
+/**
+ * 防禦減傷公式裡的常數：怪物被打時固定；主角這一邊（主角與機關）被打時每深一層多 defenseConstantPerFloor，
+ * 深層同樣的防禦擋掉的比例比較低（設計者 2026-11-21）。
+ */
+export function defenseConstantFor(faction: Actor['faction'], floor: number, balance: Balance): number {
+  const { defenseConstant, defenseConstantPerFloor } = balance.combat;
+  return faction === 'enemy' ? defenseConstant : defenseConstant + defenseConstantPerFloor * (Math.max(1, floor) - 1);
+}
+
+/** 防禦 / 抗性 / 減傷之後剩下的傷害比例（魔王模擬器的技能表也用它預估傷害）；floor = 目前樓層（主角的防禦減傷看樓層） */
+export function mitigationMultiplier(target: Actor, element: Element, armorPenetration: number, balance: Balance, floor = 1): number {
   // 抗性 0～上限；弱化從有效抗性直接減掉（魔抗 50% − 20% = 30%），可以減到負數（抗性 0 − 25% = 多受 25%）
   const expose = target.statuses.find((s) => s.kind === 'expose');
   const resist = (stat: StatId) => Math.min(balance.combat.maxResist, Math.max(0, target.stats.get(stat)));
   let multiplier: number;
   if (element === 'physical') {
     const defense = target.stats.get('defense') * (1 - Math.min(1, Math.max(0, armorPenetration)));
-    multiplier = (1 - defenseMitigation(defense, balance.combat.defenseConstant)) * (1 - (resist('physicalResist') - (expose?.physicalMagnitude ?? 0)));
+    multiplier = (1 - defenseMitigation(defense, defenseConstantFor(target.faction, floor, balance))) * (1 - (resist('physicalResist') - (expose?.physicalMagnitude ?? 0)));
   } else {
     multiplier = 1 - (resist(RESIST[element]) - (expose && EXPOSED.has(element) ? expose.magnitude : 0));
   }
@@ -56,6 +65,8 @@ export class DamagePipeline implements DamageDealer {
     private readonly rng: Rng,
     private readonly events: GameEventBus,
     private readonly statuses: StatusEffectSystem,
+    /** 目前樓層（主角的防禦減傷看樓層；測試地圖為 1） */
+    private readonly floor: () => number = () => 1,
   ) {}
 
   apply(request: DamageRequest): DamageResult | null {
@@ -84,7 +95,7 @@ export class DamagePipeline implements DamageDealer {
     const isCrit = this.rng.chance(critChance);
     if (isCrit) amount *= this.balance.combat.critMultiplier + target.stats.get('critDamageTaken') + (source?.stats.get('critDamageBonus') ?? 0);
 
-    if (!exact) amount *= mitigationMultiplier(target, request.element, request.armorPenetration ?? 0, this.balance);
+    if (!exact) amount *= mitigationMultiplier(target, request.element, request.armorPenetration ?? 0, this.balance, this.floor());
     // 站在城垛後面（震地獸背上的弓手）：非近戰的直接傷害打折
     if (!exact && target.cover < 1 && !isDot && request.melee !== true) amount *= target.cover;
     if (!isDot) {

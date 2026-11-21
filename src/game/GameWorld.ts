@@ -313,7 +313,7 @@ export class GameWorld {
     pathfinder.hazardCost = data.balance.enemyTactics.avoidZones.pathCost;
     this.targeting = new TargetingService(this.actors);
     this.statuses = new StatusEffectSystem(this.events, data.balance.combat.maxControlResist);
-    this.pipeline = new DamagePipeline(data.balance, streams.combat, this.events, this.statuses);
+    this.pipeline = new DamagePipeline(data.balance, streams.combat, this.events, this.statuses, () => this.floors?.floor ?? 1);
     this.scheduler = new EffectScheduler(this.targeting, this.nav, streams.scheduler);
     const executor = new SkillExecutor(new EffectRegistry(), {
       pipeline: this.pipeline,

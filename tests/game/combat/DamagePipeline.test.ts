@@ -3,7 +3,7 @@ import { EventBus } from '../../../src/core/EventBus';
 import { Rng } from '../../../src/core/Rng';
 import { DataRegistry } from '../../../src/data/DataRegistry';
 import { gameData } from '../../../src/data';
-import { DamagePipeline, defenseMitigation, mitigationMultiplier } from '../../../src/game/combat/DamagePipeline';
+import { DamagePipeline, defenseConstantFor, defenseMitigation, mitigationMultiplier } from '../../../src/game/combat/DamagePipeline';
 import { StatusEffectSystem } from '../../../src/game/combat/StatusEffectSystem';
 import { vec2 } from '../../../src/core/math/Vec2';
 import type { GameEvents } from '../../../src/game/GameEvents';
@@ -199,5 +199,27 @@ describe('DamagePipeline', () => {
     };
     expect(roll(42)).toEqual(roll(42));
     expect(roll(42)).not.toEqual(roll(43));
+  });
+});
+
+describe('主角的防禦減傷隨樓層變低（設計者 2026-11-21）', () => {
+  it('常數：怪物固定 100；主角這一邊每深一層 +8（第 22 層 268）', () => {
+    expect(defenseConstantFor('enemy', 22, balance)).toBe(K);
+    expect(defenseConstantFor('player', 1, balance)).toBe(K);
+    expect(defenseConstantFor('player', 0, balance)).toBe(K);
+    expect(defenseConstantFor('player', 22, balance)).toBe(K + 8 * 21);
+  });
+
+  it('防禦 437 的主角：第 1 層擋 81%，第 22 層擋 62%，第 30 層擋 57%；同樣防禦的怪物不受樓層影響', () => {
+    const left = (faction: 'player' | 'enemy', floor: number) => {
+      const target = makeActor({ faction, stats: { defense: 437.3 } });
+      return mitigationMultiplier(target, 'physical', 0, balance, floor);
+    };
+    expect(1 - left('player', 1)).toBeCloseTo(0.814, 3);
+    expect(1 - left('player', 22)).toBeCloseTo(0.62, 2);
+    expect(1 - left('player', 30)).toBeCloseTo(0.568, 2);
+    expect(1 - left('enemy', 22)).toBeCloseTo(0.814, 3);
+    // 元素傷害不看防禦，樓層也沒有影響
+    expect(mitigationMultiplier(makeActor({ faction: 'player', stats: { defense: 437.3 } }), 'fire', 0, balance, 22)).toBe(1);
   });
 });

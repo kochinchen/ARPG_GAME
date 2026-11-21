@@ -7,7 +7,7 @@ import { gameData } from '../../data';
 import { DataRegistry } from '../../data/DataRegistry';
 import type { Element } from '../../data/schema/common';
 import type { EnemyDef } from '../../data/schema/enemy';
-import { defenseMitigation } from '../../game/combat/DamagePipeline';
+import { defenseConstantFor, defenseMitigation } from '../../game/combat/DamagePipeline';
 import { STAT_LABELS } from '../../game/items/ItemDescriber';
 import type { GameCommand } from '../../game/Commands';
 import { InputManager } from '../../input/InputManager';
@@ -308,7 +308,7 @@ async function start(): Promise<void> {
 
   const refreshPlayer = () => {
     const s = world.player.stats;
-    const mitigation = defenseMitigation(s.get('defense'), data.balance.combat.defenseConstant);
+    const mitigation = defenseMitigation(s.get('defense'), defenseConstantFor('player', world.floors.floor, data.balance));
     const r = (stat_: Parameters<typeof s.get>[0]) => pct(Math.min(data.balance.combat.maxResist, Math.max(0, s.get(stat_))));
     el('playerInfo').innerHTML = `<div class="stats">
       ${stat('最大生命', fmt(world.player.maxHp))}
@@ -325,7 +325,7 @@ async function start(): Promise<void> {
   const refreshSkills = () => {
     const phase = world.bosses.phaseOf(enemy);
     const maxHp = world.player.maxHp;
-    const rows = buildSkillTable(def, enemy, world.player, data).map((s) => {
+    const rows = buildSkillTable(def, enemy, world.player, data, world.floors.floor).map((s) => {
       const damage = s.lines.length === 0
         ? '<span class="sub">無傷害</span>'
         : s.lines.map((l) => `<div class="e-${l.element}">${ELEMENT_NAMES[l.element]} ${fmt(l.min)}–${fmt(l.max)}${l.count > 1 ? ` ×${l.count}` : ''}</div>`).join('');

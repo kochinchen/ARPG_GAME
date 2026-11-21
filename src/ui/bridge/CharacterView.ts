@@ -1,6 +1,6 @@
 import type { DataRegistry } from '../../data/DataRegistry';
 import type { StatId } from '../../data/schema/common';
-import { defenseMitigation } from '../../game/combat/DamagePipeline';
+import { defenseConstantFor, defenseMitigation } from '../../game/combat/DamagePipeline';
 import { itemStats } from '../../game/items/ItemStats';
 import type { GameWorld } from '../../game/GameWorld';
 import { SPELL_SPREAD } from '../../game/skills/effects/DamageEffect';
@@ -56,7 +56,8 @@ export function buildCharacterView(world: GameWorld, data: DataRegistry): Charac
   const attrs = world.attributes;
   const stats = world.player.stats;
   const format = (value: number, percent: boolean) => (percent ? pct(value) : num(value));
-  const mitigation = defenseMitigation(stats.get('defense'), data.balance.combat.defenseConstant);
+  // 主角的防禦減傷看目前樓層（越深擋掉的比例越低）
+  const mitigation = defenseMitigation(stats.get('defense'), defenseConstantFor('player', world.floors.floor, data.balance));
   const outOfCombat = data.balance.player.outOfCombatRegen;
   const weaponMin = stats.get('damageMin');
   const weaponMax = stats.get('damageMax');
