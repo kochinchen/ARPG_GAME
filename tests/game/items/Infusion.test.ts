@@ -170,7 +170,7 @@ describe('商人的灌注格', () => {
     place('weapon', 0, { kind: 'item', item: staff });
     place('staff', 0, { kind: 'item', item: sword });
     place('cores', 0, { kind: 'core', core: pure(5, 'normal', { pure: false }) });
-    expect(failures).toEqual(['cannotInfuse', 'cannotInfuse', 'cannotInfuse']);
+    expect(failures).toEqual(['notInfusable', 'notStaff', 'notStaffPureCore']);
     expect(world.shop.infusionWeapon).toBeNull();
     world.cursor.set(null);
 

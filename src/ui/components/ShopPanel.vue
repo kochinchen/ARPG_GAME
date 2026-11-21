@@ -279,7 +279,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
     </section>
 
     <section v-else-if="tab === 'infusion'" class="list">
-      <p class="note">武器灌注：把法杖的法術強度灌進劍、斧、弓。每次要一把法杖（會消失）與 2～6 顆法杖純核（四把法杖熔成的靈核）；重新灌注也要放一把新的法杖。純核的核階越高、顆數越多，繼承率越高；重新灌注不會讓數值變差。灌注前先取下武器上的熔核，孔數不變。</p>
+      <p class="note">武器灌注：把法杖的法術強度灌進劍、斧、弓。每次要一把法杖（會消失）與 2～6 顆法杖純核——一定要四格都放法杖熔成的，說明上會寫「法杖純核：可用於武器灌注」；一般的靈核不行。重新灌注也要放一把新的法杖。純核的核階越高、顆數越多，繼承率越高；重新灌注不會讓數值變差。灌注前先取下武器上的熔核，孔數不變。</p>
       <div class="fusion-grid">
         <div class="fusion-jewelry">
           <button

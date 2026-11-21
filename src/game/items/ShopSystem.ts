@@ -329,7 +329,7 @@ export class ShopSystem {
     if (zone === 'cores') {
       if (index < 0 || index >= this.infusionCores.length) return;
       if (held && (held.kind !== 'core' || !isStaffPureCore(held.core, this.data.balance))) {
-        this.fail('cannotInfuse');
+        this.fail('notStaffPureCore');
         return;
       }
       const current = this.infusionCores[index] ?? null;
@@ -340,7 +340,7 @@ export class ShopSystem {
         const type = held.kind === 'item' ? this.data.items.get(held.item.baseId).weaponType : undefined;
         const ok = zone === 'staff' ? type === 'staff' : type === 'sword' || type === 'axe' || type === 'bow';
         if (!ok) {
-          this.fail('cannotInfuse');
+          this.fail(zone === 'staff' ? 'notStaff' : 'notInfusable');
           return;
         }
       }

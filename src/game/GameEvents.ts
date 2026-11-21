@@ -218,7 +218,7 @@ export interface GameEvents {
   /** 洗點完成（gold = 花費）或失敗（金幣不足、沒有點數可以重置） */
   Respec: { kind: 'skills' | 'attributes'; gold: number };
   RespecFailed: { kind: 'skills' | 'attributes'; reason: 'gold' | 'nothing' };
-  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotSell' | 'cannotFuse' | 'needsConfirm' | 'cannotInfuse' };
+  ShopFailed: { reason: 'gold' | 'inventoryFull' | 'potionCap' | 'far' | 'cannotAscend' | 'materials' | 'cannotReroll' | 'cannotDrill' | 'cannotSell' | 'cannotFuse' | 'needsConfirm' | 'cannotInfuse' | 'notStaffPureCore' | 'notInfusable' | 'notStaff' };
   /** 玩家把手上的物品丟在地上 */
   ItemDropped: { position: Vec2 };
 }

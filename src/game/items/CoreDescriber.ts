@@ -95,6 +95,7 @@ export function describeCore(core: CoreInstance, data: Data): CoreDescription {
   const { secondary, brand } = coreExtraTexts(core, data);
   const notes: string[] = [];
   if (core.pure) notes.push('純核（四件同一類，屬性多一條）');
+  if (core.pure && core.types.length === 1 && core.types[0] === data.balance.infusion.coreType) notes.push('法杖純核：可用於武器灌注');
   if (core.types.length === 2) notes.push(`混核：每個部位兩個核種各一條，數值 ×${data.balance.fusion.mixedMultiplier}`);
   notes.push(matchBonusText(data));
   return {

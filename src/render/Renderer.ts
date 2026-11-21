@@ -300,6 +300,9 @@ export class Renderer {
         cannotSell: '熔核不能賣',
         cannotFuse: '無法融合',
         cannotInfuse: '無法灌注',
+        notStaffPureCore: '這顆不是法杖純核：要四把法杖熔成的才行',
+        notInfusable: '武器格只能放劍、斧或弓',
+        notStaff: '法杖格只能放法杖',
         needsConfirm: '請先確認投入傳奇 / 神話裝備',
       }[e.reason];
       say(world.player.position, text, PALETTE.manaText);
