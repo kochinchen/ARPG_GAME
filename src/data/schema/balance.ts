@@ -693,6 +693,7 @@ export const BalanceSchema = z.strictObject({
    */
   respec: z.strictObject({
     skills: z.strictObject({ base: z.number().positive(), exponent: z.number().positive() }),
+    /** 自由屬性點：base × 等級^exponent 是「每一點」的費用，乘上已經分配的點數 */
     attributes: z.strictObject({ base: z.number().positive(), exponent: z.number().positive() }),
   }),
 });

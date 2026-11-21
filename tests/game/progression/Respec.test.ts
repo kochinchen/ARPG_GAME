@@ -22,8 +22,13 @@ describe('洗點', () => {
     const at20 = world.respecCost('skills');
     world.progress.level = 40;
     expect(world.respecCost('skills')).toBeGreaterThan(at20 * 2);
-    // 自由點數很少（《井誌》等獎勵），重置比技能貴（設計者 2026-11-21）
-    expect(world.respecCost('attributes')).toBe(world.respecCost('skills') * 2);
+    // 自由屬性點照分配的點數收費（設計者 2026-11-21）：沒分配是 0，每多一點多一份
+    expect(world.respecCost('attributes')).toBe(0);
+    world.attributes.allocate('vitality', 1);
+    const one = world.respecCost('attributes');
+    expect(one).toBe(Math.round(4 * 40 ** 1.5));
+    world.attributes.allocate('defense', 9);
+    expect(world.respecCost('attributes')).toBe(Math.round(4 * 40 ** 1.5 * 10));
   });
 
   it('重置屬性點：點數全部退回、加成移除、扣金幣', () => {

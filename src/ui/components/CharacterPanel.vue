@@ -9,7 +9,7 @@ const emit = defineEmits<{ close: [] }>();
 /** 洗點：重置屬性點（確認後送出） */
 async function respec(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
-  const ok = await ask({ title: '重置自由點數？', message: `花 ${props.view.respec.cost} 金幣，自己分配的自由點數全部退回，可以重新分配。技能給的屬性不受影響。`, confirmLabel: '重置' });
+  const ok = await ask({ title: '重置自由點數？', message: `花 ${props.view.respec.cost} 金幣（照已經分配的點數計算），自己分配的自由點數全部退回，可以重新分配。技能給的屬性不受影響。`, confirmLabel: '重置' });
   if (ok) gameBridge.send({ type: 'Respec', kind: 'attributes' });
 }
 
@@ -51,7 +51,7 @@ function add(e: MouseEvent, attribute: string) {
         :title="view.respec.affordable ? '自己分配的自由點數全部退回，可以重新分配' : '金幣不足'"
         @click="respec"
       >
-        重置屬性點 ● {{ view.respec.cost }}
+        重置自由點數 ● {{ view.respec.cost }}
       </button>
     </section>
 

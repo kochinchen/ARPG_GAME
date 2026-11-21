@@ -1611,7 +1611,9 @@ export class GameWorld {
 
   respecCost(kind: 'skills' | 'attributes'): number {
     const c = this.data.balance.respec[kind];
-    return Math.round(c.base * this.progress.level ** c.exponent);
+    // 自由屬性點：照「已經分配了幾點」算（每點 base × 等級^exponent），沒分配就是 0；技能點：整筆照等級算
+    const points = kind === 'attributes' ? [...this.progress.attributes.values()].reduce((sum, p) => sum + p, 0) : 1;
+    return Math.round(c.base * this.progress.level ** c.exponent * points);
   }
 
   /** 已用掉的技能點（起始免費的技能不算） */

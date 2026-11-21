@@ -445,10 +445,11 @@ export const balance: z.input<typeof BalanceSchema> = {
     maxBlock: 0.5,
     blockReduction: 0.6,
   },
-  // 洗點（技能 / 自由屬性點）：Lv10 約 1,900 / 3,800、Lv30 約 9,900 / 19,700、Lv50 約 21,200 / 42,400 金幣
+  // 洗點：技能點整筆 Lv10 約 1,900、Lv30 約 9,900、Lv50 約 21,200 金幣；自由屬性點照分配的點數算（見下）
   respec: {
     skills: { base: 60, exponent: 1.5 },
-    // 2026-11-21：自由點數很少（《井誌》20 點等），重置費用調成技能的兩倍
-    attributes: { base: 120, exponent: 1.5 },
+    // 2026-11-21：自由屬性點照「分配了幾點」收費，每點 4 × 等級^1.5（Lv30 一點約 660、Lv43 一點約 1,130；
+    // Lv43 把 29 點全部重置約 32,700）。沒分配的點數不算
+    attributes: { base: 4, exponent: 1.5 },
   },
 };
