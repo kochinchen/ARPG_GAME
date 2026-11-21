@@ -4,6 +4,7 @@ import { SKILL_BRANCHES, SKILL_CATEGORIES, SKILL_TIERS, type SkillCategory, type
 import { SKILL_CATEGORY_LABELS, SKILL_ROUTE_LABELS } from '../../data/skillTree';
 import type { GameWorld } from '../../game/GameWorld';
 import type { LearnBlock } from '../../game/skills/MasteryRule';
+import { skillGrantOf } from '../../game/progression/AttributeSystem';
 import { describeSkill } from '../../game/skills/SkillDescriber';
 
 export type { SkillCategory };
@@ -142,7 +143,11 @@ export function buildSkillTreeView(world: GameWorld, data: DataRegistry): SkillT
     const rank = tree.rank(skill.id);
     const check = tree.check(skill);
     const shown = Math.max(rank, 1);
-    const lines = (r: number) => describeSkill(skill, r, world.skills.manaCost(skill, r, player));
+    // 每升一級給的屬性（角色成長由技能決定）
+    const grant = Object.entries(skillGrantOf(skill, data))
+      .map(([id, n]) => `${balance.attributes.list.find((a) => a.id === id)?.name ?? id} +${n}`)
+      .join('、');
+    const lines = (r: number) => [...describeSkill(skill, r, world.skills.manaCost(skill, r, player)), ...(grant ? [`每升一級：${grant}`] : [])];
     return {
       id: skill.id,
       name: skill.name,

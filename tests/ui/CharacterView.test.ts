@@ -32,6 +32,7 @@ describe('角色面板：抗性與特殊屬性', () => {
     world.player.stats.addModifier({ stat: 'spellDamageBonus', kind: 'flat', value: -0.2, source: 'test' });
     const view = buildCharacterView(world, data);
     expect(view.stats.find((s) => s.label === '法術傷害加成')!.value).toBe('-20%');
-    expect(view.stats.find((s) => s.label === '近戰傷害加成')!.value).toBe('+0%');
+    // 起始的重砍、火球各 1 級給 4 點攻擊：近戰 +2%
+    expect(view.stats.find((s) => s.label === '近戰傷害加成')!.value).toBe('+2%');
   });
 });

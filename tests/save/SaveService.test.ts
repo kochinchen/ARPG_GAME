@@ -156,8 +156,8 @@ describe('Migration v1 → v2（屬性點）', () => {
     expect(v2.character.level).toBe(10);
     // 金幣在 v25 ×2（金幣尺度），其他不變
     expect(v2.character.gold).toBe(10);
-    // 修復：與目前規則一致（每級 3 點）時不做改動
-    expect(repairSave({ ...v2, skills: { ...v2.skills, unspentPoints: 2 + 9 } }, data).data.attributes).toEqual({ unspent: 27, allocated: {} });
+    // 修復：現在升級不給自由點數（屬性由技能等級決定），補發的點數歸零
+    expect(repairSave({ ...v2, skills: { ...v2.skills, unspentPoints: 2 + 9 } }, data).data.attributes).toEqual({ unspent: 0, allocated: {} });
   });
 });
 

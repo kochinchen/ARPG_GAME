@@ -389,6 +389,8 @@ export class GameWorld {
     this.skillTree = new SkillTree(this.player, this.progress, data, this.events);
     this.experience = new ExperienceSystem(this.player, this.progress, this.skillTree, data, this.events, this.targeting, () => this.floors.floor);
     this.attributes = new AttributeSystem(this.player, this.progress, data, this.events);
+    // 起始技能（重砍、火球各 1 級）給的屬性
+    this.attributes.apply();
     this.inventory = new Inventory(
       p.inventoryCols,
       p.inventoryRows,

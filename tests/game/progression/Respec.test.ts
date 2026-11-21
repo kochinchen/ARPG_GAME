@@ -22,7 +22,8 @@ describe('洗點', () => {
     const at20 = world.respecCost('skills');
     world.progress.level = 40;
     expect(world.respecCost('skills')).toBeGreaterThan(at20 * 2);
-    expect(world.respecCost('attributes')).toBeLessThan(world.respecCost('skills'));
+    // 自由點數很少（《井誌》等獎勵），重置比技能貴（設計者 2026-11-21）
+    expect(world.respecCost('attributes')).toBe(world.respecCost('skills') * 2);
   });
 
   it('重置屬性點：點數全部退回、加成移除、扣金幣', () => {

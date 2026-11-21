@@ -111,10 +111,22 @@ export const BalanceSchema = z.strictObject({
   /** 屬性點：每升一級得到 pointsPerLevel 點，自由加到 list 中的項目 */
   attributes: z
     .strictObject({
+      /** 升級給的自由屬性點（2026-11-21 起為 0：屬性改由技能等級決定；自由點數只來自《井誌》等獎勵） */
       pointsPerLevel: z.int().nonnegative(),
       list: z.array(AttributeDefSchema).min(1),
+      /** 技能每升一級給幾點屬性 */
+      skillPointsPerRank: z.int().nonnegative(),
+      /**
+       * 每招每升一級給的屬性：類別 → 路線 → T1～T4，各是一組點數，順序同 list（攻擊、生命、魔力、防禦、暴擊）。
+       * 每組加總必須等於 skillPointsPerRank。
+       */
+      skillGrants: z.record(z.string(), z.record(z.string(), z.array(z.array(z.int().nonnegative())).length(4))),
     })
-    .refine((a) => new Set(a.list.map((d) => d.id)).size === a.list.length, '屬性 ID 不可重複'),
+    .refine((a) => new Set(a.list.map((d) => d.id)).size === a.list.length, '屬性 ID 不可重複')
+    .refine(
+      (a) => Object.values(a.skillGrants).every((routes) => Object.values(routes).every((tiers) => tiers.every((g) => g.length === a.list.length && g.reduce((x, y) => x + y, 0) === a.skillPointsPerRank))),
+      'skillGrants 每組要和屬性數量相同，加總等於 skillPointsPerRank',
+    ),
   /** 樓層難度：第 N 層的倍率 = 1 + 每層成長 × (N - 1) */
   difficulty: z.strictObject({
     hpPerFloor: z.number().nonnegative(),

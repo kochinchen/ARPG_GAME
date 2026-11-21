@@ -183,28 +183,25 @@ describe('SaveMapper：過場影片', () => {
 });
 
 describe('SaveMapper：屬性點', () => {
-  it('已分配與未分配的屬性點還原；加成重新套用', () => {
+  it('升級不給自由點數（2026-11-21）：存檔沒有自由點數；技能給的屬性讀檔後照技能等級重新套用', () => {
     const { world } = progressedWorld();
     const { world: loaded, save } = reload(world);
-    expect(save.attributes).toEqual({ unspent: 21 - 10, allocated: { vitality: 6, crit: 4 } });
-    expect(loaded.attributes.points('vitality')).toBe(6);
-    expect(loaded.progress.attributePoints).toBe(11);
+    expect(save.attributes).toEqual({ unspent: 0, allocated: {} });
+    expect(world.attributes.fromSkills('attack')).toBeGreaterThan(0);
+    for (const id of ['attack', 'vitality', 'mana', 'defense', 'crit']) expect(loaded.attributes.fromSkills(id), id).toBe(world.attributes.fromSkills(id));
     expect(loaded.player.maxHp).toBeCloseTo(world.player.maxHp);
+    expect(loaded.player.stats.get('meleeDamageBonus')).toBeCloseTo(world.player.stats.get('meleeDamageBonus'));
   });
 
-  it('修復：屬性已移除 → 退點；超過上限 → 退回多出的；總數超過等級 → 全部重置', () => {
+  it('修復：屬性已移除 → 退點；舊角色自己分配的屬性點（原本每級 3 點）全部重置，屬性改由技能等級決定', () => {
     const base = SaveMapper.capture(progressedWorld().world, CREATED);
     const removed = structuredClone(base);
     removed.attributes.allocated['luck'] = 3;
-    removed.attributes.unspent -= 3;
     expect(repairSave(removed, data).data.attributes).toEqual(base.attributes);
 
-    const over = structuredClone(base);
-    over.character.level = 2;
-    over.character.xp = 0;
-    over.skills = { ...over.skills };
-    const fixed = repairSave(over, data).data.attributes;
-    expect(fixed).toEqual({ unspent: 3, allocated: {} });
+    const old = structuredClone(base);
+    old.attributes = { unspent: 11, allocated: { vitality: 6, crit: 4 } };
+    expect(repairSave(old, data).data.attributes).toEqual({ unspent: 0, allocated: {} });
   });
 });
 

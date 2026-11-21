@@ -57,14 +57,14 @@ describe('機關的共通規則', () => {
     p.stats.setBase('defense', 40);
     cast(world, commands, 'utility.powder_keg', 1, { x: 8, y: 3.5 });
     const keg = devicesOf(world)[0]!;
-    expect(keg.maxHp).toBeCloseTo(100);
+    expect(keg.maxHp).toBeCloseTo(p.maxHp * 0.1);
     expect(keg.stats.get('defense')).toBeCloseTo(4);
-    keg.hp = 50;
+    keg.hp = keg.maxHp / 2;
     p.stats.setBase('maxHp', 2000);
     p.stats.setBase('defense', 60);
     run(world, 0.1);
-    expect(keg.maxHp).toBeCloseTo(200);
-    expect(keg.hp).toBeCloseTo(100);
+    expect(keg.maxHp).toBeCloseTo(p.maxHp * 0.1);
+    expect(keg.hp).toBeCloseTo(keg.maxHp / 2);
     expect(keg.stats.get('defense')).toBeCloseTo(6);
   });
 
@@ -201,7 +201,8 @@ describe('火藥桶的燃燒（設計者 2026-10-30）', () => {
     run(world, 0.1);
     const burn = dummy.statuses.find((s) => s.kind === 'burn')!;
     expect(burn.remaining).toBeGreaterThan(2.8);
-    expect(burn.dps).toBeCloseTo(20);
+    // 起始技能給的 4 點攻擊讓攻擊力多 1.2
+    expect(burn.dps).toBeCloseTo(20, 0);
   });
 });
 

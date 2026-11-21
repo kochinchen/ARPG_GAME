@@ -9,7 +9,7 @@ const emit = defineEmits<{ close: [] }>();
 /** 洗點：重置屬性點（確認後送出） */
 async function respec(e: MouseEvent) {
   (e.currentTarget as HTMLElement).blur();
-  const ok = await ask({ title: '重置屬性點？', message: `花 ${props.view.respec.cost} 金幣，所有屬性點會退回，可以重新分配。`, confirmLabel: '重置' });
+  const ok = await ask({ title: '重置自由點數？', message: `花 ${props.view.respec.cost} 金幣，自己分配的自由點數全部退回，可以重新分配。技能給的屬性不受影響。`, confirmLabel: '重置' });
   if (ok) gameBridge.send({ type: 'Respec', kind: 'attributes' });
 }
 
@@ -24,7 +24,7 @@ function add(e: MouseEvent, attribute: string) {
   <aside class="panel" @pointerdown.stop @contextmenu.prevent>
     <header>
       <span>角色 · Lv {{ view.level }}</span>
-      <span class="points" :class="{ has: view.unspent > 0 }">屬性點 {{ view.unspent }}</span>
+      <span class="points" :class="{ has: view.unspent > 0 }">自由點數 {{ view.unspent }}</span>
       <button type="button" class="close" aria-label="關閉" @click="emit('close')">×</button>
     </header>
 
@@ -33,8 +33,8 @@ function add(e: MouseEvent, attribute: string) {
     <section class="attributes">
       <div v-for="a in view.attributes" :key="a.id" class="row">
         <div class="name">{{ a.name }}</div>
-        <div class="count">
-          {{ a.points }}<span v-if="a.maxPoints !== null" class="max"> / {{ a.maxPoints }}</span>
+        <div class="count" :title="`技能給的 ${a.fromSkills} 點＋自由分配 ${a.free} 點`">
+          <span class="max">技能</span> {{ a.fromSkills }} <span class="max">自由</span> {{ a.free }}
         </div>
         <div class="effect">
           <div v-for="e in a.effects" :key="e.total">
@@ -43,12 +43,12 @@ function add(e: MouseEvent, attribute: string) {
         </div>
         <button type="button" class="add" :disabled="!a.canAdd" :title="`加 1 點（Shift：加 5 點）`" @click="add($event, a.id)">+</button>
       </div>
-      <p class="hint">每升一級得到 {{ view.pointsPerLevel }} 點。Shift + 點擊一次加 5 點。</p>
+      <p class="hint">「技能」欄跟著技能等級走：每招每升一級給 3 點（技能說明裡寫著給哪些屬性），洗技能點時一起收回。「自由」欄是《井誌》等獎勵給的點數，按 + 自己分配（Shift：一次 5 點），洗技能點不會動到。</p>
       <button
         type="button"
         class="respec"
         :disabled="!view.respec.available || !view.respec.affordable"
-        :title="view.respec.affordable ? '所有屬性點退回，可以重新分配' : '金幣不足'"
+        :title="view.respec.affordable ? '自己分配的自由點數全部退回，可以重新分配' : '金幣不足'"
         @click="respec"
       >
         重置屬性點 ● {{ view.respec.cost }}

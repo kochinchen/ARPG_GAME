@@ -8,7 +8,12 @@ import { SPELL_SPREAD } from '../../game/skills/effects/DamageEffect';
 export interface AttributeRowView {
   id: string;
   name: string;
+  /** 實際生效的點數（技能給的＋自己分配的） */
   points: number;
+  /** 其中由技能等級給的 */
+  fromSkills: number;
+  /** 其中自己分配的自由點數 */
+  free: number;
   maxPoints: number | null;
   /** 每項效果：目前總加成與每點加成，例如 { total: '+12% 傷害', perPoint: '每點 +1%' } */
   effects: { total: string; perPoint: string }[];
@@ -70,11 +75,13 @@ export function buildCharacterView(world: GameWorld, data: DataRegistry): Charac
       return { cost, affordable: world.wallet.gold >= cost, available: [...world.progress.attributes.values()].some((p) => p > 0) };
     })(),
     attributes: attrs.defs.map((def) => {
-      const points = attrs.points(def.id);
+      const points = attrs.total(def.id);
       return {
         id: def.id,
         name: def.name,
         points,
+        fromSkills: attrs.fromSkills(def.id),
+        free: attrs.points(def.id),
         maxPoints: def.maxPoints ?? null,
         // 同一個說明（例如武器最小 / 最大值與法術強度）只顯示一行
         effects: def.effects
@@ -194,7 +201,7 @@ function weaponBreakdown(world: GameWorld, data: DataRegistry, totalMin: number,
   const wMax = w?.baseStats.damageMax ?? 0;
   const attack = data.balance.attributes.list.find((a) => a.effects.some((e) => e.stat === 'damageMin'));
   const perPoint = attack?.effects.find((e) => e.stat === 'damageMin')?.perPoint ?? 0;
-  const attr = attack ? world.attributes.points(attack.id) * perPoint : 0;
+  const attr = attack ? world.attributes.total(attack.id) * perPoint : 0;
   const otherMin = totalMin - baseMin - wMin - attr;
   const otherMax = totalMax - baseMax - wMax - attr;
   const rows: CharacterView['stats'] = [{ label: '角色基礎', value: `${num(baseMin)} – ${num(baseMax)}`, sub: true }];

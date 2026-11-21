@@ -236,6 +236,6 @@ describe('戰術 · 攻擊力（武器傷害與法術強度取高）', () => {
     expect(hits[0]!).toBeLessThanOrEqual(48);
     // 毒：200 × 60% / 5 秒 = 每秒 24
     const poison = dummy.statuses.find((s) => s.kind === 'poison')!;
-    expect(poison.dps).toBeCloseTo(24);
+    expect(poison.dps).toBeCloseTo(24, 0);
   });
 });
