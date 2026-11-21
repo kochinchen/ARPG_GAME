@@ -70,6 +70,9 @@ export class DamageEffect implements IEffect<'damage'> {
     // 武器種類：弓加成遠程、法杖加成魔法
     if (category === 'ranged') multiplier *= 1 + stats.get('rangedDamageBonus');
     if (category === 'magic') multiplier *= 1 + stats.get('spellDamageBonus');
+    // 固定值（裝備的「該擊 X% 傷害」）：就是 base，上面的倍率都不算
+    const exact = def.exact === true;
+    if (exact) multiplier = 1;
     const lifeStealMultiplier = category ? ctx.services.categoryTraits[category].lifeSteal : 1;
 
     const { pipeline } = ctx.services;
@@ -85,6 +88,7 @@ export class DamageEffect implements IEffect<'damage'> {
         armorPenetration: mods.armorPenetration,
         lifeStealMultiplier,
         melee: category === 'melee',
+        exact,
       });
       // 裝備：元素附加傷害（每次命中額外造成該次傷害一定比例的元素傷害）
       for (const [element, stat] of ELEMENT_DAMAGE) {

@@ -3,7 +3,7 @@ import { EventBus } from '../../../src/core/EventBus';
 import { Rng } from '../../../src/core/Rng';
 import { DataRegistry } from '../../../src/data/DataRegistry';
 import { gameData } from '../../../src/data';
-import { DamagePipeline, defenseMitigation } from '../../../src/game/combat/DamagePipeline';
+import { DamagePipeline, defenseMitigation, mitigationMultiplier } from '../../../src/game/combat/DamagePipeline';
 import { StatusEffectSystem } from '../../../src/game/combat/StatusEffectSystem';
 import { vec2 } from '../../../src/core/math/Vec2';
 import type { GameEvents } from '../../../src/game/GameEvents';
@@ -25,6 +25,19 @@ describe('defenseMitigation', () => {
     expect(defenseMitigation(K, K)).toBeCloseTo(0.5);
     expect(defenseMitigation(0, K)).toBe(0);
     expect(defenseMitigation(1e9, K)).toBeLessThan(1);
+  });
+});
+
+describe('全元素抗性', () => {
+  it('四種元素的傷害都照它打折，和單一抗性相加、合計不超過抗性上限；物理傷害不變', () => {
+    const target = makeActor({ faction: 'enemy', stats: { fireResist: 0.2 } });
+    target.stats.addModifier({ stat: 'elementResist', kind: 'flat', value: 0.1, source: 'test' });
+    const left = (element: 'physical' | 'fire' | 'cold' | 'lightning' | 'poison') => mitigationMultiplier(target, element, 0, balance);
+    expect(left('fire')).toBeCloseTo(1 - 0.3);
+    for (const element of ['cold', 'lightning', 'poison'] as const) expect(left(element), element).toBeCloseTo(1 - 0.1);
+    expect(left('physical')).toBeCloseTo(1);
+    target.stats.addModifier({ stat: 'elementResist', kind: 'flat', value: 0.9, source: 'test' });
+    for (const element of ['fire', 'cold', 'lightning', 'poison'] as const) expect(left(element), element).toBeCloseTo(1 - balance.combat.maxResist);
   });
 });
 

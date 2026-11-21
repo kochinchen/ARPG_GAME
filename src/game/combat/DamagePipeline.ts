@@ -47,6 +47,7 @@ export function mitigationMultiplier(target: Actor, element: Element, armorPenet
  * 所有傷害的唯一入口。
  *   閃避 → 基礎傷害 → 傷害加成 → 標記 → 暴擊 → 防禦 + 物理減傷（物理）/ 抗性（元素）→ 減傷 → 防禦姿態 → 格擋 → 取整 → 扣血
  *   → 吸血 / 吸魔 / 命中回魔 → 事件 → 反擊 / 荊棘
+ * 固定值（exact，裝備的「該擊 X% 傷害」）跳過傷害加成、標記、暴擊與防禦 / 抗性 / 減傷，其餘照常。
  * 死亡判定由 DeathSystem 在同一 Tick 稍後處理。
  */
 export class DamagePipeline implements DamageDealer {
@@ -69,21 +70,23 @@ export class DamagePipeline implements DamageDealer {
       return { amount: 0, isCrit: false, killed: false };
     }
 
+    // 固定值（裝備的「該擊 X% 傷害」）：觸發的那一擊已經算過加成、暴擊與減傷，這裡不再算第二次
+    const exact = request.exact === true;
     let amount = this.rng.range(request.min, request.max);
-    if (source) amount *= 1 + source.stats.get('damageBonus');
+    if (source && !exact) amount *= 1 + source.stats.get('damageBonus');
     // 標記：目標受到的傷害提高
     const mark = target.statuses.find((s) => s.kind === 'marked');
-    if (mark) amount *= 1 + mark.magnitude;
+    if (mark && !exact) amount *= 1 + mark.magnitude;
 
     // 持續傷害預設不暴擊；明確設定 canCrit 的（流血）每跳可以暴擊
-    const canCrit = isDot ? request.canCrit === true : request.canCrit !== false;
+    const canCrit = !exact && (isDot ? request.canCrit === true : request.canCrit !== false);
     const critChance = !canCrit || !source ? 0 : source.stats.get('critChance') + (request.extraCritChance ?? 0);
     const isCrit = this.rng.chance(critChance);
     if (isCrit) amount *= this.balance.combat.critMultiplier + target.stats.get('critDamageTaken') + (source?.stats.get('critDamageBonus') ?? 0);
 
-    amount *= mitigationMultiplier(target, request.element, request.armorPenetration ?? 0, this.balance);
+    if (!exact) amount *= mitigationMultiplier(target, request.element, request.armorPenetration ?? 0, this.balance);
     // 站在城垛後面（震地獸背上的弓手）：非近戰的直接傷害打折
-    if (target.cover < 1 && !isDot && request.melee !== true) amount *= target.cover;
+    if (!exact && target.cover < 1 && !isDot && request.melee !== true) amount *= target.cover;
     if (!isDot) {
       const guard = this.statuses.consume(target, 'guard');
       if (guard) amount *= 1 - guard.magnitude;

@@ -155,10 +155,30 @@ describe('特殊效果', () => {
     expect(log).toHaveLength(0);
     hit(world, target, 'melee.heavy_slash', 100);
     expect(log.length).toBe(1);
-    // 該擊 35%，再套用近戰加成與木樁的防禦減傷
-    const expected = 35 * (1 + world.player.stats.get('meleeDamageBonus'));
-    expect(log[0]!.amount).toBeGreaterThan(expected * 0.7);
-    expect(log[0]!.amount).toBeLessThanOrEqual(Math.ceil(expected));
+    // 就是該擊的 35%：不再乘近戰加成，也不再被木樁的防禦打折（設計者 2026-11-21）
+    expect(log[0]!.amount).toBe(35);
+  });
+
+  it('「該擊 X% 傷害」是固定值：風暴之眼的落雷 = 那一箭的 60%，不受加成、暴擊、標記、抗性影響（設計者 2026-11-21）', () => {
+    const { world } = createWorld();
+    wear(world, 'legendary.storm_eye');
+    const target = dummy(world);
+    target.stats.addModifier({ stat: 'maxHp', kind: 'flat', value: 100000, source: 'test' });
+    target.hp = target.maxHp;
+    // 來源什麼加成都有、必定暴擊；目標被標記、有閃電抗性與減傷
+    for (const stat of ['damageBonus', 'rangedDamageBonus', 'critChance', 'critDamageBonus'] as const) world.player.stats.addModifier({ stat, kind: 'flat', value: 1, source: 'test' });
+    target.stats.addModifier({ stat: 'lightningResist', kind: 'flat', value: 0.5, source: 'test' });
+    target.stats.addModifier({ stat: 'damageReduction', kind: 'flat', value: 0.3, source: 'test' });
+    world.statuses.apply(target, 'marked', 5, 0.27, null);
+    const bolts: { amount: number; isCrit: boolean }[] = [];
+    world.events.on('SkillHit', (e) => {
+      if (e.targetId === target.id && e.skillId.startsWith('item.')) bolts.push({ amount: e.amount, isCrit: e.isCrit });
+    });
+    // 沒暴擊的一箭不觸發；暴擊 1000 → 落雷 600
+    hit(world, target, 'ranged.execution_shot', 1000);
+    expect(bolts).toHaveLength(0);
+    hit(world, target, 'ranged.execution_shot', 1000, null, { isCrit: true });
+    expect(bolts).toEqual([{ amount: 600, isCrit: false }]);
   });
 
   it('每 N 次：寒月 → 每第 5 次近戰命中釋放冰霜新星', () => {

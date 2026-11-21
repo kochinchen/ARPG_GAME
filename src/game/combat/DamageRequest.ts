@@ -22,6 +22,11 @@ export interface DamageRequest {
   lifeStealMultiplier?: number;
   /** 近戰技能造成的（站在城垛後面的目標只擋得住非近戰的傷害，見 Actor.cover） */
   melee?: boolean;
+  /**
+   * 固定值（裝備的「該擊 X% 傷害」）：min / max 就是最後的傷害——不乘來源的傷害加成與目標的標記、不暴擊、
+   * 不被防禦 / 抗性 / 減傷 / 城垛打折。目標仍然可以閃避、格擋、用防禦姿態擋。
+   */
+  exact?: boolean;
 }
 
 export interface DamageResult {

@@ -57,6 +57,8 @@ export const DamageEffectSchema = z
     multiplier: RankNumberSchema.default(1),
     /** 連續命中次數（例如 65% × 2） */
     hits: z.int().positive().default(1),
+    /** 固定值：base 就是最後的傷害，不乘任何加成與標記、不暴擊、不被防禦 / 抗性 / 減傷打折（裝備的「該擊 X% 傷害」） */
+    exact: z.boolean().optional(),
     /** 條件加成：目標有某狀態、或 HP 低於某比例時 */
     bonus: z
       .strictObject({

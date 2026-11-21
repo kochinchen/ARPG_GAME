@@ -462,12 +462,15 @@ function withMinionHp(m: ItemMechanic, hpPct: number): ItemMechanic {
   return { ...m, actions: m.actions.map((a) => (a.type === 'effects' ? { ...a, effects: a.effects.map(map) } : a)) };
 }
 
-/** 把效果中的傷害改成固定值（觸發那一擊傷害 × 比例） */
+/**
+ * 把效果中的傷害改成固定值（觸發那一擊傷害 × 比例）。說明寫「該擊 X%」就是畫面上那個數字的 X%：
+ * 那一擊已經算過加成、暴擊與減傷，這裡不再算第二次（設計者 2026-11-21；之前當成基礎值再走一次完整流程，實際是說明的 3～5 倍）。
+ */
 function withFlatDamage(effects: readonly EffectDef[], amount: number): EffectDef[] {
   const map = (e: EffectDef): EffectDef => {
     switch (e.type) {
       case 'damage':
-        return { ...e, scaling: 'flat', base: [amount, amount], multiplier: 1, hits: 1 };
+        return { ...e, scaling: 'flat', base: [amount, amount], multiplier: 1, hits: 1, exact: true };
       case 'area':
       case 'chain':
       case 'zone':
