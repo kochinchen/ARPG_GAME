@@ -159,9 +159,9 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   <header>
     <div class="eyebrow">Aisling - Wellkeeper · 平衡工具 · 直接使用遊戲本身的技能資料與 Combo 判定</div>
     <h1>角色成長與戰鬥模擬</h1>
-    <p>上半部是 Lv1～70 的成長表。下半部有兩個可以點的模擬器：屬性點（HP / MP / 防禦等）與技能點（技能樹與攻擊力），並可測試三段 Combo。所有數值都會拿來跟你選的怪物比較，可以對照怪物頁確認難度。</p>
+    <p>上半部是 Lv1～70 的成長表。下半部是可以點的模擬器：在技能樹上加點，角色的屬性（攻擊、生命、魔力、防禦、暴擊）與數值會跟著變；另外可以自己加自由點數，並測試三段 Combo。所有數值都會拿來跟你選的怪物比較，可以對照怪物頁確認難度。</p>
     <p class="small muted">頁面開啟時載入的是示範配置（Lv30、近戰重擊路線），不是任何存檔的資料。玩家沒有普通攻擊：開局免費送的重砍就是預設左鍵。</p>
-    <nav class="toc"><a href="#levels">成長表</a><a href="#attrs">屬性點模擬</a><a href="#skills">技能與攻擊力</a><a href="#combo">Combo 測試</a><a href="#fusion">融合試算</a></nav>
+    <nav class="toc"><a href="#levels">成長表</a><a href="#skills">技能與屬性</a><a href="#attrs">角色數值與自由點數</a><a href="#combo">Combo 測試</a><a href="#fusion">融合試算</a></nav>
     <p id="loadErr" hidden>模擬程式沒有載入成功，請重新整理頁面。</p>
   </header>
 
@@ -185,14 +185,14 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     <div class="sec-head">
       <div class="eyebrow">balance.ts · ExperienceSystem</div>
       <h2>Lv1～70 成長表</h2>
-      <p>每升一級：技能點 +1、屬性點 +3、基礎 HP +5、基礎 MP +2。升到下一級所需經驗 = 50 × 等級^1.5。橘底是解鎖等級；外框是目前選的等級。</p>
+      <p>每升一級：技能點 +1、基礎 HP +5、基礎 MP +2。升級不再給屬性點（2026-11-21）：每招技能每升一級給 3 點屬性，所以屬性跟著技能點走。升到下一級所需經驗 = 50 × 等級^1.5。橘底是解鎖等級；外框是目前選的等級。</p>
       <p>等級差經驗遞減：怪物等級 = 樓層 × 1.5。怪物經驗在 2026-11-19 減半，正常進度每層約升 1.5 級（第 10 層 Lv14、第 20 層 Lv29、第 30 層 Lv45、第 35 層 Lv55）。主角高出怪物等級 5 級以內拿全額經驗，之後每高 1 級少 15%，最低剩 5%；停在同一層重複刷會越來越沒有經驗，要往下走。</p>
     </div>
     <div class="tbl tall">
       <table>
         <thead><tr>
           <th class="n">Lv</th><th class="n">升下一級經驗</th><th class="n">累計經驗</th><th class="n">基礎 HP</th><th class="n">基礎 MP</th>
-          <th class="n">技能點（累計）</th><th class="n">屬性點（累計）</th><th>解鎖</th>
+          <th class="n">技能點（累計）</th><th class="n">技能給的屬性（技能點全用完）</th><th>解鎖</th>
         </tr></thead>
         <tbody id="lvBody"></tbody>
       </table>
@@ -200,23 +200,53 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     <p class="small muted">技能點起始 2 點，另外免費贈送重砍、火球各 Lv1。學會第一個 T4 技能（Mastery）後，之後每升一級 +1 次「T4 開通次數」，用來開放其他類別的 T4。</p>
   </section>
 
+  <section id="skills">
+    <div class="sec-head">
+      <div class="eyebrow">模擬器 1 · 使用遊戲的 MasteryRule 判定能否學習</div>
+      <h2>技能點：技能樹、屬性與攻擊力</h2>
+      <p>點技能格學習或升級（最多 Lv5）；再次點選已選取的技能也會升級。每招每升一級給 3 點屬性（技能說明裡寫著給哪些），下面那一排會跟著變。灰色虛線是目前不能學，格子下方寫原因。右側顯示選取技能打在對手身上的傷害。</p>
+    </div>
+    <div class="t4bar">
+      <span>技能點剩餘 <b class="mono" id="spLeft"></b> / <span class="mono" id="spTotal"></span></span>
+      <span id="masteryInfo" class="pill soft"></span>
+      <span id="t4Info"></span>
+      <span id="t4Buttons" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+      <button id="treeReset">重置技能</button>
+      <button id="treeSample">套用示範配置</button>
+    </div>
+    <div id="spWarn" class="warn" hidden></div>
+    <div class="kv" id="skillAttrCards" aria-live="polite"></div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="tabs" role="tablist" id="catTabs"></div>
+        <div class="tree" id="tree"></div>
+        <p class="small muted" id="supportNote">Support 被動最多裝備 3 個；點已學會的 Support 技能下方「裝備 / 卸下」切換。</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>攻擊力</h3></div>
+        <div class="kv" id="atkCards"></div>
+        <div class="detail" id="detail"></div>
+      </div>
+    </div>
+  </section>
+
   <section id="attrs">
     <div class="sec-head">
-      <div class="eyebrow">模擬器 1</div>
-      <h2>屬性點：HP、MP、防禦</h2>
-      <p>點 + / − 分配屬性點。右側即時計算角色數值，並換算對手的普通攻擊打在你身上的傷害。暴擊上限 80 點。</p>
+      <div class="eyebrow">模擬器 2 · 屬性 = 技能給的 + 自由點數</div>
+      <h2>角色數值：HP、MP、防禦</h2>
+      <p>「技能」欄是上面技能樹加點給的屬性，改技能就會變。「自由」欄是往下每一層、打倒魔王與隱藏魔王、《井誌》等獎勵給的點數，這裡不設上限，可以自己加減看結果。右側即時計算角色數值，並換算對手的普通攻擊打在你身上的傷害。</p>
     </div>
     <div class="grid2">
       <div class="panel">
         <div class="panel-head">
-          <h3>分配屬性點</h3>
-          <span class="small">剩餘 <b class="mono" id="attrLeft"></b> / <span class="mono" id="attrTotal"></span></span>
+          <h3>屬性點</h3>
+          <span class="small">技能 <b class="mono" id="attrLeft"></b>・自由 <b class="mono" id="attrTotal"></b></span>
         </div>
         <div id="attrList"></div>
         <div id="attrWarn" class="warn" hidden></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button id="attrReset">全部歸零</button>
-          <button id="attrSample">套用示範配置</button>
+          <button id="attrReset">自由點數歸零</button>
+          <button id="attrSample">自由點數：第 20 層的 27 點</button>
         </div>
         <h3>裝備加成（選填）</h3>
         <div class="gear">
@@ -244,35 +274,6 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
         <div class="kv" id="defCards"></div>
         <div class="verdict" id="defVerdict"></div>
         <p class="small muted">只計普通攻擊；怪物的特殊技能倍率較高，實際更危險。防禦減傷 = 防禦 ÷（防禦 + 100）。</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="skills">
-    <div class="sec-head">
-      <div class="eyebrow">模擬器 2 · 使用遊戲的 MasteryRule 判定能否學習</div>
-      <h2>技能點：技能樹與攻擊力</h2>
-      <p>點技能格學習或升級（最多 Lv5）；再次點選已選取的技能也會升級。灰色虛線是目前不能學，格子下方寫原因。右側顯示選取技能打在對手身上的傷害。</p>
-    </div>
-    <div class="t4bar">
-      <span>技能點剩餘 <b class="mono" id="spLeft"></b> / <span class="mono" id="spTotal"></span></span>
-      <span id="masteryInfo" class="pill soft"></span>
-      <span id="t4Info"></span>
-      <span id="t4Buttons" style="display:flex;gap:6px;flex-wrap:wrap"></span>
-      <button id="treeReset">重置技能</button>
-      <button id="treeSample">套用示範配置</button>
-    </div>
-    <div id="spWarn" class="warn" hidden></div>
-    <div class="grid2">
-      <div class="panel">
-        <div class="tabs" role="tablist" id="catTabs"></div>
-        <div class="tree" id="tree"></div>
-        <p class="small muted" id="supportNote">Support 被動最多裝備 3 個；點已學會的 Support 技能下方「裝備 / 卸下」切換。</p>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>攻擊力</h3></div>
-        <div class="kv" id="atkCards"></div>
-        <div class="detail" id="detail"></div>
       </div>
     </div>
   </section>
@@ -381,7 +382,14 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   resetRanks();
 
   // ───────── Derived numbers ─────────
-  const attrTotal = () => B.attributes.pointsPerLevel * (st.level - 1);
+  // 屬性 = 技能等級給的（balance.attributes.skillGrants：類別 → 路線 → T1～T4）＋自由點數（st.attrs，不設上限）
+  const grantOf = (s) => (s.tree && B.attributes.skillGrants[s.tree.category]?.[s.tree.branch]?.[s.tree.tier - 1]) || [];
+  function skillAttrs() {
+    const out = Object.fromEntries(B.attributes.list.map((a) => [a.id, 0]));
+    for (const [id, r] of st.ranks) grantOf(skillById.get(id) || {}).forEach((n, i) => { out[B.attributes.list[i].id] += n * r; });
+    return out;
+  }
+  const grantText = (s) => grantOf(s).map((n, i) => (n ? `${B.attributes.list[i].name} +${n}` : '')).filter(Boolean).join('、');
   const attrSpent = () => Object.values(st.attrs).reduce((a, b) => a + b, 0);
   const spTotal = () => B.player.startingSkillPoints + B.skillPointsPerLevel * (st.level - 1);
   const spSpent = () => { let n = 0; for (const [id, r] of st.ranks) n += r - (START.has(id) ? 1 : 0); return n; };
@@ -405,7 +413,8 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
       attackSpeed: P.attackSpeed, critChance: P.critChance, defense: P.defense,
     };
     const mods = [];
-    for (const a of B.attributes.list) for (const e of a.effects) mods.push({ stat: e.stat, kind: 'flat', value: e.perPoint * (st.attrs[a.id] || 0) });
+    const fromSkills = skillAttrs();
+    for (const a of B.attributes.list) for (const e of a.effects) mods.push({ stat: e.stat, kind: 'flat', value: e.perPoint * ((st.attrs[a.id] || 0) + fromSkills[a.id]) });
     const g = (id) => Math.max(0, Number($(id).value) || 0);
     mods.push({ stat: 'damageMin', kind: 'flat', value: g('gDmgMin') }, { stat: 'damageMax', kind: 'flat', value: g('gDmgMax') },
       { stat: 'spellPower', kind: 'flat', value: g('gSp') }, { stat: 'maxHp', kind: 'flat', value: g('gHp') }, { stat: 'defense', kind: 'flat', value: g('gDef') },
@@ -504,7 +513,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
       const cls = [unlock.length && L > 1 ? 'mile' : '', L === st.level ? 'cur' : ''].join(' ');
       html += `<tr class="${cls}"><td class="n">${L}</td><td class="n">${L === B.maxLevel ? '—' : need.toLocaleString()}</td><td class="n">${cum.toLocaleString()}</td>
         <td class="n">${B.player.baseHp + B.statsPerLevel.maxHp * (L - 1)}</td><td class="n">${B.player.baseMana + B.statsPerLevel.maxMana * (L - 1)}</td>
-        <td class="n">${B.player.startingSkillPoints + B.skillPointsPerLevel * (L - 1)}</td><td class="n">${B.attributes.pointsPerLevel * (L - 1)}</td>
+        <td class="n">${B.player.startingSkillPoints + B.skillPointsPerLevel * (L - 1)}</td><td class="n">${B.attributes.skillPointsPerRank * (B.player.startingSkillPoints + B.skillPointsPerLevel * (L - 1) + START.size)}</td>
         <td>${unlock.join('、')}</td></tr>`;
       cum += need;
     }
@@ -518,15 +527,15 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     $('gTypeFx').textContent = imp
       ? '內建：' + Object.entries(imp).map(([k, v]) => `${IMPLICIT_LABEL[k] || k} ${v >= 0 ? '+' : ''}${pct(v)}`).join('、') + (allowed ? `・可用技能：${allowed.map((c) => CAT[c]).join('、')}` : '')
       : '';
-    const left = attrTotal() - attrSpent();
-    $('attrLeft').textContent = left; $('attrTotal').textContent = attrTotal();
-    $('attrWarn').hidden = left >= 0;
-    $('attrWarn').textContent = left < 0 ? `已分配的點數比 Lv${st.level} 可用的多 ${-left} 點，請減少或按「全部歸零」。` : '';
+    const sk = skillAttrs();
+    $('attrLeft').textContent = Object.values(sk).reduce((x, y) => x + y, 0); $('attrTotal').textContent = attrSpent();
+    $('attrWarn').hidden = true;
+    $('skillAttrCards').innerHTML = B.attributes.list.map((a) => `<div><span>${a.name}（技能 ${sk[a.id]}＋自由 ${st.attrs[a.id] || 0}）</span><b>${sk[a.id] + (st.attrs[a.id] || 0)}</b></div>`).join('');
     $('attrList').innerHTML = B.attributes.list.map((a) => {
       const p = st.attrs[a.id] || 0;
       const fx = a.effects.filter((e, i, arr) => arr.findIndex((x) => x.label === e.label) === i)
         .map((e) => `${e.label} +${e.percent ? pct(e.perPoint) : e.perPoint}`).join('、');
-      const cap = a.maxPoints ? `（上限 ${a.maxPoints}）` : '';
+      const cap = `・技能 ${sk[a.id]}＋自由 ${p} = ${sk[a.id] + p}`;
       return `<div class="attr"><span class="nm">${a.name}</span><span class="fx">每點：${fx}${cap}</span>
         <span class="ctl"><button data-a="${a.id}" data-d="-5" aria-label="${a.name} 減 5">−5</button><button data-a="${a.id}" data-d="-1" aria-label="${a.name} 減 1">−</button>
         <b>${p}</b><button data-a="${a.id}" data-d="1" aria-label="${a.name} 加 1">+</button><button data-a="${a.id}" data-d="5" aria-label="${a.name} 加 5">+5</button></span></div>`;
@@ -534,10 +543,8 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   }
   function addAttr(id, d) {
     const def = B.attributes.list.find((a) => a.id === id);
-    let v = (st.attrs[id] || 0) + d;
-    if (d > 0) v = Math.min(v, (st.attrs[id] || 0) + Math.max(0, attrTotal() - attrSpent()));
-    if (def.maxPoints) v = Math.min(v, def.maxPoints);
-    st.attrs[id] = Math.max(0, v);
+    // 自由點數不設上限（之後任務、解封印還會再給）
+    st.attrs[id] = Math.max(0, (st.attrs[id] || 0) + d);
     render();
   }
 
@@ -659,6 +666,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     let html = `<div class="panel-head"><h3 style="font-size:18px;color:var(--ink)">${esc(s.name)}</h3>
       <span class="small muted">${CAT[s.tree.category]}・${ROUTE[s.tree.category][s.tree.branch]}・T${s.tree.tier}・${rank(s.id) ? 'Lv' + rank(s.id) : '未學（以 Lv1 顯示）'}</span></div>
       ${s.description ? `<p>${esc(s.description)}</p>` : ''}
+      ${grantText(s) ? `<p class="small"><b>每升一級給的屬性：</b>${grantText(s)}</p>` : ''}
       ${prof ? `<div class="tags"><span class="tag">${RANGE[prof.range]}</span><span class="tag">${ROLE[prof.role]}</span>${tags.map((t) => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
       ${S.weaponDenial(s.id, $('gType').value) ? `<p class="warn">⚠ ${esc(S.weaponDenial(s.id, $('gType').value))}（遊戲中這招會灰掉；放在連段裡整組不能施放）</p>` : ''}
       <ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
@@ -820,11 +828,10 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   }
 
   // ───────── Samples ─────────
-  const SAMPLE_ATTRS = { attack: 35, vitality: 25, mana: 10, defense: 12, crit: 5 };
+  // 自由點數的示範：正常進度到第 20 層有 27 點（19 層 + 4 隻魔王 × 2），這裡補生命與防禦
+  const SAMPLE_ATTRS = { attack: 0, vitality: 15, mana: 0, defense: 12, crit: 0 };
   function applyAttrSample() {
-    const total = attrTotal();
-    const sum = Object.values(SAMPLE_ATTRS).reduce((a, b) => a + b, 0);
-    for (const a of B.attributes.list) st.attrs[a.id] = Math.floor(((SAMPLE_ATTRS[a.id] || 0) / sum) * total);
+    for (const a of B.attributes.list) st.attrs[a.id] = SAMPLE_ATTRS[a.id] || 0;
     render();
   }
   function applyTreeSample() {
@@ -880,7 +887,6 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   $('comboAll').addEventListener('change', (e) => { st.comboAll = e.target.checked; render(); });
 
   renderEnemySelect(); renderRules();
-  for (const [k, v] of Object.entries(SAMPLE_ATTRS)) st.attrs[k] = v;
   applyTreeSample();
 })();
 </script>

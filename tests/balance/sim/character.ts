@@ -1,3 +1,4 @@
+import { freePointsAtFloor } from '../../../src/game/progression/AttributeSystem';
 import type { DataRegistry } from '../../../src/data/DataRegistry';
 import type { CoreSlot } from '../../../src/data/schema/core';
 import type { Rarity, WeaponType } from '../../../src/data/schema/item';
@@ -148,7 +149,9 @@ export function setupCharacter(world: GameWorld, data: DataRegistry, floor: numb
     world.skillTree.learn(candidates[0]!.id);
   }
 
-  // 屬性點
+  // 屬性點：技能給的屬性已經跟著上面學的技能生效（2026-11-21）；這裡分配的是自由點數——正常進度走到這一層拿到的
+  // （每層 1 點＋打倒過的魔王各 2 點，不含隱藏魔王與《井誌》）
+  world.progress.attributePoints += freePointsAtFloor(preset ? Math.max(floor, 1) : floor, data);
   const points = world.progress.attributePoints;
   const entries = Object.entries(build.attributes);
   let spent = 0;

@@ -45,6 +45,12 @@ export function earnedFreePoints(
   );
 }
 
+/** 正常進度走到第 floor 層時的自由點數（每層的點數＋已經打倒的魔王；不含隱藏魔王與《井誌》）：模擬工具建立預設角色用 */
+export function freePointsAtFloor(floor: number, data: Pick<DataRegistry, 'balance'>): number {
+  const f = data.balance.attributes.freePoints;
+  return f.perFloor * Math.max(0, floor - 1) + f.boss * f.bossFloors.filter((b) => b < floor).length;
+}
+
 export type AllocateCheck = { ok: true } | { ok: false; reason: 'unknown' | 'noPoints' | 'maxPoints' };
 
 /**

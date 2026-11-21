@@ -1,3 +1,4 @@
+import { freePointsAtFloor } from '../../game/progression/AttributeSystem';
 import { CommandQueue } from '../../core/CommandQueue';
 import { EventBus } from '../../core/EventBus';
 import { vec2 } from '../../core/math/Vec2';
@@ -61,7 +62,10 @@ const GEAR_RARITY = { normal: 0, magic: 40, rare: 50, epic: 10, legendary: 0, my
 
 function equipPlayer(world: GameWorld, config: SimConfig, data: DataRegistry): void {
   const shield = config.gear === 'shield';
-  const points = (config.level - 1) * data.balance.attributes.pointsPerLevel;
+  // 屬性由技能等級決定（2026-11-21）：模擬的主角不學技能，所以把「技能點全用完給的屬性」加上這一層的自由點數，照下面的比例分配
+  const a = data.balance.attributes;
+  const fromSkills = a.skillPointsPerRank * (data.balance.player.startingSkillPoints + data.balance.skillPointsPerLevel * (config.level - 1));
+  const points = fromSkills + freePointsAtFloor(config.floor, data);
   world.progress.attributePoints = points;
   const shares: [string, number][] = shield ? [['attack', 0.45], ['vitality', 0.35], ['defense', 0.2]] : [['attack', 0.45], ['vitality', 0.3], ['mana', 0.25]];
   for (const [id, share] of shares) world.attributes.allocate(id, Math.floor(points * share));
