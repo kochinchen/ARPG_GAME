@@ -45,7 +45,7 @@ function answerAlert({ self, brain, targeting, dt }: AiContext): Actor | null {
 }
 
 /** 偵測範圍內、視線未被牆擋住的最近敵人 */
-function findVisibleHostile({ self, brain, actors, targeting, nav }: AiContext): Actor | null {
+export function findVisibleHostile({ self, brain, actors, targeting, nav }: AiContext): Actor | null {
   let best: Actor | null = null;
   let bestDistance = brain.detectRange;
   for (const other of actors) {

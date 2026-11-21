@@ -33,6 +33,13 @@ export interface AiBrain {
   provokedBy: ActorId | null;
   /** 被打中後的憤怒秒數：期間超過 Leash 也不放棄追擊（避免在範圍外被活活射死） */
   angerTimer: number;
+  /**
+   * 離家超過硬上限（HARD_LEASH）被迫往回走：看到主角不回頭，只有被打、或主角朝牠靠近（相對距離縮短）才回頭；
+   * 走回 Leash 範圍內就恢復一般的回家（看到就追）
+   */
+  homeward: boolean;
+  /** 往回走時離主角最遠的距離（主角比這個近 RETURN_APPROACH 格以上 = 主角追上來了） */
+  homewardGap: number;
   /** 主要攻擊（追擊時使用） */
   skillId: string;
   /** 特殊技能：冷卻結束且目標在範圍內時優先使用（依順序） */
@@ -136,6 +143,8 @@ export function createBrain(home: Vec2, options: BrainOptions): AiBrain {
     targetId: null,
     provokedBy: null,
     angerTimer: 0,
+    homeward: false,
+    homewardGap: 0,
     skillId: primary!,
     specialSkills: special,
     keepDistance: options.keepDistance ?? 0,

@@ -67,7 +67,6 @@ export class ActorView {
   readonly ground = new Container();
   private readonly body = new Container();
   private readonly figure: PolyFigure;
-  private readonly facingMark = new Graphics();
   private readonly hpBar = new Graphics();
   private readonly aura = new Graphics();
   private readonly nameLabel: Text;
@@ -122,7 +121,6 @@ export class ActorView {
     this.dynamicShadow = model.dynamicShadow ?? false;
     const shadow = (this.shadow = new Graphics());
     if (!this.dynamicShadow) shadow.ellipse(0, 0, px * (model.shadowScale ?? 1), (px * (model.shadowScale ?? 1)) / 2).fill({ color: PALETTE.shadow, alpha: 0.45 });
-    this.facingMark.circle(0, 0, 3).fill({ color: PALETTE.marker });
     this.nameLabel = new Text({
       text: [actor.name, ...resistLines(actor, maxResist)].join('\n'),
       style: {
@@ -148,7 +146,7 @@ export class ActorView {
     }
     if (this.gear) this.body.addChild(this.gear.front);
     this.statusAura = new StatusAuraView(this.barY + 8, sizeOf(actor));
-    this.container.addChild(shadow, ...(this.gear ? [this.gear.back] : []), this.aura, this.facingMark, this.body, this.statusAura.container, this.hpBar, this.nameLabel);
+    this.container.addChild(shadow, ...(this.gear ? [this.gear.back] : []), this.aura, this.body, this.statusAura.container, this.hpBar, this.nameLabel);
   }
 
   /**
@@ -195,7 +193,7 @@ export class ActorView {
     this.three = world?.createFigure(this.isPlayer ? GPU_SKINNING.player : GPU_SKINNING.others) ?? null;
     this.figure.sink = this.three;
     this.shadow.visible = !this.three || !this.isPlayer;
-    const under = [...(this.gear ? [this.gear.back] : []), this.aura, this.facingMark];
+    const under = [...(this.gear ? [this.gear.back] : []), this.aura];
     // 武器在身後的光芒也要比 Three.js 的角色先畫，才會被身體擋住（Pixi 畫的東西都蓋在 Three.js 的角色上面）
     const glowBack = this.weaponGlow?.back;
     if (this.three) {
@@ -277,10 +275,6 @@ export class ActorView {
       return;
     }
 
-    const f = this.projection.toScreen(actor.facing);
-    const len = Math.hypot(f.x, f.y) || 1;
-    this.facingMark.position.set((f.x / len) * 22, (f.y / len) * 11);
-
     const speed = this.lastScreen && dt > 0 ? Math.hypot(s.x - this.lastScreen.x, s.y - this.lastScreen.y) / dt : 0;
     this.lastScreen = s;
     // World 速度（格 / 秒）：慢速移動時播放走路、一般速度播放跑步
@@ -314,7 +308,6 @@ export class ActorView {
     this.body.tint = STATUS_TINTS.find(([kind]) => actor.statuses.some((st) => st.kind === kind))?.[1] ?? 0xffffff;
     this.container.alpha = (actor.alive ? 1 : 0.6) * (actor.underground ? 1 - actor.air : 1) * this.sightAlpha;
     this.ground.alpha = this.container.alpha;
-    this.facingMark.visible = actor.alive;
     this.three?.place(position, { x: this.body.position.x, y: this.body.position.y + this.lift }, this.lift, this.body.tint, this.container.alpha * this.body.alpha, true, actor.growth);
 
     // 精英怪的名稱（含詞綴）一直顯示

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { distance, vec2 } from '../../../src/core/math/Vec2';
+import { HARD_LEASH } from '../../../src/game/ai/states/ChaseState';
 import { createWorldWithMap, DT, enemiesOf, makeInvulnerable, run } from '../helpers';
 
 const CORRIDOR = [
@@ -107,9 +108,66 @@ describe('怪物 AI（M3）', () => {
     hit();
     run(world, 1);
     expect(skeleton.ai!.state).toBe('chase');
-    // 憤怒時間過了才放棄
+    // 憤怒時間過了、主角也不在偵測範圍內（跑遠了）才放棄
+    skeleton.ai!.detectRange = 0.1;
     run(world, 4);
     expect(skeleton.ai!.state).not.toBe('chase');
+  });
+
+  it('走回家途中主角又靠近（看得到）就回頭；主角在偵測範圍內時不會因為離家太遠而放棄', () => {
+    const LONG = ['#'.repeat(80), '#S' + '.'.repeat(77) + '#', '#' + '.'.repeat(78) + '#', '#' + '.'.repeat(78) + '#', '#'.repeat(80)];
+    const { world, commands } = createWorldWithMap(LONG, [skeletonAt(6.5, 2.5)]);
+    makeInvulnerable(world.player);
+    const skeleton = enemiesOf(world)[0]!;
+    run(world, 0.1);
+    // 主角往遠處跑，骷髏追到超過 Leash 後放棄
+    commands.push({ type: 'PrimaryAction', worldPos: vec2(70.5, 2.5), targetId: null, held: false });
+    for (let i = 0; i < 3000 && skeleton.ai!.state !== 'return'; i++) run(world, DT);
+    expect(skeleton.ai!.state).toBe('return');
+    // 主角掉頭追上去：骷髏回頭追擊
+    let turned = false;
+    for (let i = 0; i < 400 && !turned; i++) {
+      commands.push({ type: 'PrimaryAction', worldPos: vec2(skeleton.position.x + 1.2, 2.5), targetId: null, held: false });
+      run(world, DT);
+      turned = skeleton.ai!.state === 'chase';
+    }
+    expect(turned).toBe(true);
+    // 主角站在旁邊不動：離家雖然超過 Leash，也不會再走回去
+    commands.push({ type: 'PrimaryAction', worldPos: world.player.position, targetId: null, held: false });
+    run(world, 6);
+    expect(skeleton.ai!.state).toBe('chase');
+  });
+
+  it('離家超過 Leash × HARD_LEASH 就往回走：主角站著不動不回頭，主角靠近或打牠就回頭', () => {
+    const LONG = ['#'.repeat(80), '#S' + '.'.repeat(77) + '#', '#' + '.'.repeat(78) + '#', '#' + '.'.repeat(78) + '#', '#'.repeat(80)];
+    const { world, events, commands } = createWorldWithMap(LONG, [skeletonAt(20.5, 2.5)]);
+    makeInvulnerable(world.player);
+    const skeleton = enemiesOf(world)[0]!;
+    world.player.position = vec2(14.5, 2.5);
+    world.player.prevPosition = vec2(14.5, 2.5);
+    run(world, 0.1);
+    expect(skeleton.ai!.state).toBe('chase');
+    // 家在很遠的地方（超過硬上限）：就算主角在旁邊也往回走
+    skeleton.ai!.home = vec2(skeleton.position.x + skeleton.ai!.leashRange * HARD_LEASH + 1, 2.5);
+    run(world, DT * 2);
+    expect(skeleton.ai!.state).toBe('return');
+    // 主角站著不動：繼續走
+    run(world, 1);
+    expect(skeleton.ai!.state).toBe('return');
+    // 被打：回頭；憤怒時間過了，主角站著不動又往回走
+    events.emit('ActorDamaged', { targetId: skeleton.id, sourceId: world.player.id, amount: 1, isCrit: false, element: 'physical', position: skeleton.position });
+    run(world, DT * 2);
+    expect(skeleton.ai!.state).toBe('chase');
+    run(world, 5);
+    expect(skeleton.ai!.state).toBe('return');
+    // 主角追上去：回頭
+    let turned = false;
+    for (let i = 0; i < 300 && !turned; i++) {
+      commands.push({ type: 'PrimaryAction', worldPos: vec2(skeleton.position.x + 0.5, 2.5), targetId: null, held: false });
+      run(world, DT);
+      turned = skeleton.ai!.state === 'chase';
+    }
+    expect(turned).toBe(true);
   });
 
   it('5 隻同時追擊時不會疊成一點', () => {

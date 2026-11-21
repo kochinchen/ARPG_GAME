@@ -5,6 +5,13 @@ import { castRange } from '../../skills/SkillSystem';
 import { pickErrand, pickLure } from '../Errands';
 import { findPathFor, type AiContext, type IAiState } from '../IAiState';
 
+/**
+ * 離家的硬上限（Leash 的倍數）：超過就往回走，主角就在旁邊也一樣（剛被打中的憤怒時間內除外）；
+ * 往回走時主角朝牠靠近或打牠就回頭（ReturnState），主角跑掉就回家
+ * （設計者 2026-11-21：主角在旁邊時不放棄，但拉太遠一定要回去，不然會追到天涯海角）
+ */
+export const HARD_LEASH = 1.5;
+
 /** 後退時一次拉開的距離（Tile） */
 const RETREAT_STEP = 3;
 /** 後排離自己的站位超過這個距離，出手之間會走回站位（Tile） */
@@ -56,7 +63,14 @@ export class ChaseState implements IAiState {
         return 'flee' as const;
       }
     }
-    if (brain.angerTimer <= 0 && distance(self.position, brain.home) > brain.leashRange) return 'return' as const;
+    // 離家太遠就放棄：剛被打中（angerTimer）或目標還在偵測範圍內時不放棄，目標跑遠了才回家；
+    // 超過硬上限（Leash × HARD_LEASH）就往回走，主角在旁邊也一樣（主角追上來或打牠時 ReturnState 會回頭）
+    const away = distance(self.position, brain.home);
+    if (brain.angerTimer <= 0 && away > brain.leashRange * HARD_LEASH) {
+      brain.homeward = true;
+      return 'return' as const;
+    }
+    if (brain.angerTimer <= 0 && away > brain.leashRange && distance(self.position, target.position) > brain.detectRange) return 'return' as const;
     this.act(ctx, target);
     return null;
   }

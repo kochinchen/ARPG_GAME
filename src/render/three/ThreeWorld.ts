@@ -83,7 +83,7 @@ function markFigure(material: THREE.Material): void {
   material.stencilZPass = THREE.ReplaceStencilOp;
 }
 
-function underFigures(material: THREE.Material): void {
+function underFigures<T extends THREE.Material>(material: T): T {
   material.stencilWrite = true;
   material.stencilRef = FIGURE_STENCIL;
   material.stencilFunc = THREE.NotEqualStencilFunc;
@@ -91,6 +91,7 @@ function underFigures(material: THREE.Material): void {
   material.transparent = true;
   // 雙面的半透明材質預設分兩次畫（背面、正面）；屍體不透明度是 1，一次就好（一畫面可能上百具）
   material.forceSinglePass = true;
+  return material;
 }
 
 /**
@@ -405,8 +406,11 @@ export class ThreeWorld {
   private readonly ruinGround: THREE.Mesh[] = [];
   private readonly ruinMaterial = ruinMaterial(false);
   private readonly ruinFadeMaterial = ruinMaterial(true);
-  /** 地上的骷髏：和屍體一樣照一般的光（不自己發光），不投、不收影子 */
-  private readonly remainsMaterial = fogged(figureMaterial());
+  /**
+   * 地上的骷髏：和屍體一樣照一般的光（不自己發光），不投、不收影子；
+   * 也和屍體一樣排在所有角色之後、只畫在角色以外的地方（主角站在骷髏堆上不會被蓋住）
+   */
+  private readonly remainsMaterial = fogged(underFigures(figureMaterial()));
   /** 深度板（見 DepthProxy）：共用一個單位正方形，左下角為原點 */
   private readonly proxies: THREE.Mesh[] = [];
   private readonly proxyGeometry = new THREE.PlaneGeometry(1, 1).translate(0.5, 0.5, 0);
@@ -638,6 +642,7 @@ export class ThreeWorld {
         const mesh = staticMesh(g.pos, g.col, material);
         mesh.castShadow = shadows;
         mesh.receiveShadow = shadows;
+        if (material === this.remainsMaterial) mesh.renderOrder = CORPSE_RENDER_ORDER;
         this.region((i + 0.5) * size, (j + 0.5) * size).add(mesh);
         this.ruinGround.push(mesh);
       }

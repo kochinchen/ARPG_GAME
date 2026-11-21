@@ -50,6 +50,7 @@ import { displayBridge } from './ui/bridge/DisplayBridge';
 import { cutscenes, type CutsceneDef } from './data/cutscenes';
 import { playCutscene } from './ui/cutscene/CutscenePlayer';
 import { dueCutscene, watchedCutscenes } from './ui/cutscene/dueCutscene';
+import { installGameCursor } from './ui/GameCursor';
 
 /** 擊敗深淵統御者之後，等魂魄說完話、再過這麼久才播終章（秒） */
 const EPILOGUE_DELAY = 3;
@@ -138,6 +139,7 @@ async function bootstrap(): Promise<void> {
   // 6. Render
   const host = document.getElementById('game');
   if (!host) throw new Error('#game not found');
+  const setCursor = installGameCursor(host);
   const app = new Application();
   // Three.js 畫法（預設）：選單的「立體光影」可以關掉；網址加 ?pixi 強制用 Pixi、?three 強制用 Three.js；開發版按 G 切換
   const params = new URLSearchParams(location.search);
@@ -270,6 +272,9 @@ async function bootstrap(): Promise<void> {
       const pointer = input!.pointerScreen;
       const hoveredInteractable = renderer.pickInteractableAt(pointer);
       renderer.setHovered(hoveredInteractable === null ? renderer.pickActorAt(pointer) : null, hoveredInteractable);
+      // 游標：指著敵人是劍、指著可以互動的東西是金色箭頭
+      const hoveredActor = renderer.hovered === null ? null : world.targeting.getActor(renderer.hovered);
+      setCursor(hoveredInteractable !== null ? 'interact' : hoveredActor && world.targeting.isHostile(world.player.faction, hoveredActor.faction) ? 'attack' : 'normal');
       renderer.render(alpha);
       sound.update(frameDt, renderer.consumeRoars());
       input!.poll(now());
