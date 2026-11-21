@@ -49,6 +49,8 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'affix.coldproof', name: '抗寒的', kind: 'item', stat: 'coldResist', value: [0.05, 0.12], minItemLevel: 1, weight: 5, growth: PERCENT, slots: [...DEFENSIVE] },
   { id: 'affix.grounded', name: '絕緣的', kind: 'item', stat: 'lightningResist', value: [0.05, 0.12], minItemLevel: 1, weight: 5, growth: PERCENT, slots: [...DEFENSIVE] },
   { id: 'affix.antidote', name: '抗毒的', kind: 'item', stat: 'poisonResist', value: [0.05, 0.12], minItemLevel: 1, weight: 5, growth: PERCENT, slots: [...DEFENSIVE] },
+  // 全元素抗性（設計者 2026-11-19）：火、冰、雷、毒各加，數值約單一抗性的一半；怪物第 10 層起帶隨機元素，所以物品等級 10 起才出現，比單抗少見
+  { id: 'affix.prismatic', name: '稜彩的', kind: 'item', stat: 'elementResist', value: [0.03, 0.06], minItemLevel: 10, weight: 3, growth: PERCENT, slots: ['armor', 'shield', 'amulet'] },
 
   // ── 控制抗性（上限 balance.combat.maxControlResist）──
   { id: 'affix.unhindered', name: '自在的', kind: 'item', stat: 'slowResist', value: [0.08, 0.2], minItemLevel: 3, weight: 5, growth: PERCENT, slots: ['boots', 'gloves', 'amulet'] },
@@ -81,6 +83,8 @@ export const affixes: z.input<typeof AffixDefSchema>[] = [
   { id: 'strong.aegis', name: '神盾', kind: 'strong', stat: 'blockChance', value: [0.08, 0.12], minItemLevel: 1, weight: 6, growth: PERCENT, slots: ['shield'] },
   { id: 'strong.phantom', name: '幻影', kind: 'strong', stat: 'dodgeChance', value: [0.07, 0.1], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['armor', 'gloves', 'boots'] },
   { id: 'strong.ashen', name: '灰燼', kind: 'strong', stat: 'fireResist', value: [0.2, 0.28], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['armor', 'helmet', 'boots', 'shield'] },
+  // 不放護身符（設計者 2026-11-19）：護身符的主倍率會放大所有詞綴，深層紫色護身符一條就有 27%～55%，比單一抗性還高
+  { id: 'strong.four_signs', name: '四象', kind: 'strong', stat: 'elementResist', value: [0.1, 0.14], minItemLevel: 1, weight: 3, growth: PERCENT, slots: ['armor', 'shield'] },
   // 資源與移動
   { id: 'strong.efficiency', name: '節能', kind: 'strong', stat: 'manaCostReduction', value: [0.12, 0.16], minItemLevel: 1, weight: 4, growth: PERCENT, slots: ['weapon', 'helmet', ...JEWELRY] },
   { id: 'strong.soul_drain', name: '汲魂', kind: 'strong', stat: 'manaSteal', value: [0.002, 0.003], minItemLevel: 1, weight: 4, growth: 0, slots: ['weapon', 'ring'] },

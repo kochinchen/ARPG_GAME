@@ -11,7 +11,7 @@ import type { Inventory, InventoryEntry } from './Inventory';
 import type { ItemCursor } from './ItemCursor';
 import { ItemGenerator } from './ItemGenerator';
 import type { ItemInstance } from './ItemInstance';
-import { epicTheme } from './ItemNamer';
+import { epicThemeOf } from './ItemNamer';
 import { buyPrice, gamblePrice, sellPrice } from './Pricing';
 import type { SalvageEntry, SalvageSystem } from './SalvageSystem';
 import { CORE_SLOTS, type CoreSlot } from '../../data/schema/core';
@@ -254,7 +254,7 @@ export class ShopSystem {
     }
     const base = this.data.items.get(item.baseId);
     // 紫裝：名稱決定的那一條強屬性不能重鑄（名字會對不上）
-    const nameAffix = item.rarity === 'epic' ? epicTheme(item.uid, base)[1] : null;
+    const nameAffix = item.rarity === 'epic' ? epicThemeOf(item.uid, base, item.affixes.map((a) => a.id))[1] : null;
     return item.affixes.map((a, index) => {
       const strong = this.data.affixes.has(a.id) && this.data.affixes.get(a.id).kind === 'strong';
       return { index, kind: 'affix', strong, locked: a.id === nameAffix, price: price(strong) };

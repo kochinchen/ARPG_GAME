@@ -54,6 +54,7 @@ export const RARE_PREFIXES: Partial<Record<StatId, readonly string[]>> = {
   coldResist: ['冬眠', '霜盾', '極地', '暖陽', '雪狼', '冰原'],
   lightningResist: ['絕緣', '避雷', '靜默', '接地', '鎮雷', '沉雷'],
   poisonResist: ['淨化', '解毒', '聖泉', '百草', '清心', '抗瘟'],
+  elementResist: ['稜彩', '虹光', '四象', '調和', '萬象', '歸元'],
   hpRegenPct: ['再生', '生機', '不死', '回春', '綠葉', '復甦'],
   dodgeChance: ['影行', '幻步', '靈巧', '殘影', '魅影', '迷蹤'],
   thorns: ['荊棘', '尖刺', '棘甲', '刺蝟', '反噬', '薔薇'],
@@ -119,6 +120,7 @@ export const EPIC_NAMES: Record<WeaponType | Exclude<EquipSlot, 'weapon'>, reado
     ['黑曜戰衣', 'strong.fortress'],
     ['血誓鎧甲', 'strong.undying'],
     ['夜幕', 'strong.phantom'],
+    ['四象鎧', 'strong.four_signs'],
   ],
   gloves: [
     ['鐵爪', 'strong.melee'],
@@ -133,6 +135,7 @@ export const EPIC_NAMES: Record<WeaponType | Exclude<EquipSlot, 'weapon'>, reado
     ['守夜人', 'strong.bulwark'],
     ['巨岩', 'strong.bedrock'],
     ['長城', 'strong.giant'],
+    ['稜彩之盾', 'strong.four_signs'],
   ],
   boots: [
     ['風行者', 'strong.windwalk'],

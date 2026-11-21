@@ -186,6 +186,45 @@ describe('詞綴強度', () => {
   it('所有史詩主題詞綴都存在', () => {
     for (const list of Object.values(EPIC_NAMES)) for (const [, id] of list) expect(data.affixes.has(id), id).toBe(true);
   });
+
+  it('全元素抗性（設計者 2026-11-19）：一般詞綴在盔甲、盾牌、護身符，強屬性只在盔甲、盾牌；一般詞綴物品等級 10 起，數值是單一抗性的一半左右', () => {
+    const normal = data.affixes.get('affix.prismatic');
+    const strong = data.affixes.get('strong.four_signs');
+    for (const affix of [normal, strong]) expect(affix.stat).toBe('elementResist');
+    expect(normal.slots).toEqual(['armor', 'shield', 'amulet']);
+    // 護身符的主倍率會放大所有詞綴，強屬性不放護身符：紫色護身符沒有這個名字，也抽不到
+    expect(strong.slots).toEqual(['armor', 'shield']);
+    expect(EPIC_NAMES.amulet.some(([, id]) => id === strong.id)).toBe(false);
+    for (const slot of ['armor', 'shield'] as const) expect(EPIC_NAMES[slot].some(([, id]) => id === strong.id), slot).toBe(true);
+    expect(normal.value).toEqual([0.03, 0.06]);
+    expect(normal.minItemLevel).toBe(10);
+    expect(strong.value).toEqual([0.1, 0.14]);
+    const single = data.affixes.get('affix.fireproof');
+    expect(normal.weight).toBeLessThan(single.weight);
+    expect(normal.value[1]).toBeCloseTo(single.value[1] / 2);
+    expect(strong.value[1]).toBeCloseTo(data.affixes.get('strong.ashen').value[1] / 2);
+    // 第 9 級以前抽不到一般詞綴；第 10 級起的盔甲抽得到，說明顯示成一行「+N% 全元素抗性」
+    const gen = new ItemGenerator(data, new Rng(77));
+    const armor = data.items.all.find((b) => b.slot === 'armor')!;
+    const has = (level: number) => Array.from({ length: 600 }, () => gen.create(armor, 'rare', level)).filter((i) => i.affixes.some((a) => a.id === normal.id));
+    expect(has(9)).toHaveLength(0);
+    const found = has(10);
+    expect(found.length).toBeGreaterThan(0);
+    expect(describeItem(found[0]!, data).lines.some((l) => /^\+\d+(\.\d+)?% 全元素抗性$/.test(l))).toBe(true);
+    const sword = data.items.all.find((b) => b.weaponType === 'sword')!;
+    for (let i = 0; i < 300; i++) expect(gen.create(sword, 'rare', 40).affixes.some((a) => a.id === normal.id)).toBe(false);
+  });
+
+  it('紫裝名稱表加了新名字，舊的紫裝不改名：名稱跟著身上那一條強屬性', () => {
+    const armor = data.items.all.find((b) => b.slot === 'armor')!;
+    const names = new Map(EPIC_NAMES.armor.map(([name, id]) => [id, name]));
+    for (let i = 0; i < 200; i++) {
+      for (const [id, name] of names) {
+        const item = { uid: `old-${i}`, baseId: armor.id, rarity: 'epic' as const, itemLevel: 20, affixes: [{ id, rolls: [0.1] }] };
+        expect(describeItem(item, data).name, `${item.uid} ${id}`).toBe(name);
+      }
+    }
+  });
 });
 
 describe('主倍率與強屬性', () => {

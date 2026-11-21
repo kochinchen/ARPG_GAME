@@ -27,7 +27,7 @@ export function nameItem(item: ItemInstance, base: ItemBaseDef, affixes: readonl
       return hash(item.uid, 4) % 3 === 0 ? `${prefix}・${base.name}` : `${prefix}${base.name}`;
     }
     case 'epic':
-      return epicTheme(item.uid, base)[0];
+      return epicThemeOf(item.uid, base, affixes.map((a) => a.id))[0];
     default:
       return base.name;
   }
@@ -37,6 +37,17 @@ export function nameItem(item: ItemInstance, base: ItemBaseDef, affixes: readonl
 export function epicTheme(uid: string, base: ItemBaseDef): readonly [name: string, affixId: string] {
   const list = EPIC_NAMES[base.weaponType ?? (base.slot === 'weapon' ? 'sword' : base.slot)];
   return list[hash(uid, 5) % list.length]!;
+}
+
+/**
+ * 已經產生的史詩裝備的名稱與主題詞綴：名稱表後來加了新名字時，uid 挑到的名字會換，
+ * 這時改用身上那一條強屬性對得上的名字，舊裝備不會改名，那一條也維持不能重鑄。
+ */
+export function epicThemeOf(uid: string, base: ItemBaseDef, affixIds: readonly string[]): readonly [name: string, affixId: string] {
+  const theme = epicTheme(uid, base);
+  if (affixIds.includes(theme[1])) return theme;
+  const matching = EPIC_NAMES[base.weaponType ?? (base.slot === 'weapon' ? 'sword' : base.slot)].filter(([, id]) => affixIds.includes(id));
+  return matching.length > 0 ? matching[hash(uid, 5) % matching.length]! : theme;
 }
 
 /** 字串雜湊（FNV-1a）加上 salt，讓不同用途的挑選互不相關 */

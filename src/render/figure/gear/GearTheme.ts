@@ -44,6 +44,7 @@ const STAT_THEME: Partial<Record<StatId, GearTheme>> = {
   lightningResist: 'lightning',
   poisonDamagePct: 'poison',
   poisonResist: 'poison',
+  elementResist: 'arcane',
   lifeSteal: 'blood',
   manaSteal: 'arcane',
   spellPower: 'arcane',

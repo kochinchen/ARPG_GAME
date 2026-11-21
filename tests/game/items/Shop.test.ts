@@ -522,6 +522,16 @@ describe('拆解與材料', () => {
 });
 
 describe('詞綴重鑄', () => {
+  it('紫裝名稱表加了新名字，舊紫裝的那一條強屬性仍然不能重鑄', () => {
+    const { world } = setup(8);
+    const armor = data.items.all.find((b) => b.slot === 'armor')!;
+    for (let i = 0; i < 100; i++) {
+      const affixes = [{ id: 'strong.phantom', rolls: [0.1] }, { id: 'affix.sturdy', rolls: [5] }];
+      const item = { uid: `old-${i}`, baseId: armor.id, rarity: 'epic' as const, itemLevel: 20, affixes };
+      expect(world.shop.rerollLines(item).map((l) => l.locked), item.uid).toEqual([true, false]);
+    }
+  });
+
   it('付金幣重抽一條詞綴：其他詞綴不變、重鑄次數 +1、下一次更貴；強屬性比較貴', () => {
     const { world, send, approach } = setup(8);
     approach();

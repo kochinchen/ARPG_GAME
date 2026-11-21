@@ -1,6 +1,10 @@
-import type { StatId } from '../../data/schema/common';
+import { ELEMENT_RESIST_STATS, type StatId } from '../../data/schema/common';
 
 export type { StatId };
+
+/** 全元素抗性：讀火、冰、雷、毒任何一種抗性時，連同它的基礎值與 Modifier 一起算 */
+const ALL_ELEMENTS: StatId = 'elementResist';
+const ELEMENT_RESISTS: ReadonlySet<StatId> = new Set(ELEMENT_RESIST_STATS);
 
 /**
  * flat：加在基礎值上；increased：同類相加後一起乘；more：各自獨立相乘。
@@ -32,11 +36,12 @@ export class StatBlock {
     const cached = this.cache.get(stat);
     if (cached !== undefined) return cached;
 
-    let flat = 0;
+    const shared = ELEMENT_RESISTS.has(stat) ? ALL_ELEMENTS : null;
+    let flat = shared ? this.getBase(shared) : 0;
     let increased = 0;
     let more = 1;
     for (const m of this.modifiers) {
-      if (m.stat !== stat) continue;
+      if (m.stat !== stat && m.stat !== shared) continue;
       if (m.kind === 'flat') flat += m.value;
       else if (m.kind === 'increased') increased += m.value;
       else more *= 1 + m.value;
@@ -52,12 +57,17 @@ export class StatBlock {
 
   setBase(stat: StatId, value: number): void {
     this.base.set(stat, value);
-    this.cache.delete(stat);
+    this.invalidate(stat);
   }
 
   addModifier(modifier: StatModifier): void {
     this.modifiers.push(modifier);
-    this.cache.delete(modifier.stat);
+    this.invalidate(modifier.stat);
+  }
+
+  private invalidate(stat: StatId): void {
+    this.cache.delete(stat);
+    if (stat === ALL_ELEMENTS) for (const resist of ELEMENT_RESISTS) this.cache.delete(resist);
   }
 
   /** 移除某個來源的全部 Modifier（例如脫下裝備） */

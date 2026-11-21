@@ -42,6 +42,8 @@ export const StatIdSchema = z.enum([
   'coldResist',
   'lightningResist',
   'poisonResist',
+  /** 全元素抗性：同時算進上面四種元素抗性（StatBlock 讀單一抗性時一起加總，不另外判定） */
+  'elementResist',
   /** 物理減傷：受到的物理傷害降低（防禦之後計算；精英 / Boss 的樓層減傷使用） */
   'physicalResist',
   /** 閃避：完全躲開一次攻擊的機率（持續傷害不能閃避） */
@@ -82,6 +84,9 @@ export const StatIdSchema = z.enum([
   'stunResist',
 ]);
 export type StatId = z.infer<typeof StatIdSchema>;
+
+/** 「全元素抗性」（elementResist）算進的四種抗性 */
+export const ELEMENT_RESIST_STATS: readonly StatId[] = ['fireResist', 'coldResist', 'lightningResist', 'poisonResist'];
 
 export const ModifierKindSchema = z.enum(['flat', 'increased', 'more']);
 

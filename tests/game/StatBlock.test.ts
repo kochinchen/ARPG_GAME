@@ -44,4 +44,19 @@ describe('StatBlock', () => {
     stats.setBase('maxHp', 150);
     expect(stats.get('maxHp')).toBe(150);
   });
+
+  it('全元素抗性算進火、冰、雷、毒四種抗性，不影響物理減傷；加上與拿掉都會更新快取', () => {
+    const stats = new StatBlock({ fireResist: 0.1 });
+    const elements = ['fireResist', 'coldResist', 'lightningResist', 'poisonResist'] as const;
+    expect(elements.map((s) => stats.get(s))).toEqual([0.1, 0, 0, 0]);
+    stats.addModifier({ stat: 'elementResist', kind: 'flat', value: 0.05, source: 'item:1' });
+    stats.addModifier({ stat: 'coldResist', kind: 'flat', value: 0.2, source: 'item:2' });
+    expect(elements.map((s) => stats.get(s))).toEqual([0.1 + 0.05, 0.2 + 0.05, 0.05, 0.05].map((v) => expect.closeTo(v)));
+    expect(stats.get('physicalResist')).toBe(0);
+    expect(stats.get('elementResist')).toBeCloseTo(0.05);
+    stats.removeBySource('item:1');
+    expect(elements.map((s) => stats.get(s))).toEqual([0.1, 0.2, 0, 0].map((v) => expect.closeTo(v)));
+    stats.setBase('elementResist', 0.3);
+    expect(stats.get('poisonResist')).toBeCloseTo(0.3);
+  });
 });
