@@ -154,7 +154,8 @@ describe('Migration v1 → v2（屬性點）', () => {
     const v2 = SaveDataSchema.parse(migrate(v1, 1));
     expect(v2.attributes).toEqual({ unspent: 27, allocated: {} });
     expect(v2.character.level).toBe(10);
-    expect(v2.character.gold).toBe(5);
+    // 金幣在 v25 ×2（金幣尺度），其他不變
+    expect(v2.character.gold).toBe(10);
     // 修復：與目前規則一致（每級 3 點）時不做改動
     expect(repairSave({ ...v2, skills: { ...v2.skills, unspentPoints: 2 + 9 } }, data).data.attributes).toEqual({ unspent: 27, allocated: {} });
   });
@@ -165,7 +166,7 @@ describe('Migration v3 → v4（怪物圖鑑）', () => {
     const { bestiary: _drop, ...v3 } = sample(7);
     const v4 = SaveDataSchema.parse(migrate(v3, 3));
     expect(v4.bestiary).toEqual({});
-    expect(v4.character.gold).toBe(7);
+    expect(v4.character.gold).toBe(14);
   });
 });
 
@@ -230,6 +231,21 @@ describe('Migration v20 → v21（挑戰者的筆記）', () => {
     const v21 = SaveDataSchema.parse(migrate(v20, 20));
     expect(v21.notebook).toEqual([]);
     expect(v21.lore).toEqual(['lore.f6']);
+  });
+});
+
+describe('Migration v24 → v25（金幣尺度 ×2）', () => {
+  it('身上的金幣與地上還沒撿的金幣 ×2；地上的其他東西與存檔其餘內容不變', () => {
+    const v24 = structuredClone(sample(19540));
+    const potion = { entry: { kind: 'potion' as const, potionId: 'potion.rejuvenation', count: 2 }, x: 3.5, y: 4.5, droppedByPlayer: false };
+    v24.floor.groundItems = [{ entry: { kind: 'gold', amount: 37 }, x: 1.5, y: 2.5, droppedByPlayer: false }, potion];
+    const v25 = SaveDataSchema.parse(migrate(v24, 24));
+    expect(v25.character.gold).toBe(39080);
+    expect(v25.floor.groundItems).toEqual([{ entry: { kind: 'gold', amount: 74 }, x: 1.5, y: 2.5, droppedByPlayer: false }, potion]);
+    expect(v25).toEqual({ ...v24, character: { ...v24.character, gold: 39080 }, floor: { ...v24.floor, groundItems: v25.floor.groundItems } });
+    // 來源不被改動；已經是 v25 的存檔不再轉換
+    expect(v24.character.gold).toBe(19540);
+    expect(migrate(v25, 25)).toBe(v25);
   });
 });
 
@@ -456,8 +472,8 @@ describe('Migration v15 → v16（盾牌鑲嵌）', () => {
     expect(migrate(v15, 15)).toEqual(migrate(v15, 15));
   });
 
-  it('沒有熔核的存檔原樣不變', () => {
+  it('沒有熔核的存檔：內容不變（之後的版本只把金幣 ×2）', () => {
     const v15 = sample(1) as unknown as Record<string, unknown>;
-    expect(migrate(v15, 15)).toBe(v15);
+    expect(migrate(v15, 15)).toEqual({ ...v15, character: { ...sample(1).character, gold: 2 } });
   });
 });

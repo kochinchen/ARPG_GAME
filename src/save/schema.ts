@@ -28,10 +28,11 @@ import { CoreElementSchema, CoreTypeIdSchema } from '../data/schema/core';
  * v22：本層的隱藏魔王（floor.hiddenBoss）。
  * v23：隱藏魔王隨機抽到的抗性（floor.hiddenBoss.resists），屬性不再固定兩種（elements）。
  * v24：魔王專屬印記的熔核（core.mark，舊存檔沒有這種核）。
+ * v25：金幣尺度 ×2（買賣價與花費都變兩倍），舊存檔身上與地上的金幣 ×2。
  * 只存 ID、數值與玩家的選擇；最終屬性、Mastery、名稱說明都在讀檔後重新推導。
  * 格式變動時：SAVE_VERSION + 1，並在 migrations 加一步轉換。
  */
-export const SAVE_VERSION = 24;
+export const SAVE_VERSION = 25;
 
 const int = z.number().int();
 const nonNegInt = int.min(0);

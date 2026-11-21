@@ -5,6 +5,7 @@ import type { LootTableDefSchema } from './schema/loot';
  * 稀有度權重（相對值），會再乘上樓層的 lootTier 倍率（balance.loot.tierBonus）。傳奇 / 神話為固定設計（data/legendaries.ts）。
  * 第 1～4 層「每件物品」是橘 / 紅的機率：一般怪物約 0.075% / 0.01%、精英 0.5% / 0.075%、魔王 2.2% / 0.45%、寶箱 0.25% / 0.03%
  * （一般怪物只有 25% 掉物品，換算「每隻」約 0.02% / 0.0025%；v0.3.0 起橘、紅種類變多，機率減半）；神話只在第 10 層以上出現，之前抽到會降為傳奇。
+ * 金幣（gold）是第 1 層的數量，每深一層 +35%（balance.loot.goldPerFloor；設計者 2026-11-21）；隱藏魔王的額外金幣（bonusGold）不乘。
  * 第 25 層起（lootTier 5）「每件物品」是紫 / 橘 / 紅的機率：一般怪物約 2.5% / 0.31% / 0.05%、精英 10.1% / 1.7% / 0.30%、魔王 28.5% / 5.9% / 1.4%、寶箱 5.7% / 0.94% / 0.13%。
  */
 export const lootTables: z.input<typeof LootTableDefSchema>[] = [
@@ -17,7 +18,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'potion', weight: 15 },
       { kind: 'gold', weight: 10 },
     ],
-    gold: [3, 12],
+    gold: [8, 16],
     rarityWeights: { normal: 70, magic: 25, rare: 5, epic: 0.6, legendary: 0.075, mythic: 0.01 },
   },
   {
@@ -30,7 +31,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'potion', weight: 15 },
       { kind: 'gold', weight: 10 },
     ],
-    gold: [3, 12],
+    gold: [8, 16],
     rarityWeights: { normal: 70, magic: 25, rare: 5, epic: 0.6, legendary: 0.075, mythic: 0.01 },
   },
   {
@@ -43,12 +44,12 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'potion', weight: 15 },
       { kind: 'gold', weight: 15 },
     ],
-    gold: [15, 40],
+    gold: [30, 60],
     rarityWeights: { normal: 25, magic: 50, rare: 25, epic: 3, legendary: 0.5, mythic: 0.075 },
   },
   {
     // Boss：大量掉落、稀有機率高
-    // 隱藏魔王：一定是 6 件裝備（稀有度和魔王相同），10% 把其中一件換成 5 孔白裝，另外噴 2000～3000 金幣
+    // 隱藏魔王：一定是 6 件裝備（稀有度和魔王相同），10% 把其中一件換成 5 孔白裝，另外噴 6,000～9,000 金幣（2026-11-21 ×3）
     // 越深越多，但不如噬界足眼（設計者 2026-11-04）：16 層 6 件 → 22 層 9 件，金幣 ×1.5，5 孔白裝 10% → 15%；至少一件橘裝以上
     id: 'loot.hidden_boss',
     rolls: 6,
@@ -56,7 +57,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     entries: [{ kind: 'item', weight: 1 }],
     rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12, legendary: 2.5, mythic: 0.5 },
     shards: { chance: 0.6, count: [1, 2] },
-    bonusGold: { amount: [2000, 3000], piles: 6 },
+    bonusGold: { amount: [6000, 9000], piles: 6 },
     fullSocketWhite: 0.1,
     atLeast: 'legendary',
     deeper: { fromFloor: 16, toFloor: 22, extraItems: 3, goldMultiplier: 1.5, fullSocketWhite: 0.15 },
@@ -69,7 +70,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     entries: [{ kind: 'item', weight: 1 }],
     rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12, legendary: 2.5, mythic: 0.5 },
     shards: { chance: 0.6, count: [1, 2] },
-    bonusGold: { amount: [1000, 1500], piles: 5 },
+    bonusGold: { amount: [3000, 4500], piles: 5 },
     fullSocketWhite: 0.1,
     atLeast: 'epic',
     deeper: { fromFloor: 9, toFloor: 14, extraItems: 2, goldMultiplier: 1, fullSocketWhite: 0.1 },
@@ -86,7 +87,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
     entries: [{ kind: 'item', weight: 1 }],
     rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12, legendary: 2.5, mythic: 0.5 },
     shards: { chance: 0.6, count: [1, 2] },
-    bonusGold: { amount: [2000, 3000], piles: 6 },
+    bonusGold: { amount: [6000, 9000], piles: 6 },
     fullSocketWhite: 0.1,
     atLeast: 'mythic',
     deeper: { fromFloor: 23, toFloor: 29, extraItems: 6, goldMultiplier: 2, fullSocketWhite: 0.25 },
@@ -99,7 +100,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'potion', weight: 15 },
       { kind: 'gold', weight: 15 },
     ],
-    gold: [40, 90],
+    gold: [100, 200],
     rarityWeights: { normal: 10, magic: 45, rare: 40, epic: 12, legendary: 2.5, mythic: 0.5 },
     // 魔王：60% 機率掉 1～2 片飛昇碎片
     shards: { chance: 0.6, count: [1, 2] },
@@ -126,7 +127,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'potion', weight: 25 },
       { kind: 'gold', weight: 15 },
     ],
-    gold: [10, 30],
+    gold: [20, 50],
     rarityWeights: { normal: 40, magic: 45, rare: 15, epic: 1.5, legendary: 0.25, mythic: 0.03 },
   },
   {
@@ -140,7 +141,7 @@ export const lootTables: z.input<typeof LootTableDefSchema>[] = [
       { kind: 'potion', weight: 15 },
       { kind: 'gold', weight: 35 },
     ],
-    gold: [40, 100],
+    gold: [50, 110],
     rarityWeights: { normal: 40, magic: 45, rare: 15, epic: 1.5, legendary: 0.25, mythic: 0.03 },
   },
 ];

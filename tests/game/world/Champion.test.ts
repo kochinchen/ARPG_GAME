@@ -79,7 +79,10 @@ describe('每層的首領', () => {
     const table = data.lootTables.get(config.chestLootTable);
     const normal = data.lootTables.get('loot.chest');
     expect(table.rolls).toBe(normal.rolls * 2);
-    expect(table.gold[0]).toBeGreaterThan(normal.gold[1]);
+    // 首領寶箱最少的一堆不比一般寶箱最多的少（50～110 對 20～50），金幣的比重也較高
+    expect(table.gold[0]).toBeGreaterThanOrEqual(normal.gold[1]);
+    const goldWeight = (t: typeof table) => t.entries.find((e) => e.kind === 'gold')!.weight / t.entries.reduce((sum, e) => sum + e.weight, 0);
+    expect(goldWeight(table)).toBeGreaterThan(goldWeight(normal));
 
     // 開過之後重新進入這一層：首領重生，再擊敗也不會再出現寶箱
     w.events.emit('ChestOpened', { chestId: chest!.id, lootTable: chest!.lootTable, position: chest!.position });

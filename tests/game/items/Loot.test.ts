@@ -116,6 +116,22 @@ describe('掉寶（M5）', () => {
     expect(world.groundItems).toHaveLength(0);
   });
 
+  it('金幣走到 2 格內就自動撿起（不用踩上去）；藥水仍要走到旁邊', () => {
+    const { world } = setup();
+    const at = world.player.position;
+    world.spawnGroundItem(vec2(at.x + 1.9, at.y), { kind: 'gold', amount: 30 });
+    world.spawnGroundItem(vec2(at.x + 2.6, at.y), { kind: 'gold', amount: 50 });
+    world.spawnGroundItem(vec2(at.x + 1.2, at.y), { kind: 'potion', potionId: 'potion.rejuvenation', count: 1 });
+    const potionsBefore = world.potions.count;
+    const picked = vi.fn();
+    world.events.on('GoldPickedUp', picked);
+    run(world, 0.1);
+    expect(world.wallet.gold).toBe(30);
+    expect(picked).toHaveBeenCalledTimes(1);
+    expect(world.potions.count).toBe(potionsBefore);
+    expect(world.groundItems.map((g) => g.content.kind).sort()).toEqual(['gold', 'potion']);
+  });
+
   it('藥水疊入背包；背包沒有空間時留在地上（只撿得下的部分）', () => {
     const { world, commands } = setup('loot.test_potion');
     const inv = world.inventory;
@@ -197,6 +213,38 @@ describe('掉寶的樓層成長', () => {
     expect(deep!.mythic).toBeGreaterThan(late!.mythic);
     const tierOf = (floor: number) => data.floors.all.find((f) => f.floors[0] <= floor && floor <= f.floors[1])!.lootTier;
     expect([1, 5, 15, 19, 20, 24, 25, 30, 35].map(tierOf)).toEqual([1, 2, 3, 3, 4, 4, 5, 5, 5]);
+  });
+
+  it('掉落表的金幣每深一層多 goldPerFloor：第 1 層是表上的數量，第 20 層 ×7.65；隱藏魔王的額外金幣不乘', () => {
+    const at = (floor: number) =>
+      new LootSystem(data, new Rng(3), new ItemGenerator(data, new Rng(4)), null as never, () => {}, () => floor, () => 1, () => floor, new EventBus<GameEvents>());
+    const per = data.balance.loot.goldPerFloor;
+    expect(per).toBeGreaterThan(0);
+    expect(at(1).goldMultiplier()).toBe(1);
+    expect(at(20).goldMultiplier()).toBeCloseTo(1 + per * 19);
+    for (const id of ['loot.skeleton', 'loot.elite', 'loot.chest', 'loot.champion_chest', 'loot.boss']) {
+      const [min, max] = data.lootTables.get(id).gold;
+      for (const floor of [1, 10, 20, 35]) {
+        const system = at(floor);
+        const m = system.goldMultiplier();
+        const piles = Array.from({ length: 400 }, () => system.roll(id)).flat().flatMap((d) => (d.kind === 'gold' ? [d.amount] : []));
+        expect(piles.length).toBeGreaterThan(0);
+        expect(Math.min(...piles)).toBeGreaterThanOrEqual(Math.round(min * m));
+        expect(Math.max(...piles)).toBeLessThanOrEqual(Math.round(max * m));
+        // 範圍有用到：最大的那一堆超過中間值
+        expect(Math.max(...piles)).toBeGreaterThan(((min + max) / 2) * m);
+      }
+    }
+    // 一般怪第 20 層一堆 61～122（設計者 2026-11-21：路上的金幣要值得撿）
+    const [min, max] = data.lootTables.get('loot.skeleton').gold;
+    expect([Math.round(min * at(20).goldMultiplier()), Math.round(max * at(20).goldMultiplier())]).toEqual([61, 122]);
+    // 隱藏魔王：第 1 層與第 16 層（deeper 起點）的額外金幣都在表上的範圍內
+    const bonus = data.lootTables.get('loot.hidden_boss').bonusGold!;
+    for (const floor of [1, 16]) {
+      const total = at(floor).roll('loot.hidden_boss').reduce((sum, d) => sum + (d.kind === 'gold' ? d.amount : 0), 0);
+      expect(total).toBeGreaterThanOrEqual(bonus.amount[0]);
+      expect(total).toBeLessThanOrEqual(bonus.amount[1]);
+    }
   });
 
   it('精英額外掉落至少一件物品', () => {

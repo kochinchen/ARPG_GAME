@@ -68,10 +68,21 @@ function sellHeld(e: MouseEvent) {
   blur(e);
   gameBridge.send({ type: 'ShopSellHeld' });
 }
+/** 鑲著熔核的裝備不在一鍵賣出 / 拆解的範圍：確認框說明留下幾件 */
+const keptNote = (kept: number) => (kept > 0 ? `\n\n另有 ${kept} 件鑲著熔核，留在背包不動。` : '');
 async function sellTier(e: MouseEvent, t: ShopView['sellTiers'][number]) {
   blur(e);
-  const ok = await ask({ title: `賣出 ${t.count} 件裝備？`, message: `賣出背包裡 ${t.count} 件${t.label}裝備，得到 ${t.gold} 金幣。`, confirmLabel: '賣出' });
+  const ok = await ask({ title: `賣出 ${t.count} 件裝備？`, message: `賣出背包裡 ${t.count} 件${t.label}裝備，得到 ${t.gold} 金幣。${keptNote(t.kept)}`, confirmLabel: '賣出' });
   if (ok) gameBridge.send({ type: 'ShopSellUpTo', rarity: t.rarity });
+}
+async function salvageTier(e: MouseEvent, t: ShopView['salvageTiers'][number]) {
+  blur(e);
+  const ok = await ask({
+    title: `拆解 ${t.count} 件裝備？`,
+    message: `拆解背包裡 ${t.count} 件${t.label}裝備，預計得到：${t.preview}。${keptNote(t.kept)}\n\n拆掉後無法復原。`,
+    confirmLabel: '拆解',
+  });
+  if (ok) gameBridge.send({ type: 'ShopSalvageUpTo', rarity: t.rarity });
 }
 function reroll(e: MouseEvent, index: number) {
   blur(e);
@@ -131,6 +142,25 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
         {{ t.label }}<small>{{ t.count }} 件</small>
       </button>
     </div>
+    <!-- 一鍵拆解：範圍同一鍵賣出（背包裡的裝備），拆成精華 -->
+    <div class="sell-tiers">
+      <span>一鍵拆解</span>
+      <button
+        v-for="t in view.salvageTiers"
+        :key="t.rarity"
+        type="button"
+        class="sell-tier"
+        :class="`tier-${t.rarity}`"
+        :disabled="t.count === 0"
+        :title="`拆解背包裡所有${t.label}裝備（${t.count} 件，預計 ${t.preview}）`"
+        @click="salvageTier($event, t)"
+      >
+        {{ t.label }}<small>{{ t.count }} 件</small>
+      </button>
+    </div>
+    <p v-if="(view.salvageTiers.at(-1)?.kept ?? 0) > 0" class="odds">
+      背包裡有 {{ view.salvageTiers.at(-1)?.kept }} 件白 / 藍 / 黃裝鑲著熔核：一鍵賣出與一鍵拆解都不會動它們（要處理先在背包右鍵取下熔核）
+    </p>
 
     <nav class="tabs">
       <button type="button" :class="{ on: tab === 'buy' }" @click="tab = 'buy'">購買</button>
@@ -204,7 +234,7 @@ function hover(e: PointerEvent, entry: EntryView, price: number, compare: EntryV
           <li v-for="m in view.ascend.materials" :key="m.label" :class="{ short: m.have < m.need }">{{ m.label }} {{ m.need }}（持有 {{ m.have }}）</li>
         </ul>
         <button type="button" class="ascend-go" :disabled="!view.ascend.canAscend || !view.ascend.affordable" @click="ascend">飛昇</button>
-        <p v-if="view.ascend.canAscend && !view.ascend.affordable" class="odds">金幣或材料不足（精華：在背包的拆解區拆裝備；飛昇碎片：擊敗樓層魔王）</p>
+        <p v-if="view.ascend.canAscend && !view.ascend.affordable" class="odds">金幣或材料不足（精華：在背包的拆解區拆裝備，或用上面的一鍵拆解；飛昇碎片：擊敗樓層魔王）</p>
       </template>
       <template v-if="view.reroll">
         <h4 class="sub">詞綴重鑄<small v-if="view.reroll.rerolls > 0">（已重鑄 {{ view.reroll.rerolls }} 次）</small></h4>

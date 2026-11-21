@@ -221,7 +221,7 @@ describe('掉寶', () => {
     return new LootSystem(data, rng, new ItemGenerator(data, rng.fork('i'), rng.fork('s')), nav, () => ({}) as never, () => 16, () => 3, () => 16, new EventBus<GameEvents>());
   };
 
-  it('第 16 層：一定 6 件裝備，另外 2000～3000 金幣；約 10% 有一件 5 孔白裝', () => {
+  it('第 16 層：一定 6 件裝備，另外 6000～9000 金幣（不乘樓層的金幣倍率）；約 10% 有一件 5 孔白裝', () => {
     const system = loot();
     let white = 0;
     const N = 1000;
@@ -230,8 +230,8 @@ describe('掉寶', () => {
       const items = drops.flatMap((d) => (d.kind === 'item' ? [d.item] : []));
       expect(items).toHaveLength(6);
       const gold = drops.reduce((sum, d) => sum + (d.kind === 'gold' ? d.amount : 0), 0);
-      expect(gold).toBeGreaterThanOrEqual(2000);
-      expect(gold).toBeLessThanOrEqual(3000);
+      expect(gold).toBeGreaterThanOrEqual(6000);
+      expect(gold).toBeLessThanOrEqual(9000);
       const full = items.filter((it) => it.rarity === 'normal' && it.sockets?.max === data.balance.sockets.max.normal);
       if (full.length > 0) white++;
     }
@@ -259,8 +259,8 @@ describe('萬骸之口的掉寶：越深越多，但不如噬界足眼', () => {
     for (let i = 0; i < N; i++) {
       const drops = system.roll('loot.hidden_boss');
       const gold = drops.reduce((sum, d) => sum + (d.kind === 'gold' ? d.amount : 0), 0);
-      expect(gold).toBeGreaterThanOrEqual(3000);
-      expect(gold).toBeLessThanOrEqual(4500);
+      expect(gold).toBeGreaterThanOrEqual(9000);
+      expect(gold).toBeLessThanOrEqual(13500);
       if (drops.some((d) => d.kind === 'item' && d.item.rarity === 'normal' && d.item.sockets?.max === data.balance.sockets.max.normal)) white++;
     }
     expect(white / N).toBeGreaterThan(0.11);
@@ -311,8 +311,8 @@ describe('噬界足眼的掉寶：越深越多', () => {
   it.each([[23, 6, 1], [24, 7, 7 / 6], [26, 9, 1.5], [27, 10, 10 / 6], [28, 11, 11 / 6], [29, 12, 2]])('第 %i 層 %i 件，金幣 ×%f', (floor, items, gold) => {
     const c = count(floor);
     expect(c.items).toBe(items);
-    expect(c.gold).toBeGreaterThanOrEqual(Math.floor(2000 * gold));
-    expect(c.gold).toBeLessThanOrEqual(Math.ceil(3000 * gold));
+    expect(c.gold).toBeGreaterThanOrEqual(Math.floor(6000 * gold));
+    expect(c.gold).toBeLessThanOrEqual(Math.ceil(9000 * gold));
   });
 
   it('5 孔白裝：第 23 層約 10%、第 29 層約 25%', () => {

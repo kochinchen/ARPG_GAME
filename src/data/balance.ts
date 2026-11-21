@@ -234,7 +234,8 @@ export const balance: z.input<typeof BalanceSchema> = {
     enemies: ['enemy.ember_walker', 'enemy.frost_walker', 'enemy.storm_walker', 'enemy.venom_walker'],
     minFloor: 5,
     chances: [0.3, 0.25, 0.2, 0.15, 0.1, 0.05],
-    gold: [400, 1500],
+    // 設計者 2026-11-21：400～1,500 → 600～3,000（第 20 層一隻約 1,940）
+    gold: [600, 3000],
     variance: 0.1,
     piles: 6,
     alone: 7,
@@ -274,6 +275,11 @@ export const balance: z.input<typeof BalanceSchema> = {
     // 紫 / 橘 / 紅的基底：樓層階 −1 ～ +2，偏向樓層階與上一階（第 10 層多為 T2～T4、第 20 層 T3～T6、第 30 層 T6～T8），
     // 高於等級的基底要升級才能穿；早期拿到的好裝備要靠飛昇跟上樓層
     highRarityTier: { offsets: [-1, 0, 1, 2], weights: [15, 40, 30, 15] },
+    // 掉落表的金幣隨樓層變多（設計者 2026-11-21：路上的金幣要值得撿，到第 20 層身上約 7～8 萬）：
+    // 倍率 = 1 + 0.35 ×（樓層 − 1），第 5 層 ×2.4、第 10 層 ×4.15、第 20 層 ×7.65、第 30 層 ×11.15。
+    // 正常進度（每層清 85%）累積撿到：第 5 層約 4,600、第 10 層 19,200、第 20 層 75,500、第 30 層 175,300
+    // （量測：tests/balance/debug/goldsheet.balance.ts）。結晶獸（goldWalker.gold）與隱藏魔王的額外金幣（bonusGold）不乘這個倍率
+    goldPerFloor: 0.35,
   },
   // 共用倉庫（設計者 2026-11-02）：3 個存檔欄位共用，5 頁、每頁 6 × 5 共 30 格；只放裝備與熔核。range：離寶箱多遠面板自動關閉
   stash: { pages: 5, cols: 6, rows: 5, range: 4 },
@@ -301,22 +307,24 @@ export const balance: z.input<typeof BalanceSchema> = {
       { fromFloor: 21, chance: 0.35 },
     ],
   },
+  // 金幣尺度（設計者 2026-11-21）：買賣價與所有花金幣的地方（藥水、賭博、重鑄、飛昇、鑿孔、融合、洗點）全部 ×2，精華與碎片不變；
+  // 路上撿到的金幣名目約 ×4（loot.goldPerFloor），實質約 2 倍。舊存檔的金幣在 Migration v25 ×2
   shop: {
-    value: { base: 4, perItemLevel: 2, rarity: { normal: 1, magic: 2.5, rare: 6, epic: 12, legendary: 20, mythic: 35 } },
+    value: { base: 8, perItemLevel: 4, rarity: { normal: 1, magic: 2.5, rare: 6, epic: 12, legendary: 20, mythic: 35 } },
     buyMultiplier: 4,
     stockSize: 6,
     stockRarityWeights: { normal: 30, magic: 60, rare: 10 },
-    potionBuyPrice: 12,
-    potionSellPrice: 3,
+    potionBuyPrice: 24,
+    potionSellPrice: 6,
     // 賭博：比直接買一件魔法物品便宜一點，但可能拿到普通或稀有。
     // 史詩 / 傳奇只有一般怪物掉落的一半（0.3% / 0.05%，也沒有深層的 tierBonus）：可以用金幣一直賭，不能比打寶好拿
-    gamble: { base: 30, perFloor: 10, rarityWeights: { normal: 15, magic: 59.65, rare: 25, epic: 0.3, legendary: 0.05 } },
-    // 重鑄：第 20 層的黃裝第一次約 1,300、第二次約 1,900；紅裝約 5,000 起；強屬性 ×1.5；每重鑄一次再貴 50%
-    reroll: { base: 200, perItemLevel: 25, rarity: { normal: 1, magic: 0.8, rare: 1.8, epic: 2.8, legendary: 4.5, mythic: 7 }, strong: 1.5, perReroll: 0.5 },
-    // 飛昇：越高階、越稀有越貴（紅裝升到第 8 階約 2 萬金幣）。v0.5.0 金幣與精華 ×2：鑲好熔核的裝備是長期投資，飛昇是主要的金幣 / 精華出口
+    gamble: { base: 60, perFloor: 20, rarityWeights: { normal: 15, magic: 59.65, rare: 25, epic: 0.3, legendary: 0.05 } },
+    // 重鑄：第 20 層的黃裝第一次約 2,500、第二次約 3,800；紅裝約 9,800 起；強屬性 ×1.5；每重鑄一次再貴 50%
+    reroll: { base: 400, perItemLevel: 50, rarity: { normal: 1, magic: 0.8, rare: 1.8, epic: 2.8, legendary: 4.5, mythic: 7 }, strong: 1.5, perReroll: 0.5 },
+    // 飛昇：越高階、越稀有越貴（紅裝升到第 8 階約 4 萬金幣）。v0.5.0 金幣與精華 ×2：鑲好熔核的裝備是長期投資，飛昇是主要的金幣 / 精華出口
     ascend: {
-      base: 120,
-      perTier: 240,
+      base: 240,
+      perTier: 480,
       rarity: { normal: 1, magic: 1.5, rare: 2.5, epic: 4, legendary: 6, mythic: 10 },
       // 精華：第 2 階 22 個 … 第 8 階 58 個（再乘稀有度，紅裝 ×2.5）
       essenceBase: 10,
@@ -338,7 +346,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     max: { normal: 5, magic: 4, rare: 3, epic: 2, legendary: 1, mythic: 0 },
     // 掉落時 0 / 1 / 2 孔的權重；紫以上掉落時沒有孔（要鑿）
     dropWeights: { normal: [60, 30, 10], magic: [60, 30, 10], rare: [65, 25, 10], epic: [1], legendary: [1], mythic: [1] },
-    drillGold: 30,
+    drillGold: 60,
     drillEssence: 3,
     bodyCap: 1.5,
     maxCores: 30,
@@ -350,7 +358,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     // 鑲在武器的熔核：武器傷害 +%（依核階 T1～T5，和主倍率相加；法杖放大法術強度）
     weaponDamage: [0.16, 0.32, 0.48, 0.64, 0.8],
   },
-  // 融合（v0.5.0）：費用在 P9 砍半（2026-10-18）——Lv40 四把紫約 2,060 金幣（約賣價的一半）、武器精華 34（≈ 拆掉這四把的 28～44）
+  // 融合（v0.5.0）：費用在 P9 砍半（2026-10-18）——Lv40 四把紫約 2,060 金幣（約賣價的一半；2026-11-21 金幣尺度 ×2 後約 4,120）、武器精華 34（≈ 拆掉這四把的 28～44）
   fusion: {
     inputs: { min: 2, max: 4 },
     jewelrySlots: 2,
@@ -364,7 +372,7 @@ export const balance: z.input<typeof BalanceSchema> = {
     mixedMultiplier: 0.7,
     brand: { chance: 0.35, chanceCap: 0.85, valueMultiplier: 0.7 },
     jewelryBoost: { normal: 0, magic: 0.05, rare: 0.1, epic: 0.15, legendary: 0.2, mythic: 0.25 },
-    cost: { goldBase: 60, goldPerItemLevel: 12.5, essenceBase: 6, essenceLevelDivisor: 6 },
+    cost: { goldBase: 120, goldPerItemLevel: 25, essenceBase: 6, essenceLevelDivisor: 6 },
   },
   // 武器決定可用的技能類別：劍斧＝近戰＋魔法、弓＝遠程＋魔法、法杖＝魔法；戰術任何武器都能用
   // 魔法的加減分（劍斧弓 −20%、法杖 +15%）在 items.ts 的武器內建屬性
@@ -390,9 +398,9 @@ export const balance: z.input<typeof BalanceSchema> = {
     maxBlock: 0.5,
     blockReduction: 0.6,
   },
-  // 洗點：Lv10 約 950 / 630、Lv30 約 4,900 / 3,300、Lv50 約 10,600 / 7,100 金幣
+  // 洗點：Lv10 約 1,900 / 1,260、Lv30 約 9,900 / 6,600、Lv50 約 21,200 / 14,100 金幣
   respec: {
-    skills: { base: 30, exponent: 1.5 },
-    attributes: { base: 20, exponent: 1.5 },
+    skills: { base: 60, exponent: 1.5 },
+    attributes: { base: 40, exponent: 1.5 },
   },
 };

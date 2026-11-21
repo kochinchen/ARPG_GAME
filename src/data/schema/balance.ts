@@ -484,6 +484,8 @@ export const BalanceSchema = z.strictObject({
     highRarityTier: z
       .strictObject({ offsets: z.array(z.int()).min(1), weights: z.array(z.number().positive()).min(1) })
       .refine((t) => t.offsets.length === t.weights.length, 'offsets 與 weights 長度必須相同'),
+    /** 掉落表的金幣（LootTableDef.gold）每深一層多多少：倍率 = 1 + goldPerFloor ×（樓層 − 1）。結晶獸與隱藏魔王的額外金幣另外算 */
+    goldPerFloor: z.number().min(0),
   }),
   /** 共用倉庫：頁數、每頁欄列、離寶箱多遠面板自動關閉 */
   stash: z.strictObject({ pages: z.int().positive(), cols: z.int().positive(), rows: z.int().positive(), range: z.number().positive() }),

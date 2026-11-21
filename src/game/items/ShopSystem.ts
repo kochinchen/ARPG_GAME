@@ -13,11 +13,15 @@ import { ItemGenerator } from './ItemGenerator';
 import type { ItemInstance } from './ItemInstance';
 import { epicTheme } from './ItemNamer';
 import { buyPrice, gamblePrice, sellPrice } from './Pricing';
+import type { SalvageEntry, SalvageSystem } from './SalvageSystem';
 import { CORE_SLOTS, type CoreSlot } from '../../data/schema/core';
 import type { CoreInstance } from './CoreInstance';
 import { fuse, previewFusion, type FusionPreview } from './FusionResolver';
 
 type ShopData = Pick<DataRegistry, 'balance' | 'items' | 'affixes' | 'legendaries' | 'potions' | 'cores'>;
+
+/** 這件裝備的孔裡有沒有鑲著熔核 */
+const hasCores = (item: ItemInstance): boolean => (item.sockets?.cores.length ?? 0) > 0;
 
 export interface ShopContext {
   player: Actor;
@@ -31,6 +35,8 @@ export interface ShopContext {
   materials: Materials;
   /** 融合擲骰（獨立序列） */
   fusionRng: Rng;
+  /** 拆解（一鍵拆解照拆解區的規則擲精華） */
+  salvage: SalvageSystem;
 }
 
 /** 飛昇的預覽：下一階基底與價格；不能飛昇時 next 為 null 並附上原因 */
@@ -187,19 +193,45 @@ export class ShopSystem {
     return true;
   }
 
-  /** 賣出背包裡所有稀有度不高於 maxRarity 的裝備（白 / 白＋藍 / 白＋藍＋黃） */
+  /** 賣出背包裡所有稀有度不高於 maxRarity 的裝備（白 / 白＋藍 / 白＋藍＋黃；鑲著熔核的留著） */
   sellUpTo(maxRarity: Rarity): boolean {
     if (!this.canTrade()) return false;
-    const max = RARITIES.indexOf(maxRarity);
     let gold = 0;
-    this.ctx.inventory.cells.forEach((entry, cell) => {
-      if (entry?.kind !== 'item' || RARITIES.indexOf(entry.item.rarity) > max) return;
+    for (const { cell, entry } of this.bulkCells(maxRarity)) {
       this.ctx.inventory.take(cell);
       gold += sellPrice(entry, this.data);
-    });
+    }
     if (gold === 0) return false;
     this.ctx.wallet.add(gold);
     this.events.emit('ShopTransaction', { kind: 'sell', gold });
+    return true;
+  }
+
+  /**
+   * 背包裡稀有度不高於 maxRarity 的裝備（一鍵賣出與一鍵拆解的範圍：不含穿在身上的、熔核、藥水與倉庫）。
+   * 鑲著熔核的裝備也不算（設計者 2026-11-21）：熔核不能被一鍵拆掉或賣掉，要不要取下、拆解由玩家自己決定。
+   */
+  bulkCells(maxRarity: Rarity): { cell: number; entry: SalvageEntry & { kind: 'item' } }[] {
+    return this.bulkCandidates(maxRarity).filter((c) => !hasCores(c.entry.item));
+  }
+
+  /** 稀有度在範圍內、但因為鑲著熔核而留在背包的裝備件數（介面提示用） */
+  bulkKept(maxRarity: Rarity): number {
+    return this.bulkCandidates(maxRarity).filter((c) => hasCores(c.entry.item)).length;
+  }
+
+  private bulkCandidates(maxRarity: Rarity): { cell: number; entry: SalvageEntry & { kind: 'item' } }[] {
+    const max = RARITIES.indexOf(maxRarity);
+    return this.ctx.inventory.cells.flatMap((entry, cell) => (entry?.kind === 'item' && RARITIES.indexOf(entry.item.rarity) <= max ? [{ cell, entry }] : []));
+  }
+
+  /** 拆解背包裡所有稀有度不高於 maxRarity 的裝備（白 / 白＋藍 / 白＋藍＋黃；鑲著熔核的留著）：每件照拆解區的規則擲精華 */
+  salvageUpTo(maxRarity: Rarity): boolean {
+    if (!this.canTrade()) return false;
+    const targets = this.bulkCells(maxRarity);
+    if (targets.length === 0) return false;
+    for (const t of targets) this.ctx.inventory.take(t.cell);
+    this.ctx.salvage.salvageEntries(targets.map((t) => t.entry));
     return true;
   }
 

@@ -469,6 +469,7 @@ export class GameWorld {
         potionId: p.potionId,
         materials: this.materials,
         fusionRng: streams.fusion,
+        salvage: this.salvage,
       },
       data,
       this.events,
@@ -1513,6 +1514,9 @@ export class GameWorld {
       case 'ShopSellUpTo':
         this.shop.sellUpTo(command.rarity);
         return true;
+      case 'ShopSalvageUpTo':
+        this.shop.salvageUpTo(command.rarity);
+        return true;
       case 'SalvageClick':
         this.salvage.click(command.slot);
         return true;
@@ -1657,7 +1661,7 @@ export class GameWorld {
   /** 開發用：融合測試包——金幣、精華、四把武器（劍、劍、弓、傳奇斧）、一件 2 孔頭盔 */
   private spawnFusionKit(itemLevel?: number): void {
     const level = itemLevel ?? Math.max(1, this.itemLevel);
-    this.wallet.add(20000);
+    this.wallet.add(40000);
     this.materials.add('weaponEssence', 200);
     this.materials.add('armorEssence', 100);
     const base = (pred: (b: (typeof this.data.items.all)[number]) => boolean) => this.data.items.all.filter((b) => pred(b) && b.levelReq <= level).at(-1)!;

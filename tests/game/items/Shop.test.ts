@@ -372,6 +372,111 @@ describe('拆解與材料', () => {
     expect(world.salvage.slots.every((s) => s === null)).toBe(true);
   });
 
+  it('商人的一鍵拆解：背包裡白 / 白＋藍 / 白＋藍＋黃的裝備照拆解區的規則變成精華；紫以上、熔核、藥水、穿著的不動', () => {
+    const { world, send, approach } = setup(2);
+    const inv = world.inventory;
+    inv.restore(inv.cells.map(() => null));
+    const item = (uid: string, baseId: string, rarity: string) => ({ kind: 'item' as const, item: { uid, baseId, rarity, itemLevel: 1, affixes: [] } as never });
+    inv.place(0, item('w1', 'weapon.short_sword', 'normal'));
+    inv.place(1, item('a1', 'armor.quilted', 'normal'));
+    inv.place(2, item('a2', 'boots.leather', 'magic'));
+    inv.place(3, item('w2', 'weapon.short_sword', 'rare'));
+    inv.place(4, item('e1', 'armor.quilted', 'epic'));
+    inv.place(5, { kind: 'core', core: { uid: 'c1', types: ['fire'], tier: 1, rarity: 'normal', power: 1, itemLevel: 1 } as never });
+    inv.place(6, { kind: 'potion', potionId: 'potion.rejuvenation', count: 3 });
+    // 穿著一把白色的劍：不在一鍵拆解的範圍內
+    world.equipment.equipTo('weapon', item('worn', 'weapon.short_sword', 'normal').item);
+    const salvaged: { count: number }[] = [];
+    world.events.on('ItemsSalvaged', (e) => salvaged.push(e));
+    const essence = () => [world.materials.get('weaponEssence'), world.materials.get('armorEssence')];
+    const between = (v: number, min: number, max: number) => expect(v >= min && v <= max, `${v} 應在 ${min}～${max}`).toBe(true);
+
+    // 離商人太遠（樓梯口旁也有商人，站到寶箱那裡）：不能拆
+    world.player.position = { ...world.chests[0]!.position };
+    world.player.prevPosition = world.player.position;
+    send({ type: 'ShopSalvageUpTo', rarity: 'rare' });
+    expect(inv.get(0)).not.toBeNull();
+    expect(essence()).toEqual([0, 0]);
+
+    approach();
+    // 白色：一把劍（武器精華 1～2）＋一件甲（防具精華 1～2）
+    send({ type: 'ShopSalvageUpTo', rarity: 'normal' });
+    expect([inv.get(0), inv.get(1)]).toEqual([null, null]);
+    expect(inv.get(2)).not.toBeNull();
+    between(essence()[0]!, 1, 2);
+    between(essence()[1]!, 1, 2);
+    expect(salvaged).toMatchObject([{ count: 2 }]);
+
+    // 白＋藍：剩下的藍鞋（防具精華 2～4）；黃劍留著
+    const armorBefore = essence()[1]!;
+    send({ type: 'ShopSalvageUpTo', rarity: 'magic' });
+    expect(inv.get(2)).toBeNull();
+    expect(inv.get(3)).not.toBeNull();
+    between(essence()[1]! - armorBefore, 2, 4);
+
+    // 白＋藍＋黃：黃劍（武器精華 4～7）；紫裝、熔核、藥水不動，穿在身上的也不動，金幣不變
+    const weaponBefore = essence()[0]!;
+    const gold = world.wallet.gold;
+    send({ type: 'ShopSalvageUpTo', rarity: 'rare' });
+    expect(inv.get(3)).toBeNull();
+    between(essence()[0]! - weaponBefore, 4, 7);
+    expect(inv.get(4)).toMatchObject({ kind: 'item', item: { uid: 'e1' } });
+    expect(inv.get(5)).toMatchObject({ kind: 'core' });
+    expect(inv.get(6)).toMatchObject({ kind: 'potion', count: 3 });
+    expect(world.equipment.get('weapon')).toMatchObject({ uid: 'worn' });
+    expect(world.wallet.gold).toBe(gold);
+
+    // 沒有東西可拆：不發事件
+    send({ type: 'ShopSalvageUpTo', rarity: 'rare' });
+    expect(salvaged.length).toBe(3);
+  });
+
+  it('一鍵拆解與一鍵賣出都不動鑲著熔核的裝備：整件留在背包，熔核還在孔裡；取下熔核後才會被拆', () => {
+    const { world, send, approach } = setup(2);
+    const inv = world.inventory;
+    inv.restore(inv.cells.map(() => null));
+    const core = (uid: string) => ({ uid, types: ['fire'], tier: 1, rarity: 'normal', power: 1, itemLevel: 1 }) as never;
+    const item = (uid: string, baseId: string, rarity: string, sockets?: { max: number; cores: never[] }) =>
+      ({ kind: 'item' as const, item: { uid, baseId, rarity, itemLevel: 1, affixes: [], ...(sockets ? { sockets } : {}) } as never });
+    inv.place(0, item('white-cored', 'weapon.short_sword', 'normal', { max: 5, cores: [core('c1'), core('c2')] }));
+    inv.place(1, item('yellow-cored', 'armor.quilted', 'rare', { max: 2, cores: [core('c3')] }));
+    inv.place(2, item('white-empty-holes', 'armor.quilted', 'normal', { max: 2, cores: [] }));
+    inv.place(3, item('blue-plain', 'boots.leather', 'magic'));
+    approach();
+    expect(world.shop.bulkCells('rare').map((c) => c.entry.item.uid)).toEqual(['white-empty-holes', 'blue-plain']);
+    expect([world.shop.bulkKept('normal'), world.shop.bulkKept('magic'), world.shop.bulkKept('rare')]).toEqual([1, 1, 2]);
+
+    // 一鍵賣出白色：只賣沒鑲核的那件（空的孔不算）
+    send({ type: 'ShopSellUpTo', rarity: 'normal' });
+    expect(inv.get(2)).toBeNull();
+    expect(inv.get(0)).toMatchObject({ kind: 'item', item: { uid: 'white-cored', sockets: { cores: [{ uid: 'c1' }, { uid: 'c2' }] } } });
+
+    // 一鍵拆解白＋藍＋黃：只拆藍鞋；兩件鑲核的裝備與上面的熔核都還在
+    const salvaged: { count: number }[] = [];
+    world.events.on('ItemsSalvaged', (e) => salvaged.push(e));
+    send({ type: 'ShopSalvageUpTo', rarity: 'rare' });
+    expect(salvaged).toMatchObject([{ count: 1 }]);
+    expect(inv.get(3)).toBeNull();
+    expect(inv.get(0)).toMatchObject({ kind: 'item', item: { uid: 'white-cored', sockets: { cores: [{ uid: 'c1' }, { uid: 'c2' }] } } });
+    expect(inv.get(1)).toMatchObject({ kind: 'item', item: { uid: 'yellow-cored', sockets: { cores: [{ uid: 'c3' }] } } });
+    expect(world.materials.get('weaponEssence')).toBe(0);
+
+    // 只剩鑲核的：再按什麼都不會發生
+    send({ type: 'ShopSalvageUpTo', rarity: 'rare' });
+    send({ type: 'ShopSellUpTo', rarity: 'rare' });
+    expect(salvaged.length).toBe(1);
+    expect([inv.get(0), inv.get(1)].every((e) => e !== null)).toBe(true);
+
+    // 玩家自己把黃甲的熔核取下後，這件才進一鍵拆解的範圍；取下的熔核留在背包
+    send({ type: 'RemoveCore', from: { kind: 'cell', cell: 1 } });
+    expect(inv.cells.some((e) => e?.kind === 'core' && e.core.uid === 'c3')).toBe(true);
+    expect(world.shop.bulkCells('rare').map((c) => c.entry.item.uid)).toEqual(['yellow-cored']);
+    send({ type: 'ShopSalvageUpTo', rarity: 'rare' });
+    expect(inv.cells.some((e) => e?.kind === 'item' && e.item.uid === 'yellow-cored')).toBe(false);
+    expect(inv.cells.some((e) => e?.kind === 'core' && e.core.uid === 'c3')).toBe(true);
+    expect(inv.get(0)).toMatchObject({ kind: 'item', item: { uid: 'white-cored' } });
+  });
+
   it('拆解區的格子可以拿回；藥水不能放', () => {
     const { world, send } = setup(2);
     world.cursor.set({ kind: 'item', item: { uid: 'x', baseId: 'ring.plain', rarity: 'rare', itemLevel: 1, affixes: [] } });

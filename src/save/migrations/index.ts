@@ -281,8 +281,27 @@ const v22ToV23: Migration = (v22) => {
 /** v23 → v24：熔核多一個可有可無的魔王印記（舊存檔沒有，不用轉換） */
 const v23ToV24: Migration = (v23) => v23;
 
+/**
+ * v24 → v25：金幣尺度 ×2（設計者 2026-11-21：買賣價與所有花費都變兩倍）。身上的金幣與地上還沒撿的金幣跟著 ×2，購買力不變。
+ * Migration 寫死當時的倍率。
+ */
+const V25_GOLD_SCALE = 2;
+const v24ToV25: Migration = (v24) => {
+  const character = v24.character as Record<string, unknown> | undefined;
+  const floor = v24.floor as Record<string, unknown> | undefined;
+  const out = { ...v24 };
+  if (character && typeof character.gold === 'number') out.character = { ...character, gold: Math.round(character.gold * V25_GOLD_SCALE) };
+  if (floor && Array.isArray(floor.groundItems)) {
+    const groundItems = (floor.groundItems as { entry?: { kind?: string; amount?: number } }[]).map((g) =>
+      g.entry?.kind === 'gold' && typeof g.entry.amount === 'number' ? { ...g, entry: { ...g.entry, amount: Math.round(g.entry.amount * V25_GOLD_SCALE) } } : g,
+    );
+    out.floor = { ...floor, groundItems };
+  }
+  return out;
+};
+
 /** index = 起始版本（0 → 1 → 2 → 3 …） */
-const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22, v22ToV23, v23ToV24];
+const MIGRATIONS: Migration[] = [v0ToV1, v1ToV2, v2ToV3, v3ToV4, v4ToV5, v5ToV6, v6ToV7, v7ToV8, v8ToV9, v9ToV10, v10ToV11, v11ToV12, v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21, v21ToV22, v22ToV23, v23ToV24, v24ToV25];
 
 export class MigrationError extends Error {}
 

@@ -12,7 +12,7 @@ import { repairSave } from '../../../src/save/SaveRepair';
 import { SaveMapper } from '../../../src/save/SaveMapper';
 import { run } from '../helpers';
 
-/** 噴錢的結晶獸（balance.goldWalker）：第 5 層起機率出現、單獨行動、血量同精英、打倒噴 400～1500 金幣（越深越多） */
+/** 噴錢的結晶獸（balance.goldWalker）：第 5 層起機率出現、單獨行動、血量同精英、打倒噴 600～3000 金幣（越深越多） */
 const data = DataRegistry.load(gameData);
 const config = data.balance.goldWalker;
 
@@ -74,7 +74,7 @@ describe('噴錢的結晶獸', () => {
     }
   });
 
-  it('打倒時噴出金幣：第 5 層約 530、最後幾層接近 1500，分成幾堆', () => {
+  it('打倒時噴出金幣：第 5 層約 880、最後幾層接近 3000，分成幾堆', () => {
     const expected = (f: number) => config.gold[0] + ((config.gold[1] - config.gold[0]) * (f - 1)) / 34;
     for (const floor of [5, 33]) {
       const w = withWalkers(floor);

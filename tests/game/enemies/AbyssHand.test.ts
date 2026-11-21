@@ -69,7 +69,7 @@ describe('奪界雙手', () => {
     expect(before()).toBeGreaterThan(n + 4);
   });
 
-  it('掉寶：9 層 4 件 → 14 層 6 件、至少一件紫、金幣 1000～1500、有機會掉紫色純核', () => {
+  it('掉寶：9 層 4 件 → 14 層 6 件、至少一件紫、金幣 3000～4500、有機會掉紫色純核', () => {
     const roll = (floor: number, seed: number) => {
       const rng = new Rng(seed);
       const events = new EventBus<GameEvents>();
@@ -87,8 +87,8 @@ describe('奪界雙手', () => {
       expect(items(high)).toHaveLength(6);
       expect(items(low).some((x) => x.kind === 'item' && ['epic', 'legendary', 'mythic'].includes(x.item.rarity))).toBe(true);
       const gold = low.reduce((sum, x) => sum + (x.kind === 'gold' ? x.amount : 0), 0);
-      expect(gold).toBeGreaterThanOrEqual(1000);
-      expect(gold).toBeLessThanOrEqual(1500);
+      expect(gold).toBeGreaterThanOrEqual(3000);
+      expect(gold).toBeLessThanOrEqual(4500);
       for (const x of low) {
         if (x.kind !== 'core') continue;
         cores++;

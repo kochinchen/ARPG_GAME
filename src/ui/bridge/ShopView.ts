@@ -7,6 +7,7 @@ import { affixLineTexts, SLOT_LABELS } from '../../game/items/ItemDescriber';
 import type { ItemInstance } from '../../game/items/ItemInstance';
 import { itemStats } from '../../game/items/ItemStats';
 import { buyPrice, sellPrice } from '../../game/items/Pricing';
+import { salvagePreview } from '../../game/items/SalvageSystem';
 import { coreEntryView, itemEntryView, type EntryView } from './InventoryView';
 import { CORE_ELEMENT_LABELS, coreExtraTexts, coreRangeText, matchBonusText } from '../../game/items/CoreDescriber';
 import { coreWeaponDamage } from '../../game/items/SocketBonus';
@@ -54,8 +55,10 @@ export interface ShopView {
     canAscend: boolean;
     note: string;
   } | null;
-  /** 一鍵賣出：白 / 白＋藍 / 白＋藍＋黃 的件數與總價 */
-  sellTiers: { rarity: 'normal' | 'magic' | 'rare'; label: string; count: number; gold: number }[];
+  /** 一鍵賣出：白 / 白＋藍 / 白＋藍＋黃 的件數與總價；kept = 同樣稀有度但鑲著熔核、留在背包不賣的件數 */
+  sellTiers: { rarity: 'normal' | 'magic' | 'rare'; label: string; count: number; gold: number; kept: number }[];
+  /** 一鍵拆解：同樣三個級距的件數與預計得到的精華（例：武器精華 3～6、防具精華 5～10）；kept 同上 */
+  salvageTiers: { rarity: 'normal' | 'magic' | 'rare'; label: string; count: number; preview: string; kept: number }[];
   /** 重鑄：飛昇格裡裝備的每一行詞綴（沒放裝備時為 null） */
   reroll: {
     lines: { index: number; text: string; strong: boolean; locked: boolean; price: number; affordable: boolean }[];
@@ -109,6 +112,7 @@ export function emptyShopView(): ShopView {
     ascendSlot: null,
     ascend: null,
     sellTiers: [],
+    salvageTiers: [],
     reroll: null,
     sockets: null,
     fusion: { inputs: [], jewelry: [], preview: null, result: null },
@@ -182,9 +186,15 @@ export function buildShopView(world: GameWorld, data: DataRegistry): ShopView {
     ascendSlot: shop.ascendSlot ? itemEntryView(shop.ascendSlot, data) : null,
     ascend: shop.ascendSlot ? ascendView(world, data, shop.ascendSlot, gold) : null,
     sellTiers: SELL_TIERS.map(({ rarity, label }) => {
-      const max = RARITIES.indexOf(rarity);
-      const cells = world.inventory.cells.filter((c) => c?.kind === 'item' && RARITIES.indexOf(c.item.rarity) <= max);
-      return { rarity, label, count: cells.length, gold: cells.reduce((sum, c) => sum + (c ? sellPrice(c, data) : 0), 0) };
+      const entries = shop.bulkCells(rarity).map((c) => c.entry);
+      return { rarity, label, count: entries.length, gold: entries.reduce((sum, e) => sum + sellPrice(e, data), 0), kept: shop.bulkKept(rarity) };
+    }),
+    salvageTiers: SELL_TIERS.map(({ rarity, label }) => {
+      const entries = shop.bulkCells(rarity).map((c) => c.entry);
+      const preview = (Object.entries(salvagePreview(entries, data)) as [MaterialId, [number, number]][])
+        .map(([id, [min, max]]) => `${MATERIAL_LABELS[id]} ${min}～${max}`)
+        .join('、');
+      return { rarity, label, count: entries.length, preview, kept: shop.bulkKept(rarity) };
     }),
     reroll: shop.ascendSlot ? rerollView(world, data, shop.ascendSlot, gold) : null,
     sockets: shop.ascendSlot ? socketsView(world, data, shop.ascendSlot, gold) : null,
@@ -265,7 +275,7 @@ function fusionPanel(world: GameWorld, data: DataRegistry, pv: FusionPreview, go
     return item ? describeItem(item, data).name : uid;
   };
   const warnings = [...pv.warnings, ...pv.rarityCritical.map((uid) => `拿掉「${nameOf(uid)}」會降低核色`)];
-  if (!enough) warnings.push('精華不足（在背包的拆解區拆裝備：武器 → 武器精華、防具 → 防具精華）');
+  if (!enough) warnings.push('精華不足（在背包的拆解區拆裝備，或用上面的一鍵拆解：武器 → 武器精華、防具 → 防具精華）');
   const canFuse = pv.problems.length === 0 && gold >= pv.cost.gold && enough;
   return { problems: pv.problems, certain, chance, slots, warnings, cost, canFuse, needsConfirm: world.shop.fusionNeedsConfirm };
 }

@@ -16,10 +16,21 @@ export function essenceFor(item: ItemInstance, data: Pick<DataRegistry, 'items'>
   return data.items.get(item.baseId).slot === 'weapon' ? 'weaponEssence' : 'armorEssence';
 }
 
-/** 拆解區一格的精華種類與數量範圍（熔核：武器精華，依核色） */
+/** 一件裝備或熔核拆出的精華種類與數量範圍（熔核：武器精華，依核色） */
 function yieldOf(entry: SalvageEntry, data: Pick<DataRegistry, 'items' | 'balance'>): { id: MaterialId; range: [number, number] } {
   const rarity = entry.kind === 'item' ? entry.item.rarity : entry.core.rarity;
   return { id: entry.kind === 'item' ? essenceFor(entry.item, data) : 'weaponEssence', range: data.balance.salvage.yields[rarity] };
+}
+
+/** 一批裝備或熔核預計拆出的各種精華數量範圍（UI 預覽） */
+export function salvagePreview(entries: readonly SalvageEntry[], data: Pick<DataRegistry, 'items' | 'balance'>): Partial<Record<MaterialId, [number, number]>> {
+  const out: Partial<Record<MaterialId, [number, number]>> = {};
+  for (const entry of entries) {
+    const { id, range: [min, max] } = yieldOf(entry, data);
+    const cur = out[id] ?? [0, 0];
+    out[id] = [cur[0] + min, cur[1] + max];
+  }
+  return out;
 }
 
 /**
@@ -57,31 +68,30 @@ export class SalvageSystem {
 
   /** 各種精華預計得到的數量範圍（UI 預覽） */
   preview(): Partial<Record<MaterialId, [number, number]>> {
-    const out: Partial<Record<MaterialId, [number, number]>> = {};
-    for (const entry of this.slots) {
-      if (!entry) continue;
-      const { id, range: [min, max] } = yieldOf(entry, this.data);
-      const cur = out[id] ?? [0, 0];
-      out[id] = [cur[0] + min, cur[1] + max];
-    }
-    return out;
+    return salvagePreview(this.slots.filter((e): e is SalvageEntry => e !== null), this.data);
   }
 
   /** 拆掉所有格子裡的裝備，回傳得到的精華 */
   salvageAll(): Partial<Record<MaterialId, number>> {
+    const entries = this.slots.filter((e): e is SalvageEntry => e !== null);
+    this.slots.fill(null);
+    return this.salvageEntries(entries);
+  }
+
+  /**
+   * 直接拆掉一批裝備或熔核（拆解區的「拆掉」與商人的一鍵拆解共用）：每件依稀有度擲骰，精華進材料，回傳得到的數量。
+   * 呼叫的人負責先把這些東西從原本的地方拿走。
+   */
+  salvageEntries(entries: readonly SalvageEntry[]): Partial<Record<MaterialId, number>> {
     const gained: Partial<Record<MaterialId, number>> = {};
-    let count = 0;
-    this.slots.forEach((entry, i) => {
-      if (!entry) return;
+    for (const entry of entries) {
       const { id, range: [min, max] } = yieldOf(entry, this.data);
       gained[id] = (gained[id] ?? 0) + this.rng.int(min, max);
-      this.slots[i] = null;
-      count++;
-    });
-    if (count === 0) return gained;
+    }
+    if (entries.length === 0) return gained;
     for (const [id, n] of Object.entries(gained) as [MaterialId, number][]) this.materials.add(id, n);
     this._version++;
-    this.events.emit('ItemsSalvaged', { count, gained });
+    this.events.emit('ItemsSalvaged', { count: entries.length, gained });
     return gained;
   }
 

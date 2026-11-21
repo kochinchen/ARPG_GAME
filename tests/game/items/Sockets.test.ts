@@ -206,18 +206,18 @@ describe('掉落時的孔數', () => {
 });
 
 describe('商人：鑿孔、鑲嵌、拆卸', () => {
-  it('鑿孔：第 n 孔 金幣 30 × 物品等級 × n、防具精華 3n；不超過稀有度上限（橘 1 孔、紅不可）', () => {
+  it('鑿孔：第 n 孔 金幣 60 × 物品等級 × n、防具精華 3n；不超過稀有度上限（橘 1 孔、紅不可）', () => {
     const { world, send, failures } = setup();
     world.wallet.gold = 10000;
     world.materials.add('armorEssence', 50);
     world.shop.ascendSlot = item('weapon', 'epic', 20);
     send({ type: 'ShopDrill' });
     expect(world.shop.ascendSlot.sockets).toEqual({ max: 1, cores: [] });
-    expect(world.wallet.gold).toBe(10000 - 30 * 20 * 1);
+    expect(world.wallet.gold).toBe(10000 - 60 * 20 * 1);
     expect(world.materials.get('armorEssence')).toBe(50 - 3);
     send({ type: 'ShopDrill' });
     expect(world.shop.ascendSlot.sockets!.max).toBe(2);
-    expect(world.wallet.gold).toBe(10000 - 600 - 30 * 20 * 2);
+    expect(world.wallet.gold).toBe(10000 - 1200 - 60 * 20 * 2);
     send({ type: 'ShopDrill' }); // 紫最多 2 孔
     expect(failures.at(-1)).toBe('cannotDrill');
     world.shop.ascendSlot = item('weapon', 'mythic', 20);
@@ -228,17 +228,17 @@ describe('商人：鑿孔、鑲嵌、拆卸', () => {
     expect(failures.filter((f) => f === 'cannotDrill')).toHaveLength(3);
   });
 
-  it('鑲好熔核的裝備可以飛昇：孔與熔核保留；飛昇的金幣與精華是 v0.5.0 前的 2 倍', () => {
+  it('鑲好熔核的裝備可以飛昇：孔與熔核保留；金幣 (240 + 480 × 階) × 稀有度、精華 (10 + 6 × 階) × 稀有度', () => {
     const { world, send } = setup();
     const t1 = data.items.all.find((b) => b.weaponType === 'sword' && b.tier === 1)!;
     const t2 = data.items.all.find((b) => b.weaponType === 'sword' && b.tier === 2)!;
     const sockets = { max: 2, cores: [core('keep')] };
     world.shop.ascendSlot = { uid: 'w', baseId: t1.id, rarity: 'epic', itemLevel: 10, affixes: [], sockets };
     const info = world.shop.ascendInfo(world.shop.ascendSlot);
-    // (120 + 240 × 2) × 紫 4 = 2,400；武器精華 (10 + 6 × 2) × 紫 1.5 = 33
-    expect(info.price).toBe(2400);
+    // (240 + 480 × 2) × 紫 4 = 4,800（2026-11-21 金幣尺度 ×2）；武器精華 (10 + 6 × 2) × 紫 1.5 = 33
+    expect(info.price).toBe(4800);
     expect(info.materials).toEqual({ weaponEssence: 33 });
-    world.wallet.gold = 2400;
+    world.wallet.gold = 4800;
     world.materials.add('weaponEssence', 33);
     send({ type: 'ShopAscend' });
     expect(world.shop.ascendSlot.baseId).toBe(t2.id);

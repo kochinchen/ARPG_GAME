@@ -26,14 +26,14 @@ const jewel = (slot: 'ring' | 'amulet', rarity: Rarity): ItemInstance => ({ uid:
 const MOUNTAIN = 'legendary.mountain_splitter'; // 裂山（橘斧）：重擊類技能傷害 +25%、擊退 +30%（◆）
 
 describe('融合預覽：五個範例的固定部分', () => {
-  it('#1 短劍（白 2）＋手斧（白 3）→ 混核（銳＋重）/ T1 / 白 1 條；123 金幣 / 8 精華', () => {
+  it('#1 短劍（白 2）＋手斧（白 3）→ 混核（銳＋重）/ T1 / 白 1 條；245 金幣 / 8 精華', () => {
     const pv = previewFusion([weapon('sword', 'normal', 2), weapon('axe', 'normal', 3)], [], data);
     expect(pv.problems).toEqual([]);
     expect(pv.types.sort()).toEqual(['heavy', 'sharp']);
     expect(pv.mixed).toBe(true);
     expect([pv.tier, pv.rarity, pv.lineCount]).toEqual([1, 'normal', 1]);
     expect(pv.brand.chance).toBe(0);
-    expect(pv.cost).toMatchObject({ gold: 123, essence: 8, materials: { weaponEssence: 8 } });
+    expect(pv.cost).toMatchObject({ gold: 245, essence: 8, materials: { weaponEssence: 8 } });
     // 混核：每個部位兩個核種各一條候選，數值 ×0.7
     const weaponSlot = pv.slots.find((s) => s.slot === 'weapon')!;
     expect(weaponSlot.options.map((o) => o.type).sort()).toEqual(['heavy', 'sharp']);
@@ -47,7 +47,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.types).toEqual(['pierce']);
     expect([pv.pure, pv.tier, pv.weight, pv.rarity, pv.lineCount]).toEqual([true, 2, 4, 'magic', 3]);
     expect(pv.next).toEqual({ rarity: 'rare', gap: 1 });
-    expect(pv.cost).toMatchObject({ gold: 498, essence: 14, materials: { weaponEssence: 14 } });
+    expect(pv.cost).toMatchObject({ gold: 995, essence: 14, materials: { weaponEssence: 14 } });
     const helmet = pv.slots.find((s) => s.slot === 'helmet')!.options[0]!.lines[0]!;
     expect(helmet.line.id).toBe('core.pierce.range');
     // T2：0.5～1.0 格 × 1.15
@@ -59,26 +59,26 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.secondary.map((s) => s.line.id)).not.toContain('core.pierce.projectile_speed');
   });
 
-  it('#3 裂山（橘 18）＋鐵斧（黃 17）＋月刃斧（藍 19）→ 重核 / T3 / 紫 3 條；印記 35%；735 / 16', () => {
+  it('#3 裂山（橘 18）＋鐵斧（黃 17）＋月刃斧（藍 19）→ 重核 / T3 / 紫 3 條；印記 35%；1,470 / 16', () => {
     const pv = previewFusion([legendary('axe', MOUNTAIN, 18), weapon('axe', 'rare', 17), weapon('axe', 'magic', 19)], [], data);
     expect(pv.types).toEqual(['heavy']);
     expect([pv.pure, pv.tier, pv.weight, pv.rarity, pv.lineCount]).toEqual([false, 3, 10, 'epic', 3]);
     expect(pv.brand.candidates).toHaveLength(1);
     expect(pv.brand.candidates[0]!.text).toMatch(/^重擊類技能傷害 \+25%/);
     expect(pv.brand.chance).toBeCloseTo(0.35);
-    expect(pv.cost).toMatchObject({ gold: 735, essence: 16, materials: { weaponEssence: 16 } });
+    expect(pv.cost).toMatchObject({ gold: 1470, essence: 16, materials: { weaponEssence: 16 } });
     expect(pv.warnings).toContain('投入傳奇 / 神話裝備，融合後無法復原');
   });
 
-  it('#4 裂山（橘 22）＋三把弓（白 20、藍 21、黃 23）→ 穿核 / T3 / 紫；跨核印記；1,135 / 22', () => {
+  it('#4 裂山（橘 22）＋三把弓（白 20、藍 21、黃 23）→ 穿核 / T3 / 紫；跨核印記；2,270 / 22', () => {
     const pv = previewFusion([legendary('axe', MOUNTAIN, 22), weapon('bow', 'normal', 20), weapon('bow', 'magic', 21), weapon('bow', 'rare', 23)], [], data);
     expect(pv.types).toEqual(['pierce']);
     expect([pv.tier, pv.rarity]).toEqual([3, 'epic']);
     expect(pv.brand.candidates[0]!.legendaryId).toBe(MOUNTAIN);
-    expect(pv.cost).toMatchObject({ gold: 1135, essence: 22, materials: { weaponEssence: 22 } });
+    expect(pv.cost).toMatchObject({ gold: 2270, essence: 22, materials: { weaponEssence: 22 } });
   });
 
-  it('#5 紅弓＋焚星＋寒月＋水晶杖（火焰詞綴）＋紫戒指＋橘護身符 → 靈核（火）/ T4 / 橘；印記 91% 夾到 85%；1,523 / 26', () => {
+  it('#5 紅弓＋焚星＋寒月＋水晶杖（火焰詞綴）＋紫戒指＋橘護身符 → 靈核（火）/ T4 / 橘；印記 91% 夾到 85%；3,045 / 26', () => {
     const inputs = [
       legendary('bow', 'mythic.sky_rending_string', 30, 'mythic'),
       legendary('staff', 'legendary.star_burner', 28),
@@ -97,14 +97,14 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.brand.chance).toBe(0.85);
     expect(pv.brand.capped).toBe(true);
     expect(pv.warnings).toContain('印記機率已達上限 85%');
-    expect(pv.cost).toMatchObject({ gold: 1523, essence: 26, materials: { weaponEssence: 26 } });
+    expect(pv.cost).toMatchObject({ gold: 3045, essence: 26, materials: { weaponEssence: 26 } });
     // 武器欄：附加火焰 13.7～30.4%（6～10% × T4 1.52 × 1.5～2.0）
     const wpn = pv.slots.find((s) => s.slot === 'weapon')!.options[0]!.lines[0]!;
     expect(wpn.range[0]).toBeCloseTo(0.06 * 1.52 * 1.5);
     expect(wpn.range[1]).toBeCloseTo(0.1 * 1.52 * 2);
   });
 
-  it('SPEC §2.4：騎士長劍（黃 12）＋月刃斧（藍 12）＋裂山（橘 18）＋短杖（白 1）＋黃戒指 → 重核 T2 紫；印記 45%；598 / 14', () => {
+  it('SPEC §2.4：騎士長劍（黃 12）＋月刃斧（藍 12）＋裂山（橘 18）＋短杖（白 1）＋黃戒指 → 重核 T2 紫；印記 45%；1,195 / 14', () => {
     const sword = weapon('sword', 'rare', 12);
     const mountain = legendary('axe', MOUNTAIN, 18);
     const pv = previewFusion(
@@ -115,7 +115,7 @@ describe('融合預覽：五個範例的固定部分', () => {
     expect(pv.votes).toEqual({ sword: 1, axe: 2, staff: 1 });
     expect([pv.types[0], pv.tier, pv.rarity]).toEqual(['heavy', 2, 'epic']);
     expect(pv.brand.chance).toBeCloseTo(0.45);
-    expect(pv.cost).toMatchObject({ gold: 598, essence: 14, materials: { weaponEssence: 14 } });
+    expect(pv.cost).toMatchObject({ gold: 1195, essence: 14, materials: { weaponEssence: 14 } });
     // 權重 10（紫門檻 9）：拿掉裂山（7）或騎士長劍（黃 2）都會掉到黃；拿掉月刃斧（藍 1）或短杖（白 0）不會
     expect(pv.rarityCritical).toEqual([sword.uid, mountain.uid]);
   });

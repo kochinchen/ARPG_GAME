@@ -146,6 +146,7 @@ export class PlayerController {
       case 'ShopSellHeld':
       case 'Respec':
       case 'ShopSellUpTo':
+      case 'ShopSalvageUpTo':
       case 'ShopReroll':
       case 'ShopGamble':
       case 'ShopAscendSlotClick':

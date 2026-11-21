@@ -69,7 +69,7 @@ export class LootSystem {
           drops.push({ kind: 'potion', potionId: this.data.balance.player.potionId, count: 1 });
           break;
         case 'gold':
-          drops.push({ kind: 'gold', amount: this.rng.int(table.gold[0], table.gold[1]) });
+          drops.push({ kind: 'gold', amount: Math.round(this.rng.int(table.gold[0], table.gold[1]) * this.goldMultiplier()) });
           break;
       }
     }
@@ -103,6 +103,11 @@ export class LootSystem {
       drops.push({ kind: 'material', materialId: 'ascensionShard', count: this.rng.int(table.shards.count[0], table.shards.count[1]) });
     }
     return drops;
+  }
+
+  /** 掉落表的金幣隨樓層變多：1 + goldPerFloor ×（樓層 − 1） */
+  goldMultiplier(): number {
+    return 1 + this.data.balance.loot.goldPerFloor * (Math.max(1, this.floor()) - 1);
   }
 
   /** 掉落表的稀有度權重 × 樓層 lootTier 的倍率（黃以上） */

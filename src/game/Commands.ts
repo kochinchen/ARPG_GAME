@@ -72,8 +72,10 @@ export type GameCommand =
   | { type: 'ShopSell'; cell: number }
   /** 商人：賣出手上拿著的物品 */
   | { type: 'ShopSellHeld' }
-  /** 商人：賣出背包裡所有普通（白色）物品 */
+  /** 商人：賣出背包裡所有稀有度不高於 rarity 的裝備（白 / 白＋藍 / 白＋藍＋黃） */
   | { type: 'ShopSellUpTo'; rarity: 'normal' | 'magic' | 'rare' }
+  /** 商人：拆解背包裡所有稀有度不高於 rarity 的裝備（範圍同一鍵賣出，精華照拆解區的規則） */
+  | { type: 'ShopSalvageUpTo'; rarity: 'normal' | 'magic' | 'rare' }
   /** 商人：賭博，指定裝備種類（劍 / 斧 / 弓 / 法杖、防具與飾品部位） */
   | { type: 'ShopGamble'; kind: LegendaryKind }
   /** 拆解區：點格子（放下 / 互換 / 拿起） */

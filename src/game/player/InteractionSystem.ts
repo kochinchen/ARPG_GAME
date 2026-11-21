@@ -11,8 +11,10 @@ import type { Wallet } from './Wallet';
 
 /** 走到這個距離內即可撿取 / 開啟（從角色中心算） */
 const INTERACT_RANGE = 0.8;
-/** 藥水與金幣走過去自動撿 */
+/** 藥水與材料走過去自動撿 */
 const AUTO_PICKUP_RANGE = 0.6;
+/** 金幣走到附近就自動撿（設計者 2026-11-21：不用一堆一堆踩上去） */
+const GOLD_PICKUP_RANGE = 2;
 
 export interface InteractionWorld {
   groundItems: GroundItem[];
@@ -38,7 +40,7 @@ export interface InteractionWorld {
 }
 
 /**
- * 玩家與地上物品、寶箱的互動：點擊後走過去撿 / 開；藥水與金幣走過去自動撿。
+ * 玩家與地上物品、寶箱的互動：點擊後走過去撿 / 開；藥水走過去自動撿，金幣走到附近（GOLD_PICKUP_RANGE）就自動撿。
  */
 export class InteractionSystem {
   private targetId: number | null = null;
@@ -171,7 +173,8 @@ export class InteractionSystem {
   private autoPickup(): void {
     for (const item of [...this.world.groundItems]) {
       if (item.content.kind === 'item' || item.content.kind === 'core' || item.droppedByPlayer) continue;
-      if (distance(this.player.position, item.position) <= AUTO_PICKUP_RANGE) this.pickUp(item, false);
+      const range = item.content.kind === 'gold' ? GOLD_PICKUP_RANGE : AUTO_PICKUP_RANGE;
+      if (distance(this.player.position, item.position) <= range) this.pickUp(item, false);
     }
   }
 
